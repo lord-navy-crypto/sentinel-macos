@@ -191,3 +191,26 @@ window.loadReadiness = loadReadiness;
     return response;
   };
 })();
+
+/*
+ * v2.3 System Console entry point.
+ *
+ * Keep this separate from SPA navigation so the new control-plane surface can
+ * evolve without destabilizing the v2.2 view/router contract.
+ */
+(() => {
+  if (document.getElementById('systemConsoleShortcut')) return;
+  const actions = document.querySelector('.sidebar-actions');
+  if (!actions) return;
+  const token = new URLSearchParams(location.hash.slice(1)).get('token') || '';
+  const button = document.createElement('button');
+  button.id = 'systemConsoleShortcut';
+  button.className = 'side-action';
+  button.type = 'button';
+  button.textContent = 'System Console';
+  button.title = 'Open the v2.3 visual macOS System Console';
+  button.addEventListener('click', () => {
+    location.href = `/system-console.html#token=${encodeURIComponent(token)}`;
+  });
+  actions.appendChild(button);
+})();
