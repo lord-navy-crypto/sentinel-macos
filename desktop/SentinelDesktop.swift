@@ -238,10 +238,11 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
                 continue
             }
 
-            // The App opens a localhost-only desktop wrapper. The wrapper keeps the
-            // original Sentinel web UI and API logic, but adds independent scrolling,
-            // unified navigation, and visible request progress without a second UI codepath.
-            components.path = "/desktop.html"
+            // Open the real localhost dashboard directly. The server injects only a
+            // small desktop enhancement script when desktop=1 is present, so there is
+            // no iframe and Sentinel's X-Frame-Options/CSP protections stay intact.
+            components.path = "/"
+            components.queryItems = [URLQueryItem(name: "desktop", value: "1")]
             components.fragment = "token=\(payload.token)"
             guard let url = components.url else { continue }
 
