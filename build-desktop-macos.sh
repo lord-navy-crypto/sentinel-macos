@@ -15,11 +15,15 @@ done
 VERSION="$(tr -d '[:space:]' < VERSION)"
 BUNDLE_ID="${SENTINEL_BUNDLE_ID:-io.github.lord-navy-crypto.sentinel}"
 APP="$HERE/dist/Sentinel.app"
+BUILD_DIR="$HERE/dist/desktop-build"
 SWIFT_SRC="$HERE/desktop/SentinelDesktop.swift"
 
 ./build-macos.sh
-rm -rf "$APP" "$HERE/dist/desktop-build"
-mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources/bin" "$HERE/dist/desktop-build"
+
+# Build the native shell completely before replacing the app bundle. If Swift or
+# lipo fails, no partial Sentinel.app is left behind.
+rm -rf "$BUILD_DIR"
+mkdir -p "$BUILD_DIR"
 
 SDK_PATH="$(xcrun --sdk macosx --show-sdk-path)"
 compile_shell(){
@@ -29,12 +33,18 @@ compile_shell(){
     -sdk "$SDK_PATH" -target "${target}-apple-macos13.0" \
     "$SWIFT_SRC" -framework AppKit -framework WebKit -o "$out"
 }
-compile_shell arm64 arm64 "$HERE/dist/desktop-build/SentinelDesktop-arm64"
-compile_shell x86_64 x86_64 "$HERE/dist/desktop-build/SentinelDesktop-x86_64"
+
+compile_shell arm64 arm64 "$BUILD_DIR/SentinelDesktop-arm64"
+compile_shell x86_64 x86_64 "$BUILD_DIR/SentinelDesktop-x86_64"
 lipo -create \
-  "$HERE/dist/desktop-build/SentinelDesktop-arm64" \
-  "$HERE/dist/desktop-build/SentinelDesktop-x86_64" \
-  -output "$APP/Contents/MacOS/Sentinel"
+  "$BUILD_DIR/SentinelDesktop-arm64" \
+  "$BUILD_DIR/SentinelDesktop-x86_64" \
+  -output "$BUILD_DIR/Sentinel"
+chmod 755 "$BUILD_DIR/Sentinel"
+
+rm -rf "$APP"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources/bin"
+ditto "$BUILD_DIR/Sentinel" "$APP/Contents/MacOS/Sentinel"
 chmod 755 "$APP/Contents/MacOS/Sentinel"
 
 # Keep the Go engines architecture-specific. The universal native shell chooses the
