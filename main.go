@@ -108,6 +108,7 @@ func main() {
 	mux.HandleFunc("/api/storage/cancel", a.auth(a.handleStorageCancel))
 	mux.HandleFunc("/api/security/audit", a.auth(a.work.wrap("security-audit", a.handleSecurityAudit)))
 	mux.HandleFunc("/api/security/investigate", a.auth(a.work.wrap("continue-investigation", a.handleContinueInvestigation)))
+	mux.HandleFunc("/api/security/context", a.auth(a.work.wrap("investigation-runtime-context", a.handleInvestigationRuntimeContext)))
 	mux.HandleFunc("/api/process/detail", a.auth(a.handleProcessDetail))
 	mux.HandleFunc("/api/report/export", a.auth(a.work.wrap("report-export", a.handleReportExport)))
 	mux.HandleFunc("/api/cleanup/preview", a.auth(a.handleCleanupPreview))
