@@ -99,12 +99,15 @@ func main() {
 	mux.HandleFunc("/api/capabilities", a.auth(a.handleCapabilities))
 	mux.HandleFunc("/api/processes", a.auth(a.handleProcesses))
 	mux.HandleFunc("/api/startup", a.auth(a.handleStartup))
+	mux.HandleFunc("/api/launch-services", a.auth(a.work.wrap("launch-services", a.handleLaunchServices)))
+	mux.HandleFunc("/api/launch-services/detail", a.auth(a.work.wrap("launch-service-detail", a.handleLaunchServiceDetail)))
 	mux.HandleFunc("/api/network", a.auth(a.handleNetwork))
 	mux.HandleFunc("/api/background", a.auth(a.handleBackgroundItems))
 	mux.HandleFunc("/api/storage/scan", a.auth(a.handleStorageScan))
 	mux.HandleFunc("/api/storage/jobs", a.auth(a.handleStorageJobs))
 	mux.HandleFunc("/api/storage/cancel", a.auth(a.handleStorageCancel))
 	mux.HandleFunc("/api/security/audit", a.auth(a.work.wrap("security-audit", a.handleSecurityAudit)))
+	mux.HandleFunc("/api/security/investigate", a.auth(a.work.wrap("continue-investigation", a.handleContinueInvestigation)))
 	mux.HandleFunc("/api/process/detail", a.auth(a.handleProcessDetail))
 	mux.HandleFunc("/api/report/export", a.auth(a.work.wrap("report-export", a.handleReportExport)))
 	mux.HandleFunc("/api/cleanup/preview", a.auth(a.handleCleanupPreview))
@@ -155,7 +158,7 @@ func main() {
 			html := strings.Replace(
 				string(page),
 				"<script src=\"/app.js\"></script>",
-				"<script src=\"/core-compat.js\"></script>\n<script src=\"/app.js\"></script>",
+				"<script src=\"/core-compat.js\"></script>\n<script src=\"/app.js\"></script>\n<script src=\"/investigation-bridge.js\"></script>",
 				1,
 			)
 			if r.URL.Query().Get("desktop") == "1" {
