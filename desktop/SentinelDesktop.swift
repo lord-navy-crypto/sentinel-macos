@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 import AppKit
 import Foundation
+import WebKit
 
 private struct Bootstrap: Decodable {
     let origin: String
@@ -8,8 +9,10 @@ private struct Bootstrap: Decodable {
     let version: String
 }
 
-private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
+private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKUIDelegate, WKNavigationDelegate {
     private var window: NSWindow!
+    private var appViewWindow: NSWindow?
+    private var webView: WKWebView?
     private var engine: Process?
     private var stdoutPipe: Pipe?
     private var stderrPipe: Pipe?
@@ -17,11 +20,11 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
     private var stderrBuffer = Data()
     private var isQuitting = false
     private var dashboardURL: URL?
-    private var didOpenDashboard = false
 
     private var statusLabel: NSTextField!
     private var detailLabel: NSTextField!
-    private var openButton: NSButton!
+    private var browserButton: NSButton!
+    private var appViewButton: NSButton!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         buildMenu()
@@ -38,12 +41,14 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
     }
 
     func windowWillClose(_ notification: Notification) {
-        NSApplication.shared.terminate(nil)
+        if notification.object as AnyObject? === window {
+            NSApplication.shared.terminate(nil)
+        }
     }
 
     private func buildWindow() {
         window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 560, height: 300),
+            contentRect: NSRect(x: 0, y: 0, width: 640, height: 330),
             styleMask: [.titled, .closable, .miniaturizable],
             backing: .buffered,
             defer: false
@@ -75,25 +80,33 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         statusLabel = NSTextField(labelWithString: "Starting local engine…")
         statusLabel.font = .systemFont(ofSize: 14, weight: .medium)
 
-        detailLabel = NSTextField(wrappingLabelWithString: "Sentinel will open its dashboard in your default browser. Keep this app open while you use the localhost dashboard.")
+        detailLabel = NSTextField(wrappingLabelWithString: "Sentinel starts one loopback-only engine. When it is ready, choose the full browser dashboard or the native App View. Both use the same localhost data and session.")
         detailLabel.font = .systemFont(ofSize: 12)
         detailLabel.textColor = .secondaryLabelColor
-        detailLabel.maximumNumberOfLines = 3
+        detailLabel.maximumNumberOfLines = 4
 
-        openButton = NSButton(title: "Open Dashboard", target: self, action: #selector(openDashboard))
-        openButton.bezelStyle = .rounded
-        openButton.keyEquivalent = "\r"
-        openButton.isEnabled = false
+        browserButton = NSButton(title: "Open in Browser", target: self, action: #selector(openBrowserDashboard))
+        browserButton.bezelStyle = .rounded
+        browserButton.keyEquivalent = "\r"
+        browserButton.isEnabled = false
+
+        appViewButton = NSButton(title: "Open App View", target: self, action: #selector(openAppView))
+        appViewButton.bezelStyle = .rounded
+        appViewButton.isEnabled = false
 
         let quitButton = NSButton(title: "Quit Sentinel", target: NSApplication.shared, action: #selector(NSApplication.terminate(_:)))
         quitButton.bezelStyle = .rounded
 
-        let buttonRow = NSStackView(views: [openButton, quitButton])
+        let buttonRow = NSStackView(views: [browserButton, appViewButton, quitButton])
         buttonRow.orientation = .horizontal
         buttonRow.alignment = .centerY
         buttonRow.spacing = 10
 
-        let textStack = NSStackView(views: [title, subtitle, statusLabel, detailLabel, buttonRow])
+        let hint = NSTextField(labelWithString: "Browser is the compatibility-first view. App View is the native-window beta view.")
+        hint.font = .systemFont(ofSize: 11)
+        hint.textColor = .tertiaryLabelColor
+
+        let textStack = NSStackView(views: [title, subtitle, statusLabel, detailLabel, buttonRow, hint])
         textStack.orientation = .vertical
         textStack.alignment = .leading
         textStack.spacing = 9
@@ -113,7 +126,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
             textStack.topAnchor.constraint(equalTo: root.topAnchor, constant: 28),
             textStack.bottomAnchor.constraint(lessThanOrEqualTo: root.bottomAnchor, constant: -28),
 
-            detailLabel.widthAnchor.constraint(lessThanOrEqualToConstant: 390)
+            detailLabel.widthAnchor.constraint(lessThanOrEqualToConstant: 455)
         ])
 
         window.makeKeyAndOrderFront(nil)
@@ -127,7 +140,8 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         let appMenu = NSMenu()
         appMenu.addItem(withTitle: "About Sentinel Mac", action: #selector(showAbout), keyEquivalent: "")
         appMenu.addItem(NSMenuItem.separator())
-        appMenu.addItem(withTitle: "Open Dashboard", action: #selector(openDashboard), keyEquivalent: "o")
+        appMenu.addItem(withTitle: "Open in Browser", action: #selector(openBrowserDashboard), keyEquivalent: "o")
+        appMenu.addItem(withTitle: "Open App View", action: #selector(openAppView), keyEquivalent: "a")
         appMenu.addItem(NSMenuItem.separator())
         appMenu.addItem(withTitle: "Quit Sentinel Mac", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appItem.submenu = appMenu
@@ -138,17 +152,123 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
         let alert = NSAlert()
         alert.messageText = "Sentinel Mac"
-        alert.informativeText = "Local Mac System Intelligence\nVersion \(version)\n\nSentinel runs a loopback-only local engine and opens the full dashboard in your default browser."
+        alert.informativeText = "Local Mac System Intelligence\nVersion \(version)\n\nSentinel runs one loopback-only local engine. You can use the full dashboard in your default browser or open the same localhost session inside the native App View."
         alert.addButton(withTitle: "OK")
         alert.runModal()
     }
 
-    @objc private func openDashboard() {
+    @objc private func openBrowserDashboard() {
         guard let dashboardURL else {
             NSSound.beep()
             return
         }
         NSWorkspace.shared.open(dashboardURL)
+    }
+
+    @objc private func openAppView() {
+        guard let dashboardURL else {
+            NSSound.beep()
+            return
+        }
+
+        if let appViewWindow, let webView {
+            if webView.url != dashboardURL {
+                webView.load(URLRequest(url: dashboardURL, cachePolicy: .useProtocolCachePolicy, timeoutInterval: 30))
+            }
+            appViewWindow.makeKeyAndOrderFront(nil)
+            NSApplication.shared.activate(ignoringOtherApps: true)
+            return
+        }
+
+        let config = WKWebViewConfiguration()
+        config.websiteDataStore = .nonPersistent()
+        config.defaultWebpagePreferences.allowsContentJavaScript = true
+
+        let view = WKWebView(frame: .zero, configuration: config)
+        view.translatesAutoresizingMaskIntoConstraints = false
+        view.uiDelegate = self
+        view.navigationDelegate = self
+
+        let appWindow = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1180, height: 780),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        appWindow.title = "Sentinel Mac · App View"
+        appWindow.minSize = NSSize(width: 900, height: 620)
+        appWindow.isReleasedWhenClosed = false
+        appWindow.contentView = view
+        appWindow.center()
+
+        self.webView = view
+        self.appViewWindow = appWindow
+
+        view.load(URLRequest(url: dashboardURL, cachePolicy: .useProtocolCachePolicy, timeoutInterval: 30))
+        appWindow.makeKeyAndOrderFront(nil)
+        NSApplication.shared.activate(ignoringOtherApps: true)
+    }
+
+    private func isAllowedAppViewURL(_ url: URL?) -> Bool {
+        guard let url else { return false }
+        if url.scheme == "about" || url.scheme == "blob" { return true }
+        guard url.scheme == "http", url.host == "127.0.0.1" else { return false }
+        guard let dashboardURL else { return true }
+        return url.port == dashboardURL.port
+    }
+
+    func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        guard let url = navigationAction.request.url else {
+            decisionHandler(.cancel)
+            return
+        }
+        if isAllowedAppViewURL(url) {
+            decisionHandler(.allow)
+        } else {
+            NSWorkspace.shared.open(url)
+            decisionHandler(.cancel)
+        }
+    }
+
+    func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
+        if let url = navigationAction.request.url {
+            if isAllowedAppViewURL(url) {
+                webView.load(URLRequest(url: url))
+            } else {
+                NSWorkspace.shared.open(url)
+            }
+        }
+        return nil
+    }
+
+    func webView(_ webView: WKWebView, runJavaScriptAlertPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping () -> Void) {
+        let alert = NSAlert()
+        alert.messageText = "Sentinel Mac"
+        alert.informativeText = message
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
+        completionHandler()
+    }
+
+    func webView(_ webView: WKWebView, runJavaScriptConfirmPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping (Bool) -> Void) {
+        let alert = NSAlert()
+        alert.messageText = "Sentinel Mac"
+        alert.informativeText = message
+        alert.addButton(withTitle: "Continue")
+        alert.addButton(withTitle: "Cancel")
+        completionHandler(alert.runModal() == .alertFirstButtonReturn)
+    }
+
+    func webView(_ webView: WKWebView, runJavaScriptTextInputPanelWithPrompt prompt: String, defaultText: String?, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping (String?) -> Void) {
+        let alert = NSAlert()
+        alert.messageText = "Sentinel Mac"
+        alert.informativeText = prompt
+        let input = NSTextField(string: defaultText ?? "")
+        input.frame = NSRect(x: 0, y: 0, width: 360, height: 24)
+        alert.accessoryView = input
+        alert.addButton(withTitle: "OK")
+        alert.addButton(withTitle: "Cancel")
+        completionHandler(alert.runModal() == .alertFirstButtonReturn ? input.stringValue : nil)
     }
 
     private func engineURL() -> URL? {
@@ -209,6 +329,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
     private func stopEngine() {
         stdoutPipe?.fileHandleForReading.readabilityHandler = nil
         stderrPipe?.fileHandleForReading.readabilityHandler = nil
+        webView?.stopLoading()
         if let engine, engine.isRunning {
             engine.terminate()
             let deadline = Date().addingTimeInterval(4)
@@ -238,9 +359,6 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
                 continue
             }
 
-            // Open the real localhost dashboard directly. The server injects only a
-            // small desktop enhancement script when desktop=1 is present, so there is
-            // no iframe and Sentinel's X-Frame-Options/CSP protections stay intact.
             components.path = "/"
             components.queryItems = [URLQueryItem(name: "desktop", value: "1")]
             components.fragment = "token=\(payload.token)"
@@ -250,13 +368,10 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
                 guard let self else { return }
                 self.dashboardURL = url
                 self.window.title = "Sentinel Mac \(payload.version)"
-                self.statusLabel.stringValue = "Running locally"
-                self.detailLabel.stringValue = "Dashboard: \(payload.origin)\nKeep Sentinel Mac open while the browser dashboard is in use."
-                self.openButton.isEnabled = true
-                if !self.didOpenDashboard {
-                    self.didOpenDashboard = true
-                    self.openDashboard()
-                }
+                self.statusLabel.stringValue = "Local engine ready"
+                self.detailLabel.stringValue = "Dashboard: \(payload.origin)\nChoose Browser for maximum compatibility or App View for the native-window beta. Both use this same local session."
+                self.browserButton.isEnabled = true
+                self.appViewButton.isEnabled = true
             }
         }
     }
@@ -265,7 +380,8 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         if isQuitting { return }
         statusLabel?.stringValue = "Engine unavailable"
         detailLabel?.stringValue = detail
-        openButton?.isEnabled = false
+        browserButton?.isEnabled = false
+        appViewButton?.isEnabled = false
 
         let alert = NSAlert()
         alert.alertStyle = .critical
