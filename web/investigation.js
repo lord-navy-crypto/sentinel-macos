@@ -228,6 +228,7 @@
         addKV(mini, 'CPU', `${Number(process.cpu || 0).toFixed(1)}%`);
         addKV(mini, 'Memory', `${Number(process.memory || 0).toFixed(1)}%`);
         addKV(mini, 'TCP rows', (process.network || []).length);
+        addKV(mini, 'Open-file rows', (process.open_files || []).length);
         card.append(mini);
 
         if ((process.network || []).length) {
@@ -240,6 +241,21 @@
             netBlock.append(row);
           }
           card.append(netBlock);
+        }
+
+        if ((process.open_files || []).length) {
+          const fileBlock = el('div', 'section-block');
+          fileBlock.append(el('h3', '', 'Open files / loaded objects'));
+          for (const opened of process.open_files.slice(0, 30)) {
+            const row = el('div', 'relation');
+            row.append(el('b', '', `${opened.fd || 'FD'} · ${opened.type || 'object'}`));
+            row.append(el('span', '', opened.name || '—'));
+            fileBlock.append(row);
+          }
+          if (process.open_files.length > 30) {
+            fileBlock.append(el('p', 'meaning', `Showing 30 of ${process.open_files.length} structured open-file rows. Investigation continuation targets remain separately bounded.`));
+          }
+          card.append(fileBlock);
         }
 
         if ((process.ancestors || []).length) {
