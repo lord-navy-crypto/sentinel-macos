@@ -1,40 +1,26 @@
 // SPDX-License-Identifier: MPL-2.0
 (() => {
-  const style = document.createElement('style');
-  style.id = 'sentinel-desktop-ui';
-  style.textContent = `
-    .mode-switch{display:none!important}
-    .advanced-nav,.easy-mode .advanced-nav{display:block!important}
-    html,body{height:100%!important;overflow:hidden!important}
-    body{margin:0!important}
-    .app{height:100vh!important;min-height:0!important;grid-template-columns:244px minmax(0,1fr)!important;overflow:hidden!important}
-    .sidebar{height:100vh!important;min-height:0!important;position:relative!important;top:auto!important;overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior:contain!important;scrollbar-gutter:stable!important}
-    .sidebar nav{display:block!important;overflow:visible!important;min-height:0!important}
-    .sidebar-actions{display:block!important}
-    .privacy{display:flex!important}
-    .nav{width:100%!important;white-space:normal!important}
-    main{height:100vh!important;min-height:0!important;min-width:0!important;max-width:none!important;margin:0!important;overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior:contain!important;scrollbar-gutter:stable!important}
-    #sentinelGlobalActivity{position:fixed;z-index:5000;left:244px;right:0;top:0;height:4px;pointer-events:none;opacity:0;transition:opacity .14s ease}
-    #sentinelGlobalActivity.visible{opacity:1}
-    #sentinelGlobalActivity::after{content:"";display:block;height:100%;width:34%;background:#111;animation:sentinel-slide 1.05s ease-in-out infinite}
-    #sentinelGlobalActivityText{position:fixed;z-index:5001;right:16px;top:12px;padding:7px 10px;border:1px solid #d8d8d8;border-radius:9px;background:rgba(255,255,255,.96);color:#222;font-size:11px;box-shadow:0 4px 18px rgba(0,0,0,.08);opacity:0;transform:translateY(-4px);transition:opacity .14s ease,transform .14s ease;pointer-events:none}
-    #sentinelGlobalActivityText.visible{opacity:1;transform:translateY(0)}
-    button[data-sentinel-pending="1"]{opacity:.72!important;cursor:progress!important}
-    @keyframes sentinel-slide{0%{transform:translateX(-115%)}55%{transform:translateX(210%)}100%{transform:translateX(310%)}}
-    @media(prefers-color-scheme:dark){#sentinelGlobalActivity::after{background:#f2f2f2}#sentinelGlobalActivityText{background:rgba(20,20,20,.96);border-color:#3a3a3a;color:#f1f1f1}}
-    @media(prefers-reduced-motion:reduce){#sentinelGlobalActivity::after{animation:none;width:100%}}
-    @media(max-width:719px){html,body{overflow:auto!important}.app{height:auto!important;min-height:100vh!important;display:block!important;overflow:visible!important}.sidebar{height:auto!important;max-height:42vh!important;overflow-y:auto!important}.privacy,.sidebar-actions{display:none!important}main{height:auto!important;min-height:58vh!important;overflow:visible!important}#sentinelGlobalActivity{left:0!important}}
-  `;
-  document.head.appendChild(style);
+  // This layer is intentionally presentation-only. It must not remove or replace
+  // elements that web/app.js depends on, and it must preserve fetch semantics.
+  if (window.__sentinelDesktopUIInstalled) return;
+  window.__sentinelDesktopUIInstalled = true;
 
+  const css = document.createElement('link');
+  css.rel = 'stylesheet';
+  css.href = '/desktop-ui.css';
+  css.id = 'sentinel-desktop-ui-css';
+  document.head.appendChild(css);
+
+  // Keep compatibility nodes in the DOM for app.js, but make one unified nav.
+  // The stylesheet hides the old Easy/Advanced control without deleting it.
   document.body.classList.remove('easy-mode');
-  document.querySelector('.mode-switch')?.remove();
   const group = document.querySelector('.nav-group-label.advanced-nav');
   if (group) group.textContent = 'More tools';
 
   const bar = document.createElement('div');
   bar.id = 'sentinelGlobalActivity';
   bar.setAttribute('aria-hidden', 'true');
+
   const status = document.createElement('div');
   status.id = 'sentinelGlobalActivityText';
   status.setAttribute('role', 'status');
@@ -43,29 +29,79 @@
 
   let active = 0;
   let hideTimer = null;
-  const show = (message='Sentinel is working…') => {
+  let stillWorkingTimer = null;
+
+  const labelForRequest = input => {
+    let url = '';
+    try {
+      url = typeof input === 'string' ? input : (input?.url || '');
+    } catch {}
+    const labels = [
+      ['/api/quick-check', 'Running Quick Check…'],
+      ['/api/system-profile', 'Reading system profile…'],
+      ['/api/security/audit', 'Running security audit…'],
+      ['/api/storage/scan', 'Starting storage scan…'],
+      ['/api/storage/jobs', 'Updating scan progress…'],
+      ['/api/search/deep', 'Searching filenames…'],
+      ['/api/weakness-audit', 'Running weakness audit…'],
+      ['/api/guided-snapshot', 'Capturing monitoring snapshot…'],
+      ['/api/integrity/inspect', 'Inspecting integrity…'],
+      ['/api/self/integrity', 'Inspecting Sentinel integrity…'],
+      ['/api/intelligence/graph', 'Building intelligence graph…'],
+      ['/api/behavior', 'Loading behavior evidence…'],
+      ['/api/trust', 'Loading trust evidence…'],
+      ['/api/processes', 'Loading processes…'],
+      ['/api/startup', 'Loading startup items…'],
+      ['/api/network', 'Loading network activity…'],
+      ['/api/background', 'Loading background items…'],
+      ['/api/persistence', 'Checking persistence…'],
+      ['/api/actions', 'Working on Safe Actions…'],
+      ['/api/changes', 'Working on Change Monitor…'],
+      ['/api/incidents', 'Building incident evidence…'],
+      ['/api/readiness', 'Checking Sentinel readiness…'],
+      ['/api/report/export', 'Building local report…'],
+      ['/api/diagnostics/export', 'Building diagnostics…'],
+      ['/api/cleanup/preview', 'Analyzing cleanup candidates…']
+    ];
+    return labels.find(([prefix]) => url.startsWith(prefix))?.[1] || 'Sentinel is working locally…';
+  };
+
+  const show = (message, isError = false) => {
     clearTimeout(hideTimer);
+    status.classList.toggle('error', isError);
     bar.classList.add('visible');
     status.textContent = message;
     status.classList.add('visible');
   };
-  const hideSoon = () => {
+
+  const hideSoon = (delay = 320) => {
     clearTimeout(hideTimer);
     hideTimer = setTimeout(() => {
-      if (active === 0) {
-        bar.classList.remove('visible');
-        status.classList.remove('visible');
-        document.querySelectorAll('button[data-sentinel-pending="1"]').forEach(b => b.removeAttribute('data-sentinel-pending'));
-      }
-    }, 260);
+      if (active !== 0) return;
+      clearTimeout(stillWorkingTimer);
+      bar.classList.remove('visible');
+      status.classList.remove('visible', 'error');
+      document.querySelectorAll('button[data-sentinel-pending="1"]').forEach(button => {
+        button.removeAttribute('data-sentinel-pending');
+      });
+    }, delay);
   };
 
   const originalFetch = window.fetch.bind(window);
   window.fetch = async (...args) => {
     active += 1;
-    show(active > 1 ? `Sentinel is working… ${active} local requests` : 'Sentinel is working…');
+    const message = labelForRequest(args[0]);
+    show(active > 1 ? `Sentinel is working… ${active} local requests` : message);
+    clearTimeout(stillWorkingTimer);
+    stillWorkingTimer = setTimeout(() => {
+      if (active > 0) show('Still working locally… this task is taking longer than usual.');
+    }, 7000);
+
     try {
       return await originalFetch(...args);
+    } catch (error) {
+      show(`Local request failed: ${error?.message || 'unknown error'}`, true);
+      throw error;
     } finally {
       active = Math.max(0, active - 1);
       if (active === 0) hideSoon();
@@ -73,16 +109,38 @@
     }
   };
 
+  // Give every visible button immediate acknowledgement. This is deliberately
+  // passive: it does not preventDefault, stopPropagation, replace handlers, or
+  // alter the button's ID/class, so core app.js remains authoritative.
   document.addEventListener('click', event => {
     const button = event.target.closest('button');
-    if (!button || button.disabled || button.classList.contains('nav') || button.hasAttribute('data-go')) return;
+    if (!button || button.disabled) return;
     button.dataset.sentinelPending = '1';
-    show(`Starting: ${(button.textContent || 'action').trim()}…`);
+    const name = (button.textContent || 'action').trim().replace(/\s+/g, ' ');
+    show(button.classList.contains('nav') || button.hasAttribute('data-go') ? `Opening ${name}…` : `Starting: ${name}…`);
     setTimeout(() => {
       if (active === 0) {
         button.removeAttribute('data-sentinel-pending');
-        hideSoon();
+        hideSoon(180);
       }
-    }, 900);
+    }, 650);
   }, true);
+
+  const reportInterfaceError = detail => {
+    const message = `Interface error: ${detail || 'unknown error'}`;
+    console.error(message);
+    show(message, true);
+    const notice = document.getElementById('notice');
+    if (notice) {
+      notice.textContent = message;
+      notice.classList.remove('hidden');
+    }
+  };
+
+  window.addEventListener('error', event => {
+    reportInterfaceError(event.message || event.error?.message);
+  });
+  window.addEventListener('unhandledrejection', event => {
+    reportInterfaceError(event.reason?.message || String(event.reason || 'unhandled promise rejection'));
+  });
 })();
