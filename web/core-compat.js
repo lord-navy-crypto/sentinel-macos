@@ -2,9 +2,8 @@
 /*
  * Small compatibility bridge loaded before app.js.
  *
- * app.js binds the Final Readiness button by the global name loadReadiness.
- * Keep this function global so a missing readiness renderer can never abort the
- * rest of the core event-binding chain.
+ * Keep critical compatibility functions and localhost job feedback here so a
+ * presentation layer cannot break the core Sentinel event-binding chain.
  */
 
 function readinessEscape(value) {
@@ -74,3 +73,121 @@ async function loadReadiness() {
 }
 
 window.loadReadiness = loadReadiness;
+
+/*
+ * Storage job phase bridge.
+ *
+ * The original app.js predates phase-aware storage jobs and only renders
+ * current_path. During duplicate hashing that made a completed directory walk
+ * appear frozen on its final path. Observe the real /api/storage/jobs payload
+ * for every localhost UI (not only desktop=1) and render the engine's phase,
+ * percentage, hash-byte progress, and current hash target.
+ */
+(() => {
+  if (window.__sentinelCoreStorageProgressInstalled) return;
+  window.__sentinelCoreStorageProgressInstalled = true;
+
+  const formatBytes = value => {
+    let n = Number(value || 0);
+    if (!Number.isFinite(n) || n <= 0) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    let i = 0;
+    while (n >= 1024 && i < units.length - 1) {
+      n /= 1024;
+      i += 1;
+    }
+    return `${n.toFixed(n >= 10 || i === 0 ? 1 : 2)} ${units[i]}`;
+  };
+
+  const phaseLabel = phase => ({
+    walking: 'Scanning files',
+    grouping: 'Preparing duplicate candidates',
+    hashing: 'Hashing duplicate candidates',
+    finalizing: 'Building storage report',
+    complete: 'Storage scan complete',
+    cancelled: 'Storage scan cancelled',
+    failed: 'Storage scan failed'
+  }[phase] || 'Scanning storage');
+
+  const ensureProgressElements = () => {
+    const panel = document.getElementById('scanProgress');
+    if (!panel) return {};
+    let bar = document.getElementById('storagePhaseProgress');
+    let detail = document.getElementById('storagePhaseDetail');
+    if (!bar) {
+      bar = document.createElement('progress');
+      bar.id = 'storagePhaseProgress';
+      bar.className = 'mini-progress';
+      bar.max = 100;
+      bar.value = 0;
+      panel.appendChild(bar);
+    }
+    if (!detail) {
+      detail = document.createElement('small');
+      detail.id = 'storagePhaseDetail';
+      detail.className = 'muted';
+      panel.appendChild(detail);
+    }
+    return {bar, detail};
+  };
+
+  const renderStorageJob = job => {
+    if (!job || typeof job !== 'object' || !job.status) return;
+    const phase = String(job.phase || (job.status === 'running' ? 'walking' : job.status));
+    const percent = Math.max(0, Math.min(100, Number(job.phase_percent || (job.status === 'complete' ? 100 : 0))));
+    const files = Number(job.files_visited || 0);
+    const dirs = Number(job.dirs_visited || 0);
+    const limits = Number(job.permission_errors || 0);
+    const state = document.getElementById('scanState');
+    const counts = document.getElementById('scanCounts');
+    const path = document.getElementById('scanPath');
+    const {bar, detail} = ensureProgressElements();
+    const label = phaseLabel(phase);
+
+    if (state) state.textContent = `${label} · ${Math.round(percent)}%`;
+    if (bar) bar.value = percent;
+    if (path) path.textContent = job.current_hash_path || job.current_path || '';
+
+    let message = `${files.toLocaleString()} files · ${dirs.toLocaleString()} folders · ${limits.toLocaleString()} permission limits`;
+    if (phase === 'walking') {
+      message += ' · directory-phase percentage is estimated because the scope is not pre-counted.';
+    } else if (phase === 'grouping') {
+      message += ' · directory traversal is complete; selecting same-size duplicate candidates.';
+    } else if (phase === 'hashing') {
+      const done = Number(job.hash_files_done || 0);
+      const total = Number(job.hash_files_total || 0);
+      const bytesDone = Number(job.hash_bytes_done || 0);
+      const bytesTotal = Number(job.hash_bytes_total || 0);
+      message += total > 0
+        ? ` · hash file ${Math.min(done + 1, total)}/${total} · ${formatBytes(bytesDone)} of ${formatBytes(bytesTotal)} planned SHA-256 work.`
+        : ' · no comparable duplicate group fits the bounded hash budget; hashing will be skipped.';
+    } else if (phase === 'finalizing') {
+      message += ` · ${formatBytes(job.hash_bytes_done || 0)} duplicate-candidate data hashed; assembling the report.`;
+    } else if (phase === 'complete') {
+      message += ` · ${formatBytes(job.hash_bytes_done || job.result?.duplicate_hash_bytes || 0)} duplicate-candidate data hashed.`;
+    } else if (phase === 'cancelled') {
+      message += ' · cancelled safely.';
+    } else if (phase === 'failed') {
+      message += ` · ${job.error || 'storage job failed'}`;
+    }
+
+    if (counts) counts.textContent = message;
+    if (detail) detail.textContent = message;
+  };
+
+  const originalFetch = window.fetch.bind(window);
+  window.fetch = async (...args) => {
+    const response = await originalFetch(...args);
+    try {
+      const raw = typeof args[0] === 'string' ? args[0] : (args[0]?.url || '');
+      const url = new URL(raw, location.origin);
+      if (url.pathname === '/api/storage/jobs' && response.headers.get('content-type')?.includes('application/json')) {
+        const job = await response.clone().json().catch(() => null);
+        if (job) requestAnimationFrame(() => renderStorageJob(job));
+      }
+    } catch {
+      // Never interfere with the core request if progress rendering fails.
+    }
+    return response;
+  };
+})();
