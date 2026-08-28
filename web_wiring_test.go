@@ -85,7 +85,7 @@ func TestWebAPIReferencesHaveRegisteredRoutes(t *testing.T) {
 
 	// Capture literal endpoint prefixes before query strings. Every API endpoint
 	// referenced by the browser must have an explicit server registration.
-	re := regexp.MustCompile(`["'`] + "`" + `](/api/[A-Za-z0-9_./-]+)` + `["'`] + "`" + `]`)
+	re := regexp.MustCompile("[\"'`](/api/[A-Za-z0-9_./-]+)[^\"'`]*[\"'`]")
 	matches := re.FindAllStringSubmatch(js, -1)
 	seen := map[string]bool{}
 	var paths []string
