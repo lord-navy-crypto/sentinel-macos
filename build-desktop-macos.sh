@@ -5,7 +5,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 cd "$HERE"
 
 if [[ "$(uname -s)" != "Darwin" ]]; then
-  echo "build-desktop-macos.sh must run on macOS because it compiles AppKit/WebKit code." >&2
+  echo "build-desktop-macos.sh must run on macOS because it compiles AppKit code." >&2
   exit 2
 fi
 for tool in xcrun lipo ditto sips iconutil plutil; do
@@ -18,22 +18,21 @@ APP="$HERE/dist/Sentinel.app"
 BUILD_DIR="$HERE/dist/desktop-build"
 SWIFT_SRC="$HERE/desktop/SentinelDesktop.swift"
 ICON_SRC="$HERE/desktop/GenerateAppIcon.swift"
-REFINEMENT_SRC="$HERE/desktop/DesktopRefinement.js"
 
 ./build-macos.sh
 
-# Build the native shell completely before replacing the app bundle. If Swift or
-# lipo fails, no partial Sentinel.app is left behind.
+# Build the native launcher completely before replacing the app bundle. If Swift
+# or lipo fails, no partial Sentinel.app is left behind.
 rm -rf "$BUILD_DIR"
 mkdir -p "$BUILD_DIR"
 
 SDK_PATH="$(xcrun --sdk macosx --show-sdk-path)"
 compile_shell(){
   local arch="$1" target="$2" out="$3"
-  echo "Building native Sentinel desktop shell for ${arch}..."
+  echo "Building Sentinel localhost launcher for ${arch}..."
   xcrun --sdk macosx swiftc -O -whole-module-optimization \
     -sdk "$SDK_PATH" -target "${target}-apple-macos13.0" \
-    "$SWIFT_SRC" -framework AppKit -framework WebKit -o "$out"
+    "$SWIFT_SRC" -framework AppKit -o "$out"
 }
 
 compile_shell arm64 arm64 "$BUILD_DIR/SentinelDesktop-arm64"
@@ -63,19 +62,15 @@ sips -z 1024 1024 "$BUILD_DIR/AppIcon-1024.png" --out "$ICONSET/icon_512x512@2x.
 iconutil -c icns "$ICONSET" -o "$BUILD_DIR/AppIcon.icns"
 
 rm -rf "$APP"
-mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources/bin" "$APP/Contents/Resources/ui"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources/bin"
 ditto "$BUILD_DIR/Sentinel" "$APP/Contents/MacOS/Sentinel"
 chmod 755 "$APP/Contents/MacOS/Sentinel"
 
-# Keep the Go engines architecture-specific. The universal native shell chooses the
-# matching engine at runtime, which avoids hiding native/fallback differences.
+# Keep the Go engines architecture-specific. The universal launcher chooses the
+# matching engine at runtime and opens the full UI in the user's default browser.
 ditto "$HERE/dist/sentinel-macos-arm64" "$APP/Contents/Resources/bin/sentinel-macos-arm64"
 ditto "$HERE/dist/sentinel-macos-x86_64" "$APP/Contents/Resources/bin/sentinel-macos-x86_64"
 chmod 755 "$APP/Contents/Resources/bin/"sentinel-macos-*
-
-# Desktop-only visual refinements intentionally sit outside the embedded web UI so
-# the browser/debug interface and engine remain unchanged.
-ditto "$REFINEMENT_SRC" "$APP/Contents/Resources/ui/DesktopRefinement.js"
 ditto "$BUILD_DIR/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
 
 cat > "$APP/Contents/Info.plist" <<PLIST
@@ -94,18 +89,16 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>LSMinimumSystemVersion</key><string>13.0</string>
   <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
   <key>NSHighResolutionCapable</key><true/>
-  <key>NSAppTransportSecurity</key><dict>
-    <key>NSAllowsLocalNetworking</key><true/>
-  </dict>
 </dict></plist>
 PLIST
 
 plutil -lint "$APP/Contents/Info.plist"
 printf '%s\n' \
-  "Native desktop app created: $APP" \
+  "Sentinel localhost launcher created: $APP" \
   "Display name: Sentinel Mac" \
   "Bundle ID: $BUNDLE_ID" \
   "Version: $VERSION" \
-  "Universal shell: $(lipo -archs "$APP/Contents/MacOS/Sentinel")" \
+  "Universal launcher: $(lipo -archs "$APP/Contents/MacOS/Sentinel")" \
   "App icon: $APP/Contents/Resources/AppIcon.icns" \
+  "UI mode: default browser + loopback-only localhost dashboard" \
   "This build is not signed/notarized unless you run release-direct-macos.sh."
