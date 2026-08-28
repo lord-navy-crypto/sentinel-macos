@@ -26,6 +26,8 @@ func TestContinueInvestigationRoutesAndBridgeAreWired(t *testing.T) {
 	requireInvestigationSourceContains(t, "main.go",
 		`/api/security/investigate`,
 		`continue-investigation`,
+		`/api/security/context`,
+		`investigation-runtime-context`,
 		`/api/launch-services`,
 		`/api/launch-services/detail`,
 		`/investigation-bridge.js`,
@@ -44,6 +46,7 @@ func TestContinueInvestigationWorkspaceSupportsBranchingAndCorrelation(t *testin
 		`A report is a node, not the end.`,
 		`Previous branch`,
 		`Object Story`,
+		`Runtime & Persistence Context`,
 		`Review candidates`,
 		`Continue from related objects`,
 		`/investigation.js`,
@@ -52,8 +55,11 @@ func TestContinueInvestigationWorkspaceSupportsBranchingAndCorrelation(t *testin
 		`/api/security/investigate`,
 		`parent_id`,
 		`/api/object/story?path=`,
+		`/api/security/context?path=`,
+		`renderRuntimeContext`,
 		`history.splice`,
 		`Continue from here`,
+		`Investigate running executable`,
 		`Review Priority only orders local evidence`,
 	)
 }
@@ -80,6 +86,22 @@ func TestDeepInvestigationRemainsReadOnlyAndBounded(t *testing.T) {
 	for _, forbidden := range []string{"os.Remove(", "os.RemoveAll(", "os.Rename(", "exec.Command("} {
 		if strings.Contains(source, forbidden) {
 			t.Fatalf("deep investigation unexpectedly contains mutation/command pattern %q", forbidden)
+		}
+	}
+}
+
+func TestInvestigationRuntimeContextRemainsCorrelationOnly(t *testing.T) {
+	source := requireInvestigationSourceContains(t, "investigation_context.go",
+		`collectNetwork()`,
+		`parsePS(100000)`,
+		`collectStartupItems()`,
+		`collectBackgroundItems()`,
+		`processParentChain`,
+		`not proof of malicious intent`,
+	)
+	for _, forbidden := range []string{"os.Remove(", "os.RemoveAll(", "os.Rename(", "exec.Command("} {
+		if strings.Contains(source, forbidden) {
+			t.Fatalf("runtime investigation context unexpectedly contains mutation/command pattern %q", forbidden)
 		}
 	}
 }
