@@ -28,10 +28,14 @@ a{color:inherit}
 .principles b,.principles span{display:block}
 .principles span{color:var(--muted);font-size:13px;margin-top:6px;line-height:1.4}
 .notice{min-height:22px;color:var(--warn);margin:0 0 12px}
-.object-panel,.output-section{border:1px solid var(--line);background:var(--panel);border-radius:16px;padding:22px;margin:0 0 28px}
+.recipe-panel,.object-panel,.output-section{border:1px solid var(--line);background:var(--panel);border-radius:16px;padding:22px;margin:0 0 28px}
 .section-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;margin-bottom:18px}
 .section-heading h2{font-size:26px}
 .section-heading>p{font-size:14px;max-width:540px}
+.recipe-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.recipe-card{text-align:left;display:flex;flex-direction:column;align-items:flex-start;gap:7px;min-height:118px;background:var(--panel-2);padding:15px}
+.recipe-card b{font-size:14px;line-height:1.35}
+.recipe-card span{color:var(--muted);font-size:12px;line-height:1.45}
 .object-form label{display:block;font-size:13px;color:var(--muted);margin-bottom:8px}
 .input-row{display:flex;gap:10px}
 input{width:100%;min-width:0;border:1px solid var(--line);background:var(--panel-2);color:var(--text);border-radius:10px;padding:12px 13px;outline:none}
@@ -72,14 +76,14 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#07090b;border:1px so
 .status-unavailable{color:var(--bad)}
 @media (max-width:900px){
   .principles{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .tool-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .recipe-grid,.tool-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
   .result-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
   .section-heading{align-items:flex-start;flex-direction:column;gap:6px}
 }
 @media (max-width:620px){
   .console-shell{width:min(100% - 20px,1180px);padding-top:20px}
   .console-header{flex-direction:column}
-  .principles,.tool-grid,.result-summary{grid-template-columns:1fr}
+  .principles,.recipe-grid,.tool-grid,.result-summary{grid-template-columns:1fr}
   .input-row{flex-direction:column}
   .input-row button{width:100%}
 }
