@@ -10,13 +10,25 @@ import (
 )
 
 type ProcessEvidenceRow struct {
-	PID         int     `json:"pid"`
-	PPID        int     `json:"ppid"`
-	User        string  `json:"user"`
-	CPUPercent  float64 `json:"cpu_percent"`
-	MemoryPct   float64 `json:"memory_percent"`
-	Elapsed     string  `json:"elapsed"`
-	Command     string  `json:"command"`
+	PID        int     `json:"pid"`
+	PPID       int     `json:"ppid"`
+	User       string  `json:"user"`
+	CPUPercent float64 `json:"cpu_percent"`
+	MemoryPct  float64 `json:"memory_percent"`
+	Elapsed    string  `json:"elapsed"`
+	Command    string  `json:"command"`
+}
+
+type OpenFileEvidenceRow struct {
+	Command    string `json:"command"`
+	PID        int    `json:"pid"`
+	User       string `json:"user"`
+	FD         string `json:"fd"`
+	Type       string `json:"type"`
+	Device     string `json:"device,omitempty"`
+	SizeOffset string `json:"size_offset,omitempty"`
+	Node       string `json:"node,omitempty"`
+	Name       string `json:"name"`
 }
 
 type FilesystemEvidenceRow struct {
@@ -52,6 +64,7 @@ type GatekeeperEvidence struct {
 type ParsedSystemEvidence struct {
 	Kind        string                  `json:"kind"`
 	Processes   []ProcessEvidenceRow    `json:"processes,omitempty"`
+	OpenFiles   []OpenFileEvidenceRow   `json:"open_files,omitempty"`
 	Filesystems []FilesystemEvidenceRow `json:"filesystems,omitempty"`
 	Mounts      []MountEvidenceRow      `json:"mounts,omitempty"`
 	Signing     *SigningEvidence        `json:"signing,omitempty"`
@@ -100,6 +113,46 @@ func ParseProcessTableEvidence(raw string) ParsedSystemEvidence {
 	out.ParsedRows = len(out.Processes)
 	if scanner.Err() != nil {
 		out.Limitations = appendUniqueString(out.Limitations, "process output scan was incomplete")
+	}
+	return out
+}
+
+func ParseOpenFileEvidence(raw string) ParsedSystemEvidence {
+	out := ParsedSystemEvidence{Kind: "process_open_files"}
+	scanner := bufio.NewScanner(strings.NewReader(raw))
+	lineNo := 0
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+		lineNo++
+		upper := strings.ToUpper(line)
+		if lineNo == 1 && strings.Contains(upper, "COMMAND") && strings.Contains(upper, "PID") && strings.Contains(upper, "NAME") {
+			continue
+		}
+		fields := strings.Fields(line)
+		if len(fields) < 9 {
+			out.Limitations = appendUniqueString(out.Limitations, "one or more lsof rows could not be parsed")
+			continue
+		}
+		pid, err := strconv.Atoi(fields[1])
+		if err != nil || pid <= 0 {
+			out.Limitations = appendUniqueString(out.Limitations, "one or more lsof rows had an invalid PID")
+			continue
+		}
+		out.OpenFiles = append(out.OpenFiles, OpenFileEvidenceRow{
+			Command: fields[0], PID: pid, User: fields[2], FD: fields[3], Type: fields[4],
+			Device: fields[5], SizeOffset: fields[6], Node: fields[7], Name: strings.Join(fields[8:], " "),
+		})
+		if len(out.OpenFiles) >= 240 {
+			out.Limitations = appendUniqueString(out.Limitations, "structured open-file rows are bounded to 240")
+			break
+		}
+	}
+	out.ParsedRows = len(out.OpenFiles)
+	if scanner.Err() != nil {
+		out.Limitations = appendUniqueString(out.Limitations, "open-file output scan was incomplete")
 	}
 	return out
 }
@@ -228,6 +281,8 @@ func ParseSystemConsoleEvidence(toolID, raw string) ParsedSystemEvidence {
 	switch toolID {
 	case "process-table":
 		return ParseProcessTableEvidence(raw)
+	case "process-open-files":
+		return ParseOpenFileEvidence(raw)
 	case "disk-filesystems":
 		return ParseFilesystemEvidence(raw)
 	case "mount-table":
