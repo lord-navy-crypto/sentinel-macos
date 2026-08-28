@@ -5,6 +5,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -116,7 +117,7 @@ func TestSystemConsoleCatalogHTTPMethodContract(t *testing.T) {
 func TestInspectSystemObjectReturnsMetadataForExistingPath(t *testing.T) {
 	root := t.TempDir()
 	path := filepath.Join(root, "sample.txt")
-	if err := osWriteFileForSystemConsoleTest(path, []byte("sentinel")); err != nil {
+	if err := os.WriteFile(path, []byte("sentinel"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	out, err := InspectSystemObject(context.Background(), path)
@@ -132,8 +133,4 @@ func TestInspectSystemObjectReturnsMetadataForExistingPath(t *testing.T) {
 	if runtime.GOOS == "darwin" && len(out.Queries) == 0 {
 		t.Fatal("macOS inspection produced no query evidence")
 	}
-}
-
-func osWriteFileForSystemConsoleTest(path string, data []byte) error {
-	return writeTestFile(path, data)
 }
