@@ -1,21 +1,34 @@
-# Sentinel 2.2 — Developer ID Direct Distribution
+# Sentinel 2.2 — macOS Distribution Plan
 
-## The final user experience
+## Current priority: public Beta first
 
-Normal users should download **one file only**: `Sentinel-2.2.dmg`.
+Sentinel is still in active testing. The current release order is intentionally:
 
-1. Open the DMG.
-2. Drag `Sentinel.app` to `Applications`.
-3. Eject the DMG.
-4. Open Sentinel from Applications.
+1. **Local functional testing** on real Macs.
+2. **GitHub Release Beta** for testers.
+3. **Sentinel website download** pointing to the same Beta artifact/checksum.
+4. **Apple Developer Program + Developer ID + notarization** after the product is stable enough for broader distribution.
+5. **Mac App Store** only if/when it becomes useful for the product.
 
-Sentinel then opens its own native AppKit window. The existing local web dashboard is rendered inside `WKWebView`; the Go engine remains loopback-only and is started/stopped by the app automatically. Normal users do not run `.command` files, select CPU architecture, or open a localhost URL themselves.
+The Mac App Store is not required for the current Beta phase.
+
+## Dual-interface Sentinel.app
+
+Normal users/testers download one DMG and drag `Sentinel.app` to `Applications`.
+
+When Sentinel starts, it launches one architecture-matched, loopback-only Go engine and shows a small native control window with three choices:
+
+- **Open in Browser** — opens the full localhost dashboard in the user's default browser. This is the compatibility-first interface.
+- **Open App View** — opens the same localhost session inside a native AppKit/WebKit window. This is the native-window Beta interface.
+- **Quit Sentinel** — stops the local engine and exits.
+
+Both UI modes share the same `127.0.0.1` engine, random port, session token, APIs, evidence, and safety boundaries. App View is not a second backend.
 
 ## Why DMG instead of PKG
 
-For the current product, Sentinel is a normal app bundle with embedded engines. A DMG is enough and keeps installation understandable and reversible. A `.pkg` becomes useful only if a future product genuinely needs installer-level actions that cannot live in the app bundle. Apple also supports shipping System Extensions inside the app bundle itself, so a System Extension does not automatically require a PKG.
+Sentinel is currently a normal app bundle with embedded architecture-specific engines. A DMG is enough and keeps installation understandable and reversible. A `.pkg` should only be introduced later if the product genuinely needs installer-level behavior that cannot live inside the app bundle.
 
-## First local desktop build
+## Build and test locally
 
 On a real Mac with current Xcode command-line tools:
 
@@ -24,15 +37,73 @@ On a real Mac with current Xcode command-line tools:
 open dist/Sentinel.app
 ```
 
-For an unsigned local-test DMG:
+Run the full automated suite before packaging:
+
+```bash
+go clean -testcache
+go test ./...
+bash SMOKE_TEST_LOCALHOST.command
+```
+
+For an unsigned/unnotarized local-test DMG:
 
 ```bash
 ./package-dev-dmg-macos.sh
 ```
 
-## Developer ID prerequisites
+## Beta artifact naming
 
-You need:
+Until Developer ID/notarization is enabled, use explicit Beta naming so testers do not confuse the build with the future production-signed release.
+
+Recommended Beta assets:
+
+```text
+Sentinel-2.2-beta.dmg
+Sentinel-2.2-beta.dmg.sha256
+```
+
+The GitHub Release title should also make the status explicit, for example:
+
+```text
+Sentinel 2.2 Beta
+```
+
+The release notes should state that the Beta may not yet be Developer ID signed/notarized and therefore macOS Gatekeeper may treat it differently from a future production build.
+
+## GitHub Release first
+
+For the current testing phase, GitHub Releases is the canonical binary distribution point.
+
+Recommended flow:
+
+1. Full tests pass.
+2. Build `Sentinel.app` on the real Mac.
+3. Build the Beta DMG.
+4. Verify the DMG by mounting it and launching the copied app.
+5. Generate SHA-256.
+6. Publish the DMG and checksum on a GitHub Beta/pre-release.
+7. Keep the source repository and release notes tied to the exact commit used for the DMG.
+
+Do not label an unsigned/unnotarized Beta artifact as a production notarized release.
+
+## Website distribution second
+
+The Sentinel website can present the Beta download after the GitHub Release exists.
+
+During Beta, the safest simple model is for the website download button to point to the canonical GitHub Release asset rather than maintaining two unrelated binaries. This reduces the chance that the website and GitHub serve different builds.
+
+Display at least:
+
+- Version / Beta label.
+- Supported macOS version.
+- Universal 2 (Apple Silicon + Intel) status.
+- SHA-256 checksum.
+- Link to release notes/source.
+- Clear note about current signing/notarization status.
+
+## Developer ID phase — later
+
+For a polished outside-the-Mac-App-Store release, the later production phase needs:
 
 - Apple Developer Program membership.
 - A `Developer ID Application` certificate installed in Keychain.
@@ -51,9 +122,9 @@ Store notarization credentials once (example profile name):
 xcrun notarytool store-credentials "SentinelNotary"
 ```
 
-Follow the prompts. Do not put Apple credentials or private keys in this repository.
+Follow the prompts. Never put Apple credentials, private keys, or certificate passwords in this repository.
 
-## One-command signed/notarized release
+## One-command signed/notarized production release — later
 
 ```bash
 export DEVELOPER_ID_APP='Developer ID Application: YOUR NAME (TEAMID)'
@@ -62,16 +133,16 @@ export SENTINEL_BUNDLE_ID='io.github.lord-navy-crypto.sentinel'
 ./release-direct-macos.sh
 ```
 
-The final artifact is:
+The production artifact is:
 
 ```text
 dist/Sentinel-2.2.dmg
 ```
 
-The script:
+The production pipeline:
 
-1. Builds native AppKit/WKWebView desktop shells for arm64 and x86_64.
-2. Combines the desktop shell into a Universal 2 executable.
+1. Builds the native AppKit/WebKit launcher for arm64 and x86_64.
+2. Combines it into a Universal 2 executable.
 3. Embeds the matching Go engines.
 4. Signs nested executables with Developer ID + Hardened Runtime.
 5. Signs the outer app.
@@ -81,30 +152,19 @@ The script:
 9. Staples the ticket.
 10. Produces SHA-256.
 
-## Public distribution
+## Mac App Store — optional later stage
 
-Upload only the final notarized DMG as the primary user download. GitHub can still contain source code, documentation, checksums, and optional developer artifacts.
-
-Recommended GitHub Release asset:
-
-```text
-Sentinel-2.2.dmg
-Sentinel-2.2.dmg.sha256
-```
-
-The download website can link directly to the GitHub Release asset.
+The Mac App Store is not a prerequisite for GitHub/website distribution. Evaluate it later after Sentinel's permissions, sandboxing expectations, update strategy, native features, and user experience are stable.
 
 ## What this repository cannot do automatically here
 
-A non-macOS build environment cannot compile AppKit/WebKit against the macOS SDK, run `hdiutil`, access your Developer ID private key, or submit using your Apple account. Those are intentionally final-machine release steps.
+A non-macOS environment cannot compile AppKit/WebKit against the macOS SDK, run `hdiutil`, exercise macOS-specific FSEvents/Security.framework behavior, access a Developer ID private key, or submit with an Apple account. Final Mac binary validation therefore stays on a real Mac.
 
-## Double-click helpers
+## Double-click developer helpers
 
-If you prefer not to type release commands:
+- `BUILD_DESKTOP_APP.command` builds and opens the local desktop app.
+- `BUILD_DEV_DMG.command` builds the unsigned/unnotarized Beta/test DMG.
+- `CHECK_MAC_RELEASE_PREREQS.command` is for the later Developer ID phase.
+- `RELEASE_DEVELOPER_ID.command` is for the later signed/notarized production phase.
 
-- `CHECK_MAC_RELEASE_PREREQS.command` checks the macOS SDK/tools, Developer ID identity, and Notary profile.
-- `BUILD_DESKTOP_APP.command` builds and opens the unsigned local desktop app.
-- `BUILD_DEV_DMG.command` builds an unsigned local-test DMG.
-- `RELEASE_DEVELOPER_ID.command` prompts for the signing identity/profile and runs the signed/notarized release pipeline.
-
-These `.command` files are **developer conveniences only**. End users receive only the final notarized `Sentinel-2.2.dmg`.
+These `.command` files are developer conveniences. Testers should receive the DMG, not the build scripts.
