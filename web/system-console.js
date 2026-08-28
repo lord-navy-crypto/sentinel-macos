@@ -43,13 +43,135 @@
       : '';
   }
 
-  function showQueryResult(result) {
+  function renderKeyValueGrid(title, rows) {
+    const section = el('section', {class: 'structured-section'});
+    section.append(el('h3', {}, title));
+    const grid = el('div', {class: 'structured-kv'});
+    for (const [label, value] of rows) {
+      if (value === undefined || value === null || String(value).trim() === '') continue;
+      const cell = el('div');
+      cell.append(el('span', {}, label), el('b', {}, String(value)));
+      grid.append(cell);
+    }
+    if (!grid.childElementCount) return null;
+    section.append(grid);
+    return section;
+  }
+
+  function renderTable(title, columns, rows, limit = 100) {
+    const section = el('section', {class: 'structured-section'});
+    const heading = el('div', {class: 'structured-heading'});
+    heading.append(el('h3', {}, title));
+    const shown = Math.min(rows.length, limit);
+    heading.append(el('span', {class: 'badge'}, `${shown} of ${rows.length} rows`));
+    section.append(heading);
+
+    const wrap = el('div', {class: 'table-wrap'});
+    const table = el('table', {class: 'evidence-table'});
+    const thead = el('thead');
+    const headRow = el('tr');
+    for (const column of columns) headRow.append(el('th', {}, column.label));
+    thead.append(headRow);
+    table.append(thead);
+
+    const tbody = el('tbody');
+    for (const row of rows.slice(0, limit)) {
+      const tr = el('tr');
+      for (const column of columns) {
+        const value = typeof column.value === 'function' ? column.value(row) : row[column.value];
+        tr.append(el('td', {}, value === undefined || value === null || value === '' ? '—' : String(value)));
+      }
+      tbody.append(tr);
+    }
+    table.append(tbody);
+    wrap.append(table);
+    section.append(wrap);
+    if (rows.length > limit) {
+      section.append(el('p', {class: 'managed-note'}, `Structured view is bounded to the first ${limit} rows. Raw evidence remains available below.`));
+    }
+    return section;
+  }
+
+  function renderStructuredEvidence(structured) {
+    const box = $('#structuredOutput');
+    box.replaceChildren();
+    if (!structured || structured.kind === 'raw') {
+      box.classList.add('hidden');
+      return;
+    }
+    box.classList.remove('hidden');
+    box.append(el('p', {class: 'structured-intro'}, 'Structured Sentinel view · raw evidence remains available below for provenance.'));
+
+    if (Array.isArray(structured.processes) && structured.processes.length) {
+      box.append(renderTable('Processes', [
+        {label: 'PID', value: 'pid'},
+        {label: 'PPID', value: 'ppid'},
+        {label: 'User', value: 'user'},
+        {label: 'CPU %', value: row => Number(row.cpu_percent || 0).toFixed(1)},
+        {label: 'Memory %', value: row => Number(row.memory_percent || 0).toFixed(1)},
+        {label: 'Elapsed', value: 'elapsed'},
+        {label: 'Command', value: 'command'},
+      ], structured.processes));
+    }
+
+    if (Array.isArray(structured.filesystems) && structured.filesystems.length) {
+      box.append(renderTable('Filesystems', [
+        {label: 'Filesystem', value: 'filesystem'},
+        {label: 'Size', value: 'size'},
+        {label: 'Used', value: 'used'},
+        {label: 'Available', value: 'available'},
+        {label: 'Capacity', value: 'capacity'},
+        {label: 'Mounted on', value: 'mounted_on'},
+      ], structured.filesystems, 50));
+    }
+
+    if (Array.isArray(structured.mounts) && structured.mounts.length) {
+      box.append(renderTable('Mounted volumes', [
+        {label: 'Device', value: 'device'},
+        {label: 'Mounted on', value: 'mounted_on'},
+        {label: 'Options', value: row => (row.options || []).join(', ')},
+      ], structured.mounts, 60));
+    }
+
+    if (structured.signing) {
+      const signing = structured.signing;
+      const grid = renderKeyValueGrid('Code-signing identity', [
+        ['Identifier', signing.identifier],
+        ['Team identifier', signing.team_identifier],
+        ['Signature', signing.signature],
+        ['Runtime version', signing.runtime_version],
+        ['Executable', signing.executable],
+        ['Authorities', (signing.authorities || []).join(' → ')],
+      ]);
+      if (grid) box.append(grid);
+    }
+
+    if (structured.gatekeeper) {
+      const gatekeeper = structured.gatekeeper;
+      const grid = renderKeyValueGrid('Gatekeeper assessment', [
+        ['Assessment', gatekeeper.assessment],
+        ['Source', gatekeeper.source],
+        ['Origin', gatekeeper.origin],
+      ]);
+      if (grid) box.append(grid);
+    }
+
+    if (!box.querySelector('.structured-section')) {
+      box.append(el('p', {class: 'managed-note'}, 'A parser exists for this evidence type, but no structured rows were recognized. Review raw evidence below.'));
+    }
+    for (const limitation of structured.limitations || []) {
+      box.append(el('p', {class: 'managed-note'}, `Parser limitation: ${limitation}`));
+    }
+  }
+
+  function showQueryResult(result, structured = null) {
     const section = $('#queryOutputSection');
     section.classList.remove('hidden');
     $('#queryTitle').textContent = result.tool_name || 'Query result';
     const status = String(result.status || 'unknown');
     $('#queryMeta').textContent = `${status} · exit ${result.exit_code} · ${result.duration_ms || 0} ms · ${result.display_command || ''}`;
     $('#queryMeta').className = statusClass(status);
+    renderStructuredEvidence(structured);
     $('#queryOutput').textContent = result.output || '(no output)';
     const limitations = $('#queryLimitations');
     limitations.replaceChildren();
@@ -65,12 +187,12 @@
     button.textContent = 'Running…';
     setNotice('');
     try {
-      const result = await api('/api/system/query', {
+      const payload = await api('/api/system/query/structured', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({tool_id: tool.id, target: target || ''}),
       });
-      showQueryResult(result);
+      showQueryResult(payload.result, payload.structured);
     } catch (error) {
       setNotice(error.message);
     } finally {
