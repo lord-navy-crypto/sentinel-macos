@@ -185,6 +185,125 @@
     if (story.disclaimer) body.append(el('p', 'meaning', story.disclaimer));
   }
 
+  function branchTo(path, parentID) {
+    runInvestigation(path, parentID, true);
+  }
+
+  function renderRuntimeContext(context, contextError, report) {
+    const panel = $('#runtimeContextPanel');
+    const body = $('#runtimeContextBody');
+    clear(body);
+    panel.classList.remove('hidden');
+    if (!context) {
+      const empty = el('div', 'fact');
+      empty.append(el('b', '', 'Runtime correlation unavailable'), el('span', '', contextError || 'Current process/network/persistence context could not be collected.'));
+      body.append(empty);
+      return;
+    }
+
+    const grid = el('div', 'summary-grid');
+    addKV(grid, 'Running matches', (context.processes || []).length);
+    addKV(grid, 'Startup references', (context.persistence || []).length);
+    addKV(grid, 'Background references', (context.background || []).length);
+    addKV(grid, 'App bundle', context.bundle_path || 'Not resolved');
+    addKV(grid, 'Runtime targets', (context.next_targets || []).length);
+    addKV(grid, 'Snapshot', formatTime(context.generated_at));
+    body.append(grid);
+    if (context.meaning) body.append(el('p', 'meaning', context.meaning));
+
+    if ((context.processes || []).length) {
+      const block = el('div', 'section-block');
+      block.append(el('h3', '', 'Running processes'));
+      for (const process of context.processes) {
+        const card = el('article', 'candidate');
+        const head = el('div', 'candidate-head');
+        const copy = el('div');
+        copy.append(el('h3', '', `PID ${process.pid} · ${process.user || 'unknown user'}`));
+        copy.append(el('code', '', process.target || process.command || '—'));
+        head.append(copy, el('span', 'badge', process.match === 'exact_path' ? 'exact path' : 'same app bundle'));
+        card.append(head);
+
+        const mini = el('div', 'inspection-mini');
+        addKV(mini, 'PPID', process.ppid || '—');
+        addKV(mini, 'CPU', `${Number(process.cpu || 0).toFixed(1)}%`);
+        addKV(mini, 'Memory', `${Number(process.memory || 0).toFixed(1)}%`);
+        addKV(mini, 'TCP rows', (process.network || []).length);
+        card.append(mini);
+
+        if ((process.network || []).length) {
+          const netBlock = el('div', 'section-block');
+          netBlock.append(el('h3', '', 'Current TCP evidence'));
+          for (const network of process.network.slice(0, 16)) {
+            const row = el('div', 'relation');
+            row.append(el('b', '', `${network.state || 'TCP'} · ${network.endpoint_class || 'endpoint'}`));
+            row.append(el('span', '', network.address || network.remote || network.local || '—'));
+            netBlock.append(row);
+          }
+          card.append(netBlock);
+        }
+
+        if ((process.ancestors || []).length) {
+          const parentBlock = el('div', 'section-block');
+          parentBlock.append(el('h3', '', 'Parent chain'));
+          for (const ancestor of process.ancestors) {
+            const row = el('div', 'relation');
+            row.append(el('b', '', `PID ${ancestor.pid} → parent context`));
+            row.append(el('span', '', ancestor.command || ancestor.target || '—'));
+            parentBlock.append(row);
+          }
+          card.append(parentBlock);
+        }
+
+        if (process.target && process.target !== report.path) {
+          const actions = el('div', 'candidate-actions');
+          const button = el('button', '', 'Investigate running executable');
+          button.type = 'button';
+          button.addEventListener('click', () => branchTo(process.target, report.id));
+          actions.append(button);
+          card.append(actions);
+        }
+        block.append(card);
+      }
+      body.append(block);
+    }
+
+    if ((context.persistence || []).length) {
+      const block = el('div', 'section-block');
+      block.append(el('h3', '', 'LaunchAgent / LaunchDaemon references'));
+      for (const ref of context.persistence) {
+        const row = el('article', 'next-target');
+        const copy = el('div', 'next-target-copy');
+        copy.append(el('b', '', `${ref.name || 'Launch item'} · ${ref.scope || 'persistence'}`));
+        copy.append(el('span', 'target-path', ref.plist_path || '—'));
+        if (ref.executable) copy.append(el('p', '', `Executable: ${ref.executable}`));
+        const button = el('button', '', 'Investigate plist');
+        button.type = 'button';
+        button.addEventListener('click', () => branchTo(ref.plist_path, report.id));
+        row.append(copy, button);
+        block.append(row);
+      }
+      body.append(block);
+    }
+
+    if ((context.background || []).length) {
+      const block = el('div', 'section-block');
+      block.append(el('h3', '', 'Background Task Management references'));
+      for (const ref of context.background) {
+        const row = el('div', 'relation');
+        row.append(el('b', '', ref.name || ref.identifier || 'Background item'));
+        row.append(el('span', '', ref.executable || ref.url || 'No executable path exposed'));
+        block.append(row);
+      }
+      body.append(block);
+    }
+
+    if (!(context.processes || []).length && !(context.persistence || []).length && !(context.background || []).length) {
+      const empty = el('div', 'fact');
+      empty.append(el('b', '', 'No current runtime or persistence correlation found'), el('span', '', 'This does not establish safety. It only means the bounded current snapshot did not connect this path to the supported runtime/persistence sources.'));
+      body.append(empty);
+    }
+  }
+
   function inspectionMini(inspection) {
     if (!inspection) return null;
     const mini = el('div', 'inspection-mini');
@@ -193,10 +312,6 @@
     addKV(mini, 'Team', inspection.identity?.team_id || '—');
     addKV(mini, 'Gatekeeper', inspection.identity?.gatekeeper || '—');
     return mini;
-  }
-
-  function branchTo(path, parentID) {
-    runInvestigation(path, parentID, true);
   }
 
   function renderCandidates(report) {
@@ -233,21 +348,28 @@
       continueButton.disabled = !candidate.can_continue || !candidate.path;
       continueButton.addEventListener('click', () => branchTo(candidate.path, report.id));
       actions.append(continueButton);
-
-      const objectButton = el('button', '', 'Refresh this object context');
-      objectButton.type = 'button';
-      objectButton.addEventListener('click', () => branchTo(candidate.path, report.id));
-      actions.append(objectButton);
       card.append(actions);
       list.append(card);
     }
   }
 
-  function renderNextTargets(report) {
+  function combinedNextTargets(report, runtimeContext) {
+    const result = [];
+    const seen = new Set();
+    for (const target of [...(report.next_targets || []), ...(runtimeContext?.next_targets || [])]) {
+      const key = `${target.kind || ''}|${target.path || ''}`;
+      if (!target.path || seen.has(key)) continue;
+      seen.add(key);
+      result.push(target);
+    }
+    return result.slice(0, 100);
+  }
+
+  function renderNextTargets(report, runtimeContext) {
     const panel = $('#nextTargetsPanel');
     const list = $('#nextTargetList');
     clear(list);
-    const targets = Array.isArray(report.next_targets) ? report.next_targets : [];
+    const targets = combinedNextTargets(report, runtimeContext);
     if (!targets.length) {
       panel.classList.add('hidden');
       return;
@@ -268,19 +390,21 @@
     }
   }
 
-  function renderLimitations(report, storyError) {
+  function renderLimitations(report, storyError, runtimeContext, contextError) {
     const panel = $('#limitationsPanel');
     const list = $('#limitationsList');
     clear(list);
-    const limitations = [...(report.limitations || [])];
+    const limitations = [...(report.limitations || []), ...(runtimeContext?.limitations || [])];
     if (storyError) limitations.push(`Object Story: ${storyError}`);
+    if (contextError) limitations.push(`Runtime context: ${contextError}`);
     if (report.truncated) limitations.push('This branch reached a traversal/candidate bound. Continue from a narrower candidate to investigate further.');
-    if (!limitations.length) {
+    const unique = [...new Set(limitations.filter(Boolean))];
+    if (!unique.length) {
       panel.classList.add('hidden');
       return;
     }
     panel.classList.remove('hidden');
-    for (const item of limitations) list.append(el('div', '', `• ${item}`));
+    for (const item of unique) list.append(el('div', '', `• ${item}`));
   }
 
   function updateBranchControls() {
@@ -290,14 +414,15 @@
   }
 
   function renderEntry(entry) {
-    const {report, story, storyError} = entry;
+    const {report, story, storyError, runtimeContext, contextError} = entry;
     $('#investigationPath').value = report.path || '';
     renderSummary(report);
     renderIntegrity(report.root_inspection);
     renderStory(story, storyError);
+    renderRuntimeContext(runtimeContext, contextError, report);
     renderCandidates(report);
-    renderNextTargets(report);
-    renderLimitations(report, storyError);
+    renderNextTargets(report, runtimeContext);
+    renderLimitations(report, storyError, runtimeContext, contextError);
     updateBranchControls();
     history.replaceState(null, '', `/investigation.html#${new URLSearchParams({token, path: report.path || ''}).toString()}`);
     window.scrollTo({top: 0, behavior: 'smooth'});
@@ -322,13 +447,16 @@
         body: JSON.stringify({path, parent_id: parentID || ''}),
       });
       const storyPromise = api(`/api/object/story?path=${encodeURIComponent(path)}`);
-      const [investigationResult, storyResult] = await Promise.allSettled([investigationPromise, storyPromise]);
+      const contextPromise = api(`/api/security/context?path=${encodeURIComponent(path)}`);
+      const [investigationResult, storyResult, contextResult] = await Promise.allSettled([investigationPromise, storyPromise, contextPromise]);
       if (investigationResult.status !== 'fulfilled') throw investigationResult.reason;
 
       const entry = {
         report: investigationResult.value,
         story: storyResult.status === 'fulfilled' ? storyResult.value : null,
         storyError: storyResult.status === 'rejected' ? String(storyResult.reason?.message || storyResult.reason || 'unavailable') : '',
+        runtimeContext: contextResult.status === 'fulfilled' ? contextResult.value : null,
+        contextError: contextResult.status === 'rejected' ? String(contextResult.reason?.message || contextResult.reason || 'unavailable') : '',
       };
       if (pushHistory) {
         history.splice(historyIndex + 1);
