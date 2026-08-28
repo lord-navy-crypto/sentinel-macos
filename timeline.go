@@ -6,9 +6,12 @@ import (
 	"sort"
 )
 
-const timelineEventLimit = 500
+const investigationTimelineEventLimit = 500
 
-type TimelineEvent struct {
+// InvestigationTimelineEvent is the v2.3 cross-source timeline record. It is
+// intentionally distinct from the legacy TimelineEvent used by Evidence Graph
+// and Object Story so the v2.2 API remains source-compatible.
+type InvestigationTimelineEvent struct {
 	ID         string `json:"id"`
 	At         int64  `json:"at"`
 	Source     string `json:"source"`
@@ -19,37 +22,37 @@ type TimelineEvent struct {
 	IncidentID string `json:"incident_id,omitempty"`
 }
 
-func timelineEventKey(e TimelineEvent) string {
+func investigationTimelineEventKey(e InvestigationTimelineEvent) string {
 	return fmt.Sprintf("%d|%s|%s|%s|%s|%s|%s", e.At, e.Source, e.Kind, e.Severity, e.Path, e.Detail, e.IncidentID)
 }
 
-func IncidentTimeline(in Incident) []TimelineEvent {
-	out := make([]TimelineEvent, 0, len(in.Evidence))
+func IncidentInvestigationTimeline(in Incident) []InvestigationTimelineEvent {
+	out := make([]InvestigationTimelineEvent, 0, len(in.Evidence))
 	for _, ev := range in.Evidence {
-		row := TimelineEvent{
+		row := InvestigationTimelineEvent{
 			At: ev.At, Source: ev.Source, Kind: ev.Kind, Severity: ev.Severity,
 			Path: ev.Path, Detail: ev.Detail, IncidentID: in.ID,
 		}
-		row.ID = entityID("timeline-event", timelineEventKey(row))
+		row.ID = entityID("investigation-timeline-event", investigationTimelineEventKey(row))
 		out = append(out, row)
 	}
-	return NormalizeTimeline(out, timelineEventLimit)
+	return NormalizeInvestigationTimeline(out, investigationTimelineEventLimit)
 }
 
-func NormalizeTimeline(rows []TimelineEvent, limit int) []TimelineEvent {
+func NormalizeInvestigationTimeline(rows []InvestigationTimelineEvent, limit int) []InvestigationTimelineEvent {
 	if limit <= 0 {
-		limit = timelineEventLimit
+		limit = investigationTimelineEventLimit
 	}
 	seen := map[string]bool{}
-	out := make([]TimelineEvent, 0, len(rows))
+	out := make([]InvestigationTimelineEvent, 0, len(rows))
 	for _, row := range rows {
-		key := timelineEventKey(row)
+		key := investigationTimelineEventKey(row)
 		if seen[key] {
 			continue
 		}
 		seen[key] = true
 		if row.ID == "" {
-			row.ID = entityID("timeline-event", key)
+			row.ID = entityID("investigation-timeline-event", key)
 		}
 		out = append(out, row)
 	}
@@ -69,15 +72,15 @@ func NormalizeTimeline(rows []TimelineEvent, limit int) []TimelineEvent {
 		return out[i].ID < out[j].ID
 	})
 	if len(out) > limit {
-		out = append([]TimelineEvent(nil), out[len(out)-limit:]...)
+		out = append([]InvestigationTimelineEvent(nil), out[len(out)-limit:]...)
 	}
 	return out
 }
 
-func MergeTimelines(groups ...[]TimelineEvent) []TimelineEvent {
-	var all []TimelineEvent
+func MergeInvestigationTimelines(groups ...[]InvestigationTimelineEvent) []InvestigationTimelineEvent {
+	var all []InvestigationTimelineEvent
 	for _, group := range groups {
 		all = append(all, group...)
 	}
-	return NormalizeTimeline(all, timelineEventLimit)
+	return NormalizeInvestigationTimeline(all, investigationTimelineEventLimit)
 }
