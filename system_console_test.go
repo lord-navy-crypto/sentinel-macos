@@ -134,3 +134,79 @@ func TestInspectSystemObjectReturnsMetadataForExistingPath(t *testing.T) {
 		t.Fatal("macOS inspection produced no query evidence")
 	}
 }
+
+func TestSystemConsoleIntegrationContract(t *testing.T) {
+	checks := map[string][]string{
+		"main.go": {
+			"/api/system/console",
+			"/api/system/query",
+			"/api/system/object/inspect",
+		},
+		"web/system-console.html": {
+			"Start with a question, not a command",
+			"data-recipe-tool",
+			"Inspect a Mac object",
+			"/system-console.js",
+		},
+		"web/system-console.js": {
+			"/api/system/query",
+			"/api/system/object/inspect",
+			"toolIndex",
+			"data-recipe-tool",
+		},
+		"web/core-compat.js": {
+			"systemConsoleShortcut",
+			"/system-console.html#token=",
+		},
+	}
+	for path, needles := range checks {
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
+		}
+		source := string(raw)
+		for _, needle := range needles {
+			if !strings.Contains(source, needle) {
+				t.Fatalf("%s missing %q", path, needle)
+			}
+		}
+	}
+}
+
+func TestSystemConsoleCannotBecomeArbitraryShell(t *testing.T) {
+	coreBytes, err := os.ReadFile("system_console.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	core := string(coreBytes)
+	for _, forbidden := range []string{
+		`exec.Command("sh"`,
+		`exec.Command("bash"`,
+		`exec.Command("zsh"`,
+		`exec.CommandContext(ctx, "sh"`,
+		`exec.CommandContext(ctx, "bash"`,
+		`exec.CommandContext(ctx, "zsh"`,
+		`"/bin/sh"`,
+		`"/bin/bash"`,
+		`"/bin/zsh"`,
+		`"sudo"`,
+	} {
+		if strings.Contains(core, forbidden) {
+			t.Fatalf("System Console contains forbidden arbitrary-shell pattern %q", forbidden)
+		}
+	}
+	if !strings.Contains(core, "exec.CommandContext(ctx, tool.Command, args...)") {
+		t.Fatal("System Console must execute only the selected allowlisted executable with explicit args")
+	}
+
+	jsBytes, err := os.ReadFile("web/system-console.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	js := string(jsBytes)
+	for _, forbidden := range []string{"eval(", "new Function(", ".innerHTML"} {
+		if strings.Contains(js, forbidden) {
+			t.Fatalf("System Console UI contains unsafe dynamic-code/HTML pattern %q", forbidden)
+		}
+	}
+}
