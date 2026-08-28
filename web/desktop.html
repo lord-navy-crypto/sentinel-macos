@@ -31,6 +31,7 @@
   let activeRequests = 0;
   let hideTimer = null;
   let clickTimer = null;
+  let cleanupButtons = () => {};
 
   function showActivity(message='Sentinel is working…') {
     clearTimeout(hideTimer);
@@ -42,6 +43,7 @@
     clearTimeout(hideTimer);
     hideTimer = setTimeout(() => {
       if (activeRequests === 0) {
+        cleanupButtons();
         bar.classList.remove('visible');
         text.classList.remove('visible');
       }
@@ -90,8 +92,10 @@
     `;
     doc.head.appendChild(style);
 
-    // Force one unified navigation model without touching Sentinel's core app.js.
+    // One unified navigation. The old Easy/Advanced switch is hidden completely.
     doc.body.classList.remove('easy-mode');
+    const oldGroupLabel = doc.querySelector('.nav-group-label.advanced-nav');
+    if (oldGroupLabel) oldGroupLabel.textContent = 'More tools';
 
     // Every later fetch made by the existing Sentinel app receives visible feedback.
     const originalFetch = win.fetch.bind(win);
@@ -103,6 +107,8 @@
         endRequest();
       }
     };
+
+    cleanupButtons = () => doc.querySelectorAll('button[data-sentinel-pending="1"]').forEach(b => b.removeAttribute('data-sentinel-pending'));
 
     // Immediate acknowledgement for action buttons. Navigation-only buttons are skipped.
     doc.addEventListener('click', event => {
@@ -116,14 +122,6 @@
         if (activeRequests === 0) hideActivitySoon();
       }, 900);
     }, true);
-
-    // Remove the temporary button marker after a request settles.
-    const cleanupButtons = () => doc.querySelectorAll('button[data-sentinel-pending="1"]').forEach(b => b.removeAttribute('data-sentinel-pending'));
-    const originalEndRequest = endRequest;
-    endRequest = function() {
-      originalEndRequest();
-      if (activeRequests === 0) cleanupButtons();
-    };
 
     activeRequests = 0;
     hideActivitySoon();
