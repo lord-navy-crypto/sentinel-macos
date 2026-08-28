@@ -57,22 +57,24 @@ For the current public-testing Beta DMG:
 SENTINEL_RELEASE_CHANNEL=beta ./package-dev-dmg-macos.sh
 ```
 
-This produces:
+With the current `VERSION` value `2.2.0`, this produces:
 
 ```text
-dist/Sentinel-2.2-beta.dmg
-dist/Sentinel-2.2-beta.dmg.sha256
+dist/Sentinel-2.2.0-beta.dmg
+dist/Sentinel-2.2.0-beta.dmg.sha256
 ```
+
+Artifact filenames are derived from the repository `VERSION` file. If `VERSION` changes, use the filename printed by the packaging script rather than hard-coding an older version string.
 
 ## Beta artifact naming
 
 Until Developer ID/notarization is enabled, use explicit Beta naming so testers do not confuse the build with the future production-signed release.
 
-Recommended Beta assets:
+Recommended Beta assets for version 2.2.0:
 
 ```text
-Sentinel-2.2-beta.dmg
-Sentinel-2.2-beta.dmg.sha256
+Sentinel-2.2.0-beta.dmg
+Sentinel-2.2.0-beta.dmg.sha256
 ```
 
 The GitHub Release title should also make the status explicit, for example:
@@ -146,10 +148,10 @@ export SENTINEL_BUNDLE_ID='io.github.lord-navy-crypto.sentinel'
 ./release-direct-macos.sh
 ```
 
-The production artifact is:
+With the current `VERSION` value `2.2.0`, the production artifact is:
 
 ```text
-dist/Sentinel-2.2.dmg
+dist/Sentinel-2.2.0.dmg
 ```
 
 The production pipeline:
