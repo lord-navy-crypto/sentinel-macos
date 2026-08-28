@@ -85,6 +85,9 @@ func main() {
 
 	mux.HandleFunc("/api/overview", a.auth(a.handleOverview))
 	mux.HandleFunc("/api/system-profile", a.auth(a.handleSystemProfile))
+	mux.HandleFunc("/api/system/console", a.auth(a.handleSystemConsole))
+	mux.HandleFunc("/api/system/query", a.auth(a.work.wrap("system-query", a.handleSystemConsoleQuery)))
+	mux.HandleFunc("/api/system/object/inspect", a.auth(a.work.wrap("system-object-inspect", a.handleSystemObjectInspect)))
 	mux.HandleFunc("/api/quick-check", a.auth(a.work.wrap("quick-check", a.handleQuickCheck)))
 	mux.HandleFunc("/api/search", a.auth(a.handleUniversalSearch))
 	mux.HandleFunc("/api/search/deep", a.auth(a.work.wrap("deep-search", a.handleDeepFileSearch)))
