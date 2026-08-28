@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sentinel Launch & Service Explorer</title>
+  <link rel="stylesheet" href="/launch-services.css">
+</head>
+<body>
+  <main class="launch-shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Sentinel v2.3 · Persistence intelligence</p>
+        <h1>Launch & Service Explorer</h1>
+        <p class="subtitle">Answer “Why does this start automatically?” by connecting LaunchAgent/LaunchDaemon configuration to the executable it launches, its current runtime state, and deeper investigation evidence.</p>
+      </div>
+      <div class="hero-actions">
+        <a id="systemConsoleLink" href="/system-console.html" class="secondary-link">System Console</a>
+        <a id="backLink" href="/" class="secondary-link">Back to Sentinel</a>
+      </div>
+    </header>
+
+    <section class="principles">
+      <article><b>Configuration</b><span>Which plist declares the job?</span></article>
+      <article><b>Target</b><span>Which executable does it point to?</span></article>
+      <article><b>Runtime</b><span>Is that exact executable currently observed?</span></article>
+      <article><b>Continue</b><span>Branch into plist or executable evidence.</span></article>
+    </section>
+
+    <p id="notice" class="notice" role="status" aria-live="polite"></p>
+
+    <section class="summary-card">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Visible persistence snapshot</p>
+          <h2>Automatic launch map</h2>
+        </div>
+        <button id="refreshLaunchServices" type="button">Refresh</button>
+      </div>
+      <div id="summaryGrid" class="summary-grid"><div class="empty">Loading visible LaunchAgents and LaunchDaemons…</div></div>
+      <p id="summaryNote" class="note"></p>
+    </section>
+
+    <section class="filter-card">
+      <div class="filters">
+        <label>Search<input id="serviceSearch" type="search" autocomplete="off" placeholder="label, plist, executable…"></label>
+        <label>Scope<select id="scopeFilter"><option value="">All scopes</option><option value="User LaunchAgent">User LaunchAgent</option><option value="System LaunchAgent">System LaunchAgent</option><option value="System LaunchDaemon">System LaunchDaemon</option></select></label>
+        <label>Runtime<select id="runtimeFilter"><option value="">All</option><option value="running">Running now</option><option value="stopped">Not currently matched</option><option value="missing">Target missing</option></select></label>
+      </div>
+    </section>
+
+    <section class="services-card">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Launch relationships</p>
+          <h2>Visible services</h2>
+        </div>
+        <span id="visibleCount" class="badge">0</span>
+      </div>
+      <div id="serviceList" class="service-list"><div class="empty">Loading…</div></div>
+    </section>
+
+    <section id="detailPanel" class="detail-card hidden" aria-live="polite">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Selected launch relationship</p>
+          <h2 id="detailTitle">Service detail</h2>
+        </div>
+        <button id="closeDetail" type="button">Close</button>
+      </div>
+      <div id="detailBody"></div>
+    </section>
+
+    <section id="limitationsPanel" class="limitations-card hidden">
+      <div class="section-head"><div><p class="eyebrow">Visibility</p><h2>Limits and unknowns</h2></div></div>
+      <div id="limitationsList" class="limitations"></div>
+    </section>
+  </main>
+  <script src="/launch-services.js"></script>
+</body>
+</html>
