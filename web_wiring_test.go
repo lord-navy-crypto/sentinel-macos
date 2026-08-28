@@ -231,7 +231,13 @@ func TestDesktopEnhancementCannotBreakCoreUI(t *testing.T) {
 	if !strings.Contains(js, "window.fetch = async") || !strings.Contains(js, "sentinel-task-progress") || !strings.Contains(js, "sentinel-percent-bar") {
 		t.Fatal("per-feature request progress feedback is not installed")
 	}
-	if !strings.Contains(js, "storageEstimate") || !strings.Contains(js, "files_visited") || !strings.Contains(js, "dirs_visited") {
-		t.Fatal("storage scan progress must consume live job counters")
+	for _, required := range []string{
+		"job.phase", "job.phase_percent", "job.files_visited", "job.dirs_visited",
+		"job.hash_bytes_done", "job.hash_bytes_total", "job.current_hash_path",
+		"Hashing duplicate candidates", "Building storage report",
+	} {
+		if !strings.Contains(js, required) {
+			t.Fatalf("phase-aware storage progress is missing %q", required)
+		}
 	}
 }
