@@ -9,8 +9,8 @@ import (
 
 func TestDesktopDistributionAssets(t *testing.T) {
 	checks := map[string][]string{
-		"desktop/SentinelDesktop.swift": {"NSWorkspace.shared.open", "Process()", "--desktop", "SENTINEL_DESKTOP_BOOTSTRAP", "desktop", "value: \"1\""},
-		"build-desktop-macos.sh":        {"swiftc", "lipo -create", "Sentinel.app", "default browser + loopback-only localhost dashboard"},
+		"desktop/SentinelDesktop.swift": {"NSWorkspace.shared.open", "WKWebView", "Open in Browser", "Open App View", "Quit Sentinel", "Process()", "--desktop", "SENTINEL_DESKTOP_BOOTSTRAP", "desktop", "value: \"1\""},
+		"build-desktop-macos.sh":        {"swiftc", "lipo -create", "-framework WebKit", "NSAllowsLocalNetworking", "Sentinel.app", "native WebKit App View"},
 		"release-direct-macos.sh":       {"Developer ID", "--options runtime", "notarytool submit", "stapler staple", "hdiutil create"},
 		"DIRECT_DISTRIBUTION_GUIDE.md":  {"Sentinel-2.2.dmg", "Developer ID", "notarytool"},
 		"web/desktop-ui.js":             {"desktop-ui.css", "More tools", "window.fetch = async", "sentinel-task-progress", "job.phase_percent", "job.hash_bytes_done", "Hashing duplicate candidates", "Progress appears only after a real localhost request starts.", "Local request failed:", "Interface error:"},
@@ -30,17 +30,30 @@ func TestDesktopDistributionAssets(t *testing.T) {
 	}
 }
 
-func TestDesktopUsesDirectLocalhostInsteadOfEmbeddedFrame(t *testing.T) {
+func TestDesktopSupportsBrowserAndNativeAppView(t *testing.T) {
 	swiftBytes, err := os.ReadFile("desktop/SentinelDesktop.swift")
 	if err != nil {
 		t.Fatal(err)
 	}
 	swift := string(swiftBytes)
-	if strings.Contains(swift, "WKWebView") || strings.Contains(swift, "/desktop.html") {
-		t.Fatalf("desktop launcher must not embed or iframe the dashboard")
+	if strings.Contains(swift, "/desktop.html") {
+		t.Fatalf("desktop launcher must not use the retired iframe wrapper")
 	}
-	if !strings.Contains(swift, "components.path = \"/\"") || !strings.Contains(swift, "URLQueryItem(name: \"desktop\", value: \"1\")") {
-		t.Fatalf("desktop launcher must open the direct localhost desktop=1 route")
+	for _, needle := range []string{
+		"NSWorkspace.shared.open(dashboardURL)",
+		"WKWebViewConfiguration()",
+		"WKWebView(frame:",
+		"websiteDataStore = .nonPersistent()",
+		"runJavaScriptConfirmPanelWithMessage",
+		"runJavaScriptAlertPanelWithMessage",
+		"runJavaScriptTextInputPanelWithPrompt",
+		"url.host == \"127.0.0.1\"",
+		"components.path = \"/\"",
+		"URLQueryItem(name: \"desktop\", value: \"1\")",
+	} {
+		if !strings.Contains(swift, needle) {
+			t.Fatalf("dual-view launcher missing %q", needle)
+		}
 	}
 
 	mainBytes, err := os.ReadFile("main.go")
@@ -73,16 +86,16 @@ func TestDesktopUsesDirectLocalhostInsteadOfEmbeddedFrame(t *testing.T) {
 		t.Fatalf("desktop UI must not mislabel validation/cancelled actions as a broken local request")
 	}
 
-	// The launcher hands the loopback URL to the user's default browser via
-	// NSWorkspace. Sentinel.app itself does not load HTTP through URLSession or
-	// WKWebView, so broad ATS exceptions should not be added to the bundle.
 	buildBytes, err := os.ReadFile("build-desktop-macos.sh")
 	if err != nil {
 		t.Fatal(err)
 	}
 	build := string(buildBytes)
+	if !strings.Contains(build, "NSAllowsLocalNetworking") {
+		t.Fatalf("native App View must declare its loopback/local-network intent")
+	}
 	if strings.Contains(build, "NSAllowsArbitraryLoads") || strings.Contains(build, "NSAllowsArbitraryLoadsInWebContent") {
-		t.Fatalf("browser-based localhost launcher must not add broad ATS exceptions")
+		t.Fatalf("dual-view launcher must not add broad ATS exceptions")
 	}
 }
 
