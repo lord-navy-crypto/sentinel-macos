@@ -2,31 +2,37 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
+	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
 
 const (
-	investigationRuntimeProcessLimit = 32
-	investigationRuntimeNetworkLimit = 80
-	investigationRuntimeRefLimit     = 80
+	investigationRuntimeProcessLimit       = 32
+	investigationRuntimeNetworkLimit       = 80
+	investigationRuntimeRefLimit           = 80
+	investigationOpenFileProcessQueryLimit = 6
+	investigationOpenFileRowLimit          = 80
 )
 
 type InvestigationRuntimeProcess struct {
-	PID       int               `json:"pid"`
-	PPID      int               `json:"ppid"`
-	User      string            `json:"user"`
-	Command   string            `json:"command"`
-	Target    string            `json:"target"`
-	Match     string            `json:"match"`
-	CPU       float64           `json:"cpu"`
-	Memory    float64           `json:"memory"`
-	Ancestors []ProcessAncestor `json:"ancestors,omitempty"`
-	Network   []NetworkItem     `json:"network,omitempty"`
+	PID       int                   `json:"pid"`
+	PPID      int                   `json:"ppid"`
+	User      string                `json:"user"`
+	Command   string                `json:"command"`
+	Target    string                `json:"target"`
+	Match     string                `json:"match"`
+	CPU       float64               `json:"cpu"`
+	Memory    float64               `json:"memory"`
+	Ancestors []ProcessAncestor     `json:"ancestors,omitempty"`
+	Network   []NetworkItem         `json:"network,omitempty"`
+	OpenFiles []OpenFileEvidenceRow `json:"open_files,omitempty"`
 }
 
 type InvestigationPersistenceRef struct {
@@ -46,15 +52,15 @@ type InvestigationBackgroundRef struct {
 }
 
 type InvestigationRuntimeContext struct {
-	GeneratedAt string                         `json:"generated_at"`
-	Path        string                         `json:"path"`
-	BundlePath  string                         `json:"bundle_path,omitempty"`
-	Processes   []InvestigationRuntimeProcess  `json:"processes,omitempty"`
-	Persistence []InvestigationPersistenceRef  `json:"persistence,omitempty"`
-	Background  []InvestigationBackgroundRef   `json:"background,omitempty"`
-	NextTargets []InvestigationNextTarget      `json:"next_targets,omitempty"`
-	Limitations []string                       `json:"limitations,omitempty"`
-	Meaning     string                         `json:"meaning"`
+	GeneratedAt string                        `json:"generated_at"`
+	Path        string                        `json:"path"`
+	BundlePath  string                        `json:"bundle_path,omitempty"`
+	Processes   []InvestigationRuntimeProcess `json:"processes,omitempty"`
+	Persistence []InvestigationPersistenceRef `json:"persistence,omitempty"`
+	Background  []InvestigationBackgroundRef  `json:"background,omitempty"`
+	NextTargets []InvestigationNextTarget     `json:"next_targets,omitempty"`
+	Limitations []string                      `json:"limitations,omitempty"`
+	Meaning     string                        `json:"meaning"`
 }
 
 func investigationPathMatch(root, candidate string) (bool, string) {
@@ -90,12 +96,35 @@ func appendInvestigationNextTarget(targets []InvestigationNextTarget, path, kind
 	return append(targets, InvestigationNextTarget{Path: path, Kind: kind, Why: why})
 }
 
+func investigationOpenFileCanBranch(raw string) bool {
+	path := normalizeEvidencePath(raw)
+	if path == "" || !filepath.IsAbs(path) {
+		return false
+	}
+	st, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	if st.IsDir() {
+		kind := investigationBundleKind(path)
+		return kind != "directory"
+	}
+	if !st.Mode().IsRegular() {
+		return false
+	}
+	return investigationFileKind(path, st.Mode()) != "file" || enclosingAppBundle(path) != ""
+}
+
 func BuildInvestigationRuntimeContext(rawPath string) InvestigationRuntimeContext {
+	return buildInvestigationRuntimeContext(context.Background(), rawPath)
+}
+
+func buildInvestigationRuntimeContext(ctx context.Context, rawPath string) InvestigationRuntimeContext {
 	path := normalizeEvidencePath(rawPath)
 	out := InvestigationRuntimeContext{
 		GeneratedAt: time.Now().UTC().Format(time.RFC3339),
 		Path:        path,
-		Meaning:     "Runtime context correlates current local observations with the selected object. A process, connection, startup reference, or background registration is context for investigation, not proof of malicious intent.",
+		Meaning:     "Runtime context correlates current local observations with the selected object. A process, open file, connection, startup reference, or background registration is context for investigation, not proof of malicious intent.",
 	}
 	if path == "" || !filepath.IsAbs(path) {
 		out.Limitations = append(out.Limitations, "an absolute path is required")
@@ -119,6 +148,7 @@ func BuildInvestigationRuntimeContext(rawPath string) InvestigationRuntimeContex
 		out.Limitations = append(out.Limitations, "network correlation unavailable: "+err.Error())
 	}
 
+	openFileQueries := 0
 	for _, process := range parsePS(100000) {
 		target, _ := processAuditPath(process)
 		matched, matchKind := investigationPathMatch(path, target)
@@ -135,6 +165,33 @@ func BuildInvestigationRuntimeContext(rawPath string) InvestigationRuntimeContex
 			Ancestors: processParentChain(process.PID, 8),
 			Network:   append([]NetworkItem(nil), networkByPID[process.PID]...),
 		}
+
+		if openFileQueries < investigationOpenFileProcessQueryLimit {
+			openFileQueries++
+			structured, queryErr := RunStructuredSystemConsoleQuery(ctx, SystemConsoleQueryRequest{ToolID: "process-open-files", Target: strconv.Itoa(process.PID)})
+			if queryErr != nil {
+				out.Limitations = appendUniqueString(out.Limitations, fmt.Sprintf("PID %d open-file query unavailable: %v", process.PID, queryErr))
+			} else if structured.Structured.Kind == "process_open_files" {
+				rows := structured.Structured.OpenFiles
+				if len(rows) > investigationOpenFileRowLimit {
+					rows = rows[:investigationOpenFileRowLimit]
+					out.Limitations = appendUniqueString(out.Limitations, fmt.Sprintf("PID %d open-file rows are bounded to %d", process.PID, investigationOpenFileRowLimit))
+				}
+				item.OpenFiles = append([]OpenFileEvidenceRow(nil), rows...)
+				for _, limitation := range structured.Structured.Limitations {
+					out.Limitations = appendUniqueString(out.Limitations, fmt.Sprintf("PID %d open-file parser: %s", process.PID, limitation))
+				}
+				branchCount := 0
+				for _, row := range rows {
+					if branchCount >= 16 || !investigationOpenFileCanBranch(row.Name) || normalizeEvidencePath(row.Name) == path || normalizeEvidencePath(row.Name) == target {
+						continue
+					}
+					out.NextTargets = appendInvestigationNextTarget(out.NextTargets, row.Name, "process_open_object", fmt.Sprintf("PID %d currently has this code-bearing/configuration object open.", process.PID))
+					branchCount++
+				}
+			}
+		}
+
 		out.Processes = append(out.Processes, item)
 		if target != path {
 			out.NextTargets = appendInvestigationNextTarget(out.NextTargets, target, "running_executable", fmt.Sprintf("PID %d is currently running this executable inside the selected object.", process.PID))
@@ -144,6 +201,9 @@ func BuildInvestigationRuntimeContext(rawPath string) InvestigationRuntimeContex
 				out.NextTargets = appendInvestigationNextTarget(out.NextTargets, ancestor.Target, "parent_process_executable", fmt.Sprintf("PID %d is in the parent chain of PID %d.", ancestor.PID, process.PID))
 			}
 		}
+	}
+	if len(out.Processes) > investigationOpenFileProcessQueryLimit {
+		out.Limitations = appendUniqueString(out.Limitations, fmt.Sprintf("open-file detail is collected for at most %d matched processes per branch", investigationOpenFileProcessQueryLimit))
 	}
 	sort.SliceStable(out.Processes, func(i, j int) bool { return out.Processes[i].PID < out.Processes[j].PID })
 
@@ -199,5 +259,5 @@ func (a *app) handleInvestigationRuntimeContext(w http.ResponseWriter, r *http.R
 		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "GET required"})
 		return
 	}
-	writeJSON(w, http.StatusOK, BuildInvestigationRuntimeContext(r.URL.Query().Get("path")))
+	writeJSON(w, http.StatusOK, buildInvestigationRuntimeContext(r.Context(), r.URL.Query().Get("path")))
 }
