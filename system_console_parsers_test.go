@@ -1,0 +1,78 @@
+// SPDX-License-Identifier: MPL-2.0
+package main
+
+import "testing"
+
+func TestParseProcessTableEvidence(t *testing.T) {
+	raw := `  PID  PPID USER      %CPU %MEM     ELAPSED COMM
+  101     1 alice      2.5  1.2    00:01:12 /Applications/Example.app/Contents/MacOS/Example
+  202   101 alice      0.0  0.3       02:03 /usr/bin/helper`
+	got := ParseProcessTableEvidence(raw)
+	if got.ParsedRows != 2 || len(got.Processes) != 2 {
+		t.Fatalf("process parse=%+v", got)
+	}
+	if got.Processes[0].PID != 101 || got.Processes[0].PPID != 1 || got.Processes[0].CPUPercent != 2.5 {
+		t.Fatalf("first process=%+v", got.Processes[0])
+	}
+}
+
+func TestParseFilesystemEvidence(t *testing.T) {
+	raw := `Filesystem      Size   Used  Avail Capacity iused ifree %iused Mounted on
+/dev/disk3s1s1  460Gi   15Gi  210Gi     7%  400k  2.0G    0% /
+/dev/disk3s5     460Gi  120Gi  210Gi    37%  900k  2.0G    0% /System/Volumes/Data`
+	got := ParseFilesystemEvidence(raw)
+	if got.ParsedRows != 2 || got.Filesystems[1].MountedOn != "/System/Volumes/Data" {
+		t.Fatalf("filesystem parse=%+v", got)
+	}
+}
+
+func TestParseMountEvidence(t *testing.T) {
+	raw := `/dev/disk3s1s1 on / (apfs, sealed, local, read-only, journaled)
+/dev/disk3s5 on /System/Volumes/Data (apfs, local, journaled, nobrowse)`
+	got := ParseMountEvidence(raw)
+	if got.ParsedRows != 2 {
+		t.Fatalf("mount parse=%+v", got)
+	}
+	if got.Mounts[0].Device != "/dev/disk3s1s1" || got.Mounts[0].MountedOn != "/" || len(got.Mounts[0].Options) < 3 {
+		t.Fatalf("mount row=%+v", got.Mounts[0])
+	}
+}
+
+func TestParseSigningEvidence(t *testing.T) {
+	raw := `Executable=/Applications/Example.app/Contents/MacOS/Example
+Identifier=com.example.app
+Authority=Developer ID Application: Example Corp (TEAM123456)
+Authority=Developer ID Certification Authority
+TeamIdentifier=TEAM123456
+Runtime Version=26.0.0
+Signature size=9053`
+	got := ParseSigningEvidence(raw)
+	if got.ParsedRows != 1 || got.Signing == nil {
+		t.Fatalf("signing parse=%+v", got)
+	}
+	if got.Signing.Identifier != "com.example.app" || got.Signing.TeamIdentifier != "TEAM123456" || len(got.Signing.Authorities) != 2 {
+		t.Fatalf("signing=%+v", got.Signing)
+	}
+}
+
+func TestParseGatekeeperEvidenceAcceptedAndRejected(t *testing.T) {
+	accepted := ParseGatekeeperEvidence(`/Applications/Example.app: accepted
+source=Notarized Developer ID
+origin=Developer ID Application: Example Corp (TEAM123456)`)
+	if accepted.Gatekeeper == nil || accepted.Gatekeeper.Assessment != "accepted" || accepted.Gatekeeper.Source != "Notarized Developer ID" {
+		t.Fatalf("accepted=%+v", accepted)
+	}
+
+	rejected := ParseGatekeeperEvidence(`/tmp/Example.app: rejected
+source=no usable signature`)
+	if rejected.Gatekeeper == nil || rejected.Gatekeeper.Assessment != "rejected" {
+		t.Fatalf("rejected=%+v", rejected)
+	}
+}
+
+func TestUnknownStructuredParserPreservesLimitation(t *testing.T) {
+	got := ParseSystemConsoleEvidence("power-settings", "System-wide power settings")
+	if got.Kind != "raw" || len(got.Limitations) == 0 {
+		t.Fatalf("fallback=%+v", got)
+	}
+}
