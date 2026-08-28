@@ -10,7 +10,7 @@ import (
 func TestDesktopDistributionAssets(t *testing.T) {
 	checks := map[string][]string{
 		"desktop/SentinelDesktop.swift": {"NSWorkspace.shared.open", "Process()", "--desktop", "SENTINEL_DESKTOP_BOOTSTRAP", "desktop", "value: \"1\""},
-		"build-desktop-macos.sh":        {"swiftc", "lipo -create", "NSAllowsLocalNetworking", "Sentinel.app"},
+		"build-desktop-macos.sh":        {"swiftc", "lipo -create", "Sentinel.app", "default browser + loopback-only localhost dashboard"},
 		"release-direct-macos.sh":       {"Developer ID", "--options runtime", "notarytool submit", "stapler staple", "hdiutil create"},
 		"DIRECT_DISTRIBUTION_GUIDE.md":  {"Sentinel-2.2.dmg", "Developer ID", "notarytool"},
 		"web/desktop-ui.js":             {"desktop-ui.css", "More tools", "window.fetch = async", "sentinel-task-progress", "job.phase_percent", "job.hash_bytes_done", "Hashing duplicate candidates", "No local request started"},
@@ -51,7 +51,7 @@ func TestDesktopUsesDirectLocalhostInsteadOfEmbeddedFrame(t *testing.T) {
 	if !strings.Contains(mainSource, `r.URL.Query().Get("desktop") == "1"`) || !strings.Contains(mainSource, `/desktop-ui.js`) {
 		t.Fatalf("server must inject the desktop enhancement script only for desktop=1")
 	}
-	if !strings.Contains(mainSource, `X-Frame-Options", "DENY`) || !strings.Contains(mainSource, `frame-ancestors 'none'`) {
+	if !strings.Contains(mainSource, `X-Frame-Options\", \"DENY`) || !strings.Contains(mainSource, `frame-ancestors 'none'`) {
 		t.Fatalf("desktop mode must preserve anti-framing security headers")
 	}
 
@@ -68,6 +68,18 @@ func TestDesktopUsesDirectLocalhostInsteadOfEmbeddedFrame(t *testing.T) {
 	}
 	if strings.Contains(uiJS, "preventDefault()") || strings.Contains(uiJS, "stopPropagation()") {
 		t.Fatalf("desktop UI must not intercept core button events")
+	}
+
+	// The launcher hands the loopback URL to the user's default browser via
+	// NSWorkspace. Sentinel.app itself does not load HTTP through URLSession or
+	// WKWebView, so broad ATS exceptions should not be added to the bundle.
+	buildBytes, err := os.ReadFile("build-desktop-macos.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	build := string(buildBytes)
+	if strings.Contains(build, "NSAllowsArbitraryLoads") || strings.Contains(build, "NSAllowsArbitraryLoadsInWebContent") {
+		t.Fatalf("browser-based localhost launcher must not add broad ATS exceptions")
 	}
 }
 
