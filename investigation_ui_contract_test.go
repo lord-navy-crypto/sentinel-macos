@@ -34,9 +34,12 @@ func TestContinueInvestigationRoutesAndBridgeAreWired(t *testing.T) {
 	)
 	requireInvestigationSourceContains(t, "web/investigation-bridge.js",
 		`/api/security/audit`,
+		`/api/incidents`,
 		`Continue Investigation`,
 		`/investigation.html#`,
-		`startingPath`,
+		`findingStartingPath`,
+		`incidentStartingPath`,
+		`attachIncidentButtons`,
 	)
 }
 
