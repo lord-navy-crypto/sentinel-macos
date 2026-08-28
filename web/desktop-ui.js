@@ -264,6 +264,104 @@
     }
   };
 
+  const inspectPayloadPaths = new Set([
+    '/api/system-profile', '/api/quick-check', '/api/review-queue', '/api/guided-snapshot', '/api/readiness',
+    '/api/weakness-audit', '/api/coverage', '/api/advanced-sensor/status', '/api/security/audit',
+    '/api/intelligence/graph', '/api/intelligence/timeline', '/api/behavior', '/api/behavior/history', '/api/behavior/health',
+    '/api/trust/status', '/api/trust/capture', '/api/trust/compare', '/api/trust/health', '/api/trust/history',
+    '/api/processes', '/api/startup', '/api/persistence', '/api/background', '/api/network',
+    '/api/changes/status', '/api/changes/events', '/api/changes/start', '/api/changes/stop', '/api/changes/history',
+    '/api/incidents', '/api/actions/status', '/api/actions/health', '/api/actions/vault', '/api/actions/journal',
+    '/api/cleanup/preview', '/api/capabilities'
+  ]);
+
+  const completionDetail = (info, payload, response) => {
+    if (!response.ok) {
+      const err = payload?.error ? ` · ${payload.error}` : '';
+      return `HTTP ${response.status}${err}`;
+    }
+    const p = payload || {};
+    switch (info.path) {
+      case '/api/system-profile':
+        return `${p.model_name || 'Mac'} · ${p.chip || p.processor || p.architecture || 'hardware read'} · ${p.os_version || 'macOS'}`;
+      case '/api/quick-check':
+        return `Attention Index ${Number(p.attention_index || 0)} · ${p.band || 'complete'} · ${p.recommendations?.length || 0} recommendation(s)`;
+      case '/api/review-queue':
+        return `${p.items?.length || 0} review item(s) · ${Number(p.counts?.high || 0)} high · ${Number(p.counts?.review || 0)} review`;
+      case '/api/guided-snapshot':
+        return `Monitoring Snapshot captured · ${Number(p.graph_nodes || 0)} graph nodes · Behavior ${Number(p.behavior?.risk_index || 0)} · Persistence ${p.persistence?.initialized ? 'baseline ready' : 'not initialized'}${p.trust_ran ? ` · Trust ${Number(p.trust?.drift_index || 0)}` : ' · Trust not run (no profile)'}`;
+      case '/api/weakness-audit':
+        return `Sentinel posture ${Number(p.score || 0)}/100 · ${p.findings?.length || 0} finding(s)`;
+      case '/api/coverage':
+        return `${Number(p.available || 0)} available · ${Number(p.limited || 0)} limited · ${Number(p.unavailable || 0)} unavailable`;
+      case '/api/advanced-sensor/status':
+        return `${p.mode || 'sensor status'} · ${p.enabled ? 'enabled' : 'not enabled'}${p.entitlement_needed ? ' · Apple entitlement required' : ''}`;
+      case '/api/security/audit':
+        return `Security audit ${p.level || 'complete'} · score ${Number(p.score || 0)} · ${p.findings?.length || 0} finding(s)`;
+      case '/api/intelligence/graph':
+        return `Evidence graph ${p.nodes?.length || 0} nodes · ${p.edges?.length || 0} relationships${info.method === 'POST' ? ' · session observation captured' : ''}`;
+      case '/api/intelligence/timeline':
+        return `${p.events?.length || 0} session observation(s) loaded`;
+      case '/api/behavior':
+        if (info.method === 'POST') {
+          return p.first_baseline
+            ? `Behavior baseline established · future captures can compare against this session/reference state`
+            : `Behavior comparison complete · index ${Number(p.risk_index || 0)} · ${p.changes?.length || 0} change(s) · history depth ${Number(p.history_depth || 0)}`;
+        }
+        return `${p.has_baseline ? 'Behavior baseline available' : 'No Behavior baseline yet'} · ${Number(p.history_entries || 0)} history entr${Number(p.history_entries || 0) === 1 ? 'y' : 'ies'}`;
+      case '/api/behavior/history':
+        return `${p.entries?.length || 0} Behavior history entr${p.entries?.length === 1 ? 'y' : 'ies'} loaded`;
+      case '/api/behavior/health':
+        return `${p.healthy ? 'Behavior baseline storage healthy' : 'Behavior baseline storage needs review'} · ${p.mode || 'unknown mode'}`;
+      case '/api/trust/status':
+        return `${p.has_profile ? `Trusted Profile available · ${Number(p.objects || 0)} objects` : 'No Trusted Profile established yet'}`;
+      case '/api/trust/capture':
+        return `Trusted Profile captured · ${p.objects?.length || 0} object(s) in the bounded reference`;
+      case '/api/trust/compare':
+        return p.profile_at ? `Trust comparison complete · drift ${Number(p.drift_index || 0)} · ${p.changes?.length || 0} change(s)` : (p.note || 'No Trusted Profile exists yet');
+      case '/api/trust/health':
+        return `${p.healthy ? 'Trust profile storage healthy' : 'Trust profile storage needs review'} · ${Number(p.objects || 0)} object(s)`;
+      case '/api/trust/history':
+        return `${p.entries?.length || 0} Trust comparison histor${p.entries?.length === 1 ? 'y' : 'ies'} loaded`;
+      case '/api/persistence':
+        if (info.method === 'POST') {
+          return `${p.initialized ? 'Persistence session baseline ready' : 'Persistence not initialized'} · ${Number(p.files || 0)} visible plist file(s) · ${p.changes?.length || 0} change(s)`;
+        }
+        return `${p.initialized ? 'Persistence session baseline available' : 'No persistence session baseline yet'} · ${Number(p.files || 0)} plist file(s)`;
+      case '/api/changes/start':
+      case '/api/changes/stop':
+      case '/api/changes/status':
+        return `${p.running ? 'Change Monitor running' : 'Change Monitor stopped'} · ${p.mode || 'stopped'} · ${p.roots?.length || 0} watched root(s)`;
+      case '/api/changes/events':
+      case '/api/changes/history':
+        return `${p.events?.length || 0} change event(s) loaded · ${p.status?.mode || 'stopped'}`;
+      case '/api/incidents':
+        return `${Number(p.count || p.incidents?.length || 0)} incident(s) · ${Number(p.high || 0)} high · ${Number(p.review || 0)} review`;
+      case '/api/processes':
+        return `${p.processes?.length || 0} process(es) loaded`;
+      case '/api/startup':
+        return `${p.items?.length || 0} startup item(s) loaded`;
+      case '/api/background':
+        return `${p.available ? `${p.items?.length || 0} background item(s) loaded` : 'Background Task Management unavailable on this host'}`;
+      case '/api/network':
+        return `${p.items?.length || 0} TCP activity item(s) loaded${p.warning ? ` · ${p.warning}` : ''}`;
+      case '/api/actions/status':
+        return `${p.enabled ? 'Safe Actions enabled with recovery guards' : 'Safe Actions read-only/disabled'} · ${p.mode || 'unknown mode'}`;
+      case '/api/actions/health':
+        return `${p.healthy ? 'Safe Actions recovery state healthy' : 'Safe Actions recovery state needs review'} · ${Number(p.active_vault_items || 0)} Vault item(s)`;
+      case '/api/actions/vault':
+        return `${p.items?.length || 0} Vault item(s) loaded`;
+      case '/api/actions/journal':
+        return `${p.entries?.length || 0} reversible action journal entr${p.entries?.length === 1 ? 'y' : 'ies'} loaded`;
+      case '/api/cleanup/preview':
+        return `${p.items?.length || 0} cleanup candidate(s) measured · no files modified`;
+      case '/api/capabilities':
+        return `${p.items?.filter?.(x => x.available)?.length || 0}/${p.items?.length || 0} local evidence source(s) available`;
+      default:
+        return `HTTP ${response.status} returned successfully from the local Sentinel engine.`;
+    }
+  };
+
   const originalFetch = window.fetch.bind(window);
   window.fetch = async (...args) => {
     const input = args[0];
@@ -275,10 +373,12 @@
 
     try {
       const response = await originalFetch(...args);
-      if (isStorageJob && response.ok) {
-        response.clone().json().then(handleStorageJob).catch(() => {});
+      let payload = null;
+      if (response.headers.get('content-type')?.includes('application/json') && (isStorageJob || inspectPayloadPaths.has(info.path) || !response.ok)) {
+        payload = await response.clone().json().catch(() => null);
       }
-      const detail = `HTTP ${response.status} returned from the local Sentinel engine.`;
+      if (isStorageJob && response.ok && payload) handleStorageJob(payload);
+      const detail = completionDetail(info, payload, response);
       finishRequest(panel, info, response.ok, detail, isStorageJob && response.ok);
       return response;
     } catch (error) {
