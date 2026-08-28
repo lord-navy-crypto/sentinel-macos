@@ -142,13 +142,21 @@ func main() {
 	mux.HandleFunc("/api/advanced-sensor/status", a.auth(a.handleAdvancedSensorStatus))
 	mux.HandleFunc("/api/readiness", a.auth(a.work.wrap("readiness", a.handleReadiness)))
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/" && r.URL.Query().Get("desktop") == "1" {
+		if r.URL.Path == "/" || r.URL.Path == "/index.html" {
 			page, readErr := fs.ReadFile(staticFS, "index.html")
 			if readErr != nil {
 				http.Error(w, "Sentinel dashboard unavailable", http.StatusInternalServerError)
 				return
 			}
-			html := strings.Replace(string(page), "</body>", "<script src=\"/desktop-ui.js\"></script>\n</body>", 1)
+			html := strings.Replace(
+				string(page),
+				"<script src=\"/app.js\"></script>",
+				"<script src=\"/core-compat.js\"></script>\n<script src=\"/app.js\"></script>",
+				1,
+			)
+			if r.URL.Query().Get("desktop") == "1" {
+				html = strings.Replace(html, "</body>", "<script src=\"/desktop-ui.js\"></script>\n</body>", 1)
+			}
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			_, _ = w.Write([]byte(html))
 			return
