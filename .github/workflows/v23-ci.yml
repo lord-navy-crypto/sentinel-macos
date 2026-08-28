@@ -36,7 +36,11 @@ jobs:
         run: go vet ./...
 
       - name: JavaScript syntax
-        run: node --check web/app.js
+        run: |
+          node --check web/app.js
+          node --check web/core-compat.js
+          node --check web/desktop-ui.js
+          node --check web/system-console.js
 
       - name: Shell syntax
         run: |
