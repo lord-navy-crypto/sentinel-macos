@@ -13,8 +13,8 @@ func TestDesktopDistributionAssets(t *testing.T) {
 		"build-desktop-macos.sh":        {"swiftc", "lipo -create", "NSAllowsLocalNetworking", "Sentinel.app"},
 		"release-direct-macos.sh":       {"Developer ID", "--options runtime", "notarytool submit", "stapler staple", "hdiutil create"},
 		"DIRECT_DISTRIBUTION_GUIDE.md":  {"Sentinel-2.2.dmg", "Developer ID", "notarytool"},
-		"web/desktop-ui.js":             {"desktop-ui.css", "More tools", "Sentinel is working", "window.fetch = async"},
-		"web/desktop-ui.css":            {".mode-switch{display:none!important}", "overflow-y:auto", "sentinelGlobalActivity"},
+		"web/desktop-ui.js":             {"desktop-ui.css", "More tools", "window.fetch = async", "sentinel-task-progress", "storageEstimate", "No local request started"},
+		"web/desktop-ui.css":            {".mode-switch{display:none!important}", "grid-template-columns:244px", "overflow-y:scroll!important", ".sentinel-task-progress", ".sentinel-percent-bar"},
 	}
 	for path, needles := range checks {
 		b, err := os.ReadFile(path)
@@ -65,6 +65,33 @@ func TestDesktopUsesDirectLocalhostInsteadOfEmbeddedFrame(t *testing.T) {
 	}
 	if strings.Contains(uiJS, ".mode-switch')?.remove") || strings.Contains(uiJS, ".mode-switch\")?.remove") {
 		t.Fatalf("desktop UI must not delete compatibility nodes used by app.js")
+	}
+	if strings.Contains(uiJS, "preventDefault()") || strings.Contains(uiJS, "stopPropagation()") {
+		t.Fatalf("desktop UI must not intercept core button events")
+	}
+}
+
+func TestDesktopTwoPaneScrollIsIndependent(t *testing.T) {
+	b, err := os.ReadFile("web/desktop-ui.css")
+	if err != nil {
+		t.Fatal(err)
+	}
+	css := string(b)
+	checks := []string{
+		"html,body{",
+		"overflow:hidden!important",
+		"position:fixed!important",
+		"display:grid!important",
+		"grid-template-columns:244px minmax(0,1fr)!important",
+		".sidebar{",
+		"overflow-y:scroll!important",
+		"main{",
+		"overscroll-behavior-y:contain!important",
+	}
+	for _, needle := range checks {
+		if !strings.Contains(css, needle) {
+			t.Fatalf("desktop independent scrolling missing %q", needle)
+		}
 	}
 }
 
