@@ -45,10 +45,23 @@ go test ./...
 bash SMOKE_TEST_LOCALHOST.command
 ```
 
-For an unsigned/unnotarized local-test DMG:
+For an unsigned/unnotarized local development DMG:
 
 ```bash
 ./package-dev-dmg-macos.sh
+```
+
+For the current public-testing Beta DMG:
+
+```bash
+SENTINEL_RELEASE_CHANNEL=beta ./package-dev-dmg-macos.sh
+```
+
+This produces:
+
+```text
+dist/Sentinel-2.2-beta.dmg
+dist/Sentinel-2.2-beta.dmg.sha256
 ```
 
 ## Beta artifact naming
@@ -78,9 +91,9 @@ Recommended flow:
 
 1. Full tests pass.
 2. Build `Sentinel.app` on the real Mac.
-3. Build the Beta DMG.
+3. Build the Beta DMG with `SENTINEL_RELEASE_CHANNEL=beta`.
 4. Verify the DMG by mounting it and launching the copied app.
-5. Generate SHA-256.
+5. Verify the generated SHA-256.
 6. Publish the DMG and checksum on a GitHub Beta/pre-release.
 7. Keep the source repository and release notes tied to the exact commit used for the DMG.
 
@@ -163,7 +176,7 @@ A non-macOS environment cannot compile AppKit/WebKit against the macOS SDK, run 
 ## Double-click developer helpers
 
 - `BUILD_DESKTOP_APP.command` builds and opens the local desktop app.
-- `BUILD_DEV_DMG.command` builds the unsigned/unnotarized Beta/test DMG.
+- `BUILD_DEV_DMG.command` builds the unsigned/unnotarized development DMG.
 - `CHECK_MAC_RELEASE_PREREQS.command` is for the later Developer ID phase.
 - `RELEASE_DEVELOPER_ID.command` is for the later signed/notarized production phase.
 
