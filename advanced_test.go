@@ -4,6 +4,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -80,6 +81,51 @@ func TestAdvancedStorageCancellation(t *testing.T) {
 	}
 	if r == nil || !r.Cancelled {
 		t.Fatal("expected cancelled result")
+	}
+}
+
+func TestAdvancedStorageDenseDirectoryCompletes(t *testing.T) {
+	root := t.TempDir()
+	dense := filepath.Join(root, "objects")
+	if err := os.MkdirAll(dense, 0700); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < storageDirBatchSize*3+17; i++ {
+		name := filepath.Join(dense, fmt.Sprintf("%04d.bin", i))
+		if err := os.WriteFile(name, []byte{byte(i)}, 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	r, err := scanStorageAdvanced(context.Background(), root, 1, 20, func(storageProgress) {})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.FilesVisited != storageDirBatchSize*3+17 {
+		t.Fatalf("files visited=%d", r.FilesVisited)
+	}
+	if r.SlowPathsSkipped != 0 {
+		t.Fatalf("unexpected slow paths=%d", r.SlowPathsSkipped)
+	}
+}
+
+func TestAdvancedStorageDoesNotFollowSymlinks(t *testing.T) {
+	root := t.TempDir()
+	outside := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "inside.bin"), []byte("inside"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(outside, "outside.bin"), []byte("outside"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(root, "linked-outside")); err != nil {
+		t.Skipf("symlink unavailable: %v", err)
+	}
+	r, err := scanStorageAdvanced(context.Background(), root, 1, 20, func(storageProgress) {})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.FilesVisited != 1 {
+		t.Fatalf("symlink traversal leaked outside scope; files visited=%d", r.FilesVisited)
 	}
 }
 
