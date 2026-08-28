@@ -2,6 +2,7 @@
 (() => {
   const token = new URLSearchParams(location.hash.slice(1)).get('token') || '';
   const $ = (s) => document.querySelector(s);
+  const toolIndex = new Map();
 
   function el(tag, attrs = {}, text = '') {
     const node = document.createElement(tag);
@@ -80,6 +81,7 @@
 
   function renderTool(tool) {
     const card = el('article', {class: 'tool-card'});
+    card.dataset.toolId = tool.id;
     const header = el('header');
     const title = el('h4', {}, tool.name || tool.id);
     const availability = el(
@@ -135,8 +137,10 @@
   function renderCatalog(catalog) {
     const groups = $('#toolGroups');
     groups.replaceChildren();
+    toolIndex.clear();
     const byIntent = new Map();
     for (const tool of catalog.tools || []) {
+      toolIndex.set(tool.id, tool);
       const intent = tool.intent || 'other';
       if (!byIntent.has(intent)) byIntent.set(intent, []);
       byIntent.get(intent).push(tool);
@@ -151,6 +155,50 @@
       for (const tool of tools) grid.append(renderTool(tool));
       group.append(grid);
       groups.append(group);
+    }
+  }
+
+  function focusTool(tool) {
+    const card = document.querySelector(`[data-tool-id="${CSS.escape(tool.id)}"]`);
+    if (!card) {
+      setNotice('System tool is not available in the current catalog.');
+      return;
+    }
+    card.scrollIntoView({behavior: 'smooth', block: 'center'});
+    const input = card.querySelector('input');
+    if (input) {
+      input.focus();
+      setNotice(tool.target_kind === 'pid' ? 'Enter the PID to continue.' : 'Enter an absolute path to continue.');
+    }
+  }
+
+  function installRecipes() {
+    for (const button of document.querySelectorAll('[data-recipe-focus="object"]')) {
+      button.addEventListener('click', () => {
+        const input = $('#objectPath');
+        input.scrollIntoView({behavior: 'smooth', block: 'center'});
+        input.focus();
+        setNotice('Enter an absolute app or file path. Sentinel will combine multiple local evidence sources.');
+      });
+    }
+    for (const button of document.querySelectorAll('[data-recipe-tool]')) {
+      button.addEventListener('click', () => {
+        const tool = toolIndex.get(button.dataset.recipeTool || '');
+        if (!tool) {
+          setNotice('System tool catalog is still loading.');
+          return;
+        }
+        if (!tool.available) {
+          setNotice(`${tool.name} is unavailable on this Mac.`);
+          focusTool(tool);
+          return;
+        }
+        if (tool.target_kind) {
+          focusTool(tool);
+          return;
+        }
+        runTool(tool, '', button);
+      });
     }
   }
 
@@ -221,6 +269,7 @@
   });
 
   $('#backLink').href = `/#token=${encodeURIComponent(token)}`;
+  installRecipes();
 
   if (!token) {
     setNotice('Missing Sentinel session token. Open System Console from the running local Sentinel session.');
