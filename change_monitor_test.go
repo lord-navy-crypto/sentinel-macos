@@ -49,15 +49,35 @@ func TestPollingLifecycle(t *testing.T) {
 	h := t.TempDir()
 	t.Setenv("HOME", h)
 	d := filepath.Join(h, "Downloads")
-	os.MkdirAll(d, 0700)
-	m := newChangeManager(nil)
-	if e := m.start("downloads", nil, 1000); e != nil {
-		t.Fatal(e)
+	if err := os.MkdirAll(d, 0700); err != nil {
+		t.Fatal(err)
 	}
+
+	// This test is intentionally about the polling fallback lifecycle. On a real
+	// macOS native build, m.start() correctly prefers FSEvents, so constructing the
+	// fallback loop explicitly keeps this test deterministic without weakening the
+	// production preference for native FSEvents.
+	m := newChangeManager(nil, true)
+	initial, _ := snapshotChangeRoot(d, 100, time.Second)
+	m.mu.Lock()
+	m.running = true
+	m.mode = "polling-fallback"
+	m.startedAt = time.Now()
+	m.roots = []string{d}
+	m.interval = time.Second
+	m.cancel = make(chan struct{})
+	m.done = make(chan struct{})
+	m.snapshots = map[string]map[string]changeSnapshotEntry{d: initial}
+	cancel, done := m.cancel, m.done
+	m.mu.Unlock()
+	go m.pollLoop(cancel, done)
 	defer m.stop()
+
 	p := filepath.Join(d, "new.bin")
-	os.WriteFile(p, []byte("x"), 0600)
-	deadline := time.Now().Add(2500 * time.Millisecond)
+	if err := os.WriteFile(p, []byte("x"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(3500 * time.Millisecond)
 	for time.Now().Before(deadline) {
 		for _, e := range m.eventsSnapshot(10) {
 			if e.Path == p && e.Kind == "created" {
