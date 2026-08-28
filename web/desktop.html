@@ -1,0 +1,134 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: MPL-2.0 -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Sentinel Mac</title>
+  <style>
+    html,body{height:100%;margin:0;overflow:hidden;background:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    #dashboard{display:block;width:100%;height:100%;border:0;background:#fff}
+    #activity{position:fixed;z-index:1000;left:0;right:0;top:0;height:4px;pointer-events:none;opacity:0;transition:opacity .14s ease;background:transparent}
+    #activity.visible{opacity:1}
+    #activity::after{content:"";display:block;height:100%;width:34%;background:#111;animation:sentinel-slide 1.05s ease-in-out infinite}
+    #activityText{position:fixed;z-index:1001;right:14px;top:10px;padding:7px 10px;border:1px solid #d8d8d8;border-radius:9px;background:rgba(255,255,255,.96);color:#222;font-size:11px;box-shadow:0 4px 18px rgba(0,0,0,.08);opacity:0;transform:translateY(-4px);transition:opacity .14s ease,transform .14s ease;pointer-events:none}
+    #activityText.visible{opacity:1;transform:translateY(0)}
+    @keyframes sentinel-slide{0%{transform:translateX(-115%)}55%{transform:translateX(210%)}100%{transform:translateX(310%)}}
+    @media(prefers-color-scheme:dark){html,body,#dashboard{background:#101318}#activity::after{background:#f2f2f2}#activityText{background:rgba(20,20,20,.96);border-color:#3a3a3a;color:#f1f1f1}}
+    @media(prefers-reduced-motion:reduce){#activity::after{animation:none;width:100%}}
+  </style>
+</head>
+<body>
+  <div id="activity" aria-hidden="true"></div>
+  <div id="activityText" role="status" aria-live="polite">Loading Sentinel…</div>
+  <iframe id="dashboard" title="Sentinel dashboard"></iframe>
+<script>
+(() => {
+  const token = new URLSearchParams(location.hash.slice(1)).get('token') || '';
+  const frame = document.getElementById('dashboard');
+  const bar = document.getElementById('activity');
+  const text = document.getElementById('activityText');
+  let activeRequests = 0;
+  let hideTimer = null;
+  let clickTimer = null;
+
+  function showActivity(message='Sentinel is working…') {
+    clearTimeout(hideTimer);
+    bar.classList.add('visible');
+    text.textContent = message;
+    text.classList.add('visible');
+  }
+  function hideActivitySoon() {
+    clearTimeout(hideTimer);
+    hideTimer = setTimeout(() => {
+      if (activeRequests === 0) {
+        bar.classList.remove('visible');
+        text.classList.remove('visible');
+      }
+    }, 320);
+  }
+  function beginRequest() {
+    activeRequests += 1;
+    showActivity(activeRequests > 1 ? `Sentinel is working… ${activeRequests} local requests` : 'Sentinel is working…');
+  }
+  function endRequest() {
+    activeRequests = Math.max(0, activeRequests - 1);
+    if (activeRequests === 0) hideActivitySoon();
+    else showActivity(`Sentinel is working… ${activeRequests} local requests`);
+  }
+
+  showActivity('Loading Sentinel dashboard…');
+  frame.src = '/#token=' + encodeURIComponent(token);
+
+  frame.addEventListener('load', () => {
+    const win = frame.contentWindow;
+    const doc = frame.contentDocument;
+    if (!win || !doc) return;
+
+    const style = doc.createElement('style');
+    style.id = 'sentinel-desktop-localhost-layout';
+    style.textContent = `
+      .mode-switch{display:none!important}
+      .advanced-nav,.easy-mode .advanced-nav{display:block!important}
+      html,body{height:100%!important;overflow:hidden!important}
+      body{margin:0!important}
+      .app{height:100vh!important;min-height:0!important;grid-template-columns:244px minmax(0,1fr)!important;overflow:hidden!important}
+      .sidebar{height:100vh!important;min-height:0!important;position:relative!important;top:auto!important;overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior:contain!important;scrollbar-gutter:stable!important}
+      .sidebar nav{display:block!important;overflow:visible!important;min-height:0!important}
+      .sidebar-actions{display:block!important}
+      .privacy{display:flex!important}
+      .nav{width:100%!important;white-space:normal!important}
+      main{height:100vh!important;min-height:0!important;min-width:0!important;max-width:none!important;margin:0!important;overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior:contain!important;scrollbar-gutter:stable!important}
+      button:disabled{cursor:progress!important}
+      button[data-sentinel-pending="1"]{opacity:.72!important;cursor:progress!important}
+      @media(max-width:719px){
+        html,body{overflow:auto!important}
+        .app{height:auto!important;min-height:100vh!important;display:block!important;overflow:visible!important}
+        .sidebar{height:auto!important;max-height:42vh!important;overflow-y:auto!important;border-bottom:1px solid var(--line)!important}
+        main{height:auto!important;min-height:58vh!important;overflow:visible!important}
+      }
+    `;
+    doc.head.appendChild(style);
+
+    // Force one unified navigation model without touching Sentinel's core app.js.
+    doc.body.classList.remove('easy-mode');
+
+    // Every later fetch made by the existing Sentinel app receives visible feedback.
+    const originalFetch = win.fetch.bind(win);
+    win.fetch = async (...args) => {
+      beginRequest();
+      try {
+        return await originalFetch(...args);
+      } finally {
+        endRequest();
+      }
+    };
+
+    // Immediate acknowledgement for action buttons. Navigation-only buttons are skipped.
+    doc.addEventListener('click', event => {
+      const button = event.target.closest('button');
+      if (!button || button.disabled || button.classList.contains('nav') || button.hasAttribute('data-go')) return;
+      button.dataset.sentinelPending = '1';
+      clearTimeout(clickTimer);
+      showActivity(`Starting: ${(button.textContent || 'action').trim()}…`);
+      clickTimer = setTimeout(() => {
+        button.removeAttribute('data-sentinel-pending');
+        if (activeRequests === 0) hideActivitySoon();
+      }, 900);
+    }, true);
+
+    // Remove the temporary button marker after a request settles.
+    const cleanupButtons = () => doc.querySelectorAll('button[data-sentinel-pending="1"]').forEach(b => b.removeAttribute('data-sentinel-pending'));
+    const originalEndRequest = endRequest;
+    endRequest = function() {
+      originalEndRequest();
+      if (activeRequests === 0) cleanupButtons();
+    };
+
+    activeRequests = 0;
+    hideActivitySoon();
+  }, {once:true});
+})();
+</script>
+</body>
+</html>
