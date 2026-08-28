@@ -238,6 +238,10 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
                 continue
             }
 
+            // The App opens a localhost-only desktop wrapper. The wrapper keeps the
+            // original Sentinel web UI and API logic, but adds independent scrolling,
+            // unified navigation, and visible request progress without a second UI codepath.
+            components.path = "/desktop.html"
             components.fragment = "token=\(payload.token)"
             guard let url = components.url else { continue }
 
