@@ -22,14 +22,21 @@ func TestWebUIEventTargetsExist(t *testing.T) {
 	html := readUIFile(t, "web/index.html")
 	js := readUIFile(t, "web/app.js")
 
-	// Every direct $('#id').addEventListener(...) binding must point at a real
-	// element. One missing node can stop the remainder of the initialization
-	// statement and make many later buttons appear dead.
+	// Every direct $('#id').addEventListener(...) binding must point either to
+	// a static node in index.html or to a node that app.js created earlier in
+	// the same source. This catches genuinely missing controls without falsely
+	// rejecting detail/story buttons that are intentionally rendered at runtime.
 	re := regexp.MustCompile(`\$\('#([A-Za-z0-9_-]+)'\)\.addEventListener`)
-	for _, match := range re.FindAllStringSubmatch(js, -1) {
-		id := match[1]
-		if !strings.Contains(html, `id="`+id+`"`) {
-			t.Errorf("app.js binds #%s but web/index.html has no such id", id)
+	for _, match := range re.FindAllStringSubmatchIndex(js, -1) {
+		id := js[match[2]:match[3]]
+		if strings.Contains(html, `id="`+id+`"`) {
+			continue
+		}
+		beforeBinding := js[:match[0]]
+		dynamicDouble := `id="` + id + `"`
+		dynamicSingle := `id='` + id + `'`
+		if !strings.Contains(beforeBinding, dynamicDouble) && !strings.Contains(beforeBinding, dynamicSingle) {
+			t.Errorf("app.js binds #%s but it is neither static in web/index.html nor dynamically created before the binding", id)
 		}
 	}
 }
