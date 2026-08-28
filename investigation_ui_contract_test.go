@@ -48,10 +48,12 @@ func TestContinueInvestigationWorkspaceSupportsBranchingAndCorrelation(t *testin
 		`Object Story`,
 		`Runtime & Persistence Context`,
 		`Review candidates`,
+		`Review Priority only orders local evidence`,
 		`Continue from related objects`,
 		`/investigation.js`,
 	)
 	requireInvestigationSourceContains(t, "web/investigation.js",
+		`X-Sentinel-Token`,
 		`/api/security/investigate`,
 		`parent_id`,
 		`/api/object/story?path=`,
@@ -60,13 +62,13 @@ func TestContinueInvestigationWorkspaceSupportsBranchingAndCorrelation(t *testin
 		`history.splice`,
 		`Continue from here`,
 		`Investigate running executable`,
-		`Review Priority only orders local evidence`,
+		`Open files / loaded objects`,
 	)
 }
 
 func TestContinueInvestigationWebSurfaceAvoidsDynamicCodeExecution(t *testing.T) {
 	for _, path := range []string{"web/investigation.js", "web/investigation-bridge.js"} {
-		source := requireInvestigationSourceContains(t, path, `X-Sentinel-Token`)
+		source := requireInvestigationSourceContains(t, path)
 		for _, forbidden := range []string{"eval(", "new Function(", "document.write("} {
 			if strings.Contains(source, forbidden) {
 				t.Fatalf("%s contains forbidden dynamic-code pattern %q", path, forbidden)
@@ -97,6 +99,9 @@ func TestInvestigationRuntimeContextRemainsCorrelationOnly(t *testing.T) {
 		`collectStartupItems()`,
 		`collectBackgroundItems()`,
 		`processParentChain`,
+		`process-open-files`,
+		`RunStructuredSystemConsoleQuery`,
+		`investigationOpenFileProcessQueryLimit`,
 		`not proof of malicious intent`,
 	)
 	for _, forbidden := range []string{"os.Remove(", "os.RemoveAll(", "os.Rename(", "exec.Command("} {
@@ -104,4 +109,12 @@ func TestInvestigationRuntimeContextRemainsCorrelationOnly(t *testing.T) {
 			t.Fatalf("runtime investigation context unexpectedly contains mutation/command pattern %q", forbidden)
 		}
 	}
+}
+
+func TestSystemConsoleRendersStructuredOpenFileEvidence(t *testing.T) {
+	requireInvestigationSourceContains(t, "web/system-console.js",
+		`structured.open_files`,
+		`Process open files & objects`,
+		`Name / path`,
+	)
 }
