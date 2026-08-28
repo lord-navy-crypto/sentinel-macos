@@ -13,7 +13,7 @@ func TestDesktopDistributionAssets(t *testing.T) {
 		"build-desktop-macos.sh":        {"swiftc", "lipo -create", "NSAllowsLocalNetworking", "Sentinel.app"},
 		"release-direct-macos.sh":       {"Developer ID", "--options runtime", "notarytool submit", "stapler staple", "hdiutil create"},
 		"DIRECT_DISTRIBUTION_GUIDE.md":  {"Sentinel-2.2.dmg", "Developer ID", "notarytool"},
-		"web/desktop-ui.js":             {"desktop-ui.css", "More tools", "window.fetch = async", "sentinel-task-progress", "storageEstimate", "No local request started"},
+		"web/desktop-ui.js":             {"desktop-ui.css", "More tools", "window.fetch = async", "sentinel-task-progress", "job.phase_percent", "job.hash_bytes_done", "Hashing duplicate candidates", "No local request started"},
 		"web/desktop-ui.css":            {".mode-switch{display:none!important}", "grid-template-columns:244px", "overflow-y:scroll!important", ".sentinel-task-progress", ".sentinel-percent-bar"},
 	}
 	for path, needles := range checks {
