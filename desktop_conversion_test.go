@@ -51,7 +51,7 @@ func TestDesktopUsesDirectLocalhostInsteadOfEmbeddedFrame(t *testing.T) {
 	if !strings.Contains(mainSource, `r.URL.Query().Get("desktop") == "1"`) || !strings.Contains(mainSource, `/desktop-ui.js`) {
 		t.Fatalf("server must inject the desktop enhancement script only for desktop=1")
 	}
-	if !strings.Contains(mainSource, `X-Frame-Options\", \"DENY`) || !strings.Contains(mainSource, `frame-ancestors 'none'`) {
+	if !strings.Contains(mainSource, `X-Frame-Options", "DENY`) || !strings.Contains(mainSource, `frame-ancestors 'none'`) {
 		t.Fatalf("desktop mode must preserve anti-framing security headers")
 	}
 
