@@ -140,17 +140,21 @@ func TestSystemConsoleIntegrationContract(t *testing.T) {
 		"main.go": {
 			"/api/system/console",
 			"/api/system/query",
+			"/api/system/query/structured",
 			"/api/system/object/inspect",
 		},
 		"web/system-console.html": {
 			"Start with a question, not a command",
 			"data-recipe-tool",
 			"Inspect a Mac object",
+			"structuredOutput",
+			"Raw evidence",
 			"/system-console.js",
 		},
 		"web/system-console.js": {
-			"/api/system/query",
+			"/api/system/query/structured",
 			"/api/system/object/inspect",
+			"renderStructuredEvidence",
 			"toolIndex",
 			"data-recipe-tool",
 		},
