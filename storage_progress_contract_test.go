@@ -22,6 +22,8 @@ func TestStorageProgressContract(t *testing.T) {
 	for _, field := range []string{
 		`json:"phase"`,
 		`json:"phase_percent"`,
+		`json:"slow_paths_skipped"`,
+		`json:"current_dir,omitempty"`,
 		`json:"hash_files_done"`,
 		`json:"hash_files_total"`,
 		`json:"hash_bytes_done"`,
@@ -47,6 +49,30 @@ func TestStorageProgressContract(t *testing.T) {
 		if !strings.Contains(js, field) {
 			t.Fatalf("desktop storage progress UI missing %q", field)
 		}
+	}
+}
+
+func TestStorageWalkerHasSlowPathGuards(t *testing.T) {
+	b, err := os.ReadFile("advanced.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(b)
+	for _, required := range []string{
+		"readStorageDirBatches",
+		"storageDirBatchSize",
+		"storageDirIdleTimeout",
+		"storageMaxSlowPaths",
+		"errStorageSlowDirectory",
+		"Readdir(storageDirBatchSize)",
+		"SlowPathsSkipped",
+	} {
+		if !strings.Contains(source, required) {
+			t.Fatalf("resilient storage walker missing %q", required)
+		}
+	}
+	if strings.Contains(source, "filepath.WalkDir(root") {
+		t.Fatal("advanced storage scan must not use the old monolithic filepath.WalkDir path")
 	}
 }
 
