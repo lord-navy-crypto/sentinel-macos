@@ -1,28 +1,148 @@
 /* SPDX-License-Identifier: MPL-2.0 */
 /*
- * Desktop/localhost presentation only. This file must never own Sentinel
- * behavior. The core UI remains web/index.html + web/app.js.
+ * Desktop/localhost presentation only.
+ * Core behavior remains web/index.html + web/app.js.
  */
+
+/* Keep the legacy mode controls as compatibility nodes for app.js, but never
+ * show Easy / Advanced in the desktop localhost UI. */
 .mode-switch{display:none!important}
 .advanced-nav,.easy-mode .advanced-nav{display:block!important}
-html,body{height:100%;overflow:hidden}
-body{margin:0}
-.app{height:100vh;min-height:0;grid-template-columns:244px minmax(0,1fr);overflow:hidden}
-.sidebar{height:100vh!important;min-height:0!important;position:relative!important;top:auto!important;overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior:contain;scrollbar-gutter:stable}
-.sidebar nav{display:block!important;overflow:visible!important;min-height:0}
-.sidebar-actions{display:block!important}
-.privacy{display:flex!important}
-.nav{width:100%!important;white-space:normal!important}
-main{height:100vh;min-height:0;min-width:0;max-width:none!important;margin:0!important;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-gutter:stable}
 
-#sentinelGlobalActivity{position:fixed;z-index:5000;left:244px;right:0;top:0;height:4px;pointer-events:none;opacity:0;transition:opacity .14s ease;background:transparent}
-#sentinelGlobalActivity.visible{opacity:1}
-#sentinelGlobalActivity::after{content:"";display:block;height:100%;width:34%;background:#111;animation:sentinel-slide 1.05s ease-in-out infinite}
-#sentinelGlobalActivityText{position:fixed;z-index:5001;right:16px;top:12px;max-width:min(460px,calc(100vw - 40px));padding:7px 10px;border:1px solid #d8d8d8;border-radius:9px;background:rgba(255,255,255,.96);color:#222;font-size:11px;box-shadow:0 4px 18px rgba(0,0,0,.08);opacity:0;transform:translateY(-4px);transition:opacity .14s ease,transform .14s ease;pointer-events:none}
-#sentinelGlobalActivityText.visible{opacity:1;transform:translateY(0)}
-#sentinelGlobalActivityText.error{border-color:#b33;color:#8d1f1f}
+/* Desktop mode is always a real two-pane viewport. This intentionally
+ * overrides the original <=980px responsive rule, which collapses the sidebar
+ * into a top row and makes both sides feel like one scroll surface. */
+html,body{
+  width:100%!important;
+  height:100%!important;
+  min-height:0!important;
+  margin:0!important;
+  overflow:hidden!important;
+  overscroll-behavior:none!important;
+}
+body{position:relative!important}
+.app{
+  position:fixed!important;
+  inset:0!important;
+  width:100%!important;
+  height:100dvh!important;
+  max-height:100dvh!important;
+  min-height:0!important;
+  display:grid!important;
+  grid-template-columns:244px minmax(0,1fr)!important;
+  overflow:hidden!important;
+}
+.sidebar{
+  grid-column:1!important;
+  grid-row:1!important;
+  width:244px!important;
+  height:100dvh!important;
+  max-height:100dvh!important;
+  min-height:0!important;
+  position:relative!important;
+  top:auto!important;
+  overflow-x:hidden!important;
+  overflow-y:scroll!important;
+  overscroll-behavior-y:contain!important;
+  scrollbar-gutter:stable!important;
+  -webkit-overflow-scrolling:touch;
+}
+.sidebar>.brand,
+.sidebar>.sidebar-actions,
+.sidebar>.privacy{flex:0 0 auto!important}
+.sidebar nav{
+  display:block!important;
+  flex:0 0 auto!important;
+  min-height:max-content!important;
+  overflow:visible!important;
+}
+.sidebar-actions{display:block!important}
+.privacy{display:flex!important;margin-top:18px!important}
+.nav{display:block!important;width:100%!important;white-space:normal!important}
+main{
+  grid-column:2!important;
+  grid-row:1!important;
+  width:100%!important;
+  height:100dvh!important;
+  max-height:100dvh!important;
+  min-width:0!important;
+  min-height:0!important;
+  max-width:none!important;
+  margin:0!important;
+  overflow-x:hidden!important;
+  overflow-y:scroll!important;
+  overscroll-behavior-y:contain!important;
+  scrollbar-gutter:stable!important;
+  -webkit-overflow-scrolling:touch;
+}
+
+/* Per-feature progress belongs inside the feature card, directly below its
+ * controls/results area. Percentages are marked estimated while the backend
+ * does not expose a deterministic total. */
+.sentinel-task-progress{
+  margin-top:14px;
+  padding:11px 12px;
+  border:1px solid var(--line);
+  border-radius:10px;
+  background:var(--panel);
+  box-shadow:0 1px 0 rgba(0,0,0,.02);
+}
+.sentinel-task-progress[data-state="running"]{border-color:#aeb7c2}
+.sentinel-task-progress[data-state="complete"]{border-color:#9bb9aa}
+.sentinel-task-progress[data-state="error"]{border-color:#d19a9a}
+.sentinel-task-progress[data-state="idle"]{opacity:.82}
+.sentinel-progress-head{
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:7px;
+}
+.sentinel-progress-head b{font-size:12px;font-weight:700}
+.sentinel-progress-head strong{font-size:13px;font-variant-numeric:tabular-nums}
+.sentinel-percent-bar{
+  display:block;
+  width:100%;
+  height:8px;
+  border:0;
+  border-radius:999px;
+  overflow:hidden;
+  appearance:none;
+}
+.sentinel-percent-bar::-webkit-progress-bar{background:#eceff2;border-radius:999px}
+.sentinel-percent-bar::-webkit-progress-value{background:#20252b;border-radius:999px;transition:width .2s ease}
+.sentinel-percent-bar::-moz-progress-bar{background:#20252b;border-radius:999px}
+.sentinel-task-progress[data-state="error"] .sentinel-percent-bar::-webkit-progress-value{background:#9b3d3d}
+.sentinel-task-progress[data-state="error"] .sentinel-percent-bar::-moz-progress-bar{background:#9b3d3d}
+.sentinel-progress-detail{
+  display:block;
+  margin-top:7px;
+  color:var(--muted);
+  font-size:10px;
+  line-height:1.45;
+  overflow-wrap:anywhere;
+}
 button[data-sentinel-pending="1"]{cursor:progress!important;opacity:.72!important}
-@keyframes sentinel-slide{0%{transform:translateX(-115%)}55%{transform:translateX(210%)}100%{transform:translateX(310%)}}
-@media(prefers-color-scheme:dark){#sentinelGlobalActivity::after{background:#f2f2f2}#sentinelGlobalActivityText{background:rgba(20,20,20,.96);border-color:#3a3a3a;color:#f1f1f1}#sentinelGlobalActivityText.error{border-color:#d66;color:#ffb0b0}}
-@media(prefers-reduced-motion:reduce){#sentinelGlobalActivity::after{animation:none;width:100%}}
-@media(max-width:719px){html,body{height:auto;overflow:auto}.app{height:auto;min-height:100vh;display:block;overflow:visible}.sidebar{height:auto!important;max-height:42vh;overflow-y:auto!important;border-bottom:1px solid var(--line)}main{height:auto;min-height:58vh;overflow:visible}.privacy,.sidebar-actions{display:none!important}#sentinelGlobalActivity{left:0}}
+
+/* The original stylesheet changes to a single-column layout at 980px.
+ * Desktop mode deliberately cancels that rule all the way down to a narrow
+ * browser window so the two panes remain independently scrollable. */
+@media(max-width:980px){
+  .app{display:grid!important;grid-template-columns:220px minmax(0,1fr)!important}
+  .sidebar{width:220px!important;height:100dvh!important;max-height:100dvh!important;position:relative!important;overflow-y:scroll!important}
+  .sidebar nav{display:block!important;overflow:visible!important}
+  .sidebar-actions{display:block!important}
+  .privacy{display:flex!important}
+  .nav{width:100%!important;white-space:normal!important}
+  main{height:100dvh!important;max-height:100dvh!important;overflow-y:scroll!important;padding:18px!important}
+}
+
+@media(prefers-color-scheme:dark){
+  .sentinel-task-progress{background:var(--panel)}
+  .sentinel-percent-bar::-webkit-progress-bar{background:#2a313b}
+  .sentinel-percent-bar::-webkit-progress-value{background:#edf1f6}
+  .sentinel-percent-bar::-moz-progress-bar{background:#edf1f6}
+}
+@media(prefers-reduced-motion:reduce){
+  .sentinel-percent-bar::-webkit-progress-value{transition:none}
+}
