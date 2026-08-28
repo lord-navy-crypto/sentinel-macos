@@ -122,6 +122,9 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
 
     private func buildWindow() {
         let config = WKWebViewConfiguration()
+        // Keep dashboard web data ephemeral for privacy, while allowing normal
+        // in-session resource caching so the embedded app behaves like Safari
+        // instead of forcing CSS/JS to bypass cache on each dashboard load.
         config.websiteDataStore = .nonPersistent()
         config.defaultWebpagePreferences.allowsContentJavaScript = true
         installDesktopRefinement(into: config)
@@ -261,7 +264,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
                 guard let self else { return }
                 self.navigationDelegate.allowedOrigin = payload.origin
                 self.window.title = "Sentinel Mac \(payload.version)"
-                self.webView.load(URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 15))
+                self.webView.load(URLRequest(url: url, cachePolicy: .useProtocolCachePolicy, timeoutInterval: 15))
             }
         }
     }
