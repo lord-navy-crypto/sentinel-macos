@@ -126,7 +126,7 @@
         <strong>0%</strong>
       </div>
       <progress class="sentinel-percent-bar" max="100" value="0"></progress>
-      <small class="sentinel-progress-detail">This panel reports local task activity for this feature.</small>`;
+      <small class="sentinel-progress-detail">Progress appears only after a real localhost request starts.</small>`;
     card.appendChild(panel);
     return panel;
   };
@@ -180,24 +180,6 @@
     }, 420);
   };
 
-  const primePanel = (button, label) => {
-    const view = button.closest('.view') || document.querySelector('.view.active');
-    if (!view) return;
-    const viewId = view.id || 'overview';
-    const card = button.closest('.card') || view.querySelector('.card') || view;
-    const panel = panelForView(viewId, card);
-    const state = stateFor(panel);
-    const serial = state.requestSerial;
-    setPanel(panel, 4, label, 'Button accepted. Waiting for the feature to start a localhost request…', 'running');
-    setTimeout(() => {
-      const current = stateFor(panel);
-      if (current.requestSerial === serial && current.active === 0 && !current.storageRunning) {
-        setPanel(panel, 0, 'No local request started',
-          'The action was cancelled, blocked by validation, or its front-end handler did not reach the local engine.', 'idle');
-      }
-    }, 1100);
-  };
-
   const beginRequest = info => {
     const panel = panelForView(info.view);
     if (!panel) return null;
@@ -207,7 +189,7 @@
     if (!state.storageRunning) {
       const start = state.percent >= 100 || state.percent <= 0 ? 10 : Math.max(10, Math.min(90, state.percent));
       setPanel(panel, start, info.label,
-        `${info.method} ${info.path} · estimated until this localhost request returns.`, 'running');
+        `${info.method} ${info.path} · localhost request started. Progress is estimated until the engine returns.`, 'running');
       startEstimateTimer(panel);
     }
     return panel;
@@ -266,7 +248,7 @@
 
   const inspectPayloadPaths = new Set([
     '/api/system-profile', '/api/quick-check', '/api/review-queue', '/api/guided-snapshot', '/api/readiness',
-    '/api/weakness-audit', '/api/coverage', '/api/advanced-sensor/status', '/api/security/audit',
+    '/api/search/deep', '/api/weakness-audit', '/api/coverage', '/api/advanced-sensor/status', '/api/security/audit',
     '/api/intelligence/graph', '/api/intelligence/timeline', '/api/behavior', '/api/behavior/history', '/api/behavior/health',
     '/api/trust/status', '/api/trust/capture', '/api/trust/compare', '/api/trust/health', '/api/trust/history',
     '/api/processes', '/api/startup', '/api/persistence', '/api/background', '/api/network',
@@ -290,6 +272,8 @@
         return `${p.items?.length || 0} review item(s) · ${Number(p.counts?.high || 0)} high · ${Number(p.counts?.review || 0)} review`;
       case '/api/guided-snapshot':
         return `Monitoring Snapshot captured · ${Number(p.graph_nodes || 0)} graph nodes · Behavior ${Number(p.behavior?.risk_index || 0)} · Persistence ${p.persistence?.initialized ? 'baseline ready' : 'not initialized'}${p.trust_ran ? ` · Trust ${Number(p.trust?.drift_index || 0)}` : ' · Trust not run (no profile)'}`;
+      case '/api/search/deep':
+        return `Deep search complete · ${Number(p.visited || 0).toLocaleString()} entries visited · ${p.results?.length || 0} result(s) · ${Number(p.elapsed_ms || 0).toLocaleString()} ms${p.truncated ? ' · safety limit reached' : ''}`;
       case '/api/weakness-audit':
         return `Sentinel posture ${Number(p.score || 0)}/100 · ${p.findings?.length || 0} finding(s)`;
       case '/api/coverage':
@@ -305,7 +289,7 @@
       case '/api/behavior':
         if (info.method === 'POST') {
           return p.first_baseline
-            ? `Behavior baseline established · future captures can compare against this session/reference state`
+            ? 'Behavior baseline established · future captures can compare against this session/reference state'
             : `Behavior comparison complete · index ${Number(p.risk_index || 0)} · ${p.changes?.length || 0} change(s) · history depth ${Number(p.history_depth || 0)}`;
         }
         return `${p.has_baseline ? 'Behavior baseline available' : 'No Behavior baseline yet'} · ${Number(p.history_entries || 0)} history entr${Number(p.history_entries || 0) === 1 ? 'y' : 'ies'}`;
@@ -387,19 +371,11 @@
     }
   };
 
-  // Immediate acknowledgement for every action button. Navigation-only and
-  // purely local close/help controls are excluded so they do not show a fake
-  // backend task.
-  const clientOnlyButtons = new Set(['pageHelpToggle', 'closeIncidentDeepReview', 'closeProcessDetail']);
-  document.addEventListener('click', event => {
-    const button = event.target.closest('button');
-    if (!button || button.disabled) return;
-    if (button.classList.contains('nav') || button.hasAttribute('data-go') || clientOnlyButtons.has(button.id)) return;
-    const name = (button.textContent || 'Action').trim().replace(/\s+/g, ' ');
-    button.dataset.sentinelPending = '1';
-    primePanel(button, `Starting ${name}`);
-    setTimeout(() => button.removeAttribute('data-sentinel-pending'), 1400);
-  }, true);
+  // Important: do not infer a backend task from a click. Some controls perform
+  // client-side validation, open navigation, or ask for confirmation before any
+  // request exists. Progress is therefore created only by the fetch wrapper
+  // above, which means every visible percentage corresponds to a real localhost
+  // request rather than a guessed action.
 
   window.addEventListener('error', event => {
     reportInterfaceError(event.message || event.error?.message);
