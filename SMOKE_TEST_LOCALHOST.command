@@ -71,8 +71,6 @@ if [ -z "$ORIGIN" ] || [ -z "$TOKEN" ] || [ "$TOKEN" = "$OPEN_URL" ]; then
   exit 1
 fi
 
-# The bootstrap line is printed immediately after the listener is created. Wait
-# until the HTTP server itself can answer before counting any functional probe.
 READY=0
 n=0
 while [ "$n" -lt 50 ]; do
@@ -110,8 +108,6 @@ check_static() {
   return 1
 }
 
-# Verify the actual desktop localhost page and its enhancement assets before
-# probing APIs. This catches a healthy engine paired with a broken/missing UI.
 check_static "Desktop route injection" "/?desktop=1" "/desktop-ui.js" || true
 check_static "Core app script" "/?desktop=1" "/app.js" || true
 check_static "Two-pane scroll CSS" "/desktop-ui.css" "overflow-y:scroll!important" || true
@@ -163,7 +159,6 @@ request() {
   return 1
 }
 
-# Baseline read-only API coverage.
 request "Overview" GET "/api/overview" || true
 request "System Profile" GET "/api/system-profile" || true
 request "Capabilities" GET "/api/capabilities" || true
@@ -171,6 +166,9 @@ request "Quick Check" GET "/api/quick-check" || true
 request "Security Audit" GET "/api/security/audit" || true
 request "Visibility Coverage" GET "/api/coverage" || true
 request "Weakness Audit" GET "/api/weakness-audit" || true
+# Use an unlikely filename token so this validates the real bounded traversal
+# contract without depending on a particular file existing in Downloads.
+request "Deep filename search" GET "/api/search/deep?q=sentinel_smoke_unlikely_93af&scope=downloads&limit=10" || true
 request "Processes" GET "/api/processes" || true
 request "Startup Items" GET "/api/startup" || true
 request "Network" GET "/api/network" || true
@@ -179,8 +177,6 @@ request "Safe Actions Status" GET "/api/actions/status" || true
 request "Safe Actions Health" GET "/api/actions/health" || true
 request "Final Readiness" GET "/api/readiness" || true
 
-# Session/baseline flows. The engine is ephemeral, so these state changes exist
-# only inside this temporary smoke-test process and disappear at exit.
 request "Persistence baseline" POST "/api/persistence" || true
 request "Persistence status" GET "/api/persistence" || true
 request "Intelligence snapshot" POST "/api/intelligence/graph" || true
@@ -195,16 +191,12 @@ request "Monitoring Snapshot" POST "/api/guided-snapshot" || true
 request "Review Queue" GET "/api/review-queue" || true
 request "Incidents" POST "/api/incidents" || true
 
-# Change Monitor lifecycle: start a bounded Downloads watch, read status, stop.
 if request "Change Monitor start" POST "/api/changes/start" '{"preset":"downloads","roots":[],"interval_ms":1500}'; then
   request "Change Monitor status" GET "/api/changes/status" || true
   request "Change Monitor events" GET "/api/changes/events" || true
   request "Change Monitor stop" POST "/api/changes/stop" || true
 fi
 
-# Storage job lifecycle: start a bounded scan, observe at least one job response,
-# then cancel if it is still running. A huge minimum file size avoids duplicate
-# hashing work; the test is about job wiring/lifecycle, not finding files.
 if request "Storage job start" POST "/api/storage/jobs" '{"scope":"downloads","min_mb":1048576,"limit":10}'; then
   STORAGE_ID="$(sed -n 's/.*"id":"\([^"]*\)".*/\1/p' "$TMPDIR_SENTINEL/response.json" | head -1)"
   if [ -n "$STORAGE_ID" ]; then
