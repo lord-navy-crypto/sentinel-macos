@@ -13,7 +13,7 @@ func TestDesktopDistributionAssets(t *testing.T) {
 		"build-desktop-macos.sh":        {"swiftc", "lipo -create", "Sentinel.app", "default browser + loopback-only localhost dashboard"},
 		"release-direct-macos.sh":       {"Developer ID", "--options runtime", "notarytool submit", "stapler staple", "hdiutil create"},
 		"DIRECT_DISTRIBUTION_GUIDE.md":  {"Sentinel-2.2.dmg", "Developer ID", "notarytool"},
-		"web/desktop-ui.js":             {"desktop-ui.css", "More tools", "window.fetch = async", "sentinel-task-progress", "job.phase_percent", "job.hash_bytes_done", "Hashing duplicate candidates", "No local request started"},
+		"web/desktop-ui.js":             {"desktop-ui.css", "More tools", "window.fetch = async", "sentinel-task-progress", "job.phase_percent", "job.hash_bytes_done", "Hashing duplicate candidates", "Progress appears only after a real localhost request starts.", "Local request failed:", "Interface error:"},
 		"web/desktop-ui.css":            {".mode-switch{display:none!important}", "grid-template-columns:244px", "overflow-y:scroll!important", ".sentinel-task-progress", ".sentinel-percent-bar"},
 	}
 	for path, needles := range checks {
@@ -68,6 +68,9 @@ func TestDesktopUsesDirectLocalhostInsteadOfEmbeddedFrame(t *testing.T) {
 	}
 	if strings.Contains(uiJS, "preventDefault()") || strings.Contains(uiJS, "stopPropagation()") {
 		t.Fatalf("desktop UI must not intercept core button events")
+	}
+	if strings.Contains(uiJS, "No local request started") {
+		t.Fatalf("desktop UI must not mislabel validation/cancelled actions as a broken local request")
 	}
 
 	// The launcher hands the loopback URL to the user's default browser via
