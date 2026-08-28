@@ -24,9 +24,9 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources/bin" "$HERE/dist/desktop
 SDK_PATH="$(xcrun --sdk macosx --show-sdk-path)"
 compile_shell(){
   local arch="$1" target="$2" out="$3"
-  echo "Building native Sentinel desktop shell for $arch…"
+  echo "Building native Sentinel desktop shell for ${arch}..."
   xcrun --sdk macosx swiftc -O -whole-module-optimization \
-    -sdk "$SDK_PATH" -target "$target-apple-macos13.0" \
+    -sdk "$SDK_PATH" -target "${target}-apple-macos13.0" \
     "$SWIFT_SRC" -framework AppKit -framework WebKit -o "$out"
 }
 compile_shell arm64 arm64 "$HERE/dist/desktop-build/SentinelDesktop-arm64"
