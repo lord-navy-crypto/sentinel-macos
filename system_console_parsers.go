@@ -3,6 +3,8 @@ package main
 
 import (
 	"bufio"
+	"context"
+	"net/http"
 	"strconv"
 	"strings"
 )
@@ -27,9 +29,9 @@ type FilesystemEvidenceRow struct {
 }
 
 type MountEvidenceRow struct {
-	Device     string   `json:"device"`
-	MountedOn  string   `json:"mounted_on"`
-	Options    []string `json:"options,omitempty"`
+	Device    string   `json:"device"`
+	MountedOn string   `json:"mounted_on"`
+	Options   []string `json:"options,omitempty"`
 }
 
 type SigningEvidence struct {
