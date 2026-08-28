@@ -95,6 +95,29 @@ fi
 echo "Temporary engine: $ORIGIN"
 echo
 
+check_static() {
+  label="$1"
+  path="$2"
+  needle="$3"
+  outfile="$TMPDIR_SENTINEL/static.txt"
+  if curl -fsS --max-time 10 "$ORIGIN$path" >"$outfile" && grep -Fq "$needle" "$outfile"; then
+    printf "PASS  %-30s %s\n" "$label" "$path"
+    PASSES=$((PASSES + 1))
+    return 0
+  fi
+  printf "FAIL  %-30s %s missing %s\n" "$label" "$path" "$needle"
+  FAILS=$((FAILS + 1))
+  return 1
+}
+
+# Verify the actual desktop localhost page and its enhancement assets before
+# probing APIs. This catches a healthy engine paired with a broken/missing UI.
+check_static "Desktop route injection" "/?desktop=1" "/desktop-ui.js" || true
+check_static "Core app script" "/?desktop=1" "/app.js" || true
+check_static "Two-pane scroll CSS" "/desktop-ui.css" "overflow-y:scroll!important" || true
+check_static "Per-card progress CSS" "/desktop-ui.css" ".sentinel-task-progress" || true
+check_static "Percent progress JS" "/desktop-ui.js" "sentinel-percent-bar" || true
+
 request() {
   label="$1"
   method="$2"
@@ -209,5 +232,5 @@ if [ "$FAILS" -ne 0 ]; then
   exit 1
 fi
 
-echo "All tested localhost function contracts responded successfully."
+echo "All tested localhost UI assets and function contracts responded successfully."
 exit 0
