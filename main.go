@@ -81,6 +81,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	fileServer := http.FileServer(http.FS(staticFS))
 
 	mux.HandleFunc("/api/overview", a.auth(a.handleOverview))
 	mux.HandleFunc("/api/system-profile", a.auth(a.handleSystemProfile))
@@ -140,7 +141,20 @@ func main() {
 	mux.HandleFunc("/api/incidents/detail", a.auth(a.work.wrap("incident-deep-review", a.handleIncidentDetail)))
 	mux.HandleFunc("/api/advanced-sensor/status", a.auth(a.handleAdvancedSensorStatus))
 	mux.HandleFunc("/api/readiness", a.auth(a.work.wrap("readiness", a.handleReadiness)))
-	mux.Handle("/", http.FileServer(http.FS(staticFS)))
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" && r.URL.Query().Get("desktop") == "1" {
+			page, readErr := fs.ReadFile(staticFS, "index.html")
+			if readErr != nil {
+				http.Error(w, "Sentinel dashboard unavailable", http.StatusInternalServerError)
+				return
+			}
+			html := strings.Replace(string(page), "</body>", "<script src=\"/desktop-ui.js\"></script>\n</body>", 1)
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			_, _ = w.Write([]byte(html))
+			return
+		}
+		fileServer.ServeHTTP(w, r)
+	})
 
 	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", *port))
 	if err != nil {
