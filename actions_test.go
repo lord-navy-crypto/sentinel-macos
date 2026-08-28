@@ -13,7 +13,11 @@ import (
 
 func newActionTestApp(t *testing.T) (*app, string) {
 	t.Helper()
-	home := t.TempDir()
+	rawHome := t.TempDir()
+	home, err := filepath.EvalSymlinks(rawHome)
+	if err != nil {
+		t.Fatal(err)
+	}
 	t.Setenv("HOME", home)
 	work := filepath.Join(home, "Downloads")
 	if err := os.MkdirAll(work, 0700); err != nil {
