@@ -5,7 +5,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 cd "$HERE"
 
 if [[ "$(uname -s)" != "Darwin" ]]; then
-  echo "build-desktop-macos.sh must run on macOS because it compiles AppKit code." >&2
+  echo "build-desktop-macos.sh must run on macOS because it compiles AppKit/WebKit code." >&2
   exit 2
 fi
 for tool in xcrun lipo ditto sips iconutil plutil; do
@@ -29,10 +29,10 @@ mkdir -p "$BUILD_DIR"
 SDK_PATH="$(xcrun --sdk macosx --show-sdk-path)"
 compile_shell(){
   local arch="$1" target="$2" out="$3"
-  echo "Building Sentinel localhost launcher for ${arch}..."
+  echo "Building Sentinel dual-view launcher for ${arch}..."
   xcrun --sdk macosx swiftc -O -whole-module-optimization \
     -sdk "$SDK_PATH" -target "${target}-apple-macos13.0" \
-    "$SWIFT_SRC" -framework AppKit -o "$out"
+    "$SWIFT_SRC" -framework AppKit -framework WebKit -o "$out"
 }
 
 compile_shell arm64 arm64 "$BUILD_DIR/SentinelDesktop-arm64"
@@ -67,7 +67,7 @@ ditto "$BUILD_DIR/Sentinel" "$APP/Contents/MacOS/Sentinel"
 chmod 755 "$APP/Contents/MacOS/Sentinel"
 
 # Keep the Go engines architecture-specific. The universal launcher chooses the
-# matching engine at runtime and opens the full UI in the user's default browser.
+# matching engine at runtime. Browser and App View both use this same process.
 ditto "$HERE/dist/sentinel-macos-arm64" "$APP/Contents/Resources/bin/sentinel-macos-arm64"
 ditto "$HERE/dist/sentinel-macos-x86_64" "$APP/Contents/Resources/bin/sentinel-macos-x86_64"
 chmod 755 "$APP/Contents/Resources/bin/"sentinel-macos-*
@@ -89,16 +89,21 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>LSMinimumSystemVersion</key><string>13.0</string>
   <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
   <key>NSHighResolutionCapable</key><true/>
+  <key>NSAppTransportSecurity</key>
+  <dict>
+    <key>NSAllowsLocalNetworking</key><true/>
+  </dict>
 </dict></plist>
 PLIST
 
 plutil -lint "$APP/Contents/Info.plist"
 printf '%s\n' \
-  "Sentinel localhost launcher created: $APP" \
+  "Sentinel dual-view launcher created: $APP" \
   "Display name: Sentinel Mac" \
   "Bundle ID: $BUNDLE_ID" \
   "Version: $VERSION" \
   "Universal launcher: $(lipo -archs "$APP/Contents/MacOS/Sentinel")" \
   "App icon: $APP/Contents/Resources/AppIcon.icns" \
-  "UI mode: default browser + loopback-only localhost dashboard" \
+  "UI modes: default browser + native WebKit App View, both loopback-only" \
+  "ATS: local networking only; no arbitrary-load exception" \
   "This build is not signed/notarized unless you run release-direct-macos.sh."
