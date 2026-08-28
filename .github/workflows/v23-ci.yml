@@ -1,0 +1,47 @@
+name: Sentinel v2.3 branch validation
+
+on:
+  push:
+    branches:
+      - upgrade/v2.3-stable
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  core:
+    name: Go core and web contracts
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+          cache: true
+
+      - name: Go tests
+        run: go test ./...
+
+      - name: Go race tests
+        run: go test -race ./...
+
+      - name: Go vet
+        run: go vet ./...
+
+      - name: JavaScript syntax
+        run: node --check web/app.js
+
+      - name: Shell syntax
+        run: |
+          bash -n build-macos.sh
+          bash -n build-desktop-macos.sh
+          bash -n package-dev-dmg-macos.sh
+          bash -n release-direct-macos.sh
+          bash -n verify-release-macos.sh
