@@ -26,6 +26,26 @@
 
     <p id="notice" class="notice" role="status" aria-live="polite"></p>
 
+    <section class="recipe-panel">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Ask the Mac</p>
+          <h2>Start with a question, not a command</h2>
+        </div>
+        <p>Sentinel maps common system questions to bounded evidence sources so you do not need to memorize Terminal syntax first.</p>
+      </div>
+      <div class="recipe-grid">
+        <button class="recipe-card" type="button" data-recipe-tool="process-table"><b>What is running right now?</b><span>Inspect processes, ownership, CPU, memory, and elapsed runtime.</span></button>
+        <button class="recipe-card" type="button" data-recipe-tool="disk-filesystems"><b>Where is disk capacity going?</b><span>Start with mounted filesystem usage before a deeper Storage Intelligence scan.</span></button>
+        <button class="recipe-card" type="button" data-recipe-tool="mount-table"><b>What volumes are mounted?</b><span>See local, external, and mounted filesystem relationships.</span></button>
+        <button class="recipe-card" type="button" data-recipe-tool="route-table"><b>How is this Mac routing traffic?</b><span>Inspect the current route table without changing network configuration.</span></button>
+        <button class="recipe-card" type="button" data-recipe-tool="power-settings"><b>What power rules are active?</b><span>Inspect the current macOS power-management configuration.</span></button>
+        <button class="recipe-card" type="button" data-recipe-focus="object"><b>What is this app or file?</b><span>Combine metadata, quarantine attributes, code signing, Gatekeeper, and plist context.</span></button>
+        <button class="recipe-card" type="button" data-recipe-tool="process-open-files"><b>What is this process using?</b><span>Enter a PID and inspect the files and sockets currently opened by that process.</span></button>
+        <button class="recipe-card" type="button" data-recipe-tool="gatekeeper-assessment"><b>Why might macOS reject this app?</b><span>Enter an app path and inspect Gatekeeper's local assessment as evidence.</span></button>
+      </div>
+    </section>
+
     <section class="object-panel">
       <div class="section-heading">
         <div>
