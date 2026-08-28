@@ -1,0 +1,12 @@
+SENTINEL 2.2 — SIMPLE MAC PATH
+
+1. Unzip this project on a real Mac.
+2. Double-click CHECK_MAC_RELEASE_PREREQS.command.
+3. Double-click BUILD_DESKTOP_APP.command to build/open the real native-window Sentinel.app.
+4. Test it locally.
+5. Join/use Apple Developer Program and install a Developer ID Application certificate.
+6. Run: xcrun notarytool store-credentials SentinelNotary
+7. Double-click RELEASE_DEVELOPER_ID.command.
+8. The public user download will be: dist/Sentinel-2.2.dmg
+
+End users only download the DMG. They do not run these developer commands.

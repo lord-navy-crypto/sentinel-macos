@@ -1,0 +1,4 @@
+.DS_Store
+sentinel
+dist/*
+!dist/.gitkeep

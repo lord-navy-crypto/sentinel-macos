@@ -1,0 +1,4 @@
+Sentinel macOS v2.2
+Source license: Mozilla Public License 2.0 (MPL-2.0)
+SPDX identifier: MPL-2.0
+This file exists only to make the release package's license choice obvious.
