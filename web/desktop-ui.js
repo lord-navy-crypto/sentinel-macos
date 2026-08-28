@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 (() => {
-  // Desktop mode is a presentation/diagnostic layer only. app.js remains the
-  // authority for every Sentinel action and API call.
+  // Desktop mode is presentation/diagnostics only. app.js remains authoritative
+  // for navigation, validation, actions, and API calls.
   if (window.__sentinelDesktopUIInstalled) return;
   window.__sentinelDesktopUIInstalled = true;
 
@@ -11,15 +11,11 @@
   css.id = 'sentinel-desktop-ui-css';
   document.head.appendChild(css);
 
-  // Keep compatibility nodes for app.js. Only hide them with external CSS.
+  // Keep the legacy mode nodes because app.js still references them; hide them
+  // through the external desktop stylesheet instead of deleting DOM nodes.
   document.body.classList.remove('easy-mode');
   const group = document.querySelector('.nav-group-label.advanced-nav');
   if (group) group.textContent = 'More tools';
-
-  // Remove artifacts from the older top-of-window progress implementation if a
-  // browser restores a page from history.
-  document.getElementById('sentinelGlobalActivity')?.remove();
-  document.getElementById('sentinelGlobalActivityText')?.remove();
 
   const endpointRules = [
     ['/api/system-profile', 'hardware', 'Reading System Profile'],
@@ -60,55 +56,22 @@
   const lastPanelByView = new Map();
   let panelCounter = 0;
 
-  function reportInterfaceError(detail) {
-    const message = `Interface error: ${detail || 'unknown error'}`;
-    console.error(message);
-    const viewId = document.querySelector('.view.active')?.id || 'overview';
-    const panel = panelForView(viewId);
-    if (panel) {
-      stopTimer(panel);
-      const state = stateFor(panel);
-      state.active = 0;
-      state.storageRunning = false;
-      setPanel(panel, 100, 'Interface error', message, 'error');
+  const formatBytes = value => {
+    let n = Math.max(0, Number(value) || 0);
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    let i = 0;
+    while (n >= 1024 && i < units.length - 1) {
+      n /= 1024;
+      i += 1;
     }
-    const notice = document.getElementById('notice');
-    if (notice) {
-      notice.textContent = message;
-      notice.classList.remove('hidden');
-    }
-  }
-
-  css.onerror = () => reportInterfaceError('desktop layout stylesheet could not be loaded');
-
-  const requestInfo = input => {
-    let raw = '';
-    let method = 'GET';
-    try {
-      if (typeof input === 'string') raw = input;
-      else if (input) {
-        raw = input.url || '';
-        method = input.method || method;
-      }
-      const u = new URL(raw, location.origin);
-      const match = endpointRules.find(([prefix]) => u.pathname.startsWith(prefix));
-      return {
-        raw,
-        path: u.pathname,
-        search: u.search,
-        method: String(method || 'GET').toUpperCase(),
-        view: match?.[1] || document.querySelector('.view.active')?.id || 'overview',
-        label: match?.[2] || 'Working locally'
-      };
-    } catch {
-      return {raw, path: raw, search: '', method, view: document.querySelector('.view.active')?.id || 'overview', label: 'Working locally'};
-    }
+    const digits = i === 0 || n >= 10 ? 1 : 2;
+    return `${n.toFixed(digits)} ${units[i]}`;
   };
 
   const stateFor = panel => {
     let state = panelStates.get(panel);
     if (!state) {
-      state = {active: 0, percent: 0, timer: null, requestSerial: 0, storageRunning: false};
+      state = {active: 0, percent: 0, timer: null, storageRunning: false};
       panelStates.set(panel, state);
     }
     return state;
@@ -138,13 +101,8 @@
     const card = preferredCard && view.contains(preferredCard)
       ? preferredCard
       : (previous?.closest('.card') || view.querySelector('.card') || view);
-    let panel = null;
-    for (const candidate of card.querySelectorAll('.sentinel-task-progress')) {
-      if (candidate.dataset.view === viewId) {
-        panel = candidate;
-        break;
-      }
-    }
+    let panel = [...card.querySelectorAll('.sentinel-task-progress')]
+      .find(candidate => candidate.dataset.view === viewId) || null;
     if (!panel) panel = makePanel(viewId, card);
     lastPanelByView.set(viewId, panel);
     return panel;
@@ -175,27 +133,52 @@
       if (state.active <= 0 || state.storageRunning) return;
       const step = state.percent < 35 ? 4 : state.percent < 65 ? 2 : 1;
       const next = Math.min(92, Math.max(10, state.percent + step));
-      setPanel(panel, next, panel.querySelector('.sentinel-progress-head b').textContent,
-        'Estimated progress while waiting for the local engine to return. 100% is shown only after the request finishes.', 'running');
+      setPanel(
+        panel,
+        next,
+        panel.querySelector('.sentinel-progress-head b').textContent,
+        'Estimated progress while waiting for the localhost engine. 100% is shown only after the request returns.',
+        'running'
+      );
     }, 420);
+  };
+
+  const requestInfo = input => {
+    let raw = '';
+    let method = 'GET';
+    try {
+      if (typeof input === 'string') raw = input;
+      else if (input) {
+        raw = input.url || '';
+        method = input.method || method;
+      }
+      const url = new URL(raw, location.origin);
+      const match = endpointRules.find(([prefix]) => url.pathname.startsWith(prefix));
+      return {
+        path: url.pathname,
+        method: String(method || 'GET').toUpperCase(),
+        view: match?.[1] || document.querySelector('.view.active')?.id || 'overview',
+        label: match?.[2] || 'Working locally'
+      };
+    } catch {
+      return {path: raw, method, view: document.querySelector('.view.active')?.id || 'overview', label: 'Working locally'};
+    }
   };
 
   const beginRequest = info => {
     const panel = panelForView(info.view);
     if (!panel) return null;
     const state = stateFor(panel);
-    state.requestSerial += 1;
     state.active += 1;
     if (!state.storageRunning) {
-      const start = state.percent >= 100 || state.percent <= 0 ? 10 : Math.max(10, Math.min(90, state.percent));
-      setPanel(panel, start, info.label,
-        `${info.method} ${info.path} · localhost request started. Progress is estimated until the engine returns.`, 'running');
+      const start = state.percent <= 0 || state.percent >= 100 ? 10 : Math.max(10, Math.min(90, state.percent));
+      setPanel(panel, start, info.label, `${info.method} ${info.path} · localhost request started.`, 'running');
       startEstimateTimer(panel);
     }
     return panel;
   };
 
-  const finishRequest = (panel, info, ok, statusText = '', deferCompletion = false) => {
+  const finishRequest = (panel, info, ok, detail = '', deferCompletion = false) => {
     if (!panel) return;
     const state = stateFor(panel);
     state.active = Math.max(0, state.active - 1);
@@ -203,19 +186,32 @@
     stopTimer(panel);
     if (deferCompletion && ok) return;
     state.storageRunning = false;
-    if (ok) {
-      setPanel(panel, 100, `${info.label} complete`, statusText || 'The local engine returned successfully.', 'complete');
-    } else {
-      setPanel(panel, 100, `${info.label} failed`, statusText || 'The local engine returned an error.', 'error');
-    }
+    setPanel(
+      panel,
+      100,
+      ok ? `${info.label} complete` : `${info.label} failed`,
+      detail || (ok ? 'The local engine returned successfully.' : 'The local engine returned an error.'),
+      ok ? 'complete' : 'error'
+    );
   };
 
-  const storageEstimate = entries => {
-    // The storage API deliberately does not pre-count the whole tree because a
-    // second traversal would double I/O. This is therefore explicitly an
-    // estimate based on observed traversal activity, never an exact scope total.
-    const n = Math.max(0, Number(entries) || 0);
-    return Math.min(94, Math.max(8, Math.round(8 + 86 * (1 - Math.exp(-n / 18000)))));
+  const storagePhaseLabel = phase => ({
+    walking: 'Scanning files',
+    grouping: 'Preparing duplicate candidates',
+    hashing: 'Hashing duplicate candidates',
+    finalizing: 'Building storage report',
+    complete: 'Storage scan complete',
+    cancelled: 'Storage scan cancelled',
+    failed: 'Storage scan failed'
+  }[phase] || 'Scanning storage');
+
+  const updateCoreStoragePanel = (job, label, detail) => {
+    const scanState = document.getElementById('scanState');
+    const scanCounts = document.getElementById('scanCounts');
+    const scanPath = document.getElementById('scanPath');
+    if (scanState) scanState.textContent = label;
+    if (scanCounts) scanCounts.textContent = detail;
+    if (scanPath) scanPath.textContent = job.current_hash_path || job.current_path || '';
   };
 
   const handleStorageJob = job => {
@@ -225,145 +221,117 @@
     const state = stateFor(panel);
     const files = Number(job.files_visited || 0);
     const dirs = Number(job.dirs_visited || 0);
-    const entries = files + dirs;
     const limits = Number(job.permission_errors || 0);
+    const phase = String(job.phase || (job.status === 'running' ? 'walking' : job.status || 'walking'));
+    const percent = Number.isFinite(Number(job.phase_percent)) && Number(job.phase_percent) > 0
+      ? Number(job.phase_percent)
+      : (job.status === 'complete' ? 100 : Math.min(72, Math.max(4, Math.round((files + dirs) / 1000) + 10)));
+    const label = storagePhaseLabel(phase);
+
     if (job.status === 'running') {
       state.storageRunning = true;
       stopTimer(panel);
-      setPanel(panel, storageEstimate(entries), 'Scanning storage',
-        `${files.toLocaleString()} files · ${dirs.toLocaleString()} folders · ${limits.toLocaleString()} permission limits · percentage is an estimate because the filesystem is not pre-counted.`, 'running');
+      let detail = `${files.toLocaleString()} files · ${dirs.toLocaleString()} folders · ${limits.toLocaleString()} permission limits`;
+      if (phase === 'walking') {
+        detail += ' · directory percentage is estimated because the scope is not pre-counted.';
+      } else if (phase === 'grouping') {
+        detail += ' · directory traversal is complete; Sentinel is selecting same-size candidates that can actually be compared.';
+      } else if (phase === 'hashing') {
+        const done = Number(job.hash_files_done || 0);
+        const total = Number(job.hash_files_total || 0);
+        const bytesDone = Number(job.hash_bytes_done || 0);
+        const bytesTotal = Number(job.hash_bytes_total || 0);
+        detail += total > 0
+          ? ` · hash file ${Math.min(done + 1, total)}/${total} · ${formatBytes(bytesDone)} of ${formatBytes(bytesTotal)} planned SHA-256 work`
+          : ' · no duplicate group fits the bounded comparison plan; hash work will be skipped.';
+        if (job.current_hash_path) detail += ` · ${job.current_hash_path}`;
+      } else if (phase === 'finalizing') {
+        detail += ` · ${formatBytes(job.hash_bytes_done || 0)} duplicate-candidate data hashed; assembling results.`;
+      }
+      setPanel(panel, percent, label, detail, 'running');
+      updateCoreStoragePanel(job, label, detail);
       return;
     }
+
     state.storageRunning = false;
     if (job.status === 'complete') {
-      setPanel(panel, 100, 'Storage scan complete',
-        `${files.toLocaleString()} files · ${dirs.toLocaleString()} folders scanned.`, 'complete');
+      const detail = `${files.toLocaleString()} files · ${dirs.toLocaleString()} folders scanned · ${formatBytes(job.hash_bytes_done || job.result?.duplicate_hash_bytes || 0)} duplicate-candidate data hashed.`;
+      setPanel(panel, 100, label, detail, 'complete');
+      updateCoreStoragePanel(job, label, detail);
     } else if (job.status === 'cancelled') {
-      setPanel(panel, 100, 'Storage scan cancelled',
-        `Stopped safely after ${files.toLocaleString()} files and ${dirs.toLocaleString()} folders.`, 'idle');
+      const detail = `Stopped safely after ${files.toLocaleString()} files and ${dirs.toLocaleString()} folders. Cancellation also applies during SHA-256 verification.`;
+      setPanel(panel, Math.min(99, Math.max(0, percent)), label, detail, 'idle');
+      updateCoreStoragePanel(job, label, detail);
     } else if (job.status === 'failed') {
-      setPanel(panel, 100, 'Storage scan failed', job.error || 'The storage job reported a failure.', 'error');
+      const detail = job.error || 'The storage job reported a failure.';
+      setPanel(panel, 100, label, detail, 'error');
+      updateCoreStoragePanel(job, label, detail);
     }
   };
 
-  const inspectPayloadPaths = new Set([
-    '/api/system-profile', '/api/quick-check', '/api/review-queue', '/api/guided-snapshot', '/api/readiness',
-    '/api/search/deep', '/api/weakness-audit', '/api/coverage', '/api/advanced-sensor/status', '/api/security/audit',
-    '/api/intelligence/graph', '/api/intelligence/timeline', '/api/behavior', '/api/behavior/history', '/api/behavior/health',
-    '/api/trust/status', '/api/trust/capture', '/api/trust/compare', '/api/trust/health', '/api/trust/history',
-    '/api/processes', '/api/startup', '/api/persistence', '/api/background', '/api/network',
-    '/api/changes/status', '/api/changes/events', '/api/changes/start', '/api/changes/stop', '/api/changes/history',
-    '/api/incidents', '/api/actions/status', '/api/actions/health', '/api/actions/vault', '/api/actions/journal',
-    '/api/cleanup/preview', '/api/capabilities'
-  ]);
-
   const completionDetail = (info, payload, response) => {
-    if (!response.ok) {
-      const err = payload?.error ? ` · ${payload.error}` : '';
-      return `HTTP ${response.status}${err}`;
-    }
+    if (!response.ok) return payload?.error ? `HTTP ${response.status} · ${payload.error}` : `HTTP ${response.status}`;
     const p = payload || {};
     switch (info.path) {
+      case '/api/search/deep':
+        return `Deep search complete · ${Number(p.visited || 0).toLocaleString()} entries visited · ${p.results?.length || 0} result(s) · ${Number(p.elapsed_ms || 0).toLocaleString()} ms${p.truncated ? ' · safety limit reached' : ''}`;
       case '/api/system-profile':
         return `${p.model_name || 'Mac'} · ${p.chip || p.processor || p.architecture || 'hardware read'} · ${p.os_version || 'macOS'}`;
       case '/api/quick-check':
         return `Attention Index ${Number(p.attention_index || 0)} · ${p.band || 'complete'} · ${p.recommendations?.length || 0} recommendation(s)`;
-      case '/api/review-queue':
-        return `${p.items?.length || 0} review item(s) · ${Number(p.counts?.high || 0)} high · ${Number(p.counts?.review || 0)} review`;
       case '/api/guided-snapshot':
-        return `Monitoring Snapshot captured · ${Number(p.graph_nodes || 0)} graph nodes · Behavior ${Number(p.behavior?.risk_index || 0)} · Persistence ${p.persistence?.initialized ? 'baseline ready' : 'not initialized'}${p.trust_ran ? ` · Trust ${Number(p.trust?.drift_index || 0)}` : ' · Trust not run (no profile)'}`;
-      case '/api/search/deep':
-        return `Deep search complete · ${Number(p.visited || 0).toLocaleString()} entries visited · ${p.results?.length || 0} result(s) · ${Number(p.elapsed_ms || 0).toLocaleString()} ms${p.truncated ? ' · safety limit reached' : ''}`;
-      case '/api/weakness-audit':
-        return `Sentinel posture ${Number(p.score || 0)}/100 · ${p.findings?.length || 0} finding(s)`;
-      case '/api/coverage':
-        return `${Number(p.available || 0)} available · ${Number(p.limited || 0)} limited · ${Number(p.unavailable || 0)} unavailable`;
-      case '/api/advanced-sensor/status':
-        return `${p.mode || 'sensor status'} · ${p.enabled ? 'enabled' : 'not enabled'}${p.entitlement_needed ? ' · Apple entitlement required' : ''}`;
+        return `Monitoring Snapshot captured · ${Number(p.graph_nodes || 0)} graph nodes · Behavior ${Number(p.behavior?.risk_index || 0)}${p.trust_ran ? ` · Trust ${Number(p.trust?.drift_index || 0)}` : ' · no Trust comparison'}`;
       case '/api/security/audit':
         return `Security audit ${p.level || 'complete'} · score ${Number(p.score || 0)} · ${p.findings?.length || 0} finding(s)`;
       case '/api/intelligence/graph':
-        return `Evidence graph ${p.nodes?.length || 0} nodes · ${p.edges?.length || 0} relationships${info.method === 'POST' ? ' · session observation captured' : ''}`;
+        return `Evidence graph ${p.nodes?.length || 0} nodes · ${p.edges?.length || 0} relationships`;
       case '/api/intelligence/timeline':
         return `${p.events?.length || 0} session observation(s) loaded`;
       case '/api/behavior':
-        if (info.method === 'POST') {
-          return p.first_baseline
-            ? 'Behavior baseline established · future captures can compare against this session/reference state'
-            : `Behavior comparison complete · index ${Number(p.risk_index || 0)} · ${p.changes?.length || 0} change(s) · history depth ${Number(p.history_depth || 0)}`;
-        }
-        return `${p.has_baseline ? 'Behavior baseline available' : 'No Behavior baseline yet'} · ${Number(p.history_entries || 0)} history entr${Number(p.history_entries || 0) === 1 ? 'y' : 'ies'}`;
-      case '/api/behavior/history':
-        return `${p.entries?.length || 0} Behavior history entr${p.entries?.length === 1 ? 'y' : 'ies'} loaded`;
-      case '/api/behavior/health':
-        return `${p.healthy ? 'Behavior baseline storage healthy' : 'Behavior baseline storage needs review'} · ${p.mode || 'unknown mode'}`;
-      case '/api/trust/status':
-        return `${p.has_profile ? `Trusted Profile available · ${Number(p.objects || 0)} objects` : 'No Trusted Profile established yet'}`;
+        return info.method === 'POST'
+          ? (p.first_baseline ? 'Behavior baseline established.' : `Behavior comparison complete · index ${Number(p.risk_index || 0)} · ${p.changes?.length || 0} change(s)`)
+          : (p.has_baseline ? 'Behavior baseline available.' : 'No Behavior baseline yet.');
       case '/api/trust/capture':
-        return `Trusted Profile captured · ${p.objects?.length || 0} object(s) in the bounded reference`;
+        return `Trusted Profile captured · ${p.objects?.length || 0} bounded object(s)`;
       case '/api/trust/compare':
-        return p.profile_at ? `Trust comparison complete · drift ${Number(p.drift_index || 0)} · ${p.changes?.length || 0} change(s)` : (p.note || 'No Trusted Profile exists yet');
-      case '/api/trust/health':
-        return `${p.healthy ? 'Trust profile storage healthy' : 'Trust profile storage needs review'} · ${Number(p.objects || 0)} object(s)`;
-      case '/api/trust/history':
-        return `${p.entries?.length || 0} Trust comparison histor${p.entries?.length === 1 ? 'y' : 'ies'} loaded`;
+        return p.profile_at ? `Trust comparison complete · drift ${Number(p.drift_index || 0)} · ${p.changes?.length || 0} change(s)` : (p.note || 'No Trusted Profile exists yet.');
       case '/api/persistence':
-        if (info.method === 'POST') {
-          return `${p.initialized ? 'Persistence session baseline ready' : 'Persistence not initialized'} · ${Number(p.files || 0)} visible plist file(s) · ${p.changes?.length || 0} change(s)`;
-        }
-        return `${p.initialized ? 'Persistence session baseline available' : 'No persistence session baseline yet'} · ${Number(p.files || 0)} plist file(s)`;
-      case '/api/changes/start':
-      case '/api/changes/stop':
-      case '/api/changes/status':
-        return `${p.running ? 'Change Monitor running' : 'Change Monitor stopped'} · ${p.mode || 'stopped'} · ${p.roots?.length || 0} watched root(s)`;
-      case '/api/changes/events':
-      case '/api/changes/history':
-        return `${p.events?.length || 0} change event(s) loaded · ${p.status?.mode || 'stopped'}`;
-      case '/api/incidents':
-        return `${Number(p.count || p.incidents?.length || 0)} incident(s) · ${Number(p.high || 0)} high · ${Number(p.review || 0)} review`;
+        return info.method === 'POST'
+          ? `${p.initialized ? 'Persistence session baseline ready' : 'Persistence not initialized'} · ${Number(p.files || 0)} plist file(s) · ${p.changes?.length || 0} change(s)`
+          : `${p.initialized ? 'Persistence baseline available' : 'No persistence baseline yet'} · ${Number(p.files || 0)} plist file(s)`;
       case '/api/processes':
         return `${p.processes?.length || 0} process(es) loaded`;
       case '/api/startup':
         return `${p.items?.length || 0} startup item(s) loaded`;
-      case '/api/background':
-        return `${p.available ? `${p.items?.length || 0} background item(s) loaded` : 'Background Task Management unavailable on this host'}`;
       case '/api/network':
-        return `${p.items?.length || 0} TCP activity item(s) loaded${p.warning ? ` · ${p.warning}` : ''}`;
-      case '/api/actions/status':
-        return `${p.enabled ? 'Safe Actions enabled with recovery guards' : 'Safe Actions read-only/disabled'} · ${p.mode || 'unknown mode'}`;
-      case '/api/actions/health':
-        return `${p.healthy ? 'Safe Actions recovery state healthy' : 'Safe Actions recovery state needs review'} · ${Number(p.active_vault_items || 0)} Vault item(s)`;
-      case '/api/actions/vault':
-        return `${p.items?.length || 0} Vault item(s) loaded`;
-      case '/api/actions/journal':
-        return `${p.entries?.length || 0} reversible action journal entr${p.entries?.length === 1 ? 'y' : 'ies'} loaded`;
-      case '/api/cleanup/preview':
-        return `${p.items?.length || 0} cleanup candidate(s) measured · no files modified`;
-      case '/api/capabilities':
-        return `${p.items?.filter?.(x => x.available)?.length || 0}/${p.items?.length || 0} local evidence source(s) available`;
+        return `${p.items?.length || 0} TCP activity item(s) loaded`;
       default:
         return `HTTP ${response.status} returned successfully from the local Sentinel engine.`;
     }
   };
 
+  const inspectJSON = new Set([
+    '/api/system-profile', '/api/quick-check', '/api/guided-snapshot', '/api/search/deep', '/api/security/audit',
+    '/api/intelligence/graph', '/api/intelligence/timeline', '/api/behavior', '/api/trust/capture', '/api/trust/compare',
+    '/api/persistence', '/api/processes', '/api/startup', '/api/network'
+  ]);
+
   const originalFetch = window.fetch.bind(window);
   window.fetch = async (...args) => {
-    const input = args[0];
-    const optionMethod = args[1]?.method;
-    const info = requestInfo(input);
-    if (optionMethod) info.method = String(optionMethod).toUpperCase();
+    const info = requestInfo(args[0]);
+    if (args[1]?.method) info.method = String(args[1].method).toUpperCase();
     const panel = beginRequest(info);
     const isStorageJob = info.path === '/api/storage/jobs';
-
     try {
       const response = await originalFetch(...args);
       let payload = null;
-      if (response.headers.get('content-type')?.includes('application/json') && (isStorageJob || inspectPayloadPaths.has(info.path) || !response.ok)) {
+      const isJSON = response.headers.get('content-type')?.includes('application/json');
+      if (isJSON && (isStorageJob || inspectJSON.has(info.path) || !response.ok)) {
         payload = await response.clone().json().catch(() => null);
       }
       if (isStorageJob && response.ok && payload) handleStorageJob(payload);
       const detail = completionDetail(info, payload, response);
-      finishRequest(panel, info, response.ok, detail, isStorageJob && response.ok);
+      finishRequest(panel, info, response.ok, detail, isStorageJob && response.ok && payload?.status === 'running');
       return response;
     } catch (error) {
       finishRequest(panel, info, false, `Local request failed: ${error?.message || 'unknown network error'}`);
@@ -371,16 +339,23 @@
     }
   };
 
-  // Important: do not infer a backend task from a click. Some controls perform
-  // client-side validation, open navigation, or ask for confirmation before any
-  // request exists. Progress is therefore created only by the fetch wrapper
-  // above, which means every visible percentage corresponds to a real localhost
-  // request rather than a guessed action.
+  const reportInterfaceError = detail => {
+    const message = `Interface error: ${detail || 'unknown error'}`;
+    console.error(message);
+    const viewId = document.querySelector('.view.active')?.id || 'overview';
+    const panel = panelForView(viewId);
+    if (panel) {
+      stopTimer(panel);
+      setPanel(panel, 100, 'Interface error', message, 'error');
+    }
+    const notice = document.getElementById('notice');
+    if (notice) {
+      notice.textContent = message;
+      notice.classList.remove('hidden');
+    }
+  };
 
-  window.addEventListener('error', event => {
-    reportInterfaceError(event.message || event.error?.message);
-  });
-  window.addEventListener('unhandledrejection', event => {
-    reportInterfaceError(event.reason?.message || String(event.reason || 'unhandled promise rejection'));
-  });
+  css.onerror = () => reportInterfaceError('desktop layout stylesheet could not be loaded');
+  window.addEventListener('error', event => reportInterfaceError(event.message || event.error?.message));
+  window.addEventListener('unhandledrejection', event => reportInterfaceError(event.reason?.message || String(event.reason || 'unhandled promise rejection')));
 })();
