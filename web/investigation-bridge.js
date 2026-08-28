@@ -5,6 +5,7 @@
 
   const token = new URLSearchParams(location.hash.slice(1)).get('token') || '';
   let lastFindings = [];
+  let lastIncidents = [];
 
   function cleanAbsolutePath(value) {
     const raw = String(value || '').trim();
@@ -13,7 +14,7 @@
     return raw;
   }
 
-  function startingPath(finding) {
+  function findingStartingPath(finding) {
     const detail = cleanAbsolutePath(finding?.detail);
     if (detail) return detail;
     for (const item of finding?.evidence || []) {
@@ -23,40 +24,90 @@
     return '';
   }
 
+  function incidentStartingPath(incident) {
+    const primary = cleanAbsolutePath(incident?.primary_path);
+    if (primary) return primary;
+    for (const evidence of incident?.evidence || []) {
+      for (const value of [evidence?.path, evidence?.object_key, evidence?.target]) {
+        const path = cleanAbsolutePath(value);
+        if (path) return path;
+      }
+    }
+    return '';
+  }
+
   function investigationURL(path) {
     const params = new URLSearchParams({token, path});
     return `/investigation.html#${params.toString()}`;
   }
 
-  function attachButtons() {
+  function makeContinueButton(path, title) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'tiny continue-investigation';
+    button.textContent = 'Continue Investigation';
+    button.title = title;
+    button.addEventListener('click', () => {
+      location.href = investigationURL(path);
+    });
+    return button;
+  }
+
+  function attachSecurityButtons() {
     const container = document.getElementById('findings');
     if (!container || !lastFindings.length) return;
     const cards = [...container.querySelectorAll('article.finding')];
     cards.forEach((card, index) => {
       if (card.querySelector('.continue-investigation')) return;
       const finding = lastFindings[index];
-      const path = startingPath(finding);
+      const path = findingStartingPath(finding);
       if (!path) return;
 
       const row = document.createElement('div');
       row.className = 'row-actions investigation-actions';
-
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'secondary continue-investigation';
-      button.textContent = 'Continue Investigation';
-      button.title = 'Branch from this finding into deeper local evidence without modifying files.';
-      button.addEventListener('click', () => {
-        location.href = investigationURL(path);
-      });
+      row.append(
+        makeContinueButton(path, 'Branch from this finding into deeper local evidence without modifying files.')
+      );
 
       const hint = document.createElement('small');
       hint.className = 'muted';
       hint.textContent = 'Report → object → deeper evidence';
-
-      row.append(button, hint);
+      row.append(hint);
       card.append(row);
     });
+  }
+
+  function attachIncidentButtons() {
+    const container = document.getElementById('incidentList');
+    if (!container || !lastIncidents.length) return;
+    const cards = [...container.querySelectorAll('.behavior-change')];
+    const rendered = lastIncidents.slice().reverse();
+    cards.forEach((card, index) => {
+      if (card.querySelector('.continue-investigation')) return;
+      const incident = rendered[index];
+      const path = incidentStartingPath(incident);
+      if (!path) return;
+      let row = card.querySelector('.row-actions');
+      if (!row) {
+        row = document.createElement('div');
+        row.className = 'row-actions investigation-actions';
+        card.append(row);
+      }
+      row.append(
+        makeContinueButton(path, 'Continue from this incident primary object into file, runtime, persistence, network, and Object Story evidence.')
+      );
+    });
+  }
+
+  function scheduleAttach() {
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      attachSecurityButtons();
+      attachIncidentButtons();
+    }));
+    setTimeout(() => {
+      attachSecurityButtons();
+      attachIncidentButtons();
+    }, 120);
   }
 
   const originalFetch = window.fetch.bind(window);
@@ -65,11 +116,17 @@
     try {
       const raw = typeof args[0] === 'string' ? args[0] : (args[0]?.url || '');
       const url = new URL(raw, location.origin);
-      if (url.pathname === '/api/security/audit' && response.ok && response.headers.get('content-type')?.includes('application/json')) {
+      const isJSON = response.ok && response.headers.get('content-type')?.includes('application/json');
+      if (url.pathname === '/api/security/audit' && isJSON) {
         response.clone().json().then(data => {
           lastFindings = Array.isArray(data?.findings) ? data.findings : [];
-          requestAnimationFrame(() => requestAnimationFrame(attachButtons));
-          setTimeout(attachButtons, 120);
+          scheduleAttach();
+        }).catch(() => {});
+      }
+      if (url.pathname === '/api/incidents' && isJSON) {
+        response.clone().json().then(data => {
+          lastIncidents = Array.isArray(data?.incidents) ? data.incidents : [];
+          scheduleAttach();
         }).catch(() => {});
       }
     } catch {
@@ -78,9 +135,9 @@
     return response;
   };
 
-  const observer = new MutationObserver(() => {
-    if (lastFindings.length) attachButtons();
-  });
+  const observer = new MutationObserver(() => scheduleAttach());
   const findings = document.getElementById('findings');
   if (findings) observer.observe(findings, {childList: true, subtree: true});
+  const incidents = document.getElementById('incidentList');
+  if (incidents) observer.observe(incidents, {childList: true, subtree: true});
 })();
