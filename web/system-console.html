@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sentinel System Console</title>
+  <link rel="stylesheet" href="/system-console.css">
+</head>
+<body>
+  <main class="console-shell">
+    <header class="console-header">
+      <div>
+        <p class="eyebrow">Sentinel v2.3 development</p>
+        <h1>System Console</h1>
+        <p class="subtitle">Understand, investigate, control, and recover without turning macOS administration into an arbitrary shell.</p>
+      </div>
+      <a id="backLink" class="back-link" href="/">Back to Sentinel</a>
+    </header>
+
+    <section class="principles" aria-label="System Console principles">
+      <article><b>Understand</b><span>See what macOS is doing.</span></article>
+      <article><b>Investigate</b><span>Inspect objects and evidence.</span></article>
+      <article><b>Control</b><span>Use previewed Sentinel actions.</span></article>
+      <article><b>Recover</b><span>Keep rollback and history visible.</span></article>
+    </section>
+
+    <p id="notice" class="notice" role="status" aria-live="polite"></p>
+
+    <section class="object-panel">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Unified object entry point</p>
+          <h2>Inspect a Mac object</h2>
+        </div>
+        <p>Enter one absolute path. Sentinel combines local metadata, extended attributes, signing, Gatekeeper, and plist evidence when applicable.</p>
+      </div>
+      <form id="objectForm" class="object-form">
+        <label for="objectPath">Absolute path</label>
+        <div class="input-row">
+          <input id="objectPath" name="path" type="text" spellcheck="false" autocomplete="off" placeholder="/Applications/Example.app" required>
+          <button type="submit">Inspect object</button>
+        </div>
+      </form>
+      <div id="objectResult" class="result-panel hidden" aria-live="polite"></div>
+    </section>
+
+    <section>
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Allowlisted macOS evidence</p>
+          <h2>Visual system tools</h2>
+        </div>
+        <p>Read-only tools run fixed executables with explicit arguments, bounded time, and bounded output. Managed actions stay inside Sentinel Safe Actions and recovery workflows.</p>
+      </div>
+      <div id="toolGroups" class="tool-groups"></div>
+    </section>
+
+    <section id="queryOutputSection" class="output-section hidden">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Local evidence</p>
+          <h2 id="queryTitle">Query result</h2>
+        </div>
+        <p id="queryMeta"></p>
+      </div>
+      <pre id="queryOutput" tabindex="0"></pre>
+      <div id="queryLimitations" class="limitations"></div>
+    </section>
+  </main>
+  <script src="/system-console.js"></script>
+</body>
+</html>
