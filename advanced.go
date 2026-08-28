@@ -53,18 +53,39 @@ type AdvancedStorageResult struct {
 }
 
 type ScanJob struct {
-	ID            string                 `json:"id"`
-	Status        string                 `json:"status"`
-	Root          string                 `json:"root"`
-	FilesVisited  int                    `json:"files_visited"`
-	DirsVisited   int                    `json:"dirs_visited"`
-	PermissionErr int                    `json:"permission_errors"`
-	CurrentPath   string                 `json:"current_path"`
-	StartedAt     int64                  `json:"started_at"`
-	FinishedAt    int64                  `json:"finished_at,omitempty"`
-	Error         string                 `json:"error,omitempty"`
-	Result        *AdvancedStorageResult `json:"result,omitempty"`
-	cancel        context.CancelFunc     `json:"-"`
+	ID              string                 `json:"id"`
+	Status          string                 `json:"status"`
+	Root            string                 `json:"root"`
+	Phase           string                 `json:"phase"`
+	PhasePercent    int                    `json:"phase_percent"`
+	FilesVisited    int                    `json:"files_visited"`
+	DirsVisited     int                    `json:"dirs_visited"`
+	PermissionErr   int                    `json:"permission_errors"`
+	CurrentPath     string                 `json:"current_path"`
+	HashFilesDone   int                    `json:"hash_files_done"`
+	HashFilesTotal  int                    `json:"hash_files_total"`
+	HashBytesDone   uint64                 `json:"hash_bytes_done"`
+	HashBytesTotal  uint64                 `json:"hash_bytes_total"`
+	CurrentHashPath string                 `json:"current_hash_path,omitempty"`
+	StartedAt       int64                  `json:"started_at"`
+	FinishedAt      int64                  `json:"finished_at,omitempty"`
+	Error           string                 `json:"error,omitempty"`
+	Result          *AdvancedStorageResult `json:"result,omitempty"`
+	cancel          context.CancelFunc     `json:"-"`
+}
+
+type storageProgress struct {
+	Phase           string
+	PhasePercent    int
+	FilesVisited    int
+	DirsVisited     int
+	PermissionErr   int
+	CurrentPath     string
+	HashFilesDone   int
+	HashFilesTotal  int
+	HashBytesDone   uint64
+	HashBytesTotal  uint64
+	CurrentHashPath string
 }
 
 type scanManager struct {
@@ -74,6 +95,10 @@ type scanManager struct {
 }
 
 func newScanManager() *scanManager { return &scanManager{jobs: make(map[string]*ScanJob)} }
+
+func newStorageProgress(phase string, percent, files, dirs, permissionErr int, path string) storageProgress {
+	return storageProgress{Phase: phase, PhasePercent: percent, FilesVisited: files, DirsVisited: dirs, PermissionErr: permissionErr, CurrentPath: path}
+}
 
 func (m *scanManager) create(req StorageScanRequest) (*ScanJob, error) {
 	root, err := resolveScope(req.Scope)
@@ -95,7 +120,7 @@ func (m *scanManager) create(req StorageScanRequest) (*ScanJob, error) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	id := randomToken(8)
-	job := &ScanJob{ID: id, Status: "running", Root: root, StartedAt: time.Now().Unix(), cancel: cancel}
+	job := &ScanJob{ID: id, Status: "running", Root: root, Phase: "walking", PhasePercent: 2, StartedAt: time.Now().Unix(), cancel: cancel}
 	m.mu.Lock()
 	m.jobs[id] = job
 	m.latestID = id
@@ -119,13 +144,20 @@ func (m *scanManager) create(req StorageScanRequest) (*ScanJob, error) {
 	m.mu.Unlock()
 
 	go func() {
-		result, scanErr := scanStorageAdvanced(ctx, root, uint64(req.MinMB)*1024*1024, req.Limit, func(f, d, p int, path string) {
+		result, scanErr := scanStorageAdvanced(ctx, root, uint64(req.MinMB)*1024*1024, req.Limit, func(p storageProgress) {
 			m.mu.Lock()
 			if j := m.jobs[id]; j != nil {
-				j.FilesVisited = f
-				j.DirsVisited = d
-				j.PermissionErr = p
-				j.CurrentPath = path
+				j.Phase = p.Phase
+				j.PhasePercent = p.PhasePercent
+				j.FilesVisited = p.FilesVisited
+				j.DirsVisited = p.DirsVisited
+				j.PermissionErr = p.PermissionErr
+				j.CurrentPath = p.CurrentPath
+				j.HashFilesDone = p.HashFilesDone
+				j.HashFilesTotal = p.HashFilesTotal
+				j.HashBytesDone = p.HashBytesDone
+				j.HashBytesTotal = p.HashBytesTotal
+				j.CurrentHashPath = p.CurrentHashPath
 			}
 			m.mu.Unlock()
 		})
@@ -137,8 +169,10 @@ func (m *scanManager) create(req StorageScanRequest) (*ScanJob, error) {
 		}
 		j.FinishedAt = time.Now().Unix()
 		j.CurrentPath = ""
+		j.CurrentHashPath = ""
 		if scanErr != nil && !errors.Is(scanErr, context.Canceled) {
 			j.Status = "failed"
+			j.Phase = "failed"
 			j.Error = scanErr.Error()
 			return
 		}
@@ -150,8 +184,11 @@ func (m *scanManager) create(req StorageScanRequest) (*ScanJob, error) {
 		}
 		if errors.Is(scanErr, context.Canceled) || (result != nil && result.Cancelled) {
 			j.Status = "cancelled"
+			j.Phase = "cancelled"
 		} else {
 			j.Status = "complete"
+			j.Phase = "complete"
+			j.PhasePercent = 100
 		}
 	}()
 	return snapshotJob(job), nil
@@ -250,7 +287,26 @@ func (a *app) handleStorageCancel(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]any{"ok": true})
 }
 
-func scanStorageAdvanced(ctx context.Context, root string, minSize uint64, limit int, progress func(int, int, int, string)) (*AdvancedStorageResult, error) {
+func walkStoragePercent(entries int) int {
+	switch {
+	case entries <= 0:
+		return 2
+	case entries < 1000:
+		return 4 + entries*16/1000
+	case entries < 10000:
+		return 20 + (entries-1000)*20/9000
+	case entries < 50000:
+		return 40 + (entries-10000)*20/40000
+	default:
+		p := 60 + (entries-50000)/25000
+		if p > 72 {
+			p = 72
+		}
+		return p
+	}
+}
+
+func scanStorageAdvanced(ctx context.Context, root string, minSize uint64, limit int, progress func(storageProgress)) (*AdvancedStorageResult, error) {
 	start := time.Now()
 	h := &fileHeap{}
 	heapInit(h)
@@ -264,6 +320,13 @@ func scanStorageAdvanced(ctx context.Context, root string, minSize uint64, limit
 	dupCandidateCount := 0
 	const maxDupCandidates = 5000
 	lastProgress := time.Now()
+
+	emitWalk := func(path string) {
+		if progress != nil {
+			progress(newStorageProgress("walking", walkStoragePercent(filesVisited+dirsVisited), filesVisited, dirsVisited, permErr, path))
+		}
+	}
+	emitWalk(root)
 
 	walkErr := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		select {
@@ -282,7 +345,7 @@ func scanStorageAdvanced(ctx context.Context, root string, minSize uint64, limit
 		if d.IsDir() {
 			dirsVisited++
 			if time.Since(lastProgress) > 150*time.Millisecond {
-				progress(filesVisited, dirsVisited, permErr, path)
+				emitWalk(path)
 				lastProgress = time.Now()
 			}
 			return nil
@@ -313,7 +376,7 @@ func scanStorageAdvanced(ctx context.Context, root string, minSize uint64, limit
 			}
 		}
 		if filesVisited%256 == 0 || time.Since(lastProgress) > 150*time.Millisecond {
-			progress(filesVisited, dirsVisited, permErr, path)
+			emitWalk(path)
 			lastProgress = time.Now()
 		}
 		return nil
@@ -326,12 +389,50 @@ func scanStorageAdvanced(ctx context.Context, root string, minSize uint64, limit
 	}
 	cats := categorySlice(dirMap, 12)
 	types := categorySlice(typeMap, 10)
-	duplicates, hashedBytes := hashDuplicateCandidates(ctx, dupCandidates)
+
+	if cancelled {
+		result := &AdvancedStorageResult{Root: root, FilesVisited: filesVisited, DirsVisited: dirsVisited, PermissionErr: permErr, VisibleBytes: visible, Truncated: truncated, Cancelled: true, LargeFiles: files, Families: groupFamilies(files), Categories: cats, FileTypes: types, DurationMS: time.Since(start).Milliseconds(), Note: "Storage traversal was cancelled locally. Partial read-only findings are retained; duplicate hashing did not continue after cancellation."}
+		if progress != nil {
+			progress(newStorageProgress("cancelled", walkStoragePercent(filesVisited+dirsVisited), filesVisited, dirsVisited, permErr, ""))
+		}
+		return result, context.Canceled
+	}
+
+	if progress != nil {
+		progress(newStorageProgress("grouping", 75, filesVisited, dirsVisited, permErr, ""))
+	}
+
+	duplicates, hashedBytes, plannedHashBytes := hashDuplicateCandidates(ctx, dupCandidates, func(done, total int, hashed, planned uint64, path string) {
+		if progress == nil {
+			return
+		}
+		percent := 78
+		if planned > 0 {
+			percent += int((hashed * 18) / planned)
+			if percent > 96 {
+				percent = 96
+			}
+		} else {
+			percent = 96
+		}
+		progress(storageProgress{Phase: "hashing", PhasePercent: percent, FilesVisited: filesVisited, DirsVisited: dirsVisited, PermissionErr: permErr, HashFilesDone: done, HashFilesTotal: total, HashBytesDone: hashed, HashBytesTotal: planned, CurrentHashPath: path})
+	})
 	if errors.Is(ctx.Err(), context.Canceled) {
 		cancelled = true
 	}
-	result := &AdvancedStorageResult{Root: root, FilesVisited: filesVisited, DirsVisited: dirsVisited, PermissionErr: permErr, VisibleBytes: visible, Truncated: truncated, Cancelled: cancelled, LargeFiles: files, Families: groupFamilies(files), Categories: cats, FileTypes: types, Duplicates: duplicates, DuplicateHashBytes: hashedBytes, DurationMS: time.Since(start).Milliseconds(), Note: "All analysis and duplicate hashes were computed locally. Duplicate groups are exact SHA-256 matches among bounded large-file candidates; no files were modified."}
-	progress(filesVisited, dirsVisited, permErr, "")
+	if progress != nil {
+		progress(storageProgress{Phase: "finalizing", PhasePercent: 98, FilesVisited: filesVisited, DirsVisited: dirsVisited, PermissionErr: permErr, HashFilesDone: 0, HashFilesTotal: 0, HashBytesDone: hashedBytes, HashBytesTotal: plannedHashBytes})
+	}
+	result := &AdvancedStorageResult{Root: root, FilesVisited: filesVisited, DirsVisited: dirsVisited, PermissionErr: permErr, VisibleBytes: visible, Truncated: truncated, Cancelled: cancelled, LargeFiles: files, Families: groupFamilies(files), Categories: cats, FileTypes: types, Duplicates: duplicates, DuplicateHashBytes: hashedBytes, DurationMS: time.Since(start).Milliseconds(), Note: "All analysis and duplicate hashes were computed locally. Duplicate groups are exact SHA-256 matches among a bounded hash plan; groups that cannot fit at least two files inside the hash budget are skipped rather than performing a useless one-file hash."}
+	if progress != nil {
+		phase := "complete"
+		percent := 100
+		if cancelled {
+			phase = "cancelled"
+			percent = 98
+		}
+		progress(storageProgress{Phase: phase, PhasePercent: percent, FilesVisited: filesVisited, DirsVisited: dirsVisited, PermissionErr: permErr, HashBytesDone: hashedBytes, HashBytesTotal: plannedHashBytes})
+	}
 	if cancelled {
 		return result, context.Canceled
 	}
@@ -442,7 +543,12 @@ func categorySlice(m map[string]*StorageCategory, limit int) []StorageCategory {
 	return out
 }
 
-func hashDuplicateCandidates(ctx context.Context, candidates map[uint64][]LargeFile) ([]DuplicateGroup, uint64) {
+type duplicateHashPlanItem struct {
+	size uint64
+	file LargeFile
+}
+
+func buildDuplicateHashPlan(candidates map[uint64][]LargeFile, budget uint64) ([]duplicateHashPlanItem, uint64) {
 	type g struct {
 		size      uint64
 		files     []LargeFile
@@ -450,69 +556,142 @@ func hashDuplicateCandidates(ctx context.Context, candidates map[uint64][]LargeF
 	}
 	var groups []g
 	for size, files := range candidates {
-		if len(files) >= 2 {
-			groups = append(groups, g{size, files, size * uint64(len(files)-1)})
+		if size == 0 || len(files) < 2 {
+			continue
 		}
+		potential := size * uint64(len(files)-1)
+		groups = append(groups, g{size: size, files: append([]LargeFile(nil), files...), potential: potential})
 	}
 	sort.Slice(groups, func(i, j int) bool { return groups[i].potential > groups[j].potential })
-	const budget uint64 = 4 * 1024 * 1024 * 1024
+
+	remaining := budget
+	plan := make([]duplicateHashPlanItem, 0)
+	var planned uint64
+	for _, grp := range groups {
+		// Exact duplicate confirmation requires at least two full files from a
+		// same-size group. Never spend I/O on a lone file that cannot produce a
+		// duplicate result within the remaining budget.
+		if grp.size > remaining/2 {
+			continue
+		}
+		maxFiles := int(remaining / grp.size)
+		if maxFiles < 2 {
+			continue
+		}
+		if maxFiles > len(grp.files) {
+			maxFiles = len(grp.files)
+		}
+		for i := 0; i < maxFiles; i++ {
+			plan = append(plan, duplicateHashPlanItem{size: grp.size, file: grp.files[i]})
+		}
+		used := grp.size * uint64(maxFiles)
+		planned += used
+		remaining -= used
+	}
+	return plan, planned
+}
+
+const duplicateHashBudget uint64 = 4 * 1024 * 1024 * 1024
+
+func hashDuplicateCandidates(ctx context.Context, candidates map[uint64][]LargeFile, progress func(int, int, uint64, uint64, string)) ([]DuplicateGroup, uint64, uint64) {
+	plan, planned := buildDuplicateHashPlan(candidates, duplicateHashBudget)
+	if progress != nil {
+		progress(0, len(plan), 0, planned, "")
+	}
 	var hashed uint64
 	byHash := map[string][]LargeFile{}
 	hashSizes := map[string]uint64{}
-	for _, grp := range groups {
-		if hashed >= budget {
-			break
+	for i, item := range plan {
+		select {
+		case <-ctx.Done():
+			return duplicateGroupsFromMap(byHash, hashSizes), hashed, planned
+		default:
 		}
-		for _, f := range grp.files {
-			if hashed+f.Size > budget && hashed > 0 {
-				break
+		info, err := os.Stat(item.file.Path)
+		if err != nil || !info.Mode().IsRegular() || info.Size() < 0 || uint64(info.Size()) != item.size {
+			if progress != nil {
+				progress(i+1, len(plan), hashed, planned, item.file.Path)
 			}
-			select {
-			case <-ctx.Done():
-				return duplicateGroupsFromMap(byHash, hashSizes), hashed
-			default:
+			continue
+		}
+		base := hashed
+		h, readBytes, err := sha256FileProgress(ctx, item.file.Path, func(read uint64) {
+			if progress == nil {
+				return
 			}
-			h, err := sha256File(ctx, f.Path)
-			if err != nil {
-				continue
+			current := base + read
+			if current > planned {
+				current = planned
 			}
-			hashed += f.Size
-			key := fmt.Sprintf("%d:%s", grp.size, h)
-			byHash[key] = append(byHash[key], f)
-			hashSizes[key] = grp.size
+			progress(i, len(plan), current, planned, item.file.Path)
+		})
+		if err != nil {
+			if errors.Is(err, context.Canceled) {
+				return duplicateGroupsFromMap(byHash, hashSizes), hashed, planned
+			}
+			if progress != nil {
+				progress(i+1, len(plan), hashed, planned, item.file.Path)
+			}
+			continue
+		}
+		hashed += readBytes
+		key := fmt.Sprintf("%d:%s", item.size, h)
+		byHash[key] = append(byHash[key], item.file)
+		hashSizes[key] = item.size
+		if progress != nil {
+			progress(i+1, len(plan), hashed, planned, item.file.Path)
 		}
 	}
-	return duplicateGroupsFromMap(byHash, hashSizes), hashed
+	return duplicateGroupsFromMap(byHash, hashSizes), hashed, planned
 }
-func sha256File(ctx context.Context, path string) (string, error) {
+
+func sha256FileProgress(ctx context.Context, path string, progress func(uint64)) (string, uint64, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 	defer f.Close()
 	h := sha256.New()
 	buf := make([]byte, 1024*1024)
+	var total uint64
+	var lastReported uint64
+	lastEmit := time.Now()
 	for {
 		select {
 		case <-ctx.Done():
-			return "", context.Canceled
+			return "", total, context.Canceled
 		default:
 		}
 		n, e := f.Read(buf)
 		if n > 0 {
 			if _, werr := h.Write(buf[:n]); werr != nil {
-				return "", werr
+				return "", total, werr
+			}
+			total += uint64(n)
+			if progress != nil && (total-lastReported >= 16*1024*1024 || time.Since(lastEmit) >= 150*time.Millisecond) {
+				progress(total)
+				lastReported = total
+				lastEmit = time.Now()
 			}
 		}
 		if e == io.EOF {
 			break
 		}
 		if e != nil {
-			return "", e
+			return "", total, e
 		}
 	}
-	return hex.EncodeToString(h.Sum(nil)), nil
+	if progress != nil {
+		progress(total)
+	}
+	return hex.EncodeToString(h.Sum(nil)), total, nil
 }
+
+func sha256File(ctx context.Context, path string) (string, error) {
+	h, _, err := sha256FileProgress(ctx, path, nil)
+	return h, err
+}
+
 func duplicateGroupsFromMap(m map[string][]LargeFile, sizes map[string]uint64) []DuplicateGroup {
 	var out []DuplicateGroup
 	for key, files := range m {
