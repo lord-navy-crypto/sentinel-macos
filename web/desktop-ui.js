@@ -211,7 +211,7 @@
     const scanPath = document.getElementById('scanPath');
     if (scanState) scanState.textContent = label;
     if (scanCounts) scanCounts.textContent = detail;
-    if (scanPath) scanPath.textContent = job.current_hash_path || job.current_path || '';
+    if (scanPath) scanPath.textContent = job.current_hash_path || job.current_path || job.current_dir || '';
   };
 
   const handleStorageJob = job => {
@@ -222,6 +222,7 @@
     const files = Number(job.files_visited || 0);
     const dirs = Number(job.dirs_visited || 0);
     const limits = Number(job.permission_errors || 0);
+    const slow = Number(job.slow_paths_skipped || 0);
     const phase = String(job.phase || (job.status === 'running' ? 'walking' : job.status || 'walking'));
     const percent = Number.isFinite(Number(job.phase_percent)) && Number(job.phase_percent) > 0
       ? Number(job.phase_percent)
@@ -231,9 +232,9 @@
     if (job.status === 'running') {
       state.storageRunning = true;
       stopTimer(panel);
-      let detail = `${files.toLocaleString()} files · ${dirs.toLocaleString()} folders · ${limits.toLocaleString()} permission limits`;
+      let detail = `${files.toLocaleString()} files · ${dirs.toLocaleString()} folders · ${limits.toLocaleString()} permission limits · ${slow.toLocaleString()} slow paths skipped`;
       if (phase === 'walking') {
-        detail += ' · directory percentage is estimated because the scope is not pre-counted.';
+        detail += ' · directory percentage is estimated because the scope is not pre-counted. Slow directory batches are skipped after the local idle budget so one path cannot stall the whole scan.';
       } else if (phase === 'grouping') {
         detail += ' · directory traversal is complete; Sentinel is selecting same-size candidates that can actually be compared.';
       } else if (phase === 'hashing') {
@@ -255,11 +256,12 @@
 
     state.storageRunning = false;
     if (job.status === 'complete') {
-      const detail = `${files.toLocaleString()} files · ${dirs.toLocaleString()} folders scanned · ${formatBytes(job.hash_bytes_done || job.result?.duplicate_hash_bytes || 0)} duplicate-candidate data hashed.`;
+      const partial = Boolean(job.result?.truncated);
+      const detail = `${files.toLocaleString()} files · ${dirs.toLocaleString()} folders scanned · ${slow.toLocaleString()} slow paths skipped · ${formatBytes(job.hash_bytes_done || job.result?.duplicate_hash_bytes || 0)} duplicate-candidate data hashed${partial ? ' · bounded partial result because one or more safety limits were reached' : ''}.`;
       setPanel(panel, 100, label, detail, 'complete');
       updateCoreStoragePanel(job, label, detail);
     } else if (job.status === 'cancelled') {
-      const detail = `Stopped safely after ${files.toLocaleString()} files and ${dirs.toLocaleString()} folders. Cancellation also applies during SHA-256 verification.`;
+      const detail = `Stopped safely after ${files.toLocaleString()} files and ${dirs.toLocaleString()} folders · ${slow.toLocaleString()} slow paths skipped. Cancellation also applies while Sentinel is waiting on a directory batch or verifying SHA-256.`;
       setPanel(panel, Math.min(99, Math.max(0, percent)), label, detail, 'idle');
       updateCoreStoragePanel(job, label, detail);
     } else if (job.status === 'failed') {
