@@ -1,0 +1,28 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+/*
+ * Desktop/localhost presentation only. This file must never own Sentinel
+ * behavior. The core UI remains web/index.html + web/app.js.
+ */
+.mode-switch{display:none!important}
+.advanced-nav,.easy-mode .advanced-nav{display:block!important}
+html,body{height:100%;overflow:hidden}
+body{margin:0}
+.app{height:100vh;min-height:0;grid-template-columns:244px minmax(0,1fr);overflow:hidden}
+.sidebar{height:100vh!important;min-height:0!important;position:relative!important;top:auto!important;overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior:contain;scrollbar-gutter:stable}
+.sidebar nav{display:block!important;overflow:visible!important;min-height:0}
+.sidebar-actions{display:block!important}
+.privacy{display:flex!important}
+.nav{width:100%!important;white-space:normal!important}
+main{height:100vh;min-height:0;min-width:0;max-width:none!important;margin:0!important;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-gutter:stable}
+
+#sentinelGlobalActivity{position:fixed;z-index:5000;left:244px;right:0;top:0;height:4px;pointer-events:none;opacity:0;transition:opacity .14s ease;background:transparent}
+#sentinelGlobalActivity.visible{opacity:1}
+#sentinelGlobalActivity::after{content:"";display:block;height:100%;width:34%;background:#111;animation:sentinel-slide 1.05s ease-in-out infinite}
+#sentinelGlobalActivityText{position:fixed;z-index:5001;right:16px;top:12px;max-width:min(460px,calc(100vw - 40px));padding:7px 10px;border:1px solid #d8d8d8;border-radius:9px;background:rgba(255,255,255,.96);color:#222;font-size:11px;box-shadow:0 4px 18px rgba(0,0,0,.08);opacity:0;transform:translateY(-4px);transition:opacity .14s ease,transform .14s ease;pointer-events:none}
+#sentinelGlobalActivityText.visible{opacity:1;transform:translateY(0)}
+#sentinelGlobalActivityText.error{border-color:#b33;color:#8d1f1f}
+button[data-sentinel-pending="1"]{cursor:progress!important;opacity:.72!important}
+@keyframes sentinel-slide{0%{transform:translateX(-115%)}55%{transform:translateX(210%)}100%{transform:translateX(310%)}}
+@media(prefers-color-scheme:dark){#sentinelGlobalActivity::after{background:#f2f2f2}#sentinelGlobalActivityText{background:rgba(20,20,20,.96);border-color:#3a3a3a;color:#f1f1f1}#sentinelGlobalActivityText.error{border-color:#d66;color:#ffb0b0}}
+@media(prefers-reduced-motion:reduce){#sentinelGlobalActivity::after{animation:none;width:100%}}
+@media(max-width:719px){html,body{height:auto;overflow:auto}.app{height:auto;min-height:100vh;display:block;overflow:visible}.sidebar{height:auto!important;max-height:42vh;overflow-y:auto!important;border-bottom:1px solid var(--line)}main{height:auto;min-height:58vh;overflow:visible}.privacy,.sidebar-actions{display:none!important}#sentinelGlobalActivity{left:0}}
