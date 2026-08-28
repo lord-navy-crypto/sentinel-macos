@@ -16,6 +16,23 @@ func TestParseProcessTableEvidence(t *testing.T) {
 	}
 }
 
+func TestParseOpenFileEvidence(t *testing.T) {
+	raw := `COMMAND   PID  USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
+Example   101 alice  cwd    DIR   1,17      640    2 /Users/alice/Projects
+Example   101 alice  txt    REG   1,17   123456  912 /Applications/Example.app/Contents/MacOS/Example
+Example   101 alice   12u  IPv4 0x123      0t0  TCP localhost:5555->localhost:6000`
+	got := ParseOpenFileEvidence(raw)
+	if got.Kind != "process_open_files" || got.ParsedRows != 3 || len(got.OpenFiles) != 3 {
+		t.Fatalf("open files parse=%+v", got)
+	}
+	if got.OpenFiles[1].PID != 101 || got.OpenFiles[1].FD != "txt" || got.OpenFiles[1].Name != "/Applications/Example.app/Contents/MacOS/Example" {
+		t.Fatalf("open file=%+v", got.OpenFiles[1])
+	}
+	if got.OpenFiles[2].Type != "IPv4" || got.OpenFiles[2].Name != "localhost:5555->localhost:6000" {
+		t.Fatalf("socket row=%+v", got.OpenFiles[2])
+	}
+}
+
 func TestParseFilesystemEvidence(t *testing.T) {
 	raw := `Filesystem      Size   Used  Avail Capacity iused ifree %iused Mounted on
 /dev/disk3s1s1  460Gi   15Gi  210Gi     7%  400k  2.0G    0% /
@@ -67,6 +84,13 @@ origin=Developer ID Application: Example Corp (TEAM123456)`)
 source=no usable signature`)
 	if rejected.Gatekeeper == nil || rejected.Gatekeeper.Assessment != "rejected" {
 		t.Fatalf("rejected=%+v", rejected)
+	}
+}
+
+func TestSystemConsoleDispatchesOpenFileParser(t *testing.T) {
+	got := ParseSystemConsoleEvidence("process-open-files", "COMMAND PID USER FD TYPE DEVICE SIZE/OFF NODE NAME\nA 12 u txt REG 1,1 10 2 /tmp/A")
+	if got.Kind != "process_open_files" || len(got.OpenFiles) != 1 {
+		t.Fatalf("dispatch=%+v", got)
 	}
 }
 
