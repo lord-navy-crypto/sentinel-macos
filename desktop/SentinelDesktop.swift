@@ -108,10 +108,23 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         NSApplication.shared.terminate(nil)
     }
 
+    private func installDesktopRefinement(into config: WKWebViewConfiguration) {
+        guard let resources = Bundle.main.resourceURL else { return }
+        let sourceURL = resources.appendingPathComponent("ui/DesktopRefinement.js")
+        guard let source = try? String(contentsOf: sourceURL, encoding: .utf8), !source.isEmpty else {
+            NSLog("Sentinel desktop refinement script was not found; continuing with embedded dashboard styling.")
+            return
+        }
+        config.userContentController.addUserScript(
+            WKUserScript(source: source, injectionTime: .atDocumentStart, forMainFrameOnly: true)
+        )
+    }
+
     private func buildWindow() {
         let config = WKWebViewConfiguration()
         config.websiteDataStore = .nonPersistent()
         config.defaultWebpagePreferences.allowsContentJavaScript = true
+        installDesktopRefinement(into: config)
         webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = navigationDelegate
 
@@ -121,13 +134,13 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
             backing: .buffered,
             defer: false
         )
-        window.title = "Sentinel"
+        window.title = "Sentinel Mac"
         window.minSize = NSSize(width: 920, height: 620)
         window.center()
         window.contentView = webView
         window.delegate = self
         window.makeKeyAndOrderFront(nil)
-        showLoadingPage("Starting Sentinel engine…")
+        showLoadingPage("Starting local engine…")
     }
 
     private func buildMenu() {
@@ -135,11 +148,11 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         let appItem = NSMenuItem()
         main.addItem(appItem)
         let appMenu = NSMenu()
-        appMenu.addItem(withTitle: "About Sentinel", action: #selector(showAbout), keyEquivalent: "")
+        appMenu.addItem(withTitle: "About Sentinel Mac", action: #selector(showAbout), keyEquivalent: "")
         appMenu.addItem(NSMenuItem.separator())
         appMenu.addItem(withTitle: "Reload Dashboard", action: #selector(reloadDashboard), keyEquivalent: "r")
         appMenu.addItem(NSMenuItem.separator())
-        appMenu.addItem(withTitle: "Quit Sentinel", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appMenu.addItem(withTitle: "Quit Sentinel Mac", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appItem.submenu = appMenu
         NSApplication.shared.mainMenu = main
     }
@@ -147,8 +160,8 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
     @objc private func showAbout() {
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
         let alert = NSAlert()
-        alert.messageText = "Sentinel"
-        alert.informativeText = "Local Mac System Intelligence\nVersion \(version)\n\nYour Mac remains the server; this desktop shell embeds the local Sentinel dashboard."
+        alert.messageText = "Sentinel Mac"
+        alert.informativeText = "Local Mac System Intelligence\nVersion \(version)\n\nYour Mac remains the server; the desktop app embeds the local Sentinel dashboard."
         alert.addButton(withTitle: "OK")
         alert.runModal()
     }
@@ -247,7 +260,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
                 self.navigationDelegate.allowedOrigin = payload.origin
-                self.window.title = "Sentinel \(payload.version)"
+                self.window.title = "Sentinel Mac \(payload.version)"
                 self.webView.load(URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 15))
             }
         }
@@ -256,9 +269,10 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
     private func showLoadingPage(_ message: String) {
         let html = """
         <!doctype html><meta charset='utf-8'><style>
-        html,body{height:100%;margin:0;background:#0b1020;color:#edf2ff;font:15px -apple-system,BlinkMacSystemFont,sans-serif}
-        body{display:grid;place-items:center}.box{text-align:center}.dot{font-size:36px;margin-bottom:14px}
-        </style><div class='box'><div class='dot'>◉</div><b>Sentinel</b><p>\(message)</p></div>
+        html,body{height:100%;margin:0;background:#fff;color:#111;font:15px -apple-system,BlinkMacSystemFont,sans-serif}
+        body{display:grid;place-items:center}.box{text-align:center}.mark{width:54px;height:54px;border-radius:15px;background:#111;color:#fff;display:grid;place-items:center;margin:0 auto 14px;font-weight:800;font-size:25px}
+        p{color:#666}@media(prefers-color-scheme:dark){html,body{background:#0d0d0d;color:#f4f4f4}.mark{background:#f4f4f4;color:#111}p{color:#aaa}}
+        </style><div class='box'><div class='mark'>S</div><b>Sentinel Mac</b><p>\(message)</p></div>
         """
         webView.loadHTMLString(html, baseURL: nil)
     }
@@ -267,7 +281,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         showLoadingPage("Engine unavailable")
         let alert = NSAlert()
         alert.alertStyle = .critical
-        alert.messageText = "Sentinel could not start"
+        alert.messageText = "Sentinel Mac could not start"
         alert.informativeText = detail
         alert.addButton(withTitle: "Quit")
         alert.runModal()
