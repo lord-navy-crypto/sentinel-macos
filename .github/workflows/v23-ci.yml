@@ -41,8 +41,10 @@ jobs:
           node --check web/core-compat.js
           node --check web/desktop-ui.js
           node --check web/system-console.js
+          node --check web/system-console-links.js
           node --check web/investigation.js
           node --check web/investigation-bridge.js
+          node --check web/launch-services.js
 
       - name: Shell syntax
         run: |
