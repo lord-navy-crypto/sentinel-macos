@@ -84,7 +84,11 @@ func investigationPathMatch(root, candidate string) (bool, string) {
 }
 
 func appendInvestigationNextTarget(targets []InvestigationNextTarget, path, kind, why string) []InvestigationNextTarget {
-	path = normalizeEvidencePath(path)
+	raw := strings.TrimSpace(path)
+	if raw == "" || !filepath.IsAbs(raw) {
+		return targets
+	}
+	path = normalizeEvidencePath(raw)
 	if path == "" || !filepath.IsAbs(path) {
 		return targets
 	}
@@ -97,6 +101,10 @@ func appendInvestigationNextTarget(targets []InvestigationNextTarget, path, kind
 }
 
 func investigationOpenFileCanBranch(raw string) bool {
+	raw = strings.TrimSpace(raw)
+	if raw == "" || !filepath.IsAbs(raw) {
+		return false
+	}
 	path := normalizeEvidencePath(raw)
 	if path == "" || !filepath.IsAbs(path) {
 		return false
@@ -183,10 +191,15 @@ func buildInvestigationRuntimeContext(ctx context.Context, rawPath string) Inves
 				}
 				branchCount := 0
 				for _, row := range rows {
-					if branchCount >= 16 || !investigationOpenFileCanBranch(row.Name) || normalizeEvidencePath(row.Name) == path || normalizeEvidencePath(row.Name) == target {
+					rowPath := strings.TrimSpace(row.Name)
+					if branchCount >= 16 || !investigationOpenFileCanBranch(rowPath) {
 						continue
 					}
-					out.NextTargets = appendInvestigationNextTarget(out.NextTargets, row.Name, "process_open_object", fmt.Sprintf("PID %d currently has this code-bearing/configuration object open.", process.PID))
+					normalizedRowPath := normalizeEvidencePath(rowPath)
+					if normalizedRowPath == path || normalizedRowPath == target {
+						continue
+					}
+					out.NextTargets = appendInvestigationNextTarget(out.NextTargets, rowPath, "process_open_object", fmt.Sprintf("PID %d currently has this code-bearing/configuration object open.", process.PID))
 					branchCount++
 				}
 			}
