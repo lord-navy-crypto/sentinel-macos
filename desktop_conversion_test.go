@@ -13,7 +13,8 @@ func TestDesktopDistributionAssets(t *testing.T) {
 		"build-desktop-macos.sh":        {"swiftc", "lipo -create", "NSAllowsLocalNetworking", "Sentinel.app"},
 		"release-direct-macos.sh":       {"Developer ID", "--options runtime", "notarytool submit", "stapler staple", "hdiutil create"},
 		"DIRECT_DISTRIBUTION_GUIDE.md":  {"Sentinel-2.2.dmg", "Developer ID", "notarytool"},
-		"web/desktop-ui.js":             {"mode-switch", "More tools", "Sentinel is working", "overflow-y:auto"},
+		"web/desktop-ui.js":             {"desktop-ui.css", "More tools", "Sentinel is working", "window.fetch = async"},
+		"web/desktop-ui.css":            {".mode-switch{display:none!important}", "overflow-y:auto", "sentinelGlobalActivity"},
 	}
 	for path, needles := range checks {
 		b, err := os.ReadFile(path)
@@ -52,6 +53,18 @@ func TestDesktopUsesDirectLocalhostInsteadOfEmbeddedFrame(t *testing.T) {
 	}
 	if !strings.Contains(mainSource, `X-Frame-Options", "DENY`) || !strings.Contains(mainSource, `frame-ancestors 'none'`) {
 		t.Fatalf("desktop mode must preserve anti-framing security headers")
+	}
+
+	uiJSBytes, err := os.ReadFile("web/desktop-ui.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	uiJS := string(uiJSBytes)
+	if strings.Contains(uiJS, "createElement('style')") || strings.Contains(uiJS, "createElement(\"style\")") {
+		t.Fatalf("desktop UI must not inject inline style because Sentinel CSP blocks it")
+	}
+	if strings.Contains(uiJS, ".mode-switch')?.remove") || strings.Contains(uiJS, ".mode-switch\")?.remove") {
+		t.Fatalf("desktop UI must not delete compatibility nodes used by app.js")
 	}
 }
 
