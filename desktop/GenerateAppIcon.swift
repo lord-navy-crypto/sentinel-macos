@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 import AppKit
 import Foundation
+import Darwin
 
 let args = CommandLine.arguments
 if args.count != 2 {
