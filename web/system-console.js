@@ -114,6 +114,18 @@
       ], structured.processes));
     }
 
+    if (Array.isArray(structured.open_files) && structured.open_files.length) {
+      box.append(renderTable('Process open files & objects', [
+        {label: 'PID', value: 'pid'},
+        {label: 'FD', value: 'fd'},
+        {label: 'Type', value: 'type'},
+        {label: 'Device', value: 'device'},
+        {label: 'Size / offset', value: 'size_offset'},
+        {label: 'Node', value: 'node'},
+        {label: 'Name / path', value: 'name'},
+      ], structured.open_files, 120));
+    }
+
     if (Array.isArray(structured.filesystems) && structured.filesystems.length) {
       box.append(renderTable('Filesystems', [
         {label: 'Filesystem', value: 'filesystem'},
