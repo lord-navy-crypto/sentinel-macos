@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 import AppKit
 import Foundation
-import WebKit
 
 private struct Bootstrap: Decodable {
     let origin: String
@@ -9,86 +8,20 @@ private struct Bootstrap: Decodable {
     let version: String
 }
 
-private final class SentinelNavigationDelegate: NSObject, WKNavigationDelegate, WKDownloadDelegate {
-    var allowedOrigin: String?
-
-    private func uniqueDownloadURL(suggestedFilename: String) -> URL {
-        let fm = FileManager.default
-        let downloads = fm.urls(for: .downloadsDirectory, in: .userDomainMask).first ?? fm.homeDirectoryForCurrentUser
-        let clean = suggestedFilename.replacingOccurrences(of: "/", with: "-")
-        var candidate = downloads.appendingPathComponent(clean)
-        let ext = candidate.pathExtension
-        let stem = candidate.deletingPathExtension().lastPathComponent
-        var i = 2
-        while fm.fileExists(atPath: candidate.path) {
-            let name = ext.isEmpty ? "\(stem)-\(i)" : "\(stem)-\(i).\(ext)"
-            candidate = downloads.appendingPathComponent(name)
-            i += 1
-        }
-        return candidate
-    }
-
-    func download(_ download: WKDownload, decideDestinationUsing response: URLResponse, suggestedFilename: String, completionHandler: @escaping (URL?) -> Void) {
-        completionHandler(uniqueDownloadURL(suggestedFilename: suggestedFilename))
-    }
-
-    func downloadDidFinish(_ download: WKDownload) {
-        NSSound.beep()
-    }
-
-    func download(_ download: WKDownload, didFailWithError error: Error, resumeData: Data?) {
-        NSLog("Sentinel download failed: \(error.localizedDescription)")
-    }
-
-    func webView(_ webView: WKWebView, navigationAction: WKNavigationAction, didBecome download: WKDownload) {
-        download.delegate = self
-    }
-
-    func webView(_ webView: WKWebView, navigationResponse: WKNavigationResponse, didBecome download: WKDownload) {
-        download.delegate = self
-    }
-
-    func webView(_ webView: WKWebView,
-                 decidePolicyFor navigationAction: WKNavigationAction,
-                 decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-        guard let url = navigationAction.request.url else {
-            decisionHandler(.cancel)
-            return
-        }
-        let scheme = url.scheme?.lowercased() ?? ""
-        if navigationAction.shouldPerformDownload {
-            decisionHandler(.download)
-            return
-        }
-        if scheme == "about" || scheme == "blob" {
-            decisionHandler(.allow)
-            return
-        }
-        if let origin = allowedOrigin,
-           let base = URL(string: origin),
-           url.scheme == base.scheme,
-           url.host == base.host,
-           url.port == base.port {
-            decisionHandler(.allow)
-            return
-        }
-        if scheme == "http" || scheme == "https" {
-            NSWorkspace.shared.open(url)
-        }
-        decisionHandler(.cancel)
-    }
-}
-
-private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKUIDelegate {
+private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var window: NSWindow!
-    private var webView: WKWebView!
     private var engine: Process?
     private var stdoutPipe: Pipe?
     private var stderrPipe: Pipe?
     private var stdoutBuffer = Data()
     private var stderrBuffer = Data()
     private var isQuitting = false
-    private let navigationDelegate = SentinelNavigationDelegate()
+    private var dashboardURL: URL?
+    private var didOpenDashboard = false
+
+    private var statusLabel: NSTextField!
+    private var detailLabel: NSTextField!
+    private var openButton: NSButton!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         buildMenu()
@@ -108,96 +41,93 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         NSApplication.shared.terminate(nil)
     }
 
-    private func installDesktopRefinement(into config: WKWebViewConfiguration) {
-        guard let resources = Bundle.main.resourceURL else { return }
-        let sourceURL = resources.appendingPathComponent("ui/DesktopRefinement.js")
-        guard let source = try? String(contentsOf: sourceURL, encoding: .utf8), !source.isEmpty else {
-            NSLog("Sentinel desktop refinement script was not found; continuing with embedded dashboard styling.")
-            return
-        }
-        config.userContentController.addUserScript(
-            WKUserScript(source: source, injectionTime: .atDocumentStart, forMainFrameOnly: true)
-        )
-    }
-
     private func buildWindow() {
-        let config = WKWebViewConfiguration()
-        // Keep dashboard web data ephemeral for privacy, while allowing normal
-        // in-session resource caching so the embedded app behaves like Safari
-        // instead of forcing CSS/JS to bypass cache on each dashboard load.
-        config.websiteDataStore = .nonPersistent()
-        config.defaultWebpagePreferences.allowsContentJavaScript = true
-        installDesktopRefinement(into: config)
-        webView = WKWebView(frame: .zero, configuration: config)
-        webView.navigationDelegate = navigationDelegate
-        webView.uiDelegate = self
-
         window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 1280, height: 820),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
+            contentRect: NSRect(x: 0, y: 0, width: 560, height: 300),
+            styleMask: [.titled, .closable, .miniaturizable],
             backing: .buffered,
             defer: false
         )
         window.title = "Sentinel Mac"
-        window.minSize = NSSize(width: 920, height: 620)
         window.center()
-        window.contentView = webView
         window.delegate = self
+
+        let root = NSView()
+        root.translatesAutoresizingMaskIntoConstraints = false
+        window.contentView = root
+
+        let icon = NSTextField(labelWithString: "S")
+        icon.alignment = .center
+        icon.font = .systemFont(ofSize: 30, weight: .bold)
+        icon.textColor = .white
+        icon.wantsLayer = true
+        icon.layer?.backgroundColor = NSColor.labelColor.cgColor
+        icon.layer?.cornerRadius = 16
+        icon.translatesAutoresizingMaskIntoConstraints = false
+
+        let title = NSTextField(labelWithString: "Sentinel Mac")
+        title.font = .systemFont(ofSize: 24, weight: .semibold)
+
+        let subtitle = NSTextField(labelWithString: "Local Mac System Intelligence")
+        subtitle.font = .systemFont(ofSize: 13, weight: .regular)
+        subtitle.textColor = .secondaryLabelColor
+
+        statusLabel = NSTextField(labelWithString: "Starting local engine…")
+        statusLabel.font = .systemFont(ofSize: 14, weight: .medium)
+
+        detailLabel = NSTextField(wrappingLabelWithString: "Sentinel will open its dashboard in your default browser. Keep this app open while you use the localhost dashboard.")
+        detailLabel.font = .systemFont(ofSize: 12)
+        detailLabel.textColor = .secondaryLabelColor
+        detailLabel.maximumNumberOfLines = 3
+
+        openButton = NSButton(title: "Open Dashboard", target: self, action: #selector(openDashboard))
+        openButton.bezelStyle = .rounded
+        openButton.keyEquivalent = "\r"
+        openButton.isEnabled = false
+
+        let quitButton = NSButton(title: "Quit Sentinel", target: NSApplication.shared, action: #selector(NSApplication.terminate(_:)))
+        quitButton.bezelStyle = .rounded
+
+        let buttonRow = NSStackView(views: [openButton, quitButton])
+        buttonRow.orientation = .horizontal
+        buttonRow.alignment = .centerY
+        buttonRow.spacing = 10
+
+        let textStack = NSStackView(views: [title, subtitle, statusLabel, detailLabel, buttonRow])
+        textStack.orientation = .vertical
+        textStack.alignment = .leading
+        textStack.spacing = 9
+        textStack.translatesAutoresizingMaskIntoConstraints = false
+
+        root.addSubview(icon)
+        root.addSubview(textStack)
+
+        NSLayoutConstraint.activate([
+            icon.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 28),
+            icon.topAnchor.constraint(equalTo: root.topAnchor, constant: 30),
+            icon.widthAnchor.constraint(equalToConstant: 64),
+            icon.heightAnchor.constraint(equalToConstant: 64),
+
+            textStack.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 22),
+            textStack.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -28),
+            textStack.topAnchor.constraint(equalTo: root.topAnchor, constant: 28),
+            textStack.bottomAnchor.constraint(lessThanOrEqualTo: root.bottomAnchor, constant: -28),
+
+            detailLabel.widthAnchor.constraint(lessThanOrEqualToConstant: 390)
+        ])
+
         window.makeKeyAndOrderFront(nil)
-        showLoadingPage("Starting local engine…")
-    }
-
-    func webView(_ webView: WKWebView,
-                 runJavaScriptAlertPanelWithMessage message: String,
-                 initiatedByFrame frame: WKFrameInfo,
-                 completionHandler: @escaping () -> Void) {
-        let alert = NSAlert()
-        alert.messageText = "Sentinel Mac"
-        alert.informativeText = message
-        alert.addButton(withTitle: "OK")
-        alert.beginSheetModal(for: window) { _ in completionHandler() }
-    }
-
-    func webView(_ webView: WKWebView,
-                 runJavaScriptConfirmPanelWithMessage message: String,
-                 initiatedByFrame frame: WKFrameInfo,
-                 completionHandler: @escaping (Bool) -> Void) {
-        let alert = NSAlert()
-        alert.messageText = "Confirm in Sentinel Mac"
-        alert.informativeText = message
-        alert.addButton(withTitle: "Continue")
-        alert.addButton(withTitle: "Cancel")
-        alert.beginSheetModal(for: window) { response in
-            completionHandler(response == .alertFirstButtonReturn)
-        }
-    }
-
-    func webView(_ webView: WKWebView,
-                 runJavaScriptTextInputPanelWithPrompt prompt: String,
-                 defaultText: String?,
-                 initiatedByFrame frame: WKFrameInfo,
-                 completionHandler: @escaping (String?) -> Void) {
-        let alert = NSAlert()
-        alert.messageText = "Sentinel Mac"
-        alert.informativeText = prompt
-        alert.addButton(withTitle: "OK")
-        alert.addButton(withTitle: "Cancel")
-        let field = NSTextField(string: defaultText ?? "")
-        field.frame = NSRect(x: 0, y: 0, width: 320, height: 24)
-        alert.accessoryView = field
-        alert.beginSheetModal(for: window) { response in
-            completionHandler(response == .alertFirstButtonReturn ? field.stringValue : nil)
-        }
     }
 
     private func buildMenu() {
         let main = NSMenu()
         let appItem = NSMenuItem()
         main.addItem(appItem)
+
         let appMenu = NSMenu()
         appMenu.addItem(withTitle: "About Sentinel Mac", action: #selector(showAbout), keyEquivalent: "")
         appMenu.addItem(NSMenuItem.separator())
-        appMenu.addItem(withTitle: "Reload Dashboard", action: #selector(reloadDashboard), keyEquivalent: "r")
+        appMenu.addItem(withTitle: "Open Dashboard", action: #selector(openDashboard), keyEquivalent: "o")
         appMenu.addItem(NSMenuItem.separator())
         appMenu.addItem(withTitle: "Quit Sentinel Mac", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appItem.submenu = appMenu
@@ -208,13 +138,17 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
         let alert = NSAlert()
         alert.messageText = "Sentinel Mac"
-        alert.informativeText = "Local Mac System Intelligence\nVersion \(version)\n\nYour Mac remains the server; the desktop app embeds the local Sentinel dashboard."
+        alert.informativeText = "Local Mac System Intelligence\nVersion \(version)\n\nSentinel runs a loopback-only local engine and opens the full dashboard in your default browser."
         alert.addButton(withTitle: "OK")
         alert.runModal()
     }
 
-    @objc private func reloadDashboard() {
-        webView.reload()
+    @objc private func openDashboard() {
+        guard let dashboardURL else {
+            NSSound.beep()
+            return
+        }
+        NSWorkspace.shared.open(dashboardURL)
     }
 
     private func engineURL() -> URL? {
@@ -294,6 +228,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
             let lineData = stdoutBuffer.subdata(in: stdoutBuffer.startIndex..<newline.lowerBound)
             stdoutBuffer.removeSubrange(stdoutBuffer.startIndex...newline.lowerBound)
             guard let line = String(data: lineData, encoding: .utf8) else { continue }
+
             let prefix = "SENTINEL_DESKTOP_BOOTSTRAP "
             guard line.hasPrefix(prefix) else { continue }
             let jsonText = String(line.dropFirst(prefix.count))
@@ -302,30 +237,31 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
                 DispatchQueue.main.async { [weak self] in self?.showFatal("Sentinel returned an invalid desktop bootstrap payload.") }
                 continue
             }
+
             components.fragment = "token=\(payload.token)"
             guard let url = components.url else { continue }
+
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
-                self.navigationDelegate.allowedOrigin = payload.origin
+                self.dashboardURL = url
                 self.window.title = "Sentinel Mac \(payload.version)"
-                self.webView.load(URLRequest(url: url, cachePolicy: .useProtocolCachePolicy, timeoutInterval: 15))
+                self.statusLabel.stringValue = "Running locally"
+                self.detailLabel.stringValue = "Dashboard: \(payload.origin)\nKeep Sentinel Mac open while the browser dashboard is in use."
+                self.openButton.isEnabled = true
+                if !self.didOpenDashboard {
+                    self.didOpenDashboard = true
+                    self.openDashboard()
+                }
             }
         }
     }
 
-    private func showLoadingPage(_ message: String) {
-        let html = """
-        <!doctype html><meta charset='utf-8'><style>
-        html,body{height:100%;margin:0;background:#fff;color:#111;font:15px -apple-system,BlinkMacSystemFont,sans-serif}
-        body{display:grid;place-items:center}.box{text-align:center}.mark{width:54px;height:54px;border-radius:15px;background:#111;color:#fff;display:grid;place-items:center;margin:0 auto 14px;font-weight:800;font-size:25px}
-        p{color:#666}@media(prefers-color-scheme:dark){html,body{background:#0d0d0d;color:#f4f4f4}.mark{background:#f4f4f4;color:#111}p{color:#aaa}}
-        </style><div class='box'><div class='mark'>S</div><b>Sentinel Mac</b><p>\(message)</p></div>
-        """
-        webView.loadHTMLString(html, baseURL: nil)
-    }
-
     private func showFatal(_ detail: String) {
-        showLoadingPage("Engine unavailable")
+        if isQuitting { return }
+        statusLabel?.stringValue = "Engine unavailable"
+        detailLabel?.stringValue = detail
+        openButton?.isEnabled = false
+
         let alert = NSAlert()
         alert.alertStyle = .critical
         alert.messageText = "Sentinel Mac could not start"
