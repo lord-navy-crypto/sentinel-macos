@@ -32,7 +32,12 @@ func TestAdvancedStorageFindsExactDuplicates(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "other.bin"), []byte("different"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	r, err := scanStorageAdvanced(context.Background(), root, 1, 20, func(int, int, int, string) {})
+	var phases []string
+	r, err := scanStorageAdvanced(context.Background(), root, 1, 20, func(p storageProgress) {
+		if len(phases) == 0 || phases[len(phases)-1] != p.Phase {
+			phases = append(phases, p.Phase)
+		}
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -48,6 +53,18 @@ func TestAdvancedStorageFindsExactDuplicates(t *testing.T) {
 	if r.VisibleBytes == 0 || len(r.Categories) == 0 || len(r.FileTypes) == 0 {
 		t.Fatal("expected storage insights")
 	}
+	for _, want := range []string{"walking", "grouping", "hashing", "finalizing", "complete"} {
+		found := false
+		for _, got := range phases {
+			if got == want {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("missing storage phase %q in %v", want, phases)
+		}
+	}
 }
 
 func TestAdvancedStorageCancellation(t *testing.T) {
@@ -57,11 +74,56 @@ func TestAdvancedStorageCancellation(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	r, err := scanStorageAdvanced(ctx, root, 1, 20, func(int, int, int, string) {})
+	r, err := scanStorageAdvanced(ctx, root, 1, 20, func(storageProgress) {})
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("err=%v", err)
 	}
 	if r == nil || !r.Cancelled {
 		t.Fatal("expected cancelled result")
+	}
+}
+
+func TestDuplicateHashPlanRequiresTwoFilesWithinBudget(t *testing.T) {
+	const gib = uint64(1024 * 1024 * 1024)
+	candidates := map[uint64][]LargeFile{
+		3 * gib: {
+			{Path: "/tmp/a", Size: 3 * gib},
+			{Path: "/tmp/b", Size: 3 * gib},
+		},
+	}
+	plan, total := buildDuplicateHashPlan(candidates, 4*gib)
+	if len(plan) != 0 || total != 0 {
+		t.Fatalf("oversized pair must be skipped, got plan=%d total=%d", len(plan), total)
+	}
+}
+
+func TestDuplicateHashPlanNeverExceedsBudget(t *testing.T) {
+	const gib = uint64(1024 * 1024 * 1024)
+	candidates := map[uint64][]LargeFile{
+		1 * gib: {
+			{Path: "/tmp/a", Size: 1 * gib},
+			{Path: "/tmp/b", Size: 1 * gib},
+			{Path: "/tmp/c", Size: 1 * gib},
+		},
+		2 * gib: {
+			{Path: "/tmp/d", Size: 2 * gib},
+			{Path: "/tmp/e", Size: 2 * gib},
+		},
+	}
+	plan, total := buildDuplicateHashPlan(candidates, 4*gib)
+	if total > 4*gib {
+		t.Fatalf("planned bytes %d exceed budget", total)
+	}
+	if len(plan) < 2 {
+		t.Fatalf("expected at least one comparable pair, got %d items", len(plan))
+	}
+	bySize := map[uint64]int{}
+	for _, item := range plan {
+		bySize[item.size]++
+	}
+	for size, count := range bySize {
+		if count == 1 {
+			t.Fatalf("planned a useless one-file hash group for size %d", size)
+		}
 	}
 }
