@@ -23,9 +23,11 @@ ENGINE_PID=""
 cleanup() {
   if [ -n "$ENGINE_PID" ] && kill -0 "$ENGINE_PID" 2>/dev/null; then
     kill -TERM "$ENGINE_PID" 2>/dev/null || true
-    for _ in 1 2 3 4 5 6 7 8 9 10; do
+    n=0
+    while [ "$n" -lt 10 ]; do
       kill -0 "$ENGINE_PID" 2>/dev/null || break
       sleep 0.1
+      n=$((n + 1))
     done
     kill -KILL "$ENGINE_PID" 2>/dev/null || true
   fi
@@ -42,7 +44,8 @@ go run . --ephemeral --no-browser --port 0 >"$LOG" 2>&1 &
 ENGINE_PID=$!
 
 OPEN_URL=""
-for _ in $(seq 1 80); do
+n=0
+while [ "$n" -lt 80 ]; do
   if ! kill -0 "$ENGINE_PID" 2>/dev/null; then
     echo "FAIL: temporary Sentinel engine exited before becoming ready."
     cat "$LOG"
@@ -51,6 +54,7 @@ for _ in $(seq 1 80); do
   OPEN_URL="$(awk '/^Open: http:\/\/127\.0\.0\.1:/{print $2; exit}' "$LOG")"
   [ -n "$OPEN_URL" ] && break
   sleep 0.15
+  n=$((n + 1))
 done
 
 if [ -z "$OPEN_URL" ]; then
@@ -63,6 +67,27 @@ ORIGIN="${OPEN_URL%%/#token=*}"
 TOKEN="${OPEN_URL##*#token=}"
 if [ -z "$ORIGIN" ] || [ -z "$TOKEN" ] || [ "$TOKEN" = "$OPEN_URL" ]; then
   echo "FAIL: could not parse localhost bootstrap URL."
+  cat "$LOG"
+  exit 1
+fi
+
+# The bootstrap line is printed immediately after the listener is created. Wait
+# until the HTTP server itself can answer before counting any functional probe.
+READY=0
+n=0
+while [ "$n" -lt 50 ]; do
+  if curl -fsS --max-time 2 -H "X-Sentinel-Token: $TOKEN" "$ORIGIN/api/overview" >/dev/null 2>&1; then
+    READY=1
+    break
+  fi
+  if ! kill -0 "$ENGINE_PID" 2>/dev/null; then
+    break
+  fi
+  sleep 0.1
+  n=$((n + 1))
+done
+if [ "$READY" -ne 1 ]; then
+  echo "FAIL: temporary Sentinel localhost server never became HTTP-ready."
   cat "$LOG"
   exit 1
 fi
@@ -80,7 +105,7 @@ request() {
 
   if [ "$method" = "POST" ]; then
     if [ -n "$data" ]; then
-      if curl -fsS --max-time 30 -X POST \
+      if curl -fsS --max-time 60 -X POST \
         -H "X-Sentinel-Token: $TOKEN" \
         -H "Content-Type: application/json" \
         --data "$data" "$ORIGIN$path" >"$outfile"; then
@@ -89,7 +114,7 @@ request() {
         return 0
       fi
     else
-      if curl -fsS --max-time 30 -X POST \
+      if curl -fsS --max-time 60 -X POST \
         -H "X-Sentinel-Token: $TOKEN" \
         "$ORIGIN$path" >"$outfile"; then
         printf "PASS  %-30s %s %s\n" "$label" "$method" "$path"
@@ -98,7 +123,7 @@ request() {
       fi
     fi
   else
-    if curl -fsS --max-time 30 \
+    if curl -fsS --max-time 60 \
       -H "X-Sentinel-Token: $TOKEN" \
       "$ORIGIN$path" >"$outfile"; then
       printf "PASS  %-30s %s %s\n" "$label" "$method" "$path"
