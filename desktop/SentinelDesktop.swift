@@ -216,7 +216,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         stdoutPipe?.fileHandleForReading.readabilityHandler = nil
         stderrPipe?.fileHandleForReading.readabilityHandler = nil
         if let engine, engine.isRunning {
-            engine.terminate() // SIGTERM: the Go engine performs graceful checkpoint/shutdown work.
+            engine.terminate()
             let deadline = Date().addingTimeInterval(4)
             while engine.isRunning && Date() < deadline {
                 RunLoop.current.run(until: Date().addingTimeInterval(0.05))
@@ -277,6 +277,6 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
 
 let application = NSApplication.shared
 application.setActivationPolicy(.regular)
-let delegate = AppDelegate()
+private let delegate = AppDelegate()
 application.delegate = delegate
 application.run()
