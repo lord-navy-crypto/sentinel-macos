@@ -39,6 +39,7 @@ type AdvancedStorageResult struct {
 	FilesVisited       int               `json:"files_visited"`
 	DirsVisited        int               `json:"dirs_visited"`
 	PermissionErr      int               `json:"permission_errors"`
+	SlowPathsSkipped   int               `json:"slow_paths_skipped"`
 	VisibleBytes       uint64            `json:"visible_bytes"`
 	Truncated          bool              `json:"truncated"`
 	Cancelled          bool              `json:"cancelled"`
@@ -53,39 +54,43 @@ type AdvancedStorageResult struct {
 }
 
 type ScanJob struct {
-	ID              string                 `json:"id"`
-	Status          string                 `json:"status"`
-	Root            string                 `json:"root"`
-	Phase           string                 `json:"phase"`
-	PhasePercent    int                    `json:"phase_percent"`
-	FilesVisited    int                    `json:"files_visited"`
-	DirsVisited     int                    `json:"dirs_visited"`
-	PermissionErr   int                    `json:"permission_errors"`
-	CurrentPath     string                 `json:"current_path"`
-	HashFilesDone   int                    `json:"hash_files_done"`
-	HashFilesTotal  int                    `json:"hash_files_total"`
-	HashBytesDone   uint64                 `json:"hash_bytes_done"`
-	HashBytesTotal  uint64                 `json:"hash_bytes_total"`
-	CurrentHashPath string                 `json:"current_hash_path,omitempty"`
-	StartedAt       int64                  `json:"started_at"`
-	FinishedAt      int64                  `json:"finished_at,omitempty"`
-	Error           string                 `json:"error,omitempty"`
-	Result          *AdvancedStorageResult `json:"result,omitempty"`
-	cancel          context.CancelFunc     `json:"-"`
+	ID               string                 `json:"id"`
+	Status           string                 `json:"status"`
+	Root             string                 `json:"root"`
+	Phase            string                 `json:"phase"`
+	PhasePercent     int                    `json:"phase_percent"`
+	FilesVisited     int                    `json:"files_visited"`
+	DirsVisited      int                    `json:"dirs_visited"`
+	PermissionErr    int                    `json:"permission_errors"`
+	SlowPathsSkipped int                    `json:"slow_paths_skipped"`
+	CurrentPath      string                 `json:"current_path"`
+	CurrentDir       string                 `json:"current_dir,omitempty"`
+	HashFilesDone    int                    `json:"hash_files_done"`
+	HashFilesTotal   int                    `json:"hash_files_total"`
+	HashBytesDone    uint64                 `json:"hash_bytes_done"`
+	HashBytesTotal   uint64                 `json:"hash_bytes_total"`
+	CurrentHashPath  string                 `json:"current_hash_path,omitempty"`
+	StartedAt        int64                  `json:"started_at"`
+	FinishedAt       int64                  `json:"finished_at,omitempty"`
+	Error            string                 `json:"error,omitempty"`
+	Result           *AdvancedStorageResult `json:"result,omitempty"`
+	cancel           context.CancelFunc     `json:"-"`
 }
 
 type storageProgress struct {
-	Phase           string
-	PhasePercent    int
-	FilesVisited    int
-	DirsVisited     int
-	PermissionErr   int
-	CurrentPath     string
-	HashFilesDone   int
-	HashFilesTotal  int
-	HashBytesDone   uint64
-	HashBytesTotal  uint64
-	CurrentHashPath string
+	Phase            string
+	PhasePercent     int
+	FilesVisited     int
+	DirsVisited      int
+	PermissionErr    int
+	SlowPathsSkipped int
+	CurrentPath      string
+	CurrentDir       string
+	HashFilesDone    int
+	HashFilesTotal   int
+	HashBytesDone    uint64
+	HashBytesTotal   uint64
+	CurrentHashPath  string
 }
 
 type scanManager struct {
@@ -152,7 +157,9 @@ func (m *scanManager) create(req StorageScanRequest) (*ScanJob, error) {
 				j.FilesVisited = p.FilesVisited
 				j.DirsVisited = p.DirsVisited
 				j.PermissionErr = p.PermissionErr
+				j.SlowPathsSkipped = p.SlowPathsSkipped
 				j.CurrentPath = p.CurrentPath
+				j.CurrentDir = p.CurrentDir
 				j.HashFilesDone = p.HashFilesDone
 				j.HashFilesTotal = p.HashFilesTotal
 				j.HashBytesDone = p.HashBytesDone
@@ -169,6 +176,7 @@ func (m *scanManager) create(req StorageScanRequest) (*ScanJob, error) {
 		}
 		j.FinishedAt = time.Now().Unix()
 		j.CurrentPath = ""
+		j.CurrentDir = ""
 		j.CurrentHashPath = ""
 		if scanErr != nil && !errors.Is(scanErr, context.Canceled) {
 			j.Status = "failed"
@@ -180,6 +188,7 @@ func (m *scanManager) create(req StorageScanRequest) (*ScanJob, error) {
 			j.FilesVisited = result.FilesVisited
 			j.DirsVisited = result.DirsVisited
 			j.PermissionErr = result.PermissionErr
+			j.SlowPathsSkipped = result.SlowPathsSkipped
 			j.Result = result
 		}
 		if errors.Is(scanErr, context.Canceled) || (result != nil && result.Cancelled) {
@@ -306,11 +315,109 @@ func walkStoragePercent(entries int) int {
 	}
 }
 
+var (
+	errStorageSlowDirectory = errors.New("storage directory read exceeded idle budget")
+	errStorageEntryLimit    = errors.New("storage entry limit reached")
+)
+
+const (
+	storageDirBatchSize   = 256
+	storageDirIdleTimeout = 4 * time.Second
+	storageMaxSlowPaths   = 12
+)
+
+type storageDirBatch struct {
+	infos []fs.FileInfo
+	err   error
+	done  bool
+}
+
+// readStorageDirBatches streams directory metadata in bounded batches. The
+// caller can cancel immediately even if a filesystem call is slow. A timed-out
+// reader is detached and is prevented from blocking on result delivery when it
+// eventually returns.
+func readStorageDirBatches(ctx context.Context, dir string, onBatch func([]fs.FileInfo) error) error {
+	batches := make(chan storageDirBatch, 1)
+	stop := make(chan struct{})
+	defer close(stop)
+
+	go func() {
+		f, err := os.Open(dir)
+		if err != nil {
+			select {
+			case batches <- storageDirBatch{err: err}:
+			case <-stop:
+			}
+			return
+		}
+		defer f.Close()
+
+		for {
+			infos, readErr := f.Readdir(storageDirBatchSize)
+			if len(infos) > 0 {
+				select {
+				case batches <- storageDirBatch{infos: infos}:
+				case <-stop:
+					return
+				}
+			}
+			if errors.Is(readErr, io.EOF) {
+				select {
+				case batches <- storageDirBatch{done: true}:
+				case <-stop:
+				}
+				return
+			}
+			if readErr != nil {
+				select {
+				case batches <- storageDirBatch{err: readErr}:
+				case <-stop:
+				}
+				return
+			}
+		}
+	}()
+
+	timer := time.NewTimer(storageDirIdleTimeout)
+	defer timer.Stop()
+	resetTimer := func() {
+		if !timer.Stop() {
+			select {
+			case <-timer.C:
+			default:
+			}
+		}
+		timer.Reset(storageDirIdleTimeout)
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return context.Canceled
+		case <-timer.C:
+			return errStorageSlowDirectory
+		case batch := <-batches:
+			resetTimer()
+			if batch.err != nil {
+				return batch.err
+			}
+			if len(batch.infos) > 0 && onBatch != nil {
+				if err := onBatch(batch.infos); err != nil {
+					return err
+				}
+			}
+			if batch.done {
+				return nil
+			}
+		}
+	}
+}
+
 func scanStorageAdvanced(ctx context.Context, root string, minSize uint64, limit int, progress func(storageProgress)) (*AdvancedStorageResult, error) {
 	start := time.Now()
 	h := &fileHeap{}
 	heapInit(h)
-	filesVisited, dirsVisited, permErr := 0, 0, 0
+	filesVisited, dirsVisited, permErr, slowPathsSkipped := 0, 0, 0, 0
 	var visible uint64
 	truncated := false
 	const maxEntries = 500000
@@ -321,68 +428,116 @@ func scanStorageAdvanced(ctx context.Context, root string, minSize uint64, limit
 	const maxDupCandidates = 5000
 	lastProgress := time.Now()
 
-	emitWalk := func(path string) {
-		if progress != nil {
-			progress(newStorageProgress("walking", walkStoragePercent(filesVisited+dirsVisited), filesVisited, dirsVisited, permErr, path))
+	emitWalk := func(path, currentDir string) {
+		if progress == nil {
+			return
 		}
+		p := newStorageProgress("walking", walkStoragePercent(filesVisited+dirsVisited), filesVisited, dirsVisited, permErr, path)
+		p.SlowPathsSkipped = slowPathsSkipped
+		p.CurrentDir = currentDir
+		progress(p)
 	}
-	emitWalk(root)
+	emitWalk(root, root)
 
-	walkErr := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+	dirs := []string{root}
+	walkErr := error(nil)
+walkLoop:
+	for len(dirs) > 0 {
 		select {
 		case <-ctx.Done():
-			return context.Canceled
+			walkErr = context.Canceled
+			break walkLoop
 		default:
-		}
-		if err != nil {
-			permErr++
-			return nil
 		}
 		if filesVisited+dirsVisited >= maxEntries {
 			truncated = true
-			return filepath.SkipAll
+			walkErr = errStorageEntryLimit
+			break
 		}
-		if d.IsDir() {
-			dirsVisited++
-			if time.Since(lastProgress) > 150*time.Millisecond {
-				emitWalk(path)
-				lastProgress = time.Now()
-			}
-			return nil
-		}
-		if d.Type()&os.ModeSymlink != 0 {
-			return nil
-		}
-		filesVisited++
-		info, e := d.Info()
-		if e != nil || info.Size() < 0 {
-			return nil
-		}
-		size := uint64(info.Size())
-		visible += size
-		addCategory(dirMap, topCategory(root, path), size)
-		addCategory(typeMap, fileTypeCategory(d.Name()), size)
-		if size >= minSize {
-			lf := LargeFile{Path: path, Name: d.Name(), Size: size, ModUnix: info.ModTime().Unix()}
-			if h.Len() < limit {
-				heapPush(h, lf)
-			} else if (*h)[0].Size < lf.Size {
-				heapPop(h)
-				heapPush(h, lf)
-			}
-			if dupCandidateCount < maxDupCandidates {
-				dupCandidates[size] = append(dupCandidates[size], lf)
-				dupCandidateCount++
-			}
-		}
-		if filesVisited%256 == 0 || time.Since(lastProgress) > 150*time.Millisecond {
-			emitWalk(path)
-			lastProgress = time.Now()
-		}
-		return nil
-	})
-	cancelled := errors.Is(walkErr, context.Canceled)
 
+		dir := dirs[len(dirs)-1]
+		dirs = dirs[:len(dirs)-1]
+		dirsVisited++
+		emitWalk(dir, dir)
+		lastProgress = time.Now()
+
+		err := readStorageDirBatches(ctx, dir, func(infos []fs.FileInfo) error {
+			for _, info := range infos {
+				select {
+				case <-ctx.Done():
+					return context.Canceled
+				default:
+				}
+				if filesVisited+dirsVisited >= maxEntries {
+					truncated = true
+					return errStorageEntryLimit
+				}
+
+				path := filepath.Join(dir, info.Name())
+				if info.Mode()&os.ModeSymlink != 0 {
+					continue
+				}
+				if info.IsDir() {
+					dirs = append(dirs, path)
+					continue
+				}
+				if !info.Mode().IsRegular() || info.Size() < 0 {
+					continue
+				}
+
+				filesVisited++
+				size := uint64(info.Size())
+				visible += size
+				addCategory(dirMap, topCategory(root, path), size)
+				addCategory(typeMap, fileTypeCategory(info.Name()), size)
+				if size >= minSize {
+					lf := LargeFile{Path: path, Name: info.Name(), Size: size, ModUnix: info.ModTime().Unix()}
+					if h.Len() < limit {
+						heapPush(h, lf)
+					} else if (*h)[0].Size < lf.Size {
+						heapPop(h)
+						heapPush(h, lf)
+					}
+					if dupCandidateCount < maxDupCandidates {
+						dupCandidates[size] = append(dupCandidates[size], lf)
+						dupCandidateCount++
+					}
+				}
+				if filesVisited%256 == 0 || time.Since(lastProgress) > 150*time.Millisecond {
+					emitWalk(path, dir)
+					lastProgress = time.Now()
+				}
+			}
+			return nil
+		})
+
+		switch {
+		case err == nil:
+			continue
+		case errors.Is(err, context.Canceled):
+			walkErr = context.Canceled
+			break walkLoop
+		case errors.Is(err, errStorageEntryLimit):
+			truncated = true
+			walkErr = errStorageEntryLimit
+			break walkLoop
+		case errors.Is(err, errStorageSlowDirectory):
+			slowPathsSkipped++
+			truncated = true
+			emitWalk(dir, dir)
+			if slowPathsSkipped >= storageMaxSlowPaths {
+				walkErr = errStorageSlowDirectory
+				break walkLoop
+			}
+			continue
+		default:
+			permErr++
+			emitWalk(dir, dir)
+			continue
+		}
+	}
+
+	cancelled := errors.Is(walkErr, context.Canceled)
 	files := make([]LargeFile, h.Len())
 	for i := len(files) - 1; i >= 0; i-- {
 		files[i] = heapPop(h)
@@ -391,15 +546,19 @@ func scanStorageAdvanced(ctx context.Context, root string, minSize uint64, limit
 	types := categorySlice(typeMap, 10)
 
 	if cancelled {
-		result := &AdvancedStorageResult{Root: root, FilesVisited: filesVisited, DirsVisited: dirsVisited, PermissionErr: permErr, VisibleBytes: visible, Truncated: truncated, Cancelled: true, LargeFiles: files, Families: groupFamilies(files), Categories: cats, FileTypes: types, DurationMS: time.Since(start).Milliseconds(), Note: "Storage traversal was cancelled locally. Partial read-only findings are retained; duplicate hashing did not continue after cancellation."}
+		result := &AdvancedStorageResult{Root: root, FilesVisited: filesVisited, DirsVisited: dirsVisited, PermissionErr: permErr, SlowPathsSkipped: slowPathsSkipped, VisibleBytes: visible, Truncated: truncated, Cancelled: true, LargeFiles: files, Families: groupFamilies(files), Categories: cats, FileTypes: types, DurationMS: time.Since(start).Milliseconds(), Note: "Storage traversal was cancelled locally. Partial read-only findings are retained; duplicate hashing did not continue after cancellation."}
 		if progress != nil {
-			progress(newStorageProgress("cancelled", walkStoragePercent(filesVisited+dirsVisited), filesVisited, dirsVisited, permErr, ""))
+			p := newStorageProgress("cancelled", walkStoragePercent(filesVisited+dirsVisited), filesVisited, dirsVisited, permErr, "")
+			p.SlowPathsSkipped = slowPathsSkipped
+			progress(p)
 		}
 		return result, context.Canceled
 	}
 
 	if progress != nil {
-		progress(newStorageProgress("grouping", 75, filesVisited, dirsVisited, permErr, ""))
+		p := newStorageProgress("grouping", 75, filesVisited, dirsVisited, permErr, "")
+		p.SlowPathsSkipped = slowPathsSkipped
+		progress(p)
 	}
 
 	duplicates, hashedBytes, plannedHashBytes := hashDuplicateCandidates(ctx, dupCandidates, func(done, total int, hashed, planned uint64, path string) {
@@ -415,15 +574,26 @@ func scanStorageAdvanced(ctx context.Context, root string, minSize uint64, limit
 		} else {
 			percent = 96
 		}
-		progress(storageProgress{Phase: "hashing", PhasePercent: percent, FilesVisited: filesVisited, DirsVisited: dirsVisited, PermissionErr: permErr, HashFilesDone: done, HashFilesTotal: total, HashBytesDone: hashed, HashBytesTotal: planned, CurrentHashPath: path})
+		progress(storageProgress{Phase: "hashing", PhasePercent: percent, FilesVisited: filesVisited, DirsVisited: dirsVisited, PermissionErr: permErr, SlowPathsSkipped: slowPathsSkipped, HashFilesDone: done, HashFilesTotal: total, HashBytesDone: hashed, HashBytesTotal: planned, CurrentHashPath: path})
 	})
 	if errors.Is(ctx.Err(), context.Canceled) {
 		cancelled = true
 	}
 	if progress != nil {
-		progress(storageProgress{Phase: "finalizing", PhasePercent: 98, FilesVisited: filesVisited, DirsVisited: dirsVisited, PermissionErr: permErr, HashFilesDone: 0, HashFilesTotal: 0, HashBytesDone: hashedBytes, HashBytesTotal: plannedHashBytes})
+		progress(storageProgress{Phase: "finalizing", PhasePercent: 98, FilesVisited: filesVisited, DirsVisited: dirsVisited, PermissionErr: permErr, SlowPathsSkipped: slowPathsSkipped, HashFilesDone: 0, HashFilesTotal: 0, HashBytesDone: hashedBytes, HashBytesTotal: plannedHashBytes})
 	}
-	result := &AdvancedStorageResult{Root: root, FilesVisited: filesVisited, DirsVisited: dirsVisited, PermissionErr: permErr, VisibleBytes: visible, Truncated: truncated, Cancelled: cancelled, LargeFiles: files, Families: groupFamilies(files), Categories: cats, FileTypes: types, Duplicates: duplicates, DuplicateHashBytes: hashedBytes, DurationMS: time.Since(start).Milliseconds(), Note: "All analysis and duplicate hashes were computed locally. Duplicate groups are exact SHA-256 matches among a bounded hash plan; groups that cannot fit at least two files inside the hash budget are skipped rather than performing a useless one-file hash."}
+
+	note := "All analysis and duplicate hashes were computed locally. Duplicate groups are exact SHA-256 matches among a bounded hash plan; groups that cannot fit at least two files inside the hash budget are skipped rather than performing a useless one-file hash."
+	if slowPathsSkipped > 0 {
+		note += fmt.Sprintf(" %d slow directory path(s) were skipped after a %s idle budget per directory batch so one unresponsive filesystem location could not stall the whole scan.", slowPathsSkipped, storageDirIdleTimeout)
+	}
+	if errors.Is(walkErr, errStorageEntryLimit) {
+		note += " The bounded entry limit was reached, so results are partial."
+	} else if errors.Is(walkErr, errStorageSlowDirectory) && slowPathsSkipped >= storageMaxSlowPaths {
+		note += " The slow-path safety limit was reached, so traversal stopped early with partial results."
+	}
+
+	result := &AdvancedStorageResult{Root: root, FilesVisited: filesVisited, DirsVisited: dirsVisited, PermissionErr: permErr, SlowPathsSkipped: slowPathsSkipped, VisibleBytes: visible, Truncated: truncated, Cancelled: cancelled, LargeFiles: files, Families: groupFamilies(files), Categories: cats, FileTypes: types, Duplicates: duplicates, DuplicateHashBytes: hashedBytes, DurationMS: time.Since(start).Milliseconds(), Note: note}
 	if progress != nil {
 		phase := "complete"
 		percent := 100
@@ -431,12 +601,12 @@ func scanStorageAdvanced(ctx context.Context, root string, minSize uint64, limit
 			phase = "cancelled"
 			percent = 98
 		}
-		progress(storageProgress{Phase: phase, PhasePercent: percent, FilesVisited: filesVisited, DirsVisited: dirsVisited, PermissionErr: permErr, HashBytesDone: hashedBytes, HashBytesTotal: plannedHashBytes})
+		progress(storageProgress{Phase: phase, PhasePercent: percent, FilesVisited: filesVisited, DirsVisited: dirsVisited, PermissionErr: permErr, SlowPathsSkipped: slowPathsSkipped, HashBytesDone: hashedBytes, HashBytesTotal: plannedHashBytes})
 	}
 	if cancelled {
 		return result, context.Canceled
 	}
-	return result, walkErr
+	return result, nil
 }
 
 // Small adapters keep the existing heap type private to audit.go while avoiding duplicate methods.
