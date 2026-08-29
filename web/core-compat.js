@@ -6,6 +6,18 @@
  * presentation layer cannot break the core Sentinel event-binding chain.
  */
 
+/* v2.3 is now the normal product shell. The old monolithic dashboard remains
+ * available only when explicitly requested with ?legacy=1 so existing APIs and
+ * compatibility workflows are not deleted during regression testing. */
+(() => {
+  const params = new URLSearchParams(location.search);
+  if ((location.pathname === '/' || location.pathname === '/index.html') && params.get('legacy') !== '1') {
+    const token = new URLSearchParams(location.hash.slice(1)).get('token') || '';
+    const hash = token ? `#token=${encodeURIComponent(token)}` : '';
+    location.replace(`/easy.html${hash}`);
+  }
+})();
+
 function readinessEscape(value) {
   return String(value ?? '').replace(/[&<>'"]/g, c => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
