@@ -44,6 +44,31 @@ The Vault object is changed to mode `0600`. A `manifest.json` records enough met
 ### Restore
 Moves the active Vault object back to its recorded original path and restores recorded permission bits. Restore refuses to overwrite an existing destination.
 
+## Vault Isolation 2.0
+
+Sentinel v2.3 adds live, read-only isolation verification for active Vault objects. Moving a file is no longer treated as sufficient evidence of complete containment by itself.
+
+The verification layer checks:
+
+- **Filesystem references:** the stored object's observed hard-link count. More than one hard link produces `Partially Contained` because another path may still name the same inode.
+- **Runtime containment:** whether a related PID is still observable for the recorded original or Vault path. Sentinel reports the PID but does not terminate it automatically.
+- **Startup-chain isolation:** whether a LaunchAgent or LaunchDaemon still references the recorded path. A moved target may no longer execute while the startup configuration itself still exists.
+- **Isolation integrity:** Vault object type and mode, per-object Vault directory mode, absence/reappearance of the original path, and bounded SHA-256 revalidation when a fingerprint is available.
+
+Each active item is classified as:
+
+- `Fully Contained` — all required bounded observations passed.
+- `Partially Contained` — a runtime/startup/filesystem reference remains, or an isolation property could not be verified.
+- `Isolation Failed` — a critical containment property failed, such as a missing/non-regular Vault object, executable permission bits, incorrect isolation directory mode, or a recorded fingerprint mismatch.
+
+The read-only endpoint is:
+
+```text
+GET /api/actions/vault/isolation
+```
+
+`Fully Contained` is an observed Sentinel state, not proof that no independent copy exists elsewhere and not a malware verdict.
+
 ## What Sentinel refuses
 
 - permanent deletion
@@ -74,4 +99,4 @@ Persistent mode keeps:
 ~/Library/Application Support/Sentinel/Vault/<id>/manifest.json
 ```
 
-The state directory/Vault directories target `0700`; journal/manifests/active Vault objects target `0600`. The Action Health endpoint verifies the available state.
+The state directory/Vault directories target `0700`; journal/manifests/active Vault objects target `0600`. The Action Health endpoint verifies the available state. Vault Health additionally presents the live isolation checks for each active object.
