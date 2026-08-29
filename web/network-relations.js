@@ -244,7 +244,7 @@
     return card;
   }
 
-  function renderHistoryDiff(diff) {
+  function renderHistoryDiff(diff, title = 'Latest snapshot difference') {
     const container = $('#historyDiff');
     clear(container);
     if (!diff) {
@@ -254,8 +254,8 @@
     const header = el('article', 'row');
     const head = el('div', 'row-head');
     const copy = el('div');
-    copy.append(el('b', '', 'Latest snapshot difference'));
-    copy.append(el('span', '', `${(diff.added || []).length} added · ${(diff.ended || []).length} absent from latest`));
+    copy.append(el('b', '', title));
+    copy.append(el('span', '', `${(diff.added || []).length} added · ${(diff.ended || []).length} absent from target`));
     head.append(copy, el('span', 'badge', 'normalized'));
     header.append(head);
     if (diff.note) header.append(el('span', '', diff.note));
@@ -265,16 +265,60 @@
       container.append(historyRelationCard(relation, 'Added · '));
     }
     for (const relation of (diff.ended || []).slice(0, 30)) {
-      container.append(historyRelationCard(relation, 'Absent in latest · '));
+      container.append(historyRelationCard(relation, 'Absent in target · '));
     }
     const omitted = Math.max(0, (diff.added || []).length - 30) + Math.max(0, (diff.ended || []).length - 30);
     if (omitted) container.append(el('span', '', `${omitted} additional changed relationship(s) omitted from this bounded visual list.`));
+  }
+
+  function updateCompareButton() {
+    const from = $('#historyFrom').value;
+    const to = $('#historyTo').value;
+    $('#compareHistory').disabled = !from || !to || from === to;
+  }
+
+  function populateHistorySelectors(snapshots) {
+    const fromSelect = $('#historyFrom');
+    const toSelect = $('#historyTo');
+    const previousFrom = fromSelect.value;
+    const previousTo = toSelect.value;
+    clear(fromSelect);
+    clear(toSelect);
+
+    const addPlaceholder = (select, text) => {
+      const option = document.createElement('option');
+      option.value = '';
+      option.textContent = text;
+      select.append(option);
+    };
+    addPlaceholder(fromSelect, 'Select baseline snapshot');
+    addPlaceholder(toSelect, 'Select target snapshot');
+
+    for (const entry of snapshots) {
+      const label = `${formatTime(entry.captured_at)} · ${Number(entry.rows_stored || 0)} relations`;
+      const fromOption = document.createElement('option');
+      fromOption.value = entry.id || '';
+      fromOption.textContent = label;
+      fromSelect.append(fromOption);
+      const toOption = document.createElement('option');
+      toOption.value = entry.id || '';
+      toOption.textContent = label;
+      toSelect.append(toOption);
+    }
+
+    const ids = new Set(snapshots.map(entry => entry.id));
+    if (ids.has(previousFrom)) fromSelect.value = previousFrom;
+    if (ids.has(previousTo)) toSelect.value = previousTo;
+    if (!fromSelect.value && snapshots.length >= 2) fromSelect.value = snapshots[1].id || '';
+    if (!toSelect.value && snapshots.length >= 1) toSelect.value = snapshots[0].id || '';
+    updateCompareButton();
   }
 
   function renderHistory(data) {
     const snapshots = Array.isArray(data?.snapshots) ? data.snapshots : [];
     $('#historyMode').textContent = data?.persistent ? `Persistent · max ${data?.retention || 32}` : `Memory-only · max ${data?.retention || 32}`;
     $('#historyNote').textContent = data?.note || 'Explicit bounded Network Evidence history.';
+    populateHistorySelectors(snapshots);
     renderHistoryDiff(data?.latest_diff || null);
 
     const list = $('#historyList');
@@ -308,6 +352,25 @@
     } catch (error) {
       $('#historyNote').textContent = error?.message || 'Network history unavailable.';
       $('#historyMode').textContent = 'Unavailable';
+    }
+  }
+
+  async function compareHistory() {
+    const from = $('#historyFrom').value;
+    const to = $('#historyTo').value;
+    if (!from || !to || from === to) return;
+    const button = $('#compareHistory');
+    button.disabled = true;
+    button.textContent = 'Comparing…';
+    try {
+      const params = new URLSearchParams({from, to});
+      const data = await api(`/api/network/history?${params.toString()}`);
+      renderHistoryDiff(data?.comparison || null, 'Selected snapshot difference');
+    } catch (error) {
+      showNotice(error?.message || 'Snapshot comparison failed.');
+    } finally {
+      button.textContent = 'Compare Selected';
+      updateCompareButton();
     }
   }
 
@@ -361,6 +424,10 @@
   $('#classFilter').addEventListener('change', renderFiltered);
   $('#refreshNetwork').addEventListener('click', loadNetwork);
   $('#captureNetwork').addEventListener('click', captureHistory);
+  $('#historyFrom').addEventListener('change', updateCompareButton);
+  $('#historyTo').addEventListener('change', updateCompareButton);
+  $('#compareHistory').addEventListener('click', compareHistory);
+  $('#showLatestHistory').addEventListener('click', loadHistory);
   $('#backLink').href = `/#token=${encodeURIComponent(token)}`;
   Promise.all([loadNetwork(), loadHistory()]);
 })();
