@@ -3,10 +3,12 @@
   const start = document.getElementById('startInvestigation');
   const form = document.getElementById('investigationForm');
   const notice = document.getElementById('notice');
+  const pathInput = document.getElementById('investigationPath');
   if (!start || !form) return;
 
   const savedDisabled = new WeakMap();
   const actionPattern = /^(Continue|Continue from here|Investigate running executable|Investigate plist|Open branch|Resume Session|Open Root)$/;
+  let automaticBusyNotice = false;
 
   function isContinuationButton(button) {
     return button instanceof HTMLButtonElement && actionPattern.test((button.textContent || '').trim());
@@ -26,9 +28,21 @@
     return start.disabled || (start.textContent || '').includes('Investigating');
   }
 
+  function showBusyNotice(path = '') {
+    if (!notice) return;
+    notice.textContent = path ? `Investigating ${path}…` : 'Investigating the selected branch…';
+    automaticBusyNotice = true;
+  }
+
   function syncBusyState() {
     const running = busy();
     document.documentElement.classList.toggle('investigation-is-busy', running);
+    if (running && notice && !notice.textContent.trim()) {
+      showBusyNotice(pathInput?.value?.trim() || '');
+    } else if (!running && automaticBusyNotice && notice && notice.textContent.startsWith('Investigating ')) {
+      notice.textContent = '';
+      automaticBusyNotice = false;
+    }
     for (const button of continuationButtons()) {
       if (running) {
         if (!savedDisabled.has(button)) savedDisabled.set(button, button.disabled);
@@ -50,12 +64,13 @@
     if (busy()) {
       event.preventDefault();
       event.stopImmediatePropagation();
+      automaticBusyNotice = false;
       if (notice) notice.textContent = 'An investigation is already running. Wait for the current branch to finish before continuing.';
       return;
     }
     const path = targetFor(button);
     window.setTimeout(() => {
-      if (notice && busy()) notice.textContent = path ? `Investigating ${path}…` : 'Investigating the selected branch…';
+      if (busy()) showBusyNotice(path);
       syncBusyState();
     }, 0);
   }, true);
@@ -64,6 +79,7 @@
     if (!busy()) return;
     event.preventDefault();
     event.stopImmediatePropagation();
+    automaticBusyNotice = false;
     if (notice) notice.textContent = 'An investigation is already running. Wait for the current branch to finish before starting another one.';
   }, true);
 
