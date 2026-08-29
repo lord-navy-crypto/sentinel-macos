@@ -3,6 +3,7 @@ name: Sentinel v2.3 branch validation
 on:
   push:
     branches:
+      - main
       - upgrade/v2.3-stable
   pull_request:
     branches:
