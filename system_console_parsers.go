@@ -69,6 +69,8 @@ type ParsedSystemEvidence struct {
 	Mounts      []MountEvidenceRow      `json:"mounts,omitempty"`
 	Signing     *SigningEvidence        `json:"signing,omitempty"`
 	Gatekeeper  *GatekeeperEvidence     `json:"gatekeeper,omitempty"`
+	Facts       []SystemEvidenceFact    `json:"facts,omitempty"`
+	Records     []SystemEvidenceRecord  `json:"records,omitempty"`
 	ParsedRows  int                     `json:"parsed_rows"`
 	Limitations []string                `json:"limitations,omitempty"`
 }
@@ -171,8 +173,6 @@ func ParseFilesystemEvidence(raw string) ParsedSystemEvidence {
 			continue
 		}
 		mountIndex := 5
-		// macOS df commonly includes inode columns before "Mounted on". The
-		// mount point is therefore the final visible field for ordinary paths.
 		if len(fields) >= 9 {
 			mountIndex = len(fields) - 1
 		}
@@ -292,13 +292,18 @@ func ParseSystemConsoleEvidence(toolID, raw string) ParsedSystemEvidence {
 	case "gatekeeper-assessment":
 		return ParseGatekeeperEvidence(raw)
 	default:
+		if out, ok := ParseExpandedSystemConsoleEvidence(toolID, raw); ok {
+			return out
+		}
 		return ParsedSystemEvidence{Kind: "raw", Limitations: []string{"structured parser is not yet available for this evidence source"}}
 	}
 }
 
 type StructuredSystemConsoleResult struct {
-	Result     SystemConsoleResult  `json:"result"`
-	Structured ParsedSystemEvidence `json:"structured"`
+	Result              SystemConsoleResult                `json:"result"`
+	Structured          ParsedSystemEvidence               `json:"structured"`
+	Signals             []SystemEvidenceSignal             `json:"signals,omitempty"`
+	ContinuationTargets []SystemConsoleContinuationTarget  `json:"continuation_targets,omitempty"`
 }
 
 func RunStructuredSystemConsoleQuery(ctx context.Context, req SystemConsoleQueryRequest) (StructuredSystemConsoleResult, error) {
@@ -306,9 +311,12 @@ func RunStructuredSystemConsoleQuery(ctx context.Context, req SystemConsoleQuery
 	if err != nil {
 		return StructuredSystemConsoleResult{}, err
 	}
+	parsed := ParseSystemConsoleEvidence(result.ToolID, result.Output)
 	return StructuredSystemConsoleResult{
-		Result:     result,
-		Structured: ParseSystemConsoleEvidence(result.ToolID, result.Output),
+		Result: result,
+		Structured: parsed,
+		Signals: EvaluateSystemConsoleEvidence(result),
+		ContinuationTargets: SystemConsoleContinuationTargets(result, parsed),
 	}, nil
 }
 
@@ -317,6 +325,54 @@ func (a *app) handleSystemConsoleStructuredQuery(w http.ResponseWriter, r *http.
 		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "POST required"})
 		return
 	}
+	mode := strings.TrimSpace(r.URL.Query().Get("mode"))
+	cp := controlPlaneFor(a.ephemeral)
+	switch mode {
+	case "security-posture":
+		writeJSON(w, http.StatusOK, a.securityPostureV23())
+		return
+	case "system-evidence":
+		writeJSON(w, http.StatusOK, map[string]any{"rows": cp.systemEvidence.list(100), "persistent": !a.ephemeral, "retention": systemEvidenceHistoryLimit, "note": "Only typed evidence summaries/signals are retained; raw Terminal output is not persisted in this journal."})
+		return
+	case "system-snapshot-capture":
+		s := captureSystemSnapshotV23(r.Context())
+		cp.systemSnapshots.add(s)
+		writeJSON(w, http.StatusOK, s)
+		return
+	case "system-snapshots":
+		writeJSON(w, http.StatusOK, map[string]any{"snapshots": cp.systemSnapshots.list(), "persistent": !a.ephemeral, "retention": systemSnapshotLimit})
+		return
+	case "system-snapshot-diff":
+		from, ok1 := cp.systemSnapshots.find(strings.TrimSpace(r.URL.Query().Get("from")))
+		to, ok2 := cp.systemSnapshots.find(strings.TrimSpace(r.URL.Query().Get("to")))
+		if !ok1 || !ok2 {
+			writeJSON(w, http.StatusNotFound, map[string]any{"error": "both retained snapshot IDs are required"})
+			return
+		}
+		writeJSON(w, http.StatusOK, CompareSystemSnapshotsV23(from, to))
+		return
+	case "storage-snapshot-capture":
+		result := a.jobs.latestResult()
+		if result == nil {
+			writeJSON(w, http.StatusConflict, map[string]any{"error": "no completed storage scan result is available to capture"})
+			return
+		}
+		snapshot, err := cp.storageHistory.add(result, time.Now().Unix())
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, snapshot)
+		return
+	case "storage-history":
+		comparison, ok := cp.storageHistory.latestComparison()
+		writeJSON(w, http.StatusOK, map[string]any{"snapshots": cp.storageHistory.list(), "latest_comparison": comparison, "has_comparison": ok, "persistent": !a.ephemeral, "retention": storageSnapshotHistoryLimit})
+		return
+	case "recovery":
+		writeJSON(w, http.StatusOK, a.recoveryCenterV23())
+		return
+	}
+
 	var req SystemConsoleQueryRequest
 	if err := decodeSystemConsoleJSON(r, &req); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid request: " + err.Error()})
@@ -326,6 +382,14 @@ func (a *app) handleSystemConsoleStructuredQuery(w http.ResponseWriter, r *http.
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
 		return
+	}
+	obs := systemEvidenceObservation(out.Result)
+	cp.systemEvidence.add(obs)
+	if a.intel != nil {
+		for _, sig := range obs.Signals {
+			if sig.Severity != "review" && sig.Severity != "high" { continue }
+			a.intel.appendExternalEvent(TimelineEvent{ID:entityID("event",obs.ID+"|"+sig.Code), At:obs.At, Kind:"system_evidence", Severity:sig.Severity, Title:sig.Summary, Detail:sig.Detail, ObjectID:entityID("system-evidence",firstNonEmpty(obs.Target,obs.ToolID))})
+		}
 	}
 	writeJSON(w, http.StatusOK, out)
 }
