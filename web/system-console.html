@@ -28,7 +28,14 @@
 
     <p id="notice" class="notice" role="status" aria-live="polite"></p>
 
-    <section class="recipe-panel">
+    <ol class="scan-flow terminal-evidence-flow" aria-label="Terminal evidence flow">
+      <li><b>Question</b>Start from the system fact you want to understand.</li>
+      <li><b>Typed tool</b>Run one allowlisted bounded macOS query.</li>
+      <li><b>Evidence</b>Read structured output before raw Terminal provenance.</li>
+      <li><b>Continue</b>Move a concrete PID, path, service, or relationship into investigation.</li>
+    </ol>
+
+    <section class="recipe-panel" data-viz="evidence">
       <div class="section-heading">
         <div><p class="eyebrow">Ask the Mac</p><h2>Start with a question, not a command</h2></div>
         <p>Common questions map to bounded macOS evidence. You can also jump directly into the Terminal Toolbox below, where the larger fixed-command catalog is exposed as visual buttons.</p>
@@ -49,18 +56,18 @@
       </div>
     </section>
 
-    <section class="object-panel">
+    <section class="object-panel" data-viz="object">
       <div class="section-heading"><div><p class="eyebrow">Unified object entry point</p><h2>Inspect a Mac object</h2></div><p>Enter one absolute path. Sentinel combines local metadata, extended attributes, signing, Gatekeeper, and plist evidence when applicable.</p></div>
       <form id="objectForm" class="object-form"><label for="objectPath">Absolute path</label><div class="input-row"><input id="objectPath" name="path" type="text" spellcheck="false" autocomplete="off" placeholder="/Applications/Example.app" required><button type="submit">Inspect object</button></div></form>
       <div id="objectResult" class="result-panel hidden" aria-live="polite"></div>
     </section>
 
-    <section>
+    <section data-viz="evidence">
       <div class="section-heading"><div><p class="eyebrow">Visual Terminal Toolbox</p><h2>macOS capabilities as big function groups</h2></div><p>Read-only buttons execute allowlisted macOS tools with fixed arguments, bounded time, and bounded output. Control/recovery buttons stay inside typed Sentinel workflows.</p></div>
       <div id="toolGroups" class="tool-groups"></div>
     </section>
 
-    <section id="queryOutputSection" class="output-section hidden">
+    <section id="queryOutputSection" class="output-section hidden" data-viz="evidence">
       <div class="section-heading"><div><p class="eyebrow">Local evidence</p><h2 id="queryTitle">Query result</h2></div><p id="queryMeta"></p></div>
       <div id="structuredOutput" class="structured-output hidden" aria-live="polite"></div>
       <details class="raw-evidence" open><summary>Raw evidence · Terminal output</summary><pre id="queryOutput" tabindex="0"></pre></details>
