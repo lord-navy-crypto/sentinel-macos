@@ -6,6 +6,7 @@
   <title>Sentinel Intelligence Center</title>
   <link rel="stylesheet" href="/intelligence-center.css">
   <link rel="stylesheet" href="/command-palette.css">
+  <link rel="stylesheet" href="/v23-navigation.css">
 </head>
 <body>
 <main class="shell">
@@ -39,7 +40,7 @@
 
   <section id="incidents" class="panel">
     <div class="heading"><div><p class="eyebrow">Correlation</p><h2>Incident Intelligence 2.0</h2></div><button id="rebuildIncidents" type="button">Rebuild incidents</button></div>
-    <p class="muted">Stable entity IDs coexist with legacy bounded episode IDs. Confidence explains relationship strength, not malware probability.</p>
+    <p class="muted">Stable object-centered StoryKeys coexist with bounded episode IDs. Confidence explains relationship strength, not malware probability.</p>
     <div id="incidentList" class="cards"></div>
   </section>
 
@@ -70,5 +71,6 @@
 </main>
 <script src="/intelligence-center.js"></script>
 <script src="/command-palette.js"></script>
+<script src="/v23-navigation.js"></script>
 </body>
 </html>
