@@ -68,6 +68,12 @@
         <span id="historyMode" class="badge">Loading…</span>
       </div>
       <p id="historyNote" class="summary-copy">Loading bounded Network Evidence history…</p>
+      <div class="history-compare" aria-label="Compare retained network snapshots">
+        <label><span>Baseline</span><select id="historyFrom"><option value="">Select baseline snapshot</option></select></label>
+        <label><span>Target</span><select id="historyTo"><option value="">Select target snapshot</option></select></label>
+        <button id="compareHistory" type="button" disabled>Compare Selected</button>
+        <button id="showLatestHistory" type="button">Show Latest Diff</button>
+      </div>
       <div id="historyDiff" class="list"></div>
       <div id="historyList" class="list"></div>
     </section>
