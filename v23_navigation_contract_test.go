@@ -27,3 +27,8 @@ func TestFocusedWorkspacePagesStaySmallAndSafe(t *testing.T){
  scripts:=[]string{"web/easy.js","web/workspace-centers.js"}
  for _,p:=range scripts{raw,err:=os.ReadFile(p);if err!=nil{t.Fatal(err)};s:=string(raw);for _,bad:=range []string{"innerHTML","eval(","new Function","document.write"}{if strings.Contains(s,bad){t.Fatalf("%s contains unsafe pattern %q",p,bad)}}}
 }
+func TestNormalRootExperienceRedirectsToNewEasy(t *testing.T){
+ raw,err:=os.ReadFile("web/core-compat.js");if err!=nil{t.Fatal(err)};s:=string(raw)
+ for _,want:=range []string{"location.pathname === '/'","/easy.html","legacy","location.replace"}{if !strings.Contains(s,want){t.Fatalf("root compatibility bridge missing %q",want)}}
+ if !strings.Contains(s,"params.get('legacy') !== '1'"){t.Fatalf("legacy dashboard must require explicit legacy=1 opt-in")}
+}
