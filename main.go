@@ -159,6 +159,7 @@ func main() {
 	mux.HandleFunc("/api/actions/execute", a.auth(a.handleActionExecute))
 	mux.HandleFunc("/api/actions/journal", a.auth(a.handleActionJournal))
 	mux.HandleFunc("/api/actions/vault", a.auth(a.handleVault))
+	mux.HandleFunc("/api/actions/vault/isolation", a.auth(a.work.wrap("vault-isolation", a.handleVaultIsolation)))
 	mux.HandleFunc("/api/actions/reveal", a.auth(a.handleReveal))
 	mux.HandleFunc("/api/changes/status", a.auth(a.handleChangeStatus))
 	mux.HandleFunc("/api/changes/events", a.auth(a.handleChangeEvents))
