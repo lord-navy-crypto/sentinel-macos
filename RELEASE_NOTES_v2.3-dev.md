@@ -14,7 +14,7 @@ Security remains the primary entry point, while the broader product becomes a vi
 
 A core v2.3 interaction principle is: **a report is a node, not the end of an investigation**.
 
-See `SYSTEM_CONSOLE_V2.3.md` for the visual macOS control-plane design and `V2.3_BRANCH_CHECKLIST.md` for implementation status.
+See `SYSTEM_CONSOLE_V2.3.md` for the visual macOS control-plane design, `TERMINAL_TOOLBOX_V2.3.md` for the expanded typed Terminal-button architecture, and `V2.3_BRANCH_CHECKLIST.md` for implementation status.
 
 ## Implemented so far on this branch
 
@@ -41,6 +41,18 @@ The following foundations are already present in `upgrade/v2.3-stable` and are n
 - direct Ask-the-Mac entry points into Launch & Service, Process Relationship, and Network Relationship explorers.
 - a System Console shortcut in the existing Sentinel interface.
 - explicit tests that managed actions cannot run through the read-only command runner and that the System Console cannot silently become an arbitrary shell/`sudo` execution surface.
+
+#### Expanded Terminal Toolbox
+
+- the System Console catalog now exposes **40+ typed tools/actions** rather than only the original small evidence set.
+- a new domain-first visual layout presents large function boxes for **System & Hardware, Security Posture, Processes & Resources, Startup & Services, Network, Storage & Disks, Files & Metadata, App Integrity, Search & Spotlight, Backup & Recovery Sources, Power & Battery, Bounded System Logs, Persistence, Change Intelligence, and Trust & Recovery**.
+- read-only cards show the exact fixed Terminal command preview that Sentinel will use, including validated `<PID>` or `<absolute-path>` placeholders where applicable.
+- a Toolbox filter searches purpose, domain, and fixed command preview without exposing command execution text input.
+- expanded fixed adapters include hardware/system profile, uptime/boot time, update history, system extensions, enrollment status, richer process state/listeners, disk/APFS layout, storage profile, Spotlight status, Time Machine state, interfaces/DNS/proxy/ARP/TCP, Apple `networkQuality`, battery/power assertions, user launch services, Gatekeeper/FileVault/SIP status, and bounded predefined Gatekeeper/power log windows.
+- fixed log recipes keep short time windows and fixed predicates; unrestricted user-supplied `log` predicates are not exposed.
+- direct workspace cards open Launch & Service Explorer, Network Relationship Explorer, and Intelligence Center while other mutating actions continue to route through Sentinel preview/confirmation/journal/recovery workflows.
+- the expanded catalog is contract-tested for unique IDs, maximum timeouts, no `sh`/`bash`/`zsh`, no `sudo`, and no command-composition tokens in fixed arguments.
+- the original **“Start with a question, not a command”** experience remains intact above the larger Toolbox, so direct Terminal-style buttons and question-first investigation coexist.
 
 ### Continue Investigation / Security Investigation Graph
 
@@ -181,7 +193,7 @@ The branch now includes a dedicated `intelligence-center.html` workspace so the 
 - richer executable-aware Network Evidence identity and higher-level temporal summaries without introducing packet capture.
 - Safe Actions 2.0 dependency-preview/post-action UX expansion and a dedicated Vault Health page.
 - local diagnostics, benchmarks, and CI migration gates.
-- bounded predefined macOS log/event recipes.
+- broader bounded macOS log/event recipes beyond the initial Gatekeeper and power windows.
 - broader System Snapshot & Diff across selected macOS object types.
 - privacy-aware investigation bundle export.
 
@@ -210,6 +222,7 @@ v2.3 must preserve:
 - no mutation that bypasses Sentinel preview, confirmation, journaling, and recovery boundaries;
 - Continue Investigation remains read-only, bounded, and transparent about truncation/visibility limits;
 - Cmd+K remains typed Sentinel navigation/search rather than an arbitrary command runner;
-- Visibility status describes evidence access and never substitutes for a security verdict.
+- Visibility status describes evidence access and never substitutes for a security verdict;
+- Terminal Toolbox buttons remain fixed-command and bounded: no arbitrary flags, command concatenation, shell, or direct privileged mutation.
 
-See `UPGRADE_V2.3_PLAN.md`, `SYSTEM_CONSOLE_V2.3.md`, and `V2.3_BRANCH_CHECKLIST.md` for the implementation plan and branch gates.
+See `UPGRADE_V2.3_PLAN.md`, `SYSTEM_CONSOLE_V2.3.md`, `TERMINAL_TOOLBOX_V2.3.md`, and `V2.3_BRANCH_CHECKLIST.md` for the implementation plan and branch gates.
