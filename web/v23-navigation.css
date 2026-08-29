@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: MPL-2.0 */
 @import url("/v23-visual-system.css");
+@import url("/v23-quantitative-viz.css");
 
 .sentinel-v23-nav{
   position:sticky;
