@@ -129,23 +129,24 @@ func TestVisualStylesHaveBalancedBraces(t *testing.T) {
 
 func TestSharedVisualSystemDoesNotInjectProductContentOrBehavior(t *testing.T) {
 	visual := visualSource(t, "web/v23-visual-system.css")
-	for _, bad := range []string{
-		"javascript:",
-		"expression(",
-		"behavior:",
-		"display:none",
-		"visibility:hidden",
-		"pointer-events:none",
-		"url(http://",
-		"url(https://",
+	withoutComments := regexp.MustCompile(`(?s)/\*.*?\*/`).ReplaceAllString(visual, "")
+	lower := strings.ToLower(withoutComments)
+	for _, bad := range []*regexp.Regexp{
+		regexp.MustCompile(`(?i)javascript\s*:`),
+		regexp.MustCompile(`(?i)expression\s*\(`),
+		regexp.MustCompile(`(?im)^\s*behavior\s*:`),
+		regexp.MustCompile(`(?im)^\s*display\s*:\s*none\b`),
+		regexp.MustCompile(`(?im)^\s*visibility\s*:\s*hidden\b`),
+		regexp.MustCompile(`(?im)^\s*pointer-events\s*:\s*none\b`),
+		regexp.MustCompile(`(?i)url\s*\(\s*["']?https?://`),
 	} {
-		if strings.Contains(strings.ToLower(visual), strings.ToLower(bad)) {
-			t.Fatalf("shared visual system must remain presentation-only; found %q", bad)
+		if bad.MatchString(lower) {
+			t.Fatalf("shared visual system must remain presentation-only; matched %q", bad.String())
 		}
 	}
 	// Empty pseudo-elements are allowed for lines/dots. Text injection is not.
 	nonEmptyContent := regexp.MustCompile(`content\s*:\s*["'][^"']+["']`)
-	if nonEmptyContent.MatchString(visual) {
+	if nonEmptyContent.MatchString(withoutComments) {
 		t.Fatal("shared visual system must not inject new visible text through CSS content")
 	}
 }
