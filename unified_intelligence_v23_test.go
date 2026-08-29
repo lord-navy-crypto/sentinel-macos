@@ -3,6 +3,7 @@ package main
 
 import (
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -90,14 +91,10 @@ func TestUnifiedIntelligenceRoutesAndNoShellContract(t *testing.T) {
 		},
 	}
 	for path, needles := range checks {
-		raw, err := osReadFileForUnifiedTest(path)
+		raw, err := os.ReadFile(path)
 		if err != nil { t.Fatalf("read %s: %v", path, err) }
 		for _, needle := range needles {
 			if !strings.Contains(string(raw), needle) { t.Fatalf("%s missing %q", path, needle) }
 		}
 	}
-}
-
-func osReadFileForUnifiedTest(path string) ([]byte, error) {
-	return readLocalContractFile(path)
 }
