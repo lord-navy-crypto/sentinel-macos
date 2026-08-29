@@ -13,6 +13,7 @@ type AdvancedSensorStatus struct {
 	SupportedPlatform bool   `json:"supported_platform"`
 	SensorPresent     bool   `json:"sensor_present"`
 	Enabled           bool   `json:"enabled"`
+	Available         bool   `json:"available"`
 	EntitlementNeeded bool   `json:"entitlement_needed"`
 	FullDiskAccess    bool   `json:"full_disk_access_required"`
 	Mode              string `json:"mode"`
@@ -29,8 +30,12 @@ func advancedSensorStatus() AdvancedSensorStatus {
 			}
 		}
 	}
+	// The executable being present is not equivalent to an active evidence
+	// source. Availability becomes true only when Sentinel can truthfully claim
+	// the separately entitled/user-approved sensor is enabled.
+	enabled := false
 	note := "Optional notification-only Endpoint Security sensor source is included for real-Mac entitlement builds. Sentinel V2.2 does not claim the sensor is active unless a separately entitled, user-approved System Extension is installed."
-	return AdvancedSensorStatus{Platform: runtime.GOOS, SupportedPlatform: runtime.GOOS == "darwin", SensorPresent: present, Enabled: false, EntitlementNeeded: true, FullDiskAccess: true, Mode: "scaffold-not-enabled", Note: note}
+	return AdvancedSensorStatus{Platform: runtime.GOOS, SupportedPlatform: runtime.GOOS == "darwin", SensorPresent: present, Enabled: enabled, Available: enabled, EntitlementNeeded: true, FullDiskAccess: true, Mode: "scaffold-not-enabled", Note: note}
 }
 func (a *app) handleAdvancedSensorStatus(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
