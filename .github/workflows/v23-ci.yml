@@ -31,7 +31,7 @@ jobs:
 
       - name: v2.3 pre-regression contracts
         run: |
-          go test ./... -run 'Migration|IncidentStory|Timeline|Export|StorageAging|ReasonCodeRegistry|RuleRegistry|VaultHealth|Navigation|PreRegression|SessionNote|Alpha|I18n|ScanCenter'
+          go test ./... -run 'Migration|IncidentStory|Timeline|Export|StorageAging|ReasonCodeRegistry|RuleRegistry|VaultHealth|Navigation|PreRegression|SessionNote|Alpha|I18n|ScanCenter|ContinueInvestigation|TerminalGuide'
 
       - name: Darwin architecture build smoke
         run: |
@@ -61,9 +61,11 @@ jobs:
           node --check web/system-console-links.js
           node --check web/system-console-domains.js
           node --check web/system-console-investigation-v23.js
+          node --check web/terminal-guide.js
           node --check web/control-plane.js
           node --check web/control-plane-aging-v23.js
           node --check web/investigation.js
+          node --check web/investigation-stability-v23.js
           node --check web/investigation-bridge.js
           node --check web/investigation-session-note-guard.js
           node --check web/investigation-export-v23.js
