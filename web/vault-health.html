@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sentinel Vault Health</title>
+  <link rel="stylesheet" href="/vault-health.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <div><p class="eyebrow">Sentinel v2.3 · Recover</p><h1>Vault Health</h1><p>Inspect reversible Safe Action state, Vault manifests, journal integrity, and post-action observations without introducing a permanent-delete path.</p></div>
+      <nav><a id="controlLink" href="/control-plane.html">Control Plane</a><a id="homeLink" href="/">Sentinel</a></nav>
+    </header>
+    <p id="notice" class="notice" role="status" aria-live="polite"></p>
+
+    <section class="panel">
+      <div class="heading"><div><p class="eyebrow">Recovery state</p><h2>Health summary</h2></div><button id="refresh" type="button">Refresh</button></div>
+      <div id="healthSummary" class="summary-grid"></div>
+      <div id="healthIssues" class="stack"></div>
+    </section>
+
+    <section class="panel">
+      <div class="heading"><div><p class="eyebrow">Reversible objects</p><h2>Active Vault items</h2></div><span id="vaultCount" class="pill">0</span></div>
+      <div id="vaultItems" class="stack"></div>
+    </section>
+
+    <section class="panel">
+      <div class="heading"><div><p class="eyebrow">Post-action evidence</p><h2>Recent Safe Action journal</h2></div><span id="journalCount" class="pill">0</span></div>
+      <p class="meaning">Post-action observation is a local snapshot. A renamed or vaulted file does not prove a running process stopped, and a successful Safe Action is not a malware verdict.</p>
+      <div id="journalItems" class="stack"></div>
+    </section>
+  </main>
+  <script src="/vault-health.js"></script>
+</body>
+</html>
