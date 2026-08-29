@@ -54,6 +54,7 @@ jobs:
           node --check web/i18n.js
           node --check web/easy.js
           node --check web/scan-center.js
+          node --check web/compare-center.js
           node --check web/alpha-center.js
           node --check web/workspace-centers.js
           node --check web/system-console.js
