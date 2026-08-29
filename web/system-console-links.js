@@ -8,5 +8,5 @@
   if (launch && token) launch.href = `/launch-services.html#token=${encodeURIComponent(token)}`;
   if (processes && token) processes.href = `/process-relations.html#token=${encodeURIComponent(token)}`;
   if (network && token) network.href = `/network-relations.html#token=${encodeURIComponent(token)}`;
-  if (control && token) control.href = `/control-plane.html#token=${encodeURIComponent(token)}`;
+  if (control && token) control.href = `/system-center.html#token=${encodeURIComponent(token)}`;
 })();
