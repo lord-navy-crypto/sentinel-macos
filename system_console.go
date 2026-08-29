@@ -120,7 +120,7 @@ func (b *boundedCapture) String() string {
 func systemConsoleToolDefinitions() []SystemConsoleTool {
 	readonly := "Read-only inspection. Sentinel uses an allowlisted executable and explicit arguments; no shell is invoked."
 	managed := "Mutation is not executed by the System Console query runner. Use Sentinel's existing preview/confirmation/recovery workflow."
-	return []SystemConsoleTool{
+	tools := []SystemConsoleTool{
 		{ID: "process-table", Name: "Process table", Intent: "understand", Domain: "processes", Mode: "read_only", Summary: "Show running processes with parent PID, user, CPU, memory, elapsed time, and command.", Command: "/bin/ps", BaseArgs: []string{"-axo", "pid,ppid,user,%cpu,%mem,etime,comm"}, TimeoutSeconds: 5, Safety: readonly},
 		{ID: "disk-filesystems", Name: "Mounted filesystem usage", Intent: "understand", Domain: "storage", Mode: "read_only", Summary: "Show mounted filesystems and their visible capacity/usage.", Command: "/bin/df", BaseArgs: []string{"-h"}, TimeoutSeconds: 5, Safety: readonly},
 		{ID: "mount-table", Name: "Mount table", Intent: "understand", Domain: "storage", Mode: "read_only", Summary: "Show currently mounted volumes and mount options.", Command: "/sbin/mount", TimeoutSeconds: 5, Safety: readonly},
@@ -134,7 +134,6 @@ func systemConsoleToolDefinitions() []SystemConsoleTool {
 		{ID: "plist-inspect", Name: "Property-list view", Intent: "investigate", Domain: "persistence", Mode: "read_only", Summary: "Render a plist as structured text without modifying the file.", TargetKind: "path", Command: "/usr/bin/plutil", BaseArgs: []string{"-p"}, TimeoutSeconds: 6, Safety: readonly},
 		{ID: "path-size", Name: "Path size", Intent: "investigate", Domain: "storage", Mode: "read_only", Summary: "Measure the visible size of one path using a bounded-time du query.", TargetKind: "path", Command: "/usr/bin/du", BaseArgs: []string{"-sh"}, TimeoutSeconds: 12, Safety: readonly},
 		{ID: "process-open-files", Name: "Process open files", Intent: "investigate", Domain: "processes", Mode: "read_only", Summary: "Show files and sockets currently opened by one PID.", TargetKind: "pid", Command: "/usr/sbin/lsof", BaseArgs: []string{"-p"}, TimeoutSeconds: 8, Safety: readonly},
-
 		{ID: "safe-action-preview", Name: "Safe Action preview", Intent: "control", Domain: "filesystem", Mode: "sentinel_action", Summary: "Preview a reversible Sentinel action before any mutation.", Route: "/api/actions/preview", Safety: managed},
 		{ID: "safe-action-execute", Name: "Confirmed Safe Action", Intent: "control", Domain: "filesystem", Mode: "sentinel_action", Summary: "Execute only an already-previewed action through typed confirmation, one-time code, and revalidation.", Route: "/api/actions/execute", Safety: managed},
 		{ID: "vault", Name: "Vault", Intent: "recover", Domain: "filesystem", Mode: "sentinel_action", Summary: "Inspect or restore Sentinel Vault items through the existing reversible workflow.", Route: "/api/actions/vault", Safety: managed},
@@ -142,6 +141,7 @@ func systemConsoleToolDefinitions() []SystemConsoleTool {
 		{ID: "change-reconcile", Name: "Change reconciliation", Intent: "recover", Domain: "changes", Mode: "sentinel_action", Summary: "Reconcile monitoring gaps/dropped events through Sentinel's bounded change workflow.", Route: "/api/changes/reconcile", Safety: managed},
 		{ID: "trust-restore", Name: "Trusted Profile restore", Intent: "recover", Domain: "trust", Mode: "sentinel_action", Summary: "Restore the previous Trusted Profile through Sentinel's explicit restore route.", Route: "/api/trust/restore", Safety: managed},
 	}
+	return append(tools, expandedSystemConsoleTools(readonly, managed)...)
 }
 
 func executableAvailable(path string) bool {
@@ -181,7 +181,7 @@ func SystemConsoleCatalogSnapshot() SystemConsoleCatalog {
 			"Mutating operations stay inside Sentinel preview, confirmation, journaling, and recovery boundaries.",
 			"Unavailable evidence is shown as unavailable instead of being treated as safe.",
 		},
-		Note: "System Console is Sentinel's visual macOS control-plane foundation. It exposes bounded system evidence, not an arbitrary terminal.",
+		Note: "System Console is Sentinel's visual macOS control-plane foundation. Terminal-backed buttons expose fixed, bounded macOS operations without providing an arbitrary shell.",
 	}
 }
 
