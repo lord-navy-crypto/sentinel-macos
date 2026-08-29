@@ -31,7 +31,7 @@ jobs:
 
       - name: v2.3 pre-regression contracts
         run: |
-          go test ./... -run 'Migration|IncidentStory|Timeline|Export|StorageAging|ReasonCodeRegistry|RuleRegistry|VaultHealth|Navigation|PreRegression|SessionNote|Alpha|I18n|ScanCenter|ContinueInvestigation|TerminalGuide'
+          go test ./... -run 'Migration|IncidentStory|Timeline|Export|StorageAging|ReasonCodeRegistry|RuleRegistry|VaultHealth|Navigation|PreRegression|SessionNote|Alpha|I18n|ScanCenter|ContinueInvestigation|TerminalGuide|VisualGrammarV2'
 
       - name: Darwin architecture build smoke
         run: |
@@ -57,6 +57,7 @@ jobs:
           node --check web/compare-center.js
           node --check web/alpha-center.js
           node --check web/workspace-centers.js
+          node --check web/storage-visualization-v23.js
           node --check web/system-console.js
           node --check web/system-console-links.js
           node --check web/system-console-domains.js
