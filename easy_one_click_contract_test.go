@@ -40,8 +40,10 @@ func TestMainRegistersVaultIsolationReadEndpoint(t *testing.T) {
 	mainFile, err := os.ReadFile("main.go")
 	if err != nil { t.Fatal(err) }
 	text := string(mainFile)
-	if !strings.Contains(text, `mux.HandleFunc("/api/actions/vault/isolation"`) {
-		t.Fatal("Vault isolation route is not registered")
+	if !strings.Contains(text, `mux.HandleFunc("/api/actions/vault/isolation"`) && !strings.Contains(text, `mux.HandleFunc("/api/actions/vault/isolation",`) {
+		if !strings.Contains(text, "mux.HandleFunc(\"/api/actions/vault/isolation\"") {
+			t.Fatal("Vault isolation route is not registered")
+		}
 	}
 	if !strings.Contains(text, `a.handleVaultIsolation`) {
 		t.Fatal("Vault isolation route does not use the typed handler")
