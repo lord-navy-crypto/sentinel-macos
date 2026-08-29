@@ -4,6 +4,7 @@
   const hash = token ? `#token=${encodeURIComponent(token)}` : '';
   const items = [
     ['Easy','nav.easy', `/easy.html${hash}`, ['/easy.html']],
+    ['Scan','nav.scan', `/scan-center.html${hash}`, ['/scan-center.html']],
     ['Security','nav.security', `/security-center.html${hash}`, ['/security-center.html']],
     ['Investigate','nav.investigate', `/investigation.html${hash}`, ['/investigation.html']],
     ['System','nav.system', `/system-center.html${hash}`, ['/system-center.html','/control-plane.html']],
