@@ -32,6 +32,12 @@ func TestContinueInvestigationRoutesAndBridgeAreWired(t *testing.T) {
 		`/api/launch-services/detail`,
 		`/investigation-bridge.js`,
 	)
+	requireInvestigationSourceContains(t, "deep_investigation.go",
+		`mode")
+	requireInvestigationSourceContains(t, "deep_investigation.go",
+		`sessions`,
+		`handleInvestigationSessions`,
+	)
 	requireInvestigationSourceContains(t, "web/investigation-bridge.js",
 		`/api/security/audit`,
 		`/api/incidents`,
@@ -53,20 +59,30 @@ func TestContinueInvestigationWorkspaceSupportsBranchingAndCorrelation(t *testin
 		`Review candidates`,
 		`Review Priority only orders local evidence`,
 		`Continue from related objects`,
+		`Investigation Sessions`,
+		`Save Session`,
+		`Bookmark Current Branch`,
 		`/investigation.js`,
 	)
-	requireInvestigationSourceContains(t, "web/investigation.js",
+	source := requireInvestigationSourceContains(t, "web/investigation.js",
 		`X-Sentinel-Token`,
 		`/api/security/investigate`,
+		`mode=sessions`,
 		`parent_id`,
 		`/api/object/story?path=`,
 		`/api/security/context?path=`,
 		`renderRuntimeContext`,
-		`history.splice`,
+		`branchHistory.splice`,
+		`window.history.replaceState`,
+		`saveCurrentBranch`,
+		`Resume Session`,
 		`Continue from here`,
 		`Investigate running executable`,
 		`Open files / loaded objects`,
 	)
+	if strings.Contains(source, `const history = []`) {
+		t.Fatal("investigation workspace must not shadow browser window.history")
+	}
 }
 
 func TestContinueInvestigationWebSurfaceAvoidsDynamicCodeExecution(t *testing.T) {
@@ -110,6 +126,20 @@ func TestInvestigationRuntimeContextRemainsCorrelationOnly(t *testing.T) {
 	for _, forbidden := range []string{"os.Remove(", "os.RemoveAll(", "os.Rename(", "exec.Command("} {
 		if strings.Contains(source, forbidden) {
 			t.Fatalf("runtime investigation context unexpectedly contains mutation/command pattern %q", forbidden)
+		}
+	}
+}
+
+func TestInvestigationSessionsRemainBoundedAndMetadataOnly(t *testing.T) {
+	source := requireInvestigationSourceContains(t, "investigation_sessions.go",
+		`investigationSessionLimit`,
+		`investigationSessionBranchLimit`,
+		`--ephemeral`,
+		`paths, branch metadata, bookmarks, and user notes only`,
+	)
+	for _, forbidden := range []string{"os.ReadFile(", "os.WriteFile(", "exec.Command(", "os.Remove("} {
+		if strings.Contains(source, forbidden) {
+			t.Fatalf("investigation session metadata layer unexpectedly contains %q", forbidden)
 		}
 	}
 }
