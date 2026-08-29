@@ -5,119 +5,25 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Sentinel Continue Investigation</title>
   <link rel="stylesheet" href="/investigation.css">
+  <link rel="stylesheet" href="/v23-navigation.css">
 </head>
 <body>
   <main class="investigation-shell">
-    <header class="hero">
-      <div>
-        <p class="eyebrow">Sentinel v2.3 · Security-first investigation</p>
-        <h1>Continue Investigation</h1>
-        <p class="subtitle">A report is a node, not the end. Branch from any local object into deeper file, identity, runtime, persistence, network, and historical evidence.</p>
-      </div>
-      <a id="backToSentinel" class="secondary-link" href="/">Back to Sentinel</a>
-    </header>
-
-    <section class="principles" aria-label="Investigation principles">
-      <article><b>Branch</b><span>Continue from the exact object that raised a question.</span></article>
-      <article><b>Correlate</b><span>Combine file evidence with Object Story relationships.</span></article>
-      <article><b>Bound</b><span>Depth, candidate count, hashing, and traversal stay limited.</span></article>
-      <article><b>Preserve</b><span>Raw provenance and unknowns remain visible.</span></article>
-    </section>
-
+    <header class="hero"><div><p class="eyebrow">Sentinel v2.3 · Security-first investigation</p><h1>Continue Investigation</h1><p class="subtitle">A report is a node, not the end. Branch from any local object into deeper file, identity, runtime, persistence, network, and historical evidence.</p></div><a id="backToSentinel" class="secondary-link" href="/">Back to Sentinel</a></header>
+    <section class="principles" aria-label="Investigation principles"><article><b>Branch</b><span>Continue from the exact object that raised a question.</span></article><article><b>Correlate</b><span>Combine file evidence with Object Story relationships.</span></article><article><b>Bound</b><span>Depth, candidate count, hashing, and traversal stay limited.</span></article><article><b>Preserve</b><span>Raw provenance and unknowns remain visible.</span></article></section>
     <p id="notice" class="notice" role="status" aria-live="polite"></p>
-
-    <section class="control-card">
-      <div class="section-head">
-        <div>
-          <p class="eyebrow">Choose a branch root</p>
-          <h2>Investigate any absolute path</h2>
-        </div>
-        <p>For an app bundle, Sentinel descends into code-bearing contents. For a broad folder, nested bundles become explicit continuation targets instead of being exploded all at once.</p>
-      </div>
-      <form id="investigationForm" class="path-form">
-        <input id="investigationPath" type="text" autocomplete="off" spellcheck="false" placeholder="/Applications/Example.app" required>
-        <button id="startInvestigation" type="submit">Investigate</button>
-      </form>
-      <div class="branch-controls">
-        <button id="branchBack" type="button" disabled>← Previous branch</button>
-        <button id="branchForward" type="button" disabled>Next branch →</button>
-        <span id="branchPosition">No branch yet</span>
-      </div>
-    </section>
-
-    <section id="sessionPanel" class="control-card">
-      <div class="section-head">
-        <div>
-          <p class="eyebrow">Investigation Sessions</p>
-          <h2>Save the investigation, not the file contents</h2>
-        </div>
-        <p id="sessionStorageNote">Loading bounded session history…</p>
-      </div>
-      <div class="session-controls">
-        <input id="sessionTitle" type="text" maxlength="96" autocomplete="off" spellcheck="false" placeholder="Session title (optional)">
-        <textarea id="sessionNote" maxlength="1200" rows="2" placeholder="Optional note for the current branch"></textarea>
-        <div class="candidate-actions">
-          <button id="saveSession" type="button">Save Session</button>
-          <button id="bookmarkBranch" type="button" disabled>Bookmark Current Branch</button>
-          <button id="refreshSessions" type="button">Refresh Sessions</button>
-          <span id="activeSessionStatus" class="badge">No active session</span>
-        </div>
-      </div>
-      <div id="sessionList" class="candidate-list"></div>
-    </section>
-
+    <section class="control-card"><div class="section-head"><div><p class="eyebrow">Choose a branch root</p><h2>Investigate any absolute path</h2></div><p>For an app bundle, Sentinel descends into code-bearing contents. For a broad folder, nested bundles become explicit continuation targets instead of being exploded all at once.</p></div><form id="investigationForm" class="path-form"><input id="investigationPath" type="text" autocomplete="off" spellcheck="false" placeholder="/Applications/Example.app" required><button id="startInvestigation" type="submit">Investigate</button></form><div class="branch-controls"><button id="branchBack" type="button" disabled>← Previous branch</button><button id="branchForward" type="button" disabled>Next branch →</button><span id="branchPosition">No branch yet</span></div></section>
+    <section id="sessionPanel" class="control-card"><div class="section-head"><div><p class="eyebrow">Investigation Sessions</p><h2>Save the investigation, not the file contents</h2></div><p id="sessionStorageNote">Loading bounded session history…</p></div><div class="session-controls"><input id="sessionTitle" type="text" maxlength="96" autocomplete="off" spellcheck="false" placeholder="Session title (optional)"><textarea id="sessionNote" maxlength="1200" rows="2" placeholder="Optional note for the current branch"></textarea><div class="candidate-actions"><button id="saveSession" type="button">Save Session</button><button id="bookmarkBranch" type="button" disabled>Bookmark Current Branch</button><button id="refreshSessions" type="button">Refresh Sessions</button><span id="activeSessionStatus" class="badge">No active session</span></div></div><div id="sessionList" class="candidate-list"></div></section>
     <section id="branchSummary" class="summary-card hidden" aria-live="polite"></section>
-
-    <div class="two-column">
-      <section id="objectStoryPanel" class="panel hidden">
-        <div class="panel-title">
-          <div><p class="eyebrow">Correlated system context</p><h2>Object Story</h2></div>
-          <span class="badge">read-only</span>
-        </div>
-        <div id="objectStoryBody"></div>
-      </section>
-
-      <section id="rootInspectionPanel" class="panel hidden">
-        <div class="panel-title">
-          <div><p class="eyebrow">Static local evidence</p><h2>Root Integrity</h2></div>
-          <span class="badge">provenance</span>
-        </div>
-        <div id="rootInspectionBody"></div>
-      </section>
-    </div>
-
-    <section id="runtimeContextPanel" class="panel hidden">
-      <div class="panel-title">
-        <div><p class="eyebrow">Live system correlation</p><h2>Runtime & Persistence Context</h2></div>
-        <span class="badge">current snapshot</span>
-      </div>
-      <p class="panel-note">Correlates the selected path or app bundle with current processes, parent chains, TCP evidence, LaunchAgents/LaunchDaemons, and Background Task Management records.</p>
-      <div id="runtimeContextBody"></div>
-    </section>
-
-    <section id="candidatesPanel" class="panel hidden">
-      <div class="panel-title">
-        <div><p class="eyebrow">Inside this branch</p><h2>Review candidates</h2></div>
-        <span id="candidateCount" class="badge">0</span>
-      </div>
-      <p class="panel-note">Review Priority only orders local evidence for inspection. It is not a malware probability.</p>
-      <div id="candidateList" class="candidate-list"></div>
-    </section>
-
-    <section id="nextTargetsPanel" class="panel hidden">
-      <div class="panel-title">
-        <div><p class="eyebrow">Investigation graph</p><h2>Continue from related objects</h2></div>
-      </div>
-      <div id="nextTargetList" class="next-target-list"></div>
-    </section>
-
-    <section id="limitationsPanel" class="panel hidden">
-      <div class="panel-title"><div><p class="eyebrow">Visibility</p><h2>Limits and unknowns</h2></div></div>
-      <div id="limitationsList" class="limitations"></div>
-    </section>
+    <div class="two-column"><section id="objectStoryPanel" class="panel hidden"><div class="panel-title"><div><p class="eyebrow">Correlated system context</p><h2>Object Story</h2></div><span class="badge">read-only</span></div><div id="objectStoryBody"></div></section><section id="rootInspectionPanel" class="panel hidden"><div class="panel-title"><div><p class="eyebrow">Static local evidence</p><h2>Root Integrity</h2></div><span class="badge">provenance</span></div><div id="rootInspectionBody"></div></section></div>
+    <section id="runtimeContextPanel" class="panel hidden"><div class="panel-title"><div><p class="eyebrow">Live system correlation</p><h2>Runtime & Persistence Context</h2></div><span class="badge">current snapshot</span></div><p class="panel-note">Correlates the selected path or app bundle with current processes, parent chains, TCP evidence, LaunchAgents/LaunchDaemons, and Background Task Management records.</p><div id="runtimeContextBody"></div></section>
+    <section id="candidatesPanel" class="panel hidden"><div class="panel-title"><div><p class="eyebrow">Inside this branch</p><h2>Review candidates</h2></div><span id="candidateCount" class="badge">0</span></div><p class="panel-note">Review Priority only orders local evidence for inspection. It is not a malware probability.</p><div id="candidateList" class="candidate-list"></div></section>
+    <section id="nextTargetsPanel" class="panel hidden"><div class="panel-title"><div><p class="eyebrow">Investigation graph</p><h2>Continue from related objects</h2></div></div><div id="nextTargetList" class="next-target-list"></div></section>
+    <section id="limitationsPanel" class="panel hidden"><div class="panel-title"><div><p class="eyebrow">Visibility</p><h2>Limits and unknowns</h2></div></div><div id="limitationsList" class="limitations"></div></section>
   </main>
   <script src="/investigation.js"></script>
   <script src="/investigation-session-note-guard.js"></script>
   <script src="/process-relations-bridge.js"></script>
+  <script src="/v23-navigation.js"></script>
 </body>
 </html>
