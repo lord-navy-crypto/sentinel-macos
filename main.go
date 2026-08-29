@@ -73,6 +73,12 @@ func main() {
 	}
 	defer instanceLock.release()
 
+	// Normalize legacy Sentinel-owned metadata before any manager reads it.
+	// Migration strictly decodes the primary store first, uses the atomic
+	// state writer for changed files, and therefore preserves .bak rollback
+	// copies. In --ephemeral mode this is a no-write compatibility check.
+	runV23StateMigrations(*ephemeral)
+
 	token := randomToken(24)
 	intel := newIntelligenceManager()
 	a := &app{
@@ -117,9 +123,11 @@ func main() {
 	mux.HandleFunc("/api/storage/scan", a.auth(a.handleStorageScan))
 	mux.HandleFunc("/api/storage/jobs", a.auth(a.handleStorageJobs))
 	mux.HandleFunc("/api/storage/cancel", a.auth(a.handleStorageCancel))
+	mux.HandleFunc("/api/storage/aging", a.auth(a.handleStorageAgingV23))
 	mux.HandleFunc("/api/security/audit", a.auth(a.work.wrap("security-audit", a.handleSecurityAudit)))
 	mux.HandleFunc("/api/security/investigate", a.auth(a.work.wrap("continue-investigation", a.handleContinueInvestigation)))
 	mux.HandleFunc("/api/security/context", a.auth(a.work.wrap("investigation-runtime-context", a.handleInvestigationRuntimeContext)))
+	mux.HandleFunc("/api/security/investigation/export", a.auth(a.work.wrap("investigation-bundle-export", a.handleInvestigationBundleExportV23)))
 	mux.HandleFunc("/api/process/detail", a.auth(a.handleProcessDetail))
 	mux.HandleFunc("/api/report/export", a.auth(a.work.wrap("report-export", a.handleReportExport)))
 	mux.HandleFunc("/api/cleanup/preview", a.auth(a.handleCleanupPreview))
@@ -127,6 +135,7 @@ func main() {
 	mux.HandleFunc("/api/intelligence/graph/v2", a.auth(a.work.wrap("evidence-graph-v2", a.handleEvidenceGraphV2)))
 	mux.HandleFunc("/api/intelligence/timeline", a.auth(a.handleTimeline))
 	mux.HandleFunc("/api/intelligence/timeline/global", a.auth(a.handleGlobalTimeline))
+	mux.HandleFunc("/api/intelligence/timeline/grouped", a.auth(a.handleGroupedGlobalTimeline))
 	mux.HandleFunc("/api/object/story", a.auth(a.handleObjectStory))
 	mux.HandleFunc("/api/object/story/v2", a.auth(a.work.wrap("object-story-v2", a.handleObjectStoryV2)))
 	mux.HandleFunc("/api/behavior", a.auth(a.handleBehavior))
@@ -162,8 +171,10 @@ func main() {
 	mux.HandleFunc("/api/incidents", a.auth(a.handleIncidents))
 	mux.HandleFunc("/api/incidents/v2", a.auth(a.handleIncidentIntelligenceV2))
 	mux.HandleFunc("/api/incidents/detail", a.auth(a.work.wrap("incident-deep-review", a.handleIncidentDetail)))
+	mux.HandleFunc("/api/incidents/export", a.auth(a.work.wrap("incident-export", a.handleIncidentExportV23)))
 	mux.HandleFunc("/api/advanced-sensor/status", a.auth(a.handleAdvancedSensorStatus))
 	mux.HandleFunc("/api/readiness", a.auth(a.work.wrap("readiness", a.handleReadiness)))
+	mux.HandleFunc("/api/pre-regression", a.auth(a.handlePreRegressionV23))
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" || r.URL.Path == "/index.html" {
 			page, readErr := fs.ReadFile(staticFS, "index.html")
