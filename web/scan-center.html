@@ -19,7 +19,14 @@
   </header>
   <p id="notice" class="notice" role="status" aria-live="polite"></p>
 
-  <section class="scan-grid">
+  <ol class="scan-flow" aria-label="Sentinel scan evidence flow">
+    <li><b>Acquire</b>Collect bounded local observations.</li>
+    <li><b>Inspect</b>Keep identity, integrity, and source context visible.</li>
+    <li><b>Correlate</b>Connect only relationships supported by retained evidence.</li>
+    <li><b>Continue</b>Move a meaningful result into focused investigation.</li>
+  </ol>
+
+  <section class="scan-grid" aria-label="Scan modes">
     <article class="scan-card">
       <div><p class="eyebrow">Fast</p><h2>Quick Scan</h2><p>Refresh security findings, incidents, disk pressure, baselines, recovery health, and evidence visibility in one bounded pass.</p></div>
       <button id="runQuickScan" type="button">Run Quick Scan</button>
@@ -43,9 +50,9 @@
     </article>
   </section>
 
-  <section class="scan-panel">
+  <section class="scan-panel" data-viz="pipeline">
     <div class="scan-panel-head">
-      <div><p class="eyebrow">Filesystem</p><h2>Full Storage Scan</h2><p>Bounded, cancellable traversal with large-file, category, file-type, duplicate-candidate, and aging evidence.</p></div>
+      <div><p class="eyebrow">Filesystem · live pipeline</p><h2>Full Storage Scan</h2><p>Bounded, cancellable traversal with large-file, category, file-type, duplicate-candidate, and aging evidence.</p></div>
       <span id="storageState" class="scan-pill">Idle</span>
     </div>
     <form id="storageScanForm" class="storage-controls">
