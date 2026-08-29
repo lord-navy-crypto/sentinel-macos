@@ -35,9 +35,10 @@ The following foundations are already present in `upgrade/v2.3-stable` and are n
 - authenticated local System Console API routes for catalog, read-only query execution, structured query execution, and unified object inspection.
 - System Console visual page grouped around Understand / Investigate / Control / Recover.
 - question-first **Ask the Mac** recipes so users can begin from system questions rather than Terminal syntax.
-- structured parsers for process, filesystem, mount, code-signing, and Gatekeeper evidence.
+- structured parsers for process, filesystem, mount, code-signing, Gatekeeper, and process-open-file evidence.
 - structured visual tables/cards while preserving raw command evidence underneath for provenance.
 - unified object inspection combining metadata, extended attributes, code-signing, Gatekeeper, and plist evidence where applicable.
+- direct Ask-the-Mac entry points into Launch & Service, Process Relationship, and Network Relationship explorers.
 - a System Console shortcut in the existing Sentinel interface.
 - explicit tests that managed actions cannot run through the read-only command runner and that the System Console cannot silently become an arbitrary shell/`sudo` execution surface.
 
@@ -52,28 +53,60 @@ The following foundations are already present in `upgrade/v2.3-stable` and are n
 - property-list continuation from visible launch configuration to the configured executable target.
 - authenticated `POST /api/security/investigate` branch endpoint.
 - Security Audit bridge that adds **Continue Investigation** to findings with a usable local path without rewriting the legacy v2.2 audit renderer.
+- Incident bridge that exposes up to six distinct explicit absolute-path evidence nodes as independent investigation branches instead of limiting continuation to the incident primary path.
 - dedicated `investigation.html` workspace with manual path entry, previous/next branch navigation, bounded candidate lists, limitations, and explicit related-object continuation targets.
 - each branch concurrently correlates the current path with the existing Object Story model.
 - authenticated `GET /api/security/context?path=...` runtime-correlation endpoint.
 - selected file/app-bundle correlation with currently running executable paths and PIDs.
 - parent-process-chain context for matched processes.
 - current bounded TCP evidence for matched PIDs.
+- structured open-file / loaded-object evidence for a bounded number of matched processes.
 - LaunchAgent/LaunchDaemon references to the selected object or executables inside its app bundle.
 - macOS Background Task Management references when available.
-- runtime, persistence, parent-process, and file-analysis targets are merged into clickable continuation branches.
+- runtime, persistence, parent-process, open-object, and file-analysis targets are merged into clickable continuation branches.
+- running-process cards link directly into Process Relationship Explorer for deeper PID-centered investigation.
 - contract tests prevent the investigation engine from acquiring mutation paths and prevent the new web surface from introducing dynamic-code execution.
 
-### Launch & Service Explorer foundation
+### Investigation Sessions
+
+- bounded Investigation Session manager retaining at most 24 sessions and 80 branches per session.
+- normal mode persists compact session metadata in Sentinel-owned private gzip state; `--ephemeral` keeps the same workflow memory-only.
+- session data stores paths, branch relationships, bookmarks, notes, timestamps, and visit counts without copying investigated file contents.
+- Save Session, Bookmark Current Branch, resume, recent-session list, and automatic recording of later branches while a session is active.
+- bookmarked branches are preferentially retained when ordinary branch history must be trimmed.
+- browser-history handling was corrected so the investigation branch array no longer shadows `window.history`.
+
+### Launch & Service Explorer
 
 - typed LaunchAgent/LaunchDaemon explorer model built on the existing persistence scanner rather than duplicating the source of truth.
 - exact executable-path correlation with the current process table.
 - visible target-exists / running / PID state and explanation/limitation fields.
-- authenticated list/detail endpoints for the future dedicated Launch & Service Explorer UI.
+- authenticated list/detail endpoints.
+- dedicated visual workspace answering **“Why does this start automatically?”**.
+- direct continuation from launch plist or executable into Continue Investigation.
+
+### Process Relationship Explorer
+
+- dedicated PID-centered workspace combining Process Detail, Object Story, structured process-table evidence, structured open-file evidence, and Runtime/Persistence Context.
+- visible parent chain and current child-process relationships, with PID-to-PID navigation.
+- executable identity, signing, Gatekeeper, review/trust context, TCP evidence, and open files/loaded objects on one surface.
+- LaunchAgent/LaunchDaemon and Background Task Management correlation for the resolved executable.
+- direct continuation from executable or path-bearing open objects into Continue Investigation.
+- Continue Investigation runtime cards can open the matching PID directly in Process Relationship Explorer.
+
+### Network Relationship Explorer
+
+- dedicated current-snapshot workspace built on Sentinel's existing bounded `/api/network` evidence.
+- process → TCP socket grouping with LISTEN / ESTABLISHED state preserved.
+- endpoint aggregation using existing normalized local/remote/endpoint-class fields.
+- process, PID, endpoint, state, and endpoint-class filtering.
+- direct navigation from an owning PID into Process Relationship Explorer.
+- explicit UI wording that this is current bounded evidence rather than packet capture, connection verdicting, or historical surveillance.
+- normalized cross-session endpoint history remains planned work and is not claimed by this surface.
 
 ## Planned release-defining changes
 
 - Incident Intelligence 2.0 with stable incident identity, evidence timelines, deterministic correlation, and explicit observed/derived/unknown separation.
-- Incident evidence-node → Continue Investigation integration.
 - Object Story 2.0 as the primary per-object investigation surface.
 - Unified Change Timeline across existing evidence sources.
 - Storage History with snapshot comparison and growth attribution fully wired into API/UI workflows.
@@ -83,8 +116,6 @@ The following foundations are already present in `upgrade/v2.3-stable` and are n
 - Global Search / Command Palette for rapid navigation to objects, incidents, hashes, paths, processes, endpoints, and typed System Console intents.
 - Easy / Investigate / Advanced information architecture cleanup.
 - explicit v2.3 persistent schema versions and migration from v2.2 state.
-- dedicated Launch & Service Explorer answering why software starts automatically.
-- broader Process and Network Relationship explorer surfaces connected to Object Story, Continue Investigation, and Incident evidence.
 
 ## Planned second-stage improvements
 
@@ -92,8 +123,7 @@ The following foundations are already present in `upgrade/v2.3-stable` and are n
 - deterministic local Rule Engine integration and configurable bounded rules.
 - staged exact-duplicate analysis.
 - Storage Intelligence 2.0 trends.
-- Network Evidence 2.0 normalized history within available macOS evidence boundaries.
-- persistent Investigation Sessions, branch notes/bookmarks, and resume support.
+- Network Evidence 2.0 normalized cross-session history within available macOS evidence boundaries.
 - Safe Actions 2.0 preview/recovery UX.
 - Vault Health.
 - local diagnostics, benchmarks, and CI gates.
