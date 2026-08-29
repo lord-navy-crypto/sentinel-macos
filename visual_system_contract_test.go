@@ -31,6 +31,7 @@ func visualStylePaths() []string {
 		"web/launch-services.css",
 		"web/vault-health.css",
 		"web/system-console.css",
+		"web/system-console-domains.css",
 	}
 }
 
@@ -101,6 +102,13 @@ func TestVisualRedesignUsesDifferentEncodingsForDifferentEvidence(t *testing.T) 
 			"Recipes are compact launch choices",
 			".structured-output",
 		},
+		"web/system-console-domains.css": {
+			"Domain layout is intentionally roomy",
+			"grid-template-columns:repeat(2,minmax(0,1fr))",
+			".domain-box .tool-card{",
+			"display:flex;",
+			"position:static;",
+		},
 		"web/control-plane.css": {
 			"Shared summary language",
 			"Snapshot comparison is visually before -> after",
@@ -113,6 +121,17 @@ func TestVisualRedesignUsesDifferentEncodingsForDifferentEvidence(t *testing.T) 
 				t.Fatalf("%s missing visual contract %q", path, want)
 			}
 		}
+	}
+}
+
+func TestTerminalDomainCardsDoNotReenterThreeColumnCompression(t *testing.T) {
+	domain := visualSource(t, "web/system-console-domains.css")
+	compact := strings.ReplaceAll(strings.ReplaceAll(domain, "\n", ""), "\t", "")
+	if strings.Contains(compact, ".domain-tool-grid{display:grid;grid-template-columns:repeat(3") {
+		t.Fatal("Terminal domain toolbox must not return to three cramped outer columns")
+	}
+	if !strings.Contains(domain, ".domain-box .tool-card{") || !strings.Contains(domain, "flex-direction:column") {
+		t.Fatal("Terminal domain cards must reset the shared tool-card row layout to a vertical evidence unit")
 	}
 }
 
