@@ -51,6 +51,8 @@ jobs:
           node --check web/app.js
           node --check web/core-compat.js
           node --check web/desktop-ui.js
+          node --check web/easy.js
+          node --check web/workspace-centers.js
           node --check web/system-console.js
           node --check web/system-console-links.js
           node --check web/system-console-domains.js
