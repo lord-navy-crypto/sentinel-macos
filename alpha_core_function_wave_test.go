@@ -66,4 +66,24 @@ func TestRecoveryAnalysisBuildsCandidatesAndPriorityPlan(t *testing.T){
 	if !strings.Contains(string(raw),"\"analysis\"")||!strings.Contains(string(raw),"\"candidates\"")||!strings.Contains(string(raw),"\"plan\""){t.Fatalf("additive recovery analysis missing from JSON: %s",raw)}
 }
 
+func TestStorageGrowthAnalysisSeparatesNetFromChurn(t *testing.T){
+	in:=StorageComparison{BeforeID:"s1",AfterID:"s2",DeltaBytes:300,DirectoryChanges:[]StorageDelta{
+		{Name:"Projects",DeltaBytes:1000,DeltaFiles:10},
+		{Name:"Caches",DeltaBytes:-700,DeltaFiles:-4},
+	},FileTypeChanges:[]StorageDelta{{Name:".bin",DeltaBytes:800,DeltaFiles:2},{Name:".log",DeltaBytes:-500,DeltaFiles:-5}}}
+	analysis:=BuildStorageGrowthAnalysisV23(in)
+	if analysis.NetDeltaBytes!=300{t.Fatalf("net delta must preserve source comparison, got %d",analysis.NetDeltaBytes)}
+	if analysis.GrossChangedBytes!=3000||analysis.GrowthBytes!=1800||analysis.ReductionBytes!=1200{t.Fatalf("unexpected growth/reduction accounting: %+v",analysis)}
+	if analysis.DominantDriver==nil||analysis.DominantDriver.Name!="Projects"{t.Fatalf("expected Projects as dominant observed driver: %+v",analysis.DominantDriver)}
+	if analysis.ChurnRatio<=0{t.Fatalf("expected nonzero churn ratio: %+v",analysis)}
+	raw,err:=json.Marshal(in);if err!=nil{t.Fatal(err)}
+	if !strings.Contains(string(raw),"gross_changed_bytes")||!strings.Contains(string(raw),"dominant_driver"){t.Fatalf("storage analysis missing from comparison JSON: %s",raw)}
+}
+
+func TestStorageGrowthAnalysisMarksPartialAttribution(t *testing.T){
+	in:=StorageComparison{Partial:true,DeltaBytes:1024,Limitations:[]string{"scan entry budget was reached"}}
+	analysis:=BuildStorageGrowthAnalysisV23(in)
+	if !strings.Contains(strings.ToLower(analysis.Interpretation),"partial"){t.Fatalf("partial comparison must surface directional limitation: %+v",analysis)}
+}
+
 func containsString(rows []string,want string)bool{for _,x:=range rows{if x==want{return true}};return false}
