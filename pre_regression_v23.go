@@ -2,6 +2,7 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 )
@@ -34,7 +35,7 @@ func buildPreRegressionReportV23(a *app) PreRegressionReportV23 {
 	if incidentHistoryLimit<=0||investigationTimelineEventLimit<=0||storageSnapshotHistoryLimit<=0||networkHistorySnapshotLimit<=0{add("retention-bounds","blocker","one or more retained evidence sources lacks a positive bound",false)}else{add("retention-bounds","pass","incident, timeline, storage, and network history all have explicit bounds",false)}
 	if r.Migration.GeneratedAt==""{add("state-migration","blocker","v2.3 migration pass has not run in this process",false)}else if !r.Migration.Healthy{add("state-migration","blocker","one or more legacy Sentinel state stores could not be migrated safely; review migration report before regression",false)}else{add("state-migration","pass","legacy state migration completed or was explicitly skipped under --ephemeral",false)}
 	if a!=nil&&a.actions!=nil{h:=a.actions.health();if h.Enabled&&!h.Healthy{add("safe-actions-health","blocker","Safe Actions/Vault recovery metadata is unhealthy",false)}else{add("safe-actions-health","pass","Safe Actions remains reversible and Vault/journal health is acceptable for regression",false)}}else{add("safe-actions-health","blocker","Safe Actions manager unavailable",false)}
-	state:=stateRecoveryStatus();if state.Healthy{add("state-recovery","pass","Sentinel state/backup recovery layer reports healthy",false)}else{add("state-recovery","blocker","Sentinel state recovery reports one or more metadata problems",false)}
+	state:=stateRecoveryStatus();if state.RecoveredReads==0{add("state-recovery","pass","No fallback .bak reads were required for Sentinel-owned state in this process",false)}else{add("state-recovery","blocker",fmt.Sprintf("%d Sentinel state store(s) required fallback .bak recovery; recreate or validate the affected state before relying on long-term regression comparisons",state.RecoveredReads),false)}
 	add("incident-export","pass","standalone Incident export is bounded metadata/evidence and includes Explain Why + ordered timeline",false)
 	add("investigation-bundle","pass","investigation bundle export is metadata-only by default with bounded integrity reinspection",false)
 	add("storage-aging","pass","storage aging uses modification timestamps only from the bounded latest large-file evidence set",false)
