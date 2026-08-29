@@ -40,11 +40,11 @@ type SystemSnapshotInvestigationTargetV23 struct {
 }
 
 type SystemSnapshotDiffAnalysisV23 struct {
-	Objects      []SystemSnapshotChangeObjectV23      `json:"objects"`
-	Correlations []SystemSnapshotCorrelationV23       `json:"correlations,omitempty"`
+	Objects      []SystemSnapshotChangeObjectV23        `json:"objects"`
+	Correlations []SystemSnapshotCorrelationV23         `json:"correlations,omitempty"`
 	Targets      []SystemSnapshotInvestigationTargetV23 `json:"investigation_targets,omitempty"`
-	Summary      []string                             `json:"summary"`
-	Limitations  []string                             `json:"limitations"`
+	Summary      []string                               `json:"summary"`
+	Limitations  []string                               `json:"limitations"`
 }
 
 func snapshotCategoryMeta(category, value string) (objectType, ref, severity, why, targetKind string) {
@@ -108,16 +108,8 @@ func BuildSystemSnapshotDiffAnalysisV23(in SystemSnapshotDiffV23) SystemSnapshot
 		appendSnapshotDiffObject(&out,"security","changed",value)
 	}
 	if len(securityKeys)>0 { out.Summary=append(out.Summary,fmt.Sprintf("security posture: %d changed value(s)",len(securityKeys))) }
-
-	// Correlate only exact normalized references across different categories.
-	// This is intentionally stricter than fuzzy/name matching to avoid turning
-	// coincidental text similarity into an invented relationship.
 	byRef:=map[string][]SystemSnapshotChangeObjectV23{}
-	for _, obj:=range out.Objects {
-		ref:=strings.TrimSpace(obj.Ref)
-		if ref=="" { continue }
-		byRef[ref]=append(byRef[ref],obj)
-	}
+	for _, obj:=range out.Objects { ref:=strings.TrimSpace(obj.Ref);if ref!=""{byRef[ref]=append(byRef[ref],obj)} }
 	refs:=make([]string,0,len(byRef));for ref:=range byRef{refs=append(refs,ref)};sort.Strings(refs)
 	for _,ref:=range refs{
 		rows:=byRef[ref]
@@ -131,155 +123,88 @@ func BuildSystemSnapshotDiffAnalysisV23(in SystemSnapshotDiffV23) SystemSnapshot
 	return out
 }
 
-// MarshalJSON keeps the original SystemSnapshotDiffV23 contract intact and
-// adds an additive `analysis` object for Alpha clients.
 func (in SystemSnapshotDiffV23) MarshalJSON() ([]byte,error) {
 	type alias SystemSnapshotDiffV23
-	return json.Marshal(struct{
-		alias
-		Analysis SystemSnapshotDiffAnalysisV23 `json:"analysis"`
-	}{alias:alias(in),Analysis:BuildSystemSnapshotDiffAnalysisV23(in)})
+	return json.Marshal(struct{alias;Analysis SystemSnapshotDiffAnalysisV23 `json:"analysis"`}{alias:alias(in),Analysis:BuildSystemSnapshotDiffAnalysisV23(in)})
 }
 
-// RecoveryCandidateV23 identifies an already-journaled reversible operation.
-// It is not an execution request: every actual undo/restore still goes through
-// the existing Safe Action preview, confirmation, guard, journal, and validation.
 type RecoveryCandidateV23 struct {
-	JournalID    string `json:"journal_id"`
-	At           string `json:"at"`
-	Action       string `json:"action"`
-	ObjectName   string `json:"object_name"`
-	From         string `json:"from,omitempty"`
-	To           string `json:"to,omitempty"`
-	VaultID      string `json:"vault_id,omitempty"`
-	State        string `json:"state"`
-	Why          string `json:"why"`
+	JournalID string `json:"journal_id"`;At string `json:"at"`;Action string `json:"action"`;ObjectName string `json:"object_name"`;From string `json:"from,omitempty"`;To string `json:"to,omitempty"`;VaultID string `json:"vault_id,omitempty"`;State string `json:"state"`;Why string `json:"why"`
 }
+type RecoveryPlanStepV23 struct {ID string `json:"id"`;Priority string `json:"priority"`;Category string `json:"category"`;Title string `json:"title"`;Detail string `json:"detail"`;SuggestedView string `json:"suggested_view,omitempty"`;Blocking bool `json:"blocking"`}
+type RecoveryCheckpointAvailabilityV23 struct {Kind string `json:"kind"`;Count int `json:"count"`;Available bool `json:"available"`;Detail string `json:"detail"`}
+type RecoveryMigrationSummaryV23 struct {GeneratedAt string `json:"generated_at,omitempty"`;Applied bool `json:"applied"`;Healthy bool `json:"healthy"`;Changed int `json:"changed"`;Errors int `json:"errors"`;Stores int `json:"stores"`}
+type RecoveryAnalysisV23 struct {Readiness string `json:"readiness"`;Candidates []RecoveryCandidateV23 `json:"candidates,omitempty"`;Plan []RecoveryPlanStepV23 `json:"plan"`;Checkpoints []RecoveryCheckpointAvailabilityV23 `json:"checkpoints"`;StateRecovery StateRecoveryStatus `json:"state_recovery"`;Migration RecoveryMigrationSummaryV23 `json:"migration"`;Note string `json:"note"`}
 
-type RecoveryPlanStepV23 struct {
-	ID            string `json:"id"`
-	Priority      string `json:"priority"`
-	Category      string `json:"category"`
-	Title         string `json:"title"`
-	Detail        string `json:"detail"`
-	SuggestedView string `json:"suggested_view,omitempty"`
-	Blocking      bool   `json:"blocking"`
-}
-
-type RecoveryCheckpointAvailabilityV23 struct {
-	Kind      string `json:"kind"`
-	Count     int    `json:"count"`
-	Available bool   `json:"available"`
-	Detail    string `json:"detail"`
-}
-
-type RecoveryMigrationSummaryV23 struct {
-	GeneratedAt string `json:"generated_at,omitempty"`
-	Applied     bool   `json:"applied"`
-	Healthy     bool   `json:"healthy"`
-	Changed     int    `json:"changed"`
-	Errors      int    `json:"errors"`
-	Stores      int    `json:"stores"`
-}
-
-type RecoveryAnalysisV23 struct {
-	Readiness       string                            `json:"readiness"`
-	Candidates      []RecoveryCandidateV23            `json:"candidates,omitempty"`
-	Plan            []RecoveryPlanStepV23             `json:"plan"`
-	Checkpoints     []RecoveryCheckpointAvailabilityV23 `json:"checkpoints"`
-	StateRecovery   StateRecoveryStatus               `json:"state_recovery"`
-	Migration       RecoveryMigrationSummaryV23       `json:"migration"`
-	Note            string                            `json:"note"`
-}
-
-func recoveryMigrationSummaryV23(in V23MigrationReport) RecoveryMigrationSummaryV23 {
-	out:=RecoveryMigrationSummaryV23{GeneratedAt:in.GeneratedAt,Applied:in.Applied,Healthy:in.Healthy,Stores:len(in.Results)}
-	for _,r:=range in.Results{if r.Changed{out.Changed++};if r.Status=="error"{out.Errors++}}
-	return out
-}
-
-func recoveryCandidatesV23(in RecoveryCenterV23) []RecoveryCandidateV23 {
-	out:=[]RecoveryCandidateV23{}
-	for _,e:=range in.Journal{
-		if e.Status!="success"||!e.Reversible{continue}
-		state:="preview_required"
-		why:="This successful journal entry is marked reversible. Reversal still requires a fresh Safe Action preview and object-state validation."
-		if strings.Contains(strings.ToLower(e.Action),"vault")&&strings.TrimSpace(e.VaultID)==""{state="review";why="The journal entry is reversible but has no Vault ID; review recovery metadata before attempting reversal."}
-		out=append(out,RecoveryCandidateV23{JournalID:e.ID,At:e.At,Action:e.Action,ObjectName:e.ObjectName,From:e.From,To:e.To,VaultID:e.VaultID,State:state,Why:why})
-		if len(out)>=16{break}
-	}
-	return out
-}
-
-func addRecoveryPlanStepV23(out *[]RecoveryPlanStepV23,priority,category,title,detail,view string,blocking bool){
-	id:=entityID("recovery-plan-v23",strings.Join([]string{priority,category,title,detail},"\x00"))
-	*out=append(*out,RecoveryPlanStepV23{ID:id,Priority:priority,Category:category,Title:title,Detail:detail,SuggestedView:view,Blocking:blocking})
-}
-
+func recoveryMigrationSummaryV23(in V23MigrationReport) RecoveryMigrationSummaryV23 {out:=RecoveryMigrationSummaryV23{GeneratedAt:in.GeneratedAt,Applied:in.Applied,Healthy:in.Healthy,Stores:len(in.Results)};for _,r:=range in.Results{if r.Changed{out.Changed++};if r.Status=="error"{out.Errors++}};return out}
+func recoveryCandidatesV23(in RecoveryCenterV23) []RecoveryCandidateV23 {out:=[]RecoveryCandidateV23{};for _,e:=range in.Journal{if e.Status!="success"||!e.Reversible{continue};state:="preview_required";why:="This successful journal entry is marked reversible. Reversal still requires a fresh Safe Action preview and object-state validation.";if strings.Contains(strings.ToLower(e.Action),"vault")&&strings.TrimSpace(e.VaultID)==""{state="review";why="The journal entry is reversible but has no Vault ID; review recovery metadata before attempting reversal."};out=append(out,RecoveryCandidateV23{JournalID:e.ID,At:e.At,Action:e.Action,ObjectName:e.ObjectName,From:e.From,To:e.To,VaultID:e.VaultID,State:state,Why:why});if len(out)>=16{break}};return out}
+func addRecoveryPlanStepV23(out *[]RecoveryPlanStepV23,priority,category,title,detail,view string,blocking bool){id:=entityID("recovery-plan-v23",strings.Join([]string{priority,category,title,detail},"\x00"));*out=append(*out,RecoveryPlanStepV23{ID:id,Priority:priority,Category:category,Title:title,Detail:detail,SuggestedView:view,Blocking:blocking})}
 func BuildRecoveryAnalysisV23(in RecoveryCenterV23) RecoveryAnalysisV23 {
-	stateRecovery:=stateRecoveryStatus()
-	migration:=recoveryMigrationSummaryV23(currentV23MigrationReport())
-	out:=RecoveryAnalysisV23{
-		Readiness:"ready",Candidates:recoveryCandidatesV23(in),StateRecovery:stateRecovery,Migration:migration,
-		Checkpoints:[]RecoveryCheckpointAvailabilityV23{
-			{Kind:"system_snapshot",Count:in.SystemSnapshots,Available:in.SystemSnapshots>0,Detail:"Retained explicit system snapshots can anchor before/after review."},
-			{Kind:"storage_snapshot",Count:in.StorageSnapshots,Available:in.StorageSnapshots>0,Detail:"Retained storage history can anchor bounded growth review."},
-			{Kind:"network_snapshot",Count:in.NetworkSnapshots,Available:in.NetworkSnapshots>0,Detail:"Retained explicit network snapshots can anchor relationship comparison."},
-		},
-		Note:"Recovery analysis is read-only planning. It never executes restore/undo automatically and does not add a permanent-delete path.",
+	stateRecovery:=stateRecoveryStatus();migration:=recoveryMigrationSummaryV23(currentV23MigrationReport())
+	out:=RecoveryAnalysisV23{Readiness:"ready",Candidates:recoveryCandidatesV23(in),StateRecovery:stateRecovery,Migration:migration,Checkpoints:[]RecoveryCheckpointAvailabilityV23{{Kind:"system_snapshot",Count:in.SystemSnapshots,Available:in.SystemSnapshots>0,Detail:"Retained explicit system snapshots can anchor before/after review."},{Kind:"storage_snapshot",Count:in.StorageSnapshots,Available:in.StorageSnapshots>0,Detail:"Retained storage history can anchor bounded growth review."},{Kind:"network_snapshot",Count:in.NetworkSnapshots,Available:in.NetworkSnapshots>0,Detail:"Retained explicit network snapshots can anchor relationship comparison."}},Note:"Recovery analysis is read-only planning. It never executes restore/undo automatically and does not add a permanent-delete path."}
+	if strings.Contains(in.Mode,"ephemeral"){out.Readiness="ephemeral";addRecoveryPlanStepV23(&out.Plan,"P0","mode","Persistent recovery is disabled in this session","Ephemeral mode intentionally keeps recovery/history state in memory and disables mutating Safe Actions.","recovery",true)}
+	if !in.SafeActions.Healthy{addRecoveryPlanStepV23(&out.Plan,"P0","safe_actions","Repair Safe Action / Vault health before relying on rollback",strings.Join(in.SafeActions.Issues,"; "),"recovery",true)}
+	if in.SafeActions.ManifestIssues>0{addRecoveryPlanStepV23(&out.Plan,"P0","vault","Review Vault manifest integrity",fmt.Sprintf("%d Vault manifest issue(s) are reported by Safe Action health.",in.SafeActions.ManifestIssues),"recovery",true)}
+	if stateRecovery.RecoveredReads>0{addRecoveryPlanStepV23(&out.Plan,"P1","state_backup","Reconcile state restored from last-known-good backup",fmt.Sprintf("%d Sentinel state file(s) were read from .bak after the primary could not be decoded: %s",stateRecovery.RecoveredReads,strings.Join(stateRecovery.Files,", ")),"recovery",false)}
+	if migration.GeneratedAt!=""&&!migration.Healthy{addRecoveryPlanStepV23(&out.Plan,"P0","migration","Resolve unhealthy v2.3 state migration",fmt.Sprintf("Migration reports %d error(s) across %d registered store(s).",migration.Errors,migration.Stores),"advanced",true)}
+	if in.ChangeMonitor.NeedsRescan{addRecoveryPlanStepV23(&out.Plan,"P1","change_monitor","Reconcile Change Monitor continuity","Incremental evidence is marked incomplete; run the existing bounded reconciliation/rescan workflow before trusting continuity.","system",false)}
+	if in.ChangeMonitor.ResumeCheckpoint{addRecoveryPlanStepV23(&out.Plan,"P1","change_monitor","Review resumable Change Monitor checkpoint","A retained checkpoint exists after an interrupted/stopped monitoring session.","system",false)}
+	failed,cancelled,running:=0,0,0;for _,j:=range in.InterruptedJobs{switch j.Status{case"failed":failed++;case"cancelled":cancelled++;case"running":running++}}
+	if failed>0||cancelled>0{addRecoveryPlanStepV23(&out.Plan,"P2","storage_jobs","Review incomplete storage work",fmt.Sprintf("%d failed and %d cancelled storage scan job(s) remain visible for recovery review.",failed,cancelled),"storage",false)}
+	if running>0{addRecoveryPlanStepV23(&out.Plan,"P3","storage_jobs","Storage work is still active",fmt.Sprintf("%d bounded storage scan job(s) are currently running.",running),"storage",false)}
+	if in.InterruptedOrPartial{addRecoveryPlanStepV23(&out.Plan,"P2","evidence_continuity","Review partial/interrupted retained evidence","At least one integrated source reports partial, interrupted, or rescan-required state.","system",false)}
+	if len(out.Candidates)>0{addRecoveryPlanStepV23(&out.Plan,"P3","reversible_actions","Reversible journal entries are available",fmt.Sprintf("%d recent reversible action candidate(s) can be re-evaluated through Safe Action preview/validation.",len(out.Candidates)),"recovery",false)}
+	if in.SystemSnapshots==0{addRecoveryPlanStepV23(&out.Plan,"P3","checkpoint","Capture an explicit system checkpoint before risky maintenance","No retained System Snapshot is currently available for before/after comparison.","system",false)}
+	blocking:=false;needsReview:=false;for _,s:=range out.Plan{if s.Blocking{blocking=true};if s.Priority=="P1"||s.Priority=="P2"{needsReview=true}};if out.Readiness!="ephemeral"{if blocking{out.Readiness="blocked"}else if needsReview{out.Readiness="review"}else{out.Readiness="ready"}};return out
+}
+func (in RecoveryCenterV23) MarshalJSON() ([]byte,error){type alias RecoveryCenterV23;return json.Marshal(struct{alias;Analysis RecoveryAnalysisV23 `json:"analysis"`}{alias:alias(in),Analysis:BuildRecoveryAnalysisV23(in)})}
+
+// StorageGrowthDriverV23 is a deterministic attribution record built from the
+// already-bounded directory-category/file-type comparison. It does not scan
+// any additional user files and does not infer why growth occurred.
+type StorageGrowthDriverV23 struct {
+	Domain       string `json:"domain"`
+	Name         string `json:"name"`
+	Direction    string `json:"direction"`
+	DeltaBytes   int64  `json:"delta_bytes"`
+	DeltaFiles   int    `json:"delta_files"`
+	Magnitude    uint64 `json:"magnitude_bytes"`
+	SharePercent float64 `json:"share_percent"`
+}
+
+type StorageGrowthAnalysisV23 struct {
+	NetDeltaBytes       int64                    `json:"net_delta_bytes"`
+	GrossChangedBytes   uint64                   `json:"gross_changed_bytes"`
+	GrowthBytes         uint64                   `json:"growth_bytes"`
+	ReductionBytes      uint64                   `json:"reduction_bytes"`
+	DirectoryDrivers    []StorageGrowthDriverV23 `json:"directory_drivers,omitempty"`
+	FileTypeDrivers     []StorageGrowthDriverV23 `json:"file_type_drivers,omitempty"`
+	DominantDriver      *StorageGrowthDriverV23  `json:"dominant_driver,omitempty"`
+	ChurnRatio          float64                  `json:"churn_ratio"`
+	Interpretation      string                   `json:"interpretation"`
+	Limitations         []string                 `json:"limitations"`
+}
+
+func storageDriversV23(domain string, rows []StorageDelta, gross uint64) []StorageGrowthDriverV23 {
+	out:=make([]StorageGrowthDriverV23,0,len(rows))
+	for _,r:=range rows{
+		dir:="growth";if r.DeltaBytes<0{dir="reduction"}else if r.DeltaBytes==0{dir="file_count_only"}
+		mag:=storageDeltaMagnitude(r.DeltaBytes);share:=0.0;if gross>0{share=float64(mag)*100/float64(gross)}
+		out=append(out,StorageGrowthDriverV23{Domain:domain,Name:r.Name,Direction:dir,DeltaBytes:r.DeltaBytes,DeltaFiles:r.DeltaFiles,Magnitude:mag,SharePercent:share})
 	}
-	if strings.Contains(in.Mode,"ephemeral"){
-		out.Readiness="ephemeral"
-		addRecoveryPlanStepV23(&out.Plan,"P0","mode","Persistent recovery is disabled in this session","Ephemeral mode intentionally keeps recovery/history state in memory and disables mutating Safe Actions.","recovery",true)
-	}
-	if !in.SafeActions.Healthy{
-		addRecoveryPlanStepV23(&out.Plan,"P0","safe_actions","Repair Safe Action / Vault health before relying on rollback",strings.Join(in.SafeActions.Issues,"; "),"recovery",true)
-	}
-	if in.SafeActions.ManifestIssues>0{
-		addRecoveryPlanStepV23(&out.Plan,"P0","vault","Review Vault manifest integrity",fmt.Sprintf("%d Vault manifest issue(s) are reported by Safe Action health.",in.SafeActions.ManifestIssues),"recovery",true)
-	}
-	if stateRecovery.RecoveredReads>0{
-		addRecoveryPlanStepV23(&out.Plan,"P1","state_backup","Reconcile state restored from last-known-good backup",fmt.Sprintf("%d Sentinel state file(s) were read from .bak after the primary could not be decoded: %s",stateRecovery.RecoveredReads,strings.Join(stateRecovery.Files,", ")),"recovery",false)
-	}
-	if migration.GeneratedAt!=""&&!migration.Healthy{
-		addRecoveryPlanStepV23(&out.Plan,"P0","migration","Resolve unhealthy v2.3 state migration",fmt.Sprintf("Migration reports %d error(s) across %d registered store(s).",migration.Errors,migration.Stores),"advanced",true)
-	}
-	if in.ChangeMonitor.NeedsRescan{
-		addRecoveryPlanStepV23(&out.Plan,"P1","change_monitor","Reconcile Change Monitor continuity","Incremental evidence is marked incomplete; run the existing bounded reconciliation/rescan workflow before trusting continuity.","system",false)
-	}
-	if in.ChangeMonitor.ResumeCheckpoint{
-		addRecoveryPlanStepV23(&out.Plan,"P1","change_monitor","Review resumable Change Monitor checkpoint","A retained checkpoint exists after an interrupted/stopped monitoring session.","system",false)
-	}
-	failed,cancelled,running:=0,0,0
-	for _,j:=range in.InterruptedJobs{switch j.Status{case"failed":failed++;case"cancelled":cancelled++;case"running":running++}}
-	if failed>0||cancelled>0{
-		addRecoveryPlanStepV23(&out.Plan,"P2","storage_jobs","Review incomplete storage work",fmt.Sprintf("%d failed and %d cancelled storage scan job(s) remain visible for recovery review.",failed,cancelled),"storage",false)
-	}
-	if running>0{
-		addRecoveryPlanStepV23(&out.Plan,"P3","storage_jobs","Storage work is still active",fmt.Sprintf("%d bounded storage scan job(s) are currently running.",running),"storage",false)
-	}
-	if in.InterruptedOrPartial{
-		addRecoveryPlanStepV23(&out.Plan,"P2","evidence_continuity","Review partial/interrupted retained evidence","At least one integrated source reports partial, interrupted, or rescan-required state.","system",false)
-	}
-	if len(out.Candidates)>0{
-		addRecoveryPlanStepV23(&out.Plan,"P3","reversible_actions","Reversible journal entries are available",fmt.Sprintf("%d recent reversible action candidate(s) can be re-evaluated through Safe Action preview/validation.",len(out.Candidates)),"recovery",false)
-	}
-	if in.SystemSnapshots==0{
-		addRecoveryPlanStepV23(&out.Plan,"P3","checkpoint","Capture an explicit system checkpoint before risky maintenance","No retained System Snapshot is currently available for before/after comparison.","system",false)
-	}
-	blocking:=false;needsReview:=false
-	for _,s:=range out.Plan{if s.Blocking{blocking=true};if s.Priority=="P1"||s.Priority=="P2"{needsReview=true}}
-	if out.Readiness!="ephemeral"{if blocking{out.Readiness="blocked"}else if needsReview{out.Readiness="review"}else{out.Readiness="ready"}}
+	sort.SliceStable(out,func(i,j int)bool{if out[i].Magnitude!=out[j].Magnitude{return out[i].Magnitude>out[j].Magnitude};return out[i].Name<out[j].Name})
+	if len(out)>12{out=out[:12]};return out
+}
+
+func BuildStorageGrowthAnalysisV23(in StorageComparison) StorageGrowthAnalysisV23 {
+	gross,growth,reduction:=uint64(0),uint64(0),uint64(0)
+	for _,rows:=range [][]StorageDelta{in.DirectoryChanges,in.FileTypeChanges}{for _,r:=range rows{m:=storageDeltaMagnitude(r.DeltaBytes);gross+=m;if r.DeltaBytes>0{growth+=m}else if r.DeltaBytes<0{reduction+=m}}}
+	out:=StorageGrowthAnalysisV23{NetDeltaBytes:in.DeltaBytes,GrossChangedBytes:gross,GrowthBytes:growth,ReductionBytes:reduction,Limitations:[]string{"Attribution uses retained bounded category/file-type aggregates, not a complete filesystem event log.","A dominant driver identifies the largest observed byte delta; it does not establish the cause of that change."}}
+	out.DirectoryDrivers=storageDriversV23("directory_category",in.DirectoryChanges,gross);out.FileTypeDrivers=storageDriversV23("file_type",in.FileTypeChanges,gross)
+	all:=append(append([]StorageGrowthDriverV23(nil),out.DirectoryDrivers...),out.FileTypeDrivers...);sort.SliceStable(all,func(i,j int)bool{if all[i].Magnitude!=all[j].Magnitude{return all[i].Magnitude>all[j].Magnitude};return all[i].Name<all[j].Name});if len(all)>0{x:=all[0];out.DominantDriver=&x}
+	if growth>0{out.ChurnRatio=float64(reduction)/float64(growth)}else if reduction>0{out.ChurnRatio=1}
+	switch{case in.Partial:out.Interpretation="Comparison is partial; growth attribution is directional only and should not be treated as a complete accounting.";case in.DeltaBytes>0&&reduction>0:out.Interpretation="Net storage grew while both growth and reduction were observed; inspect the dominant drivers instead of relying on the net number alone.";case in.DeltaBytes>0:out.Interpretation="Net visible storage grew across the retained snapshots.";case in.DeltaBytes<0:out.Interpretation="Net visible storage decreased across the retained snapshots.";default:out.Interpretation="Net visible bytes were stable, although category/file-type churn may still be present."}
 	return out
 }
 
-// MarshalJSON keeps the original RecoveryCenterV23 fields and adds an
-// analytical recovery plan. Global state-recovery/migration status is safe to
-// read here because serialization remains local, bounded, and non-mutating.
-func (in RecoveryCenterV23) MarshalJSON() ([]byte,error){
-	type alias RecoveryCenterV23
-	return json.Marshal(struct{
-		alias
-		Analysis RecoveryAnalysisV23 `json:"analysis"`
-	}{alias:alias(in),Analysis:BuildRecoveryAnalysisV23(in)})
-}
+func (in StorageComparison) MarshalJSON()([]byte,error){type alias StorageComparison;return json.Marshal(struct{alias;Analysis StorageGrowthAnalysisV23 `json:"analysis"`}{alias:alias(in),Analysis:BuildStorageGrowthAnalysisV23(in)})}
