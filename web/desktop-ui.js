@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 (() => {
-  // Desktop mode is presentation/diagnostics only. app.js remains authoritative
-  // for navigation, validation, actions, and API calls.
+  // Desktop-only information architecture. app.js remains authoritative for
+  // navigation, validation, actions, and every API-backed feature.
   if (window.__sentinelDesktopUIInstalled) return;
   window.__sentinelDesktopUIInstalled = true;
 
@@ -11,107 +11,209 @@
   css.id = 'sentinel-desktop-ui-css';
   document.head.appendChild(css);
 
-  // Keep the legacy mode nodes because app.js still references them; hide them
-  // through the external desktop stylesheet instead of deleting DOM nodes.
   document.body.classList.remove('easy-mode');
   const group = document.querySelector('.nav-group-label.advanced-nav');
   if (group) group.textContent = 'More tools';
 
+  const desktopIA = {
+    overview: {
+      nav: 'Command',
+      title: 'Command',
+      sub: 'Current state, immediate decisions, and the shortest path to evidence.'
+    },
+    quickcheck: {
+      nav: 'Snapshot',
+      title: 'Snapshot',
+      sub: 'Take one bounded read-only view of the Mac and decide what deserves attention.'
+    },
+    incidents: {
+      nav: 'Cases',
+      title: 'Cases',
+      sub: 'Review correlated evidence stories instead of isolated alerts.'
+    },
+    changes: {
+      nav: 'Watch',
+      title: 'Watch',
+      sub: 'Observe selected filesystem changes and re-inspect only what moved.'
+    },
+    weakness: {
+      nav: 'Investigate',
+      title: 'Investigate',
+      sub: 'Search current evidence, inspect blind spots, and run bounded discovery.'
+    },
+    intelligence: {
+      nav: 'Evidence',
+      title: 'Evidence',
+      sub: 'Connect files, processes, startup state, network activity, and object history.'
+    },
+    behavior: {
+      nav: 'Behavior',
+      title: 'Behavior',
+      sub: 'Compare captures and understand what changed across Sentinel sessions.'
+    },
+    trust: {
+      nav: 'Trust',
+      title: 'Trust',
+      sub: 'Compare current identity and fingerprints against an explicit approved reference.'
+    },
+    hardware: {
+      nav: 'Machine',
+      title: 'Machine',
+      sub: 'Read the hardware, architecture, memory, storage, and macOS runtime context.'
+    },
+    processes: {
+      nav: 'Processes',
+      title: 'Processes',
+      sub: 'Inspect running software, executable identity, signatures, and related connections.'
+    },
+    startup: {
+      nav: 'Startup',
+      title: 'Startup',
+      sub: 'Review what macOS is configured to launch automatically.'
+    },
+    persistence: {
+      nav: 'Persistence',
+      title: 'Persistence',
+      sub: 'Detect changes in visible LaunchAgent and LaunchDaemon configuration.'
+    },
+    background: {
+      nav: 'Background',
+      title: 'Background',
+      sub: 'Inspect modern macOS background registrations and login activity.'
+    },
+    network: {
+      nav: 'Network',
+      title: 'Network',
+      sub: 'Review the current bounded TCP activity snapshot.'
+    },
+    storage: {
+      nav: 'Storage',
+      title: 'Storage',
+      sub: 'Understand space pressure, large objects, duplicates, and reviewable storage.'
+    },
+    security: {
+      nav: 'Audit',
+      title: 'Audit',
+      sub: 'Review explainable security evidence without turning scores into verdicts.'
+    },
+    integrity: {
+      nav: 'Verify File',
+      title: 'Verify File',
+      sub: 'Inspect one local file or app with hashes, signatures, and Gatekeeper evidence.'
+    },
+    actions: {
+      nav: 'Resolve',
+      title: 'Resolve',
+      sub: 'Use reversible actions only after reviewing dependencies and evidence.'
+    },
+    cleanup: {
+      nav: 'Reclaim',
+      title: 'Reclaim',
+      sub: 'Preview storage candidates before handing eligible items to reversible actions.'
+    },
+    guide: {
+      nav: 'Help & Access',
+      title: 'Help & Access',
+      sub: 'Understand permissions, visibility limits, evidence semantics, and safe workflows.'
+    }
+  };
+
+  const applyDesktopNames = () => {
+    for (const [view, copy] of Object.entries(desktopIA)) {
+      const button = document.querySelector(`.nav[data-view="${view}"]`);
+      if (button && button.textContent !== copy.nav) button.textContent = copy.nav;
+    }
+    const active = document.querySelector('.view.active')?.id || 'overview';
+    const copy = desktopIA[active];
+    if (!copy) return;
+    const title = document.getElementById('pageTitle');
+    const sub = document.getElementById('pageSub');
+    if (title && title.textContent !== copy.title) title.textContent = copy.title;
+    if (sub && sub.textContent !== copy.sub) sub.textContent = copy.sub;
+  };
+
+  applyDesktopNames();
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', applyDesktopNames, {once: true});
+  }
+
+  const app = document.querySelector('.app');
+  if (app) {
+    const observer = new MutationObserver(records => {
+      if (records.some(record => record.type === 'attributes' && record.attributeName === 'class')) {
+        queueMicrotask(applyDesktopNames);
+      }
+    });
+    observer.observe(app, {subtree: true, attributes: true, attributeFilter: ['class']});
+  }
+
   const endpointRules = [
-    ['/api/system-profile', 'hardware', 'Reading System Profile'],
-    ['/api/quick-check', 'quickcheck', 'Running Quick Check'],
+    ['/api/system-profile', 'hardware', 'Reading Machine'],
+    ['/api/quick-check', 'quickcheck', 'Building Snapshot'],
     ['/api/review-queue', 'quickcheck', 'Building Review Queue'],
     ['/api/guided-snapshot', 'quickcheck', 'Capturing Monitoring Snapshot'],
-    ['/api/readiness', 'overview', 'Checking Sentinel Readiness'],
-    ['/api/search/deep', 'weakness', 'Deep Filename Search'],
-    ['/api/weakness-audit', 'weakness', 'Running Weakness Audit'],
-    ['/api/coverage', 'weakness', 'Checking Visibility Coverage'],
-    ['/api/advanced-sensor/status', 'weakness', 'Checking Advanced Sensor'],
-    ['/api/search', 'weakness', 'Searching Current Evidence'],
-    ['/api/changes', 'changes', 'Working on Change Monitor'],
-    ['/api/incidents', 'incidents', 'Building Incident Evidence'],
-    ['/api/storage', 'storage', 'Storage Scan'],
-    ['/api/security/audit', 'security', 'Running Security Audit'],
-    ['/api/self/integrity', 'overview', 'Inspecting Sentinel Integrity'],
-    ['/api/integrity', 'integrity', 'Inspecting File Integrity'],
-    ['/api/intelligence', 'intelligence', 'Building Intelligence Evidence'],
+    ['/api/readiness', 'overview', 'Checking Readiness'],
+    ['/api/search/deep', 'weakness', 'Deep Search'],
+    ['/api/weakness-audit', 'weakness', 'Checking Visibility'],
+    ['/api/coverage', 'weakness', 'Checking Coverage'],
+    ['/api/advanced-sensor/status', 'weakness', 'Checking Sensor'],
+    ['/api/search', 'weakness', 'Searching Evidence'],
+    ['/api/changes', 'changes', 'Updating Watch'],
+    ['/api/incidents', 'incidents', 'Building Cases'],
+    ['/api/storage', 'storage', 'Scanning Storage'],
+    ['/api/security/audit', 'security', 'Running Audit'],
+    ['/api/self/integrity', 'overview', 'Verifying Sentinel'],
+    ['/api/integrity', 'integrity', 'Verifying File'],
+    ['/api/intelligence', 'intelligence', 'Building Evidence'],
     ['/api/object/story', 'intelligence', 'Building Object Story'],
-    ['/api/behavior', 'behavior', 'Checking Behavior Session'],
-    ['/api/trust', 'trust', 'Checking Trust Profile'],
+    ['/api/behavior', 'behavior', 'Comparing Behavior'],
+    ['/api/trust', 'trust', 'Comparing Trust'],
     ['/api/process/detail', 'processes', 'Inspecting Process'],
     ['/api/processes', 'processes', 'Loading Processes'],
-    ['/api/startup', 'startup', 'Loading Startup Items'],
-    ['/api/persistence', 'persistence', 'Checking Session Persistence'],
-    ['/api/background', 'background', 'Loading Background Items'],
-    ['/api/network', 'network', 'Loading Network Activity'],
-    ['/api/cleanup/preview', 'cleanup', 'Analyzing Cleanup Candidates'],
-    ['/api/actions', 'actions', 'Working on Safe Actions'],
+    ['/api/startup', 'startup', 'Loading Startup'],
+    ['/api/persistence', 'persistence', 'Checking Persistence'],
+    ['/api/background', 'background', 'Loading Background'],
+    ['/api/network', 'network', 'Loading Network'],
+    ['/api/cleanup/preview', 'cleanup', 'Preparing Reclaim Preview'],
+    ['/api/actions', 'actions', 'Preparing Resolution'],
     ['/api/report/export', 'overview', 'Building Local Report'],
     ['/api/diagnostics/export', 'overview', 'Building Diagnostics'],
     ['/api/capabilities', 'overview', 'Checking Evidence Sources'],
-    ['/api/overview', 'overview', 'Refreshing Mac Health']
+    ['/api/overview', 'overview', 'Refreshing Command']
   ];
 
-  const panelStates = new WeakMap();
-  const lastPanelByView = new Map();
-  let panelCounter = 0;
-
-  const formatBytes = value => {
-    let n = Math.max(0, Number(value) || 0);
-    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-    let i = 0;
-    while (n >= 1024 && i < units.length - 1) {
-      n /= 1024;
-      i += 1;
-    }
-    const digits = i === 0 || n >= 10 ? 1 : 2;
-    return `${n.toFixed(digits)} ${units[i]}`;
-  };
+  const panelState = new WeakMap();
 
   const stateFor = panel => {
-    let state = panelStates.get(panel);
+    let state = panelState.get(panel);
     if (!state) {
-      state = {active: 0, percent: 0, timer: null, storageRunning: false};
-      panelStates.set(panel, state);
+      state = {active: 0, percent: 0, timer: null};
+      panelState.set(panel, state);
     }
     return state;
   };
 
-  const makePanel = (viewId, card) => {
-    const panel = document.createElement('div');
-    panel.className = 'sentinel-task-progress';
-    panel.dataset.state = 'idle';
-    panel.dataset.view = viewId;
-    panel.dataset.progressId = String(++panelCounter);
-    panel.innerHTML = `
-      <div class="sentinel-progress-head">
-        <b>Ready</b>
-        <strong>0%</strong>
-      </div>
-      <progress class="sentinel-percent-bar" max="100" value="0"></progress>
-      <small class="sentinel-progress-detail">Progress appears only after a real localhost request starts.</small>`;
-    card.appendChild(panel);
-    return panel;
-  };
-
-  const panelForView = (viewId, preferredCard = null) => {
+  const panelForView = viewId => {
     const view = document.getElementById(viewId) || document.querySelector('.view.active');
     if (!view) return null;
-    const previous = lastPanelByView.get(viewId);
-    const card = preferredCard && view.contains(preferredCard)
-      ? preferredCard
-      : (previous?.closest('.card') || view.querySelector('.card') || view);
-    let panel = [...card.querySelectorAll('.sentinel-task-progress')]
-      .find(candidate => candidate.dataset.view === viewId) || null;
-    if (!panel) panel = makePanel(viewId, card);
-    lastPanelByView.set(viewId, panel);
+    let panel = view.querySelector('.sentinel-task-progress');
+    if (panel) return panel;
+    const host = view.querySelector('.card') || view;
+    panel = document.createElement('div');
+    panel.className = 'sentinel-task-progress';
+    panel.dataset.state = 'idle';
+    panel.innerHTML = `
+      <div class="sentinel-progress-head"><b>Ready</b><strong>0%</strong></div>
+      <progress class="sentinel-percent-bar" max="100" value="0"></progress>
+      <small class="sentinel-progress-detail">Progress appears only after a real localhost request starts.</small>`;
+    host.appendChild(panel);
     return panel;
   };
 
   const setPanel = (panel, percent, label, detail, stateName = 'running') => {
     if (!panel) return;
-    const state = stateFor(panel);
     const value = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
+    const state = stateFor(panel);
     state.percent = value;
     panel.dataset.state = stateName;
     panel.querySelector('.sentinel-progress-head b').textContent = label;
@@ -126,42 +228,18 @@
     state.timer = null;
   };
 
-  const startEstimateTimer = panel => {
-    const state = stateFor(panel);
-    if (state.timer) return;
-    state.timer = setInterval(() => {
-      if (state.active <= 0 || state.storageRunning) return;
-      const step = state.percent < 35 ? 4 : state.percent < 65 ? 2 : 1;
-      const next = Math.min(92, Math.max(10, state.percent + step));
-      setPanel(
-        panel,
-        next,
-        panel.querySelector('.sentinel-progress-head b').textContent,
-        'Estimated progress while waiting for the localhost engine. 100% is shown only after the request returns.',
-        'running'
-      );
-    }, 420);
-  };
-
   const requestInfo = input => {
-    let raw = '';
-    let method = 'GET';
     try {
-      if (typeof input === 'string') raw = input;
-      else if (input) {
-        raw = input.url || '';
-        method = input.method || method;
-      }
+      const raw = typeof input === 'string' ? input : (input?.url || '');
       const url = new URL(raw, location.origin);
       const match = endpointRules.find(([prefix]) => url.pathname.startsWith(prefix));
       return {
         path: url.pathname,
-        method: String(method || 'GET').toUpperCase(),
         view: match?.[1] || document.querySelector('.view.active')?.id || 'overview',
         label: match?.[2] || 'Working locally'
       };
     } catch {
-      return {path: raw, method, view: document.querySelector('.view.active')?.id || 'overview', label: 'Working locally'};
+      return {path: '', view: document.querySelector('.view.active')?.id || 'overview', label: 'Working locally'};
     }
   };
 
@@ -170,29 +248,15 @@
     if (!panel) return null;
     const state = stateFor(panel);
     state.active += 1;
-    if (!state.storageRunning) {
-      const start = state.percent <= 0 || state.percent >= 100 ? 10 : Math.max(10, Math.min(90, state.percent));
-      setPanel(panel, start, info.label, `${info.method} ${info.path} · localhost request started.`, 'running');
-      startEstimateTimer(panel);
+    if (state.active === 1) {
+      const start = state.percent >= 100 ? 8 : Math.max(8, state.percent || 8);
+      setPanel(panel, start, info.label, `${info.path} · localhost request started.`, 'running');
+      state.timer = setInterval(() => {
+        const next = Math.min(92, state.percent + (state.percent < 45 ? 4 : 1));
+        setPanel(panel, next, info.label, 'Waiting for the local Sentinel engine.', 'running');
+      }, 450);
     }
     return panel;
-  };
-
-  const finishRequest = (panel, info, ok, detail = '', deferCompletion = false) => {
-    if (!panel) return;
-    const state = stateFor(panel);
-    state.active = Math.max(0, state.active - 1);
-    if (state.active > 0) return;
-    stopTimer(panel);
-    if (deferCompletion && ok) return;
-    state.storageRunning = false;
-    setPanel(
-      panel,
-      100,
-      ok ? `${info.label} complete` : `${info.label} failed`,
-      detail || (ok ? 'The local engine returned successfully.' : 'The local engine returned an error.'),
-      ok ? 'complete' : 'error'
-    );
   };
 
   const storagePhaseLabel = phase => ({
@@ -205,159 +269,68 @@
     failed: 'Storage scan failed'
   }[phase] || 'Scanning storage');
 
-  const updateCoreStoragePanel = (job, label, detail) => {
-    const scanState = document.getElementById('scanState');
-    const scanCounts = document.getElementById('scanCounts');
-    const scanPath = document.getElementById('scanPath');
-    if (scanState) scanState.textContent = label;
-    if (scanCounts) scanCounts.textContent = detail;
-    if (scanPath) scanPath.textContent = job.current_hash_path || job.current_path || job.current_dir || '';
-  };
-
   const handleStorageJob = job => {
     if (!job || typeof job !== 'object') return;
     const panel = panelForView('storage');
     if (!panel) return;
-    const state = stateFor(panel);
-    const files = Number(job.files_visited || 0);
-    const dirs = Number(job.dirs_visited || 0);
-    const limits = Number(job.permission_errors || 0);
-    const slow = Number(job.slow_paths_skipped || 0);
-    const phase = String(job.phase || (job.status === 'running' ? 'walking' : job.status || 'walking'));
-    const percent = Number.isFinite(Number(job.phase_percent)) && Number(job.phase_percent) > 0
-      ? Number(job.phase_percent)
-      : (job.status === 'complete' ? 100 : Math.min(72, Math.max(4, Math.round((files + dirs) / 1000) + 10)));
-    const label = storagePhaseLabel(phase);
-
-    if (job.status === 'running') {
-      state.storageRunning = true;
-      stopTimer(panel);
-      let detail = `${files.toLocaleString()} files · ${dirs.toLocaleString()} folders · ${limits.toLocaleString()} permission limits · ${slow.toLocaleString()} slow paths skipped`;
-      if (phase === 'walking') {
-        detail += ' · directory percentage is estimated because the scope is not pre-counted. Slow directory batches are skipped after the local idle budget so one path cannot stall the whole scan.';
-      } else if (phase === 'grouping') {
-        detail += ' · directory traversal is complete; Sentinel is selecting same-size candidates that can actually be compared.';
-      } else if (phase === 'hashing') {
-        const done = Number(job.hash_files_done || 0);
-        const total = Number(job.hash_files_total || 0);
-        const bytesDone = Number(job.hash_bytes_done || 0);
-        const bytesTotal = Number(job.hash_bytes_total || 0);
-        detail += total > 0
-          ? ` · hash file ${Math.min(done + 1, total)}/${total} · ${formatBytes(bytesDone)} of ${formatBytes(bytesTotal)} planned SHA-256 work`
-          : ' · no duplicate group fits the bounded comparison plan; hash work will be skipped.';
-        if (job.current_hash_path) detail += ` · ${job.current_hash_path}`;
-      } else if (phase === 'finalizing') {
-        detail += ` · ${formatBytes(job.hash_bytes_done || 0)} duplicate-candidate data hashed; assembling results.`;
-      }
-      setPanel(panel, percent, label, detail, 'running');
-      updateCoreStoragePanel(job, label, detail);
-      return;
-    }
-
-    state.storageRunning = false;
-    if (job.status === 'complete') {
-      const partial = Boolean(job.result?.truncated);
-      const detail = `${files.toLocaleString()} files · ${dirs.toLocaleString()} folders scanned · ${slow.toLocaleString()} slow paths skipped · ${formatBytes(job.hash_bytes_done || job.result?.duplicate_hash_bytes || 0)} duplicate-candidate data hashed${partial ? ' · bounded partial result because one or more safety limits were reached' : ''}.`;
-      setPanel(panel, 100, label, detail, 'complete');
-      updateCoreStoragePanel(job, label, detail);
-    } else if (job.status === 'cancelled') {
-      const detail = `Stopped safely after ${files.toLocaleString()} files and ${dirs.toLocaleString()} folders · ${slow.toLocaleString()} slow paths skipped. Cancellation also applies while Sentinel is waiting on a directory batch or verifying SHA-256.`;
-      setPanel(panel, Math.min(99, Math.max(0, percent)), label, detail, 'idle');
-      updateCoreStoragePanel(job, label, detail);
-    } else if (job.status === 'failed') {
-      const detail = job.error || 'The storage job reported a failure.';
-      setPanel(panel, 100, label, detail, 'error');
-      updateCoreStoragePanel(job, label, detail);
-    }
+    const phase = String(job.phase || job.status || 'walking');
+    const percent = Number(job.phase_percent || (job.status === 'complete' ? 100 : 12));
+    const hashed = Number(job.hash_bytes_done || 0);
+    const detail = `${Number(job.files_visited || 0).toLocaleString()} files · ${Number(job.dirs_visited || 0).toLocaleString()} folders${hashed ? ` · ${hashed.toLocaleString()} hash bytes processed` : ''}`;
+    const stateName = job.status === 'failed' ? 'error' : job.status === 'complete' ? 'complete' : 'running';
+    setPanel(panel, percent, storagePhaseLabel(phase), detail, stateName);
   };
 
-  const completionDetail = (info, payload, response) => {
-    if (!response.ok) return payload?.error ? `HTTP ${response.status} · ${payload.error}` : `HTTP ${response.status}`;
-    const p = payload || {};
-    switch (info.path) {
-      case '/api/search/deep':
-        return `Deep search complete · ${Number(p.visited || 0).toLocaleString()} entries visited · ${p.results?.length || 0} result(s) · ${Number(p.elapsed_ms || 0).toLocaleString()} ms${p.truncated ? ' · safety limit reached' : ''}`;
-      case '/api/system-profile':
-        return `${p.model_name || 'Mac'} · ${p.chip || p.processor || p.architecture || 'hardware read'} · ${p.os_version || 'macOS'}`;
-      case '/api/quick-check':
-        return `Attention Index ${Number(p.attention_index || 0)} · ${p.band || 'complete'} · ${p.recommendations?.length || 0} recommendation(s)`;
-      case '/api/guided-snapshot':
-        return `Monitoring Snapshot captured · ${Number(p.graph_nodes || 0)} graph nodes · Behavior ${Number(p.behavior?.risk_index || 0)}${p.trust_ran ? ` · Trust ${Number(p.trust?.drift_index || 0)}` : ' · no Trust comparison'}`;
-      case '/api/security/audit':
-        return `Security audit ${p.level || 'complete'} · score ${Number(p.score || 0)} · ${p.findings?.length || 0} finding(s)`;
-      case '/api/intelligence/graph':
-        return `Evidence graph ${p.nodes?.length || 0} nodes · ${p.edges?.length || 0} relationships`;
-      case '/api/intelligence/timeline':
-        return `${p.events?.length || 0} session observation(s) loaded`;
-      case '/api/behavior':
-        return info.method === 'POST'
-          ? (p.first_baseline ? 'Behavior baseline established.' : `Behavior comparison complete · index ${Number(p.risk_index || 0)} · ${p.changes?.length || 0} change(s)`)
-          : (p.has_baseline ? 'Behavior baseline available.' : 'No Behavior baseline yet.');
-      case '/api/trust/capture':
-        return `Trusted Profile captured · ${p.objects?.length || 0} bounded object(s)`;
-      case '/api/trust/compare':
-        return p.profile_at ? `Trust comparison complete · drift ${Number(p.drift_index || 0)} · ${p.changes?.length || 0} change(s)` : (p.note || 'No Trusted Profile exists yet.');
-      case '/api/persistence':
-        return info.method === 'POST'
-          ? `${p.initialized ? 'Persistence session baseline ready' : 'Persistence not initialized'} · ${Number(p.files || 0)} plist file(s) · ${p.changes?.length || 0} change(s)`
-          : `${p.initialized ? 'Persistence baseline available' : 'No persistence baseline yet'} · ${Number(p.files || 0)} plist file(s)`;
-      case '/api/processes':
-        return `${p.processes?.length || 0} process(es) loaded`;
-      case '/api/startup':
-        return `${p.items?.length || 0} startup item(s) loaded`;
-      case '/api/network':
-        return `${p.items?.length || 0} TCP activity item(s) loaded`;
-      default:
-        return `HTTP ${response.status} returned successfully from the local Sentinel engine.`;
-    }
-  };
-
-  const inspectJSON = new Set([
-    '/api/system-profile', '/api/quick-check', '/api/guided-snapshot', '/api/search/deep', '/api/security/audit',
-    '/api/intelligence/graph', '/api/intelligence/timeline', '/api/behavior', '/api/trust/capture', '/api/trust/compare',
-    '/api/persistence', '/api/processes', '/api/startup', '/api/network'
-  ]);
-
-  const originalFetch = window.fetch.bind(window);
+  const nativeFetch = window.fetch.bind(window);
   window.fetch = async (...args) => {
     const info = requestInfo(args[0]);
-    if (args[1]?.method) info.method = String(args[1].method).toUpperCase();
     const panel = beginRequest(info);
-    const isStorageJob = info.path === '/api/storage/jobs';
     try {
-      const response = await originalFetch(...args);
+      const response = await nativeFetch(...args);
       let payload = null;
-      const isJSON = response.headers.get('content-type')?.includes('application/json');
-      if (isJSON && (isStorageJob || inspectJSON.has(info.path) || !response.ok)) {
-        payload = await response.clone().json().catch(() => null);
+      try {
+        const type = response.headers.get('content-type') || '';
+        if (type.includes('application/json')) payload = await response.clone().json();
+      } catch {
+        payload = null;
       }
-      if (isStorageJob && response.ok && payload) handleStorageJob(payload);
-      const detail = completionDetail(info, payload, response);
-      finishRequest(panel, info, response.ok, detail, isStorageJob && response.ok && payload?.status === 'running');
+      if (payload && info.path.startsWith('/api/storage')) handleStorageJob(payload);
+      if (panel) {
+        const state = stateFor(panel);
+        state.active = Math.max(0, state.active - 1);
+        if (state.active === 0) {
+          stopTimer(panel);
+          if (!payload || !info.path.startsWith('/api/storage') || payload.status !== 'running') {
+            setPanel(
+              panel,
+              100,
+              response.ok ? `${info.label} complete` : `${info.label} failed`,
+              response.ok ? 'The local engine returned successfully.' : `Local request failed: HTTP ${response.status}`,
+              response.ok ? 'complete' : 'error'
+            );
+          }
+        }
+      }
       return response;
     } catch (error) {
-      finishRequest(panel, info, false, `Local request failed: ${error?.message || 'unknown network error'}`);
+      if (panel) {
+        stopTimer(panel);
+        const state = stateFor(panel);
+        state.active = 0;
+        setPanel(panel, 100, `${info.label} failed`, `Local request failed: ${error?.message || error}`, 'error');
+      }
       throw error;
     }
   };
 
-  const reportInterfaceError = detail => {
-    const message = `Interface error: ${detail || 'unknown error'}`;
-    console.error(message);
-    const viewId = document.querySelector('.view.active')?.id || 'overview';
-    const panel = panelForView(viewId);
-    if (panel) {
-      stopTimer(panel);
-      setPanel(panel, 100, 'Interface error', message, 'error');
-    }
-    const notice = document.getElementById('notice');
-    if (notice) {
-      notice.textContent = message;
-      notice.classList.remove('hidden');
-    }
-  };
+  window.addEventListener('error', event => {
+    const panel = panelForView(document.querySelector('.view.active')?.id || 'overview');
+    if (panel) setPanel(panel, 100, 'Interface error', `Interface error: ${event.message || 'Unknown desktop UI error'}`, 'error');
+  });
 
-  css.onerror = () => reportInterfaceError('desktop layout stylesheet could not be loaded');
-  window.addEventListener('error', event => reportInterfaceError(event.message || event.error?.message));
-  window.addEventListener('unhandledrejection', event => reportInterfaceError(event.reason?.message || String(event.reason || 'unhandled promise rejection')));
+  window.addEventListener('unhandledrejection', event => {
+    const panel = panelForView(document.querySelector('.view.active')?.id || 'overview');
+    const detail = event.reason?.message || String(event.reason || 'Unknown rejection');
+    if (panel) setPanel(panel, 100, 'Interface error', `Interface error: ${detail}`, 'error');
+  });
 })();
