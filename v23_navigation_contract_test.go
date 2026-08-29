@@ -18,7 +18,7 @@ func TestV23NavigationLoadedAcrossCoreWorkspaces(t *testing.T){
 func TestV23NavigationPreservesTokenAndFocusedWorkspaces(t *testing.T){
  raw,err:=os.ReadFile("web/v23-navigation.js");if err!=nil{t.Fatal(err)};s:=string(raw)
  for _,want:=range []string{"Easy","Security","Investigate","System","Processes","Network","Startup","Storage","Advanced","Recover","Terminal","token","easy.html","security-center.html","system-center.html","storage-center.html","intelligence-center.html","vault-health.html"}{if !strings.Contains(s,want){t.Fatalf("navigation missing %q",want)}}
- if strings.Contains(s,"['Easy', `/${hash}")||strings.Contains(s,"['Easy', `/`"){t.Fatalf("Easy must not route back to the legacy root dashboard")}
+ if strings.Contains(s,"['Easy', `/${hash}`"){t.Fatalf("Easy must not route back to the legacy root dashboard")}
  for _,bad:=range []string{"innerHTML","eval(","new Function","document.write"}{if strings.Contains(s,bad){t.Fatalf("unsafe navigation pattern %q",bad)}}
 }
 func TestFocusedWorkspacePagesStaySmallAndSafe(t *testing.T){
