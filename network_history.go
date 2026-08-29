@@ -282,7 +282,14 @@ func (a *app) handleNetworkHistory(w http.ResponseWriter, r *http.Request) {
 			"note": "Network Evidence history is created only by explicit Sentinel snapshots. It stores bounded normalized relationship metadata, never packet contents, decrypted traffic, or a continuous background capture.",
 		})
 	case http.MethodPost:
-		items, warning := collectNetwork()
+		items, collectErr := collectNetwork()
+		if collectErr != nil {
+			// A collection error is missing evidence, not evidence of zero
+			// relationships. Never persist it as an empty snapshot because doing so
+			// would manufacture a false "everything ended" historical diff.
+			writeJSON(w, http.StatusServiceUnavailable, map[string]any{"error": "network snapshot unavailable: " + collectErr.Error()})
+			return
+		}
 		snapshot, diff, err := a.networkHistory.capture(items, time.Now())
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
@@ -290,7 +297,6 @@ func (a *app) handleNetworkHistory(w http.ResponseWriter, r *http.Request) {
 		}
 		writeJSON(w, http.StatusOK, map[string]any{
 			"snapshot": snapshot, "diff": diff, "persistent": a.networkHistory.persistent,
-			"warning": warning,
 			"note": "Snapshot captured from currently visible bounded TCP evidence. Absence from a later snapshot does not establish the exact time a connection ended.",
 		})
 	default:
