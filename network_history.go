@@ -229,6 +229,28 @@ func findNetworkHistorySnapshot(snapshots []NetworkHistorySnapshot, id string) (
 	return NetworkHistorySnapshot{}, false
 }
 
+func networkSnapshotTimelineDetail(snapshot NetworkHistorySnapshot, diff *NetworkHistoryDiff) string {
+	detail := fmt.Sprintf("Explicit Network Evidence snapshot stored %d normalized relationship(s) from %d currently visible TCP row(s).", snapshot.RowsStored, snapshot.RowsSeen)
+	if snapshot.Truncated {
+		detail += fmt.Sprintf(" Relationship storage reached the per-snapshot bound of %d.", networkHistoryRelationLimit)
+	}
+	if diff != nil {
+		detail += fmt.Sprintf(" Compared with the previous explicit snapshot: %d newly present, %d absent in this snapshot.", len(diff.Added), len(diff.Ended))
+	}
+	detail += " Snapshot differences do not establish exact connection start/end times."
+	return detail
+}
+
+func (a *app) recordNetworkSnapshotTimeline(snapshot NetworkHistorySnapshot, diff *NetworkHistoryDiff, at time.Time) {
+	if a == nil || a.intel == nil {
+		return
+	}
+	a.intel.appendExternalEvent(TimelineEvent{
+		ID: entityID("event", "network-history-"+snapshot.ID), At: at.Unix(), Kind: "network_snapshot", Severity: "info",
+		Title: "Network Evidence snapshot captured", Detail: networkSnapshotTimelineDetail(snapshot, diff),
+	})
+}
+
 func (m *networkHistoryManager) persistLocked() error {
 	if m == nil || !m.persistent || m.path == "" {
 		return nil
@@ -324,11 +346,13 @@ func (a *app) handleNetworkHistory(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusServiceUnavailable, map[string]any{"error": "network snapshot unavailable: " + collectErr.Error()})
 			return
 		}
-		snapshot, diff, err := a.networkHistory.capture(items, time.Now())
+		capturedAt := time.Now()
+		snapshot, diff, err := a.networkHistory.capture(items, capturedAt)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
 			return
 		}
+		a.recordNetworkSnapshotTimeline(snapshot, diff, capturedAt)
 		writeJSON(w, http.StatusOK, map[string]any{
 			"snapshot": snapshot, "diff": diff, "persistent": a.networkHistory.persistent,
 			"note": "Snapshot captured from currently visible bounded TCP evidence. Absence from a later snapshot does not establish the exact time a connection ended.",
