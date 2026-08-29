@@ -34,4 +34,11 @@
   }
   nav.append(links);
   document.body.prepend(nav);
+
+  // Old v2.2 pages remain available only as compatibility surfaces. Any
+  // normal v2.3 "Back to Sentinel" link returns to the new Easy workspace.
+  for (const id of ['backLink','backToSentinel']) {
+    const a = document.getElementById(id);
+    if (a) a.href = `/easy.html${hash}`;
+  }
 })();
