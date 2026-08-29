@@ -45,6 +45,7 @@ jobs:
           node --check web/investigation.js
           node --check web/investigation-bridge.js
           node --check web/launch-services.js
+          node --check web/process-relations.js
 
       - name: Shell syntax
         run: |
