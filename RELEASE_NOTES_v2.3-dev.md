@@ -1,228 +1,229 @@
 # Sentinel macOS v2.3 — Development Branch
 
-Status: **development only**
+Status: **pre-regression engineering complete; real macOS regression pending**
 
 Branch: `upgrade/v2.3-stable`
 
 This branch is not a stable release and is not merged into `main`.
 
-## v2.3 focus
+## v2.3 direction
 
-Sentinel v2.3 is intended to deepen the existing local-first intelligence platform rather than replace it with unrelated scanners. The release focuses on investigation quality, historical context, explainability, recovery, and more coherent user workflows.
+Sentinel v2.3 deepens the existing local-first macOS investigation platform. Security remains the primary entry point, while the product is organized around four user goals:
 
-Security remains the primary entry point, while the broader product becomes a visual macOS investigation and control plane. Sentinel should make macOS itself easier to **understand, investigate, control, and recover**. Terminal and macOS command-line utilities may act as evidence adapters underneath the product, but the normal interface should expose questions, objects, relationships, explanations, continuation branches, and safe workflows rather than arbitrary shell execution.
+- **Understand** what macOS is doing.
+- **Investigate** files, apps, processes, persistence, network evidence, incidents, and relationships.
+- **Control** only through typed Sentinel workflows rather than arbitrary shell execution.
+- **Recover** through reversible Safe Actions, retained metadata, history, checkpoints, and rollback state.
 
-A core v2.3 interaction principle is: **a report is a node, not the end of an investigation**.
+Core interaction principle: **a report is a node, not the end of an investigation**.
 
-See `SYSTEM_CONSOLE_V2.3.md` for the visual macOS control-plane design, `TERMINAL_TOOLBOX_V2.3.md` for the expanded typed Terminal-button architecture, and `V2.3_BRANCH_CHECKLIST.md` for implementation status.
+## Release-preparation state
 
-## Implemented so far on this branch
+The engineering-preparation work for the real macOS regression phase is now present on `upgrade/v2.3-stable`:
 
-The following foundations are already present in `upgrade/v2.3-stable` and are not descriptions of `main`:
+- v2.3 persistent-state migration runs before legacy managers load state.
+- Incident history v3 uses stable object-centered StoryKeys while retaining bounded episode IDs.
+- deterministic Reason Code and Rule registries are versioned and contract-tested.
+- Global Timeline repetitive-event grouping is implemented without discarding raw EventIDs/provenance.
+- standalone Incident export and privacy-aware Investigation Bundle export are implemented.
+- Storage History runtime/API integration, growth comparison, System Snapshot & Diff, and bounded Storage Aging are implemented.
+- Recovery Center and dedicated Vault Health expose Sentinel-owned recovery metadata without introducing permanent deletion.
+- Easy / Investigate / Advanced / Recover navigation is normalized across v2.3 deep workspaces with token preservation.
+- a dedicated Pre-Regression Gate reports engineering blockers separately from real-Mac checks.
+- GitHub Actions now runs the full Go suite, focused v2.3 contracts, Darwin arm64/amd64 build smoke, race tests, vet, JavaScript syntax, and build/release shell syntax.
 
-- Explain Why / deterministic Reason Code core with observed facts, derived relationships, interpretation, and unknowns.
-- v2.3 enriched Incident view that preserves the existing Incident contract while adding explanation and investigation timeline data.
-- Investigation timeline core with stable IDs, ordering, deduplication, and bounded output.
-- Storage Snapshot and comparison data model with partial-snapshot semantics and growth attribution.
-- bounded persistent Storage History manager using Sentinel-owned local state.
-- explicit v2.3 schema compatibility/migration foundation.
-- deterministic read-only Rule Engine core for review guidance; matches are not malware verdicts and cannot execute Safe Actions.
-- GitHub Actions branch validation for Go tests, race tests, vet, JavaScript syntax, and release/build shell syntax.
+A successful `amd64` cross-build is build evidence only; it is not claimed as real Intel runtime validation.
 
-### Visual macOS System Console
+## Incident Intelligence 2.0
 
-- System Console backend with a fixed macOS evidence-tool allowlist, absolute-path/PID target validation, bounded execution time, bounded output, and no shell invocation.
-- authenticated local System Console API routes for catalog, read-only query execution, structured query execution, and unified object inspection.
-- System Console visual page grouped around Understand / Investigate / Control / Recover.
-- question-first **Ask the Mac** recipes so users can begin from system questions rather than Terminal syntax.
-- structured parsers for process, filesystem, mount, code-signing, Gatekeeper, and process-open-file evidence.
-- structured visual tables/cards while preserving raw command evidence underneath for provenance.
-- unified object inspection combining metadata, extended attributes, code-signing, Gatekeeper, and plist evidence where applicable.
-- direct Ask-the-Mac entry points into Launch & Service, Process Relationship, and Network Relationship explorers.
-- a System Console shortcut in the existing Sentinel interface.
-- explicit tests that managed actions cannot run through the read-only command runner and that the System Console cannot silently become an arbitrary shell/`sudo` execution surface.
+- additive `/api/incidents/v2` intelligence model while preserving legacy compatibility surfaces.
+- stable object-centered StoryKey separated from bounded correlation Episode ID.
+- same canonical object can remain one higher-level story across different correlation windows; different canonical objects do not merge merely because events are temporally close.
+- incident history v1/v2 is normalized into v3 object-centered stories during migration.
+- ordered evidence timeline.
+- Explain Why structure separates **Observed Facts**, **Derived Relationships**, **Interpretation**, and **Unknowns**.
+- deterministic Reason Codes are registry-backed and versioned.
+- Rule Engine references are validated against known reason codes.
+- relationship confidence remains relationship confidence, never malware probability.
+- standalone Incident JSON export is bounded and includes explanation/timeline data.
+- Incident evidence paths can continue into the investigation graph.
 
-#### Expanded Terminal Toolbox
+## Continue Investigation / Investigation Sessions
 
-- the System Console catalog now exposes **40+ typed tools/actions** rather than only the original small evidence set.
-- a new domain-first visual layout presents large function boxes for **System & Hardware, Security Posture, Processes & Resources, Startup & Services, Network, Storage & Disks, Files & Metadata, App Integrity, Search & Spotlight, Backup & Recovery Sources, Power & Battery, Bounded System Logs, Persistence, Change Intelligence, and Trust & Recovery**.
-- read-only cards show the exact fixed Terminal command preview that Sentinel will use, including validated `<PID>` or `<absolute-path>` placeholders where applicable.
-- a Toolbox filter searches purpose, domain, and fixed command preview without exposing command execution text input.
-- expanded fixed adapters include hardware/system profile, uptime/boot time, update history, system extensions, enrollment status, richer process state/listeners, disk/APFS layout, storage profile, Spotlight status, Time Machine state, interfaces/DNS/proxy/ARP/TCP, Apple `networkQuality`, battery/power assertions, user launch services, Gatekeeper/FileVault/SIP status, and bounded predefined Gatekeeper/power log windows.
-- fixed log recipes keep short time windows and fixed predicates; unrestricted user-supplied `log` predicates are not exposed.
-- direct workspace cards open Launch & Service Explorer, Network Relationship Explorer, and Intelligence Center while other mutating actions continue to route through Sentinel preview/confirmation/journal/recovery workflows.
-- the expanded catalog is contract-tested for unique IDs, maximum timeouts, no `sh`/`bash`/`zsh`, no `sudo`, and no command-composition tokens in fixed arguments.
-- the original **“Start with a question, not a command”** experience remains intact above the larger Toolbox, so direct Terminal-style buttons and question-first investigation coexist.
+- bounded read-only bundle-aware investigation traversal.
+- selected `.app` / code-bearing bundles can descend into internal executables, dylibs, XPC services, plugins, extensions, frameworks, scripts, and plist configuration.
+- broad directory traversal keeps nested bundles as explicit continuation nodes instead of exploding them recursively.
+- Review Priority orders evidence for review and is not a malware probability.
+- top bounded candidates receive Integrity inspection.
+- plist targets can continue to configured executables.
+- runtime correlation includes matching PIDs, parent chain, TCP evidence, bounded open files/loaded objects, LaunchAgents/LaunchDaemons, and Background Task Management references where available.
+- Investigation Sessions retain at most 24 sessions and 80 branches per session.
+- normal mode persists compact private metadata; `--ephemeral` remains memory-only.
+- notes/bookmarks/resume are supported without copying investigated file contents.
+- automatic branch recording no longer propagates a stale note from a previous branch; notes are attached only through explicit Save/Bookmark actions.
+- Investigation Bundle export is metadata/evidence-only by default and does not copy investigated file contents by default.
 
-### Continue Investigation / Security Investigation Graph
+## Evidence Graph / Object Story / Global Timeline
 
-- bounded read-only deep investigation engine with explicit traversal, depth, candidate, and inspection budgets.
-- bundle-aware traversal: selecting an `.app` or other code-bearing bundle can descend into internal executable/configuration objects instead of treating the outer directory as the final result.
-- broad-folder behavior keeps nested bundles as explicit continuation branches rather than recursively exploding every app during the first scan.
-- candidate classification for executable code, scripts, dylibs, property lists, installers/images, frameworks, XPC services, app extensions, and plugin bundles.
-- ranked **Review Priority** for deciding what evidence to inspect next; the value is explicitly not malware probability.
-- on-demand Integrity evidence for top candidates, including hashing, architecture, signature, Gatekeeper, quarantine provenance, and native validation where available.
-- property-list continuation from visible launch configuration to the configured executable target.
-- authenticated `POST /api/security/investigate` branch endpoint.
-- Security Audit bridge that adds **Continue Investigation** to findings with a usable local path without rewriting the legacy v2.2 audit renderer.
-- Incident bridge that exposes up to six distinct explicit absolute-path evidence nodes as independent investigation branches instead of limiting continuation to the incident primary path.
-- dedicated `investigation.html` workspace with manual path entry, previous/next branch navigation, bounded candidate lists, limitations, and explicit related-object continuation targets.
-- each branch concurrently correlates the current path with the existing Object Story model.
-- authenticated `GET /api/security/context?path=...` runtime-correlation endpoint.
-- selected file/app-bundle correlation with currently running executable paths and PIDs.
-- parent-process-chain context for matched processes.
-- current bounded TCP evidence for matched PIDs.
-- structured open-file / loaded-object evidence for a bounded number of matched processes.
-- LaunchAgent/LaunchDaemon references to the selected object or executables inside its app bundle.
-- macOS Background Task Management references when available.
-- runtime, persistence, parent-process, open-object, and file-analysis targets are merged into clickable continuation branches.
-- running-process cards link directly into Process Relationship Explorer for deeper PID-centered investigation.
-- contract tests prevent the investigation engine from acquiring mutation paths and prevent the new web surface from introducing dynamic-code execution.
+### Evidence Graph 2.0
 
-### Investigation Sessions
+- typed nodes/edges across files, processes, launch relationships, network evidence, incidents, and retained explicit network snapshots.
+- source metadata and retained timestamps where meaningful.
+- bounded node/edge budgets with visible truncation.
+- source/type/text/time filters.
+- edges describe observed/derived relationships, not intent or causation.
 
-- bounded Investigation Session manager retaining at most 24 sessions and 80 branches per session.
-- normal mode persists compact session metadata in Sentinel-owned private gzip state; `--ephemeral` keeps the same workflow memory-only.
-- session data stores paths, branch relationships, bookmarks, notes, timestamps, and visit counts without copying investigated file contents.
-- Save Session, Bookmark Current Branch, resume, recent-session list, and automatic recording of later branches while a session is active.
-- bookmarked branches are preferentially retained when ordinary branch history must be trimmed.
-- browser-history handling was corrected so the investigation branch array no longer shadows `window.history`.
+### Object Story 2.0
+
+- one bounded object dossier combining static identity, System Console evidence, runtime/persistence context, Incident membership, retained timeline evidence, and continuation targets.
+- first/last seen means first/last seen within retained Sentinel evidence, not the object's entire lifetime.
+- missing evidence is surfaced as unknown/limited visibility.
+
+### Global Timeline
+
+- unified bounded chronology across Sentinel intelligence, Change Monitor, Incident evidence, and retained Safe Action journal entries.
+- source/kind/severity/path/time filters.
+- repetitive events can be grouped for readability while the grouped record retains raw EventIDs/provenance.
+- temporal proximity is not presented as causation.
+
+## Visual macOS System Console / Terminal Toolbox
+
+- fixed allowlisted macOS evidence-tool catalog.
+- no arbitrary shell, no `sh -c`, no web `sudo`, and no user-controlled command concatenation.
+- positive-PID and absolute-path validation for targeted tools.
+- bounded execution time and bounded output.
+- authenticated localhost-only routes for catalog, typed queries, structured evidence, and unified object inspection.
+- 40+ typed Terminal-backed capabilities grouped by domain.
+- question-first **Ask the Mac** recipes remain above the direct Toolbox.
+- structured parsers preserve raw command evidence underneath typed cards/tables.
+- path-specific Gatekeeper/code-signing review evidence can contribute to object-centered Incident/Reason Code generation; system-global posture does not become a fake file Incident.
+- fixed bounded log recipes include Gatekeeper, power, crash, launch, mount/unmount, network configuration, and system-extension activity.
+- mutations remain outside the query runner and continue through Sentinel Safe Action boundaries.
+
+## Launch, Process, and Network relationship explorers
 
 ### Launch & Service Explorer
 
-- typed LaunchAgent/LaunchDaemon explorer model built on the existing persistence scanner rather than duplicating the source of truth.
-- exact executable-path correlation with the current process table.
-- visible target-exists / running / PID state and explanation/limitation fields.
-- authenticated list/detail endpoints.
-- dedicated visual workspace answering **“Why does this start automatically?”**.
-- direct continuation from launch plist or executable into Continue Investigation.
+- maps LaunchAgents/LaunchDaemons to their plist, target executable, existence, and visible current PID state.
+- direct continuation into plist/executable investigation.
 
 ### Process Relationship Explorer
 
-- dedicated PID-centered workspace combining Process Detail, Object Story, structured process-table evidence, structured open-file evidence, and Runtime/Persistence Context.
-- visible parent chain and current child-process relationships, with PID-to-PID navigation.
-- executable identity, signing, Gatekeeper, review/trust context, TCP evidence, and open files/loaded objects on one surface.
-- LaunchAgent/LaunchDaemon and Background Task Management correlation for the resolved executable.
-- direct continuation from executable or path-bearing open objects into Continue Investigation.
-- Continue Investigation runtime cards can open the matching PID directly in Process Relationship Explorer.
+- PID-centered parent/child, executable identity, signing/Gatekeeper, open-object, TCP, persistence, and Object Story context.
+- current PID navigation is explicit and snapshot-scoped.
 
-### Network Relationship Explorer / Network Evidence 2.0
+### Network Evidence 2.0
 
-- dedicated current-snapshot workspace built on Sentinel's existing bounded `/api/network` evidence.
-- process → TCP socket grouping with LISTEN / ESTABLISHED state preserved.
-- endpoint aggregation using existing normalized local/remote/endpoint-class fields.
-- process, PID, endpoint, state, and endpoint-class filtering.
-- direct navigation from a **current** owning PID into Process Relationship Explorer.
-- authenticated `/api/network/history` endpoint for explicit bounded history capture and retained-snapshot comparison.
-- **Refresh Current never writes history**; only an explicit **Capture History Snapshot** action appends a history record.
-- normal mode stores compact history in Sentinel-owned private gzip state; `--ephemeral` keeps the same snapshot workflow memory-only.
-- retention is bounded to at most **32 snapshots**, each with at most **400 normalized relationships**.
-- stable historical relationship identity intentionally excludes transient PID changes and ESTABLISHED local ephemeral-port churn; those values remain sample context rather than identity.
-- historical sample PIDs are displayed only as capture-time context and are not opened directly, because macOS can later reuse a PID for a different process.
-- latest-snapshot diff plus arbitrary retained **baseline → target** comparison, with Added / Absent semantics kept separate from claims about exact connection start/end times.
-- failed TCP collection is treated as missing evidence and is never persisted as an empty snapshot, preventing a collection failure from manufacturing an “everything disappeared” diff.
-- every successful explicit history capture adds one bounded summary event to Sentinel's session timeline rather than flooding the timeline with one event per endpoint.
-- history stores relationship metadata only; Sentinel does not capture packet contents, decrypt traffic, or run continuous background packet surveillance.
-- Network Evidence comparisons are observational context, not connection verdicts or malware probability.
+- current visible TCP relationships remain refreshable without writing history.
+- only explicit **Capture History Snapshot** writes network-history metadata.
+- normal mode uses bounded private gzip history; `--ephemeral` is memory-only.
+- retention: at most 32 snapshots and 400 normalized relationships per snapshot.
+- stable historical identity ignores transient PID changes and ESTABLISHED local ephemeral-port churn while preserving those values as sample context.
+- historical PIDs are not reopened directly because macOS can reuse PID values.
+- latest and arbitrary retained baseline→target comparison are supported.
+- collection failure is missing evidence and is never persisted as an empty snapshot that could manufacture an “everything disappeared” diff.
+- no packet capture, payload inspection, decryption, or continuous traffic surveillance is introduced.
 
-### Unified Intelligence Center
+## Storage Intelligence / System Snapshot
 
-The branch now includes a dedicated `intelligence-center.html` workspace so the major investigation layers are views over one increasingly shared evidence model instead of isolated reports.
+- bounded Storage Intelligence scanning with cancellation, progress, slow-path safety, exact SHA-256 duplicate confirmation under a hash budget, and partial-result semantics.
+- completed storage results can be explicitly retained into 24-snapshot Storage History.
+- latest growth attribution and category changes are available.
+- Storage Aging summarizes modification-age buckets only for the bounded retained large-file evidence set; it is not advertised as a complete filesystem-age census.
+- explicit System Snapshot & Diff covers selected process, launch-service, TCP, mount/filesystem, and core security-posture evidence.
+- snapshot differences describe observations between retained points in time, not exact event start/stop times or causation.
 
-#### Evidence Graph 2.0
+## Recovery Center / Vault Health
 
-- additive typed-node / typed-edge graph layered over the existing v2.2 evidence graph so legacy clients remain compatible.
-- current file/process/startup/network relationships plus Incident nodes and the latest explicit Network History snapshot/endpoint relationships.
-- explicit node/edge source metadata, first/last retained timestamps where available, severity/review context, and stable references.
-- bounded to **320 nodes** and **640 edges**, with truncation/limitations surfaced instead of silently dropping an unbounded graph.
-- label/reference, node-type, and source filtering at the API/view layer.
-- Intelligence Center adds retained-timestamp `since → until` filtering; untimed current observations are intentionally omitted while a time range is active rather than having an invented timestamp.
-- graph edges remain evidence relationships, not proof of malicious intent or causation.
+- Recovery Center aggregates Safe Action health, Vault manifests, Action Journal, reversible-action counts, Change Monitor recovery/rescan state, retained snapshot counts, and visible storage-job status.
+- dedicated Vault Health page exposes Vault metadata, journal integrity, reversibility, and post-action observation.
+- Vault Health itself is read-only and does not expose `/api/actions/execute`.
+- no new permanent-delete path is introduced.
 
-#### Incident Intelligence 2.0
+## v2.3 state migration and rollback
 
-- authenticated additive `/api/incidents/v2` endpoint while the existing `/api/incidents` contract remains available.
-- object-centered **Stable ID** is separated from the existing bounded correlation **Episode ID**, allowing the same primary object to keep a higher-level identity across episode/source expansion.
-- each v2 Incident includes the ordered investigation timeline and Explain Why structure: Observed Facts, Derived Relationships, Interpretation, Unknowns, and deterministic reason codes.
-- the UI preserves the existing rule that Incident confidence is **relationship confidence**, never malware probability.
-- this release does not yet claim a complete rewrite of every legacy merge/split episode rule or standalone Incident export.
+Migration registry currently covers Sentinel-owned legacy stores used by the v2.2 investigation/history stack:
 
-#### Global Timeline
+- Behavior baseline and history.
+- Trusted Profile and trust-drift history.
+- Change History and Change Monitor checkpoint.
+- Incident history v1/v2 → v3.
 
-- authenticated `/api/intelligence/timeline/global` merges bounded Sentinel intelligence events, filesystem Change Monitor evidence, and retained Incident evidence.
-- source, kind, severity, exact-path, Incident, and Unix-time filters are supported by the unified timeline API.
-- Intelligence Center additionally merges the retained local **Safe Action journal**, so previous successful/failed rename, Vault, and restore records remain visible across Sentinel restarts.
-- the UI remains bounded to the latest 500 merged events and deduplicates local timeline identities before rendering.
-- temporal proximity is explicitly not treated as causation, and the timeline is not described as a complete macOS audit log.
+Migration rules:
 
-#### Object Story 2.0
+- persistent migration is skipped under `--ephemeral`.
+- each primary state file must decode strictly before rewrite.
+- unsupported/corrupt primary state becomes an error and is not force-overwritten.
+- normalized writes use private atomic replacement.
+- replacing existing state retains a last-known-good `.bak` rollback copy where possible.
+- fallback `.bak` reads are surfaced through State Recovery status; the Pre-Regression Gate treats a recovered primary as something to review before long-term comparisons.
+- migration tests verify registry coverage, rollback copy creation, corrupt-primary refusal, Incident v2→v3 normalization, and ephemeral behavior.
 
-- authenticated `/api/object/story/v2?path=...` creates one per-object dossier from the existing Object Story facts/relations plus bounded System Console inspection, current runtime/persistence relationships, Incident membership, exact-path Change Monitor events, and continuation targets.
-- first/last seen values describe the **retained integrated evidence currently available to Sentinel**, not an assertion about the object's entire lifetime on the Mac.
-- missing Incident/timeline/system evidence is surfaced as Unknown rather than interpreted as a clean/safe result.
-- related runtime/file/persistence objects can continue directly into the existing investigation workspace.
+## Navigation and pre-regression gate
 
-#### Visibility & Permissions Center
+Deep v2.3 workspaces share token-preserving navigation around:
 
-- authenticated `/api/visibility` presents local-tool capability, filesystem-event sensor mode, Change Monitor runtime state, Full Disk Access semantics, and optional Endpoint Security status in one place.
-- Full Disk Access remains explicitly **user-controlled**; Sentinel does not infer that it is granted because a scan happened not to hit a permission error.
-- an unavailable evidence source means reduced visibility, never a safety verdict.
-- the optional Endpoint Security source is reported available only if the separately entitled/user-approved sensor can truthfully be reported enabled; the current scaffold remains unavailable by default.
+- **Easy** — main Sentinel dashboard.
+- **Investigate** — Intelligence / Continue Investigation / relationship explorers.
+- **Advanced** — System Console / Control Plane.
+- **Recover** — Recovery / Vault Health.
 
-#### Global Cmd+K / typed navigation
+The Pre-Regression Gate distinguishes automated engineering readiness from checks that require an actual Mac. Passing it does **not** certify a release artifact or real hardware runtime.
 
-- the main Sentinel UI and Intelligence Center load a shared Cmd/Ctrl+K palette backed by authenticated `/api/search/command` plus the existing bounded Power Search corpus.
-- typed intents include `process <PID>`, `inspect <absolute path>`, `timeline`, `graph`, `visibility`, and Incident navigation, with ordinary Power Search results routed to the relevant Process, Launch, Network, Incident, Investigation, or Intelligence workspace.
-- Cmd+K is navigation/query intent only: user text is never concatenated into a shell command.
-- the new Intelligence Center and command-palette scripts are contract-tested to reject dynamic-code execution and dynamic HTML injection patterns.
+## Automated branch gate
 
-## Planned release-defining changes still open
+The v2.3 workflow validates, on the same branch HEAD:
 
-- complete field-level migration from all v2.2 persistent stores, with rollback/recovery validation.
-- Recovery Center 2.0 for Sentinel-owned state, interrupted jobs, Vault health, and checkpoint recovery.
-- runtime/API/UI integration of the already-built Storage History / growth-attribution core.
-- Easy / Investigate / Advanced information-architecture normalization across the entire legacy dashboard.
-- standalone Incident export and a broader deterministic merge/split policy across all legacy correlation episode boundaries.
-- repetitive-event grouping/collapse in Global Timeline.
-- versioned Reason Code / Rule registries with direct evidence references.
+1. `go test ./...`
+2. focused migration / Incident Story / timeline / export / Storage Aging / registry / Vault / navigation / Pre-Regression / Session Note contracts
+3. Darwin `arm64` build smoke
+4. Darwin `amd64` build smoke
+5. `go test -race ./...`
+6. `go vet ./...`
+7. JavaScript syntax for v2.3 web surfaces
+8. release/build shell syntax
 
-## Planned second-stage improvements
+## Next phase: real macOS regression
 
-- staged exact-duplicate analysis 2.0.
-- Storage Intelligence 2.0 trends and aging runtime/UI integration.
-- richer executable-aware Network Evidence identity and higher-level temporal summaries without introducing packet capture.
-- Safe Actions 2.0 dependency-preview/post-action UX expansion and a dedicated Vault Health page.
-- local diagnostics, benchmarks, and CI migration gates.
-- broader bounded macOS log/event recipes beyond the initial Gatekeeper and power windows.
-- broader System Snapshot & Diff across selected macOS object types.
-- privacy-aware investigation bundle export.
+Engineering preparation is no longer the main workstream. The next required work is real runtime validation:
 
-## Optional future work
+- desktop bootstrap/token/navigation end-to-end.
+- real APFS storage scan/cancel/rerun/history/aging behavior.
+- real `codesign`, Gatekeeper, quarantine, SIP, FileVault, and System Extension evidence.
+- live process parent/open-file/TCP/persistence correlation.
+- controlled disposable-file Safe Action preview → confirm → rename/vault → restore.
+- copied real v2.2 state upgrade and `.bak` rollback verification.
+- Universal2 app/DMG build, packaged-resource verification, install/launch/quit/relaunch on Apple Silicon.
+- real Intel runtime validation if hardware becomes available; otherwise Intel runtime remains explicitly unverified despite successful `amd64` build smoke.
+- final signing / Gatekeeper / distribution checks for the release-candidate artifact.
 
-- local AI explanation over already-collected evidence;
-- entitlement-gated Endpoint Security sensor integration;
-- read-only evidence-provider/plugin architecture;
-- advanced local anomaly baselines.
+## Deliberately deferred / optional roadmap
+
+These items are not blockers for starting real v2.3 regression:
+
+- staged duplicate-analysis 2.0 beyond the current bounded exact SHA-256 flow.
+- expanded diagnostics/performance telemetry and benchmark fixtures.
+- optional local AI explanation and its grounding contract.
+- entitlement-gated Endpoint Security sensor integration.
+- read-only provider/plugin architecture.
+- advanced anomaly baselines.
 
 ## Design invariants
 
-v2.3 must preserve:
+v2.3 preserves:
 
-- localhost-only core service exposure;
-- authenticated local sessions;
-- evidence provenance;
-- explicit limited-visibility states;
-- reversible Safe Actions;
-- no permanent-delete API;
-- no automatic destructive response;
-- bounded histories and work budgets;
-- no unsupported malware-probability claims;
-- no cloud dependency for core functionality;
-- no arbitrary web-exposed shell or `sudo` execution path;
-- no mutation that bypasses Sentinel preview, confirmation, journaling, and recovery boundaries;
-- Continue Investigation remains read-only, bounded, and transparent about truncation/visibility limits;
-- Cmd+K remains typed Sentinel navigation/search rather than an arbitrary command runner;
-- Visibility status describes evidence access and never substitutes for a security verdict;
-- Terminal Toolbox buttons remain fixed-command and bounded: no arbitrary flags, command concatenation, shell, or direct privileged mutation.
+- localhost-only core service exposure and authenticated local sessions.
+- evidence provenance and explicit limited-visibility states.
+- reversible Safe Actions and no automatic destructive response.
+- no permanent-delete API added by v2.3.
+- bounded histories, traversal, work, output, and explicit capture semantics.
+- no score presented as malware probability.
+- no cloud dependency for core functionality.
+- no arbitrary web-exposed shell or `sudo` execution path.
+- no mutation bypass around Safe Action preview/confirmation/journal/recovery.
+- read-only bounded Continue Investigation.
+- typed Cmd+K navigation/search rather than arbitrary command execution.
+- user-controlled permission semantics.
+- fixed-command bounded Terminal Toolbox tools.
 
-See `UPGRADE_V2.3_PLAN.md`, `SYSTEM_CONSOLE_V2.3.md`, `TERMINAL_TOOLBOX_V2.3.md`, and `V2.3_BRANCH_CHECKLIST.md` for the implementation plan and branch gates.
+See `PRE_REGRESSION_V2.3.md`, `V2.3_BRANCH_CHECKLIST.md`, `CONTROL_PLANE_V2.3.md`, `SYSTEM_CONSOLE_V2.3.md`, and `TERMINAL_TOOLBOX_V2.3.md`.
