@@ -22,29 +22,37 @@ func requireNetworkRelationSourceContains(t *testing.T, path string, needles ...
 	return source
 }
 
-func TestNetworkRelationshipExplorerIsExplicitlyCurrentSnapshot(t *testing.T) {
+func TestNetworkRelationshipExplorerSeparatesCurrentEvidenceFromExplicitHistory(t *testing.T) {
 	requireNetworkRelationSourceContains(t, "web/network-relations.html",
 		`Network Relationship Explorer`,
-		`bounded current snapshot`,
-		`not packet capture or historical surveillance`,
-		`Processes with TCP Evidence`,
-		`Visible Remote / Listen Endpoints`,
-		`Historical endpoint behavior is not yet represented here`,
+		`Current snapshot`,
+		`Capture History Snapshot`,
+		`Refresh Current does not append history`,
+		`Explicit Snapshot History`,
+		`not packet capture or continuous surveillance`,
+		`Cross-snapshot identity ignores transient PID changes`,
 		`/network-relations.js`,
 	)
 }
 
-func TestNetworkRelationshipExplorerUsesExistingNetworkEvidence(t *testing.T) {
+func TestNetworkRelationshipExplorerUsesCurrentAndHistoryAPIs(t *testing.T) {
 	requireNetworkRelationSourceContains(t, "web/network-relations.js",
 		`/api/network`,
+		`/api/network/history`,
+		`method: 'POST'`,
 		`groupByProcess`,
 		`groupByEndpoint`,
 		`LISTEN`,
 		`ESTABLISHED`,
 		`endpoint_class`,
 		`Open Process Explorer`,
-		`/process-relations.html#`,
-		`Counts describe the currently visible bounded TCP evidence only`,
+		`Latest snapshot difference`,
+		`Refresh Current`,
+	)
+	requireNetworkRelationSourceContains(t, "main.go",
+		`networkHistory *networkHistoryManager`,
+		`newNetworkHistoryManager(*ephemeral)`,
+		`/api/network/history`,
 	)
 }
 
@@ -65,6 +73,21 @@ func TestNetworkRelationshipExplorerAvoidsDynamicCodeAndActiveNetworkControl(t *
 	for _, forbidden := range []string{"eval(", "new Function(", "document.write(", "innerHTML", "sudo", "WebSocket(", "RTCPeerConnection(", "XMLHttpRequest("} {
 		if strings.Contains(source, forbidden) {
 			t.Fatalf("network relationship explorer contains forbidden pattern %q", forbidden)
+		}
+	}
+}
+
+func TestNetworkHistoryBackendIsBoundedMetadataOnly(t *testing.T) {
+	source := requireNetworkRelationSourceContains(t, "network_history.go",
+		`networkHistorySnapshotLimit = 32`,
+		`networkHistoryRelationLimit = 400`,
+		`PID and local ephemeral ports are deliberately excluded`,
+		`explicit Sentinel snapshots`,
+		`never packet contents`,
+	)
+	for _, forbidden := range []string{"pcap", "tcpdump", "packet payload", "exec.Command(", "WebSocket("} {
+		if strings.Contains(source, forbidden) {
+			t.Fatalf("network history unexpectedly contains active-capture/control pattern %q", forbidden)
 		}
 	}
 }
