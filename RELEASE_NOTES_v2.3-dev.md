@@ -113,29 +113,74 @@ The following foundations are already present in `upgrade/v2.3-stable` and are n
 - history stores relationship metadata only; Sentinel does not capture packet contents, decrypt traffic, or run continuous background packet surveillance.
 - Network Evidence comparisons are observational context, not connection verdicts or malware probability.
 
-## Planned release-defining changes
+### Unified Intelligence Center
 
-- Incident Intelligence 2.0 with stable incident identity, evidence timelines, deterministic correlation, and explicit observed/derived/unknown separation.
-- Object Story 2.0 as the primary per-object investigation surface.
-- Unified Change Timeline across existing evidence sources.
-- Storage History with snapshot comparison and growth attribution fully wired into API/UI workflows.
+The branch now includes a dedicated `intelligence-center.html` workspace so the major investigation layers are views over one increasingly shared evidence model instead of isolated reports.
+
+#### Evidence Graph 2.0
+
+- additive typed-node / typed-edge graph layered over the existing v2.2 evidence graph so legacy clients remain compatible.
+- current file/process/startup/network relationships plus Incident nodes and the latest explicit Network History snapshot/endpoint relationships.
+- explicit node/edge source metadata, first/last retained timestamps where available, severity/review context, and stable references.
+- bounded to **320 nodes** and **640 edges**, with truncation/limitations surfaced instead of silently dropping an unbounded graph.
+- label/reference, node-type, and source filtering at the API/view layer.
+- Intelligence Center adds retained-timestamp `since → until` filtering; untimed current observations are intentionally omitted while a time range is active rather than having an invented timestamp.
+- graph edges remain evidence relationships, not proof of malicious intent or causation.
+
+#### Incident Intelligence 2.0
+
+- authenticated additive `/api/incidents/v2` endpoint while the existing `/api/incidents` contract remains available.
+- object-centered **Stable ID** is separated from the existing bounded correlation **Episode ID**, allowing the same primary object to keep a higher-level identity across episode/source expansion.
+- each v2 Incident includes the ordered investigation timeline and Explain Why structure: Observed Facts, Derived Relationships, Interpretation, Unknowns, and deterministic reason codes.
+- the UI preserves the existing rule that Incident confidence is **relationship confidence**, never malware probability.
+- this release does not yet claim a complete rewrite of every legacy merge/split episode rule or standalone Incident export.
+
+#### Global Timeline
+
+- authenticated `/api/intelligence/timeline/global` merges bounded Sentinel intelligence events, filesystem Change Monitor evidence, and retained Incident evidence.
+- source, kind, severity, exact-path, Incident, and Unix-time filters are supported by the unified timeline API.
+- Intelligence Center additionally merges the retained local **Safe Action journal**, so previous successful/failed rename, Vault, and restore records remain visible across Sentinel restarts.
+- the UI remains bounded to the latest 500 merged events and deduplicates local timeline identities before rendering.
+- temporal proximity is explicitly not treated as causation, and the timeline is not described as a complete macOS audit log.
+
+#### Object Story 2.0
+
+- authenticated `/api/object/story/v2?path=...` creates one per-object dossier from the existing Object Story facts/relations plus bounded System Console inspection, current runtime/persistence relationships, Incident membership, exact-path Change Monitor events, and continuation targets.
+- first/last seen values describe the **retained integrated evidence currently available to Sentinel**, not an assertion about the object's entire lifetime on the Mac.
+- missing Incident/timeline/system evidence is surfaced as Unknown rather than interpreted as a clean/safe result.
+- related runtime/file/persistence objects can continue directly into the existing investigation workspace.
+
+#### Visibility & Permissions Center
+
+- authenticated `/api/visibility` presents local-tool capability, filesystem-event sensor mode, Change Monitor runtime state, Full Disk Access semantics, and optional Endpoint Security status in one place.
+- Full Disk Access remains explicitly **user-controlled**; Sentinel does not infer that it is granted because a scan happened not to hit a permission error.
+- an unavailable evidence source means reduced visibility, never a safety verdict.
+- the optional Endpoint Security source is reported available only if the separately entitled/user-approved sensor can truthfully be reported enabled; the current scaffold remains unavailable by default.
+
+#### Global Cmd+K / typed navigation
+
+- the main Sentinel UI and Intelligence Center load a shared Cmd/Ctrl+K palette backed by authenticated `/api/search/command` plus the existing bounded Power Search corpus.
+- typed intents include `process <PID>`, `inspect <absolute path>`, `timeline`, `graph`, `visibility`, and Incident navigation, with ordinary Power Search results routed to the relevant Process, Launch, Network, Incident, Investigation, or Intelligence workspace.
+- Cmd+K is navigation/query intent only: user text is never concatenated into a shell command.
+- the new Intelligence Center and command-palette scripts are contract-tested to reject dynamic-code execution and dynamic HTML injection patterns.
+
+## Planned release-defining changes still open
+
+- complete field-level migration from all v2.2 persistent stores, with rollback/recovery validation.
 - Recovery Center 2.0 for Sentinel-owned state, interrupted jobs, Vault health, and checkpoint recovery.
-- Explain Why with stable reason codes and evidence references fully wired into normal investigation UI.
-- Visibility & Permissions Center for evidence-source availability and limitations.
-- Global Search / Command Palette for rapid navigation to objects, incidents, hashes, paths, processes, endpoints, and typed System Console intents.
-- Easy / Investigate / Advanced information architecture cleanup.
-- explicit v2.3 persistent schema versions and migration from v2.2 state.
+- runtime/API/UI integration of the already-built Storage History / growth-attribution core.
+- Easy / Investigate / Advanced information-architecture normalization across the entire legacy dashboard.
+- standalone Incident export and a broader deterministic merge/split policy across all legacy correlation episode boundaries.
+- repetitive-event grouping/collapse in Global Timeline.
+- versioned Reason Code / Rule registries with direct evidence references.
 
 ## Planned second-stage improvements
 
-- Evidence Graph 2.0.
-- deterministic local Rule Engine integration and configurable bounded rules.
-- staged exact-duplicate analysis.
-- Storage Intelligence 2.0 trends.
+- staged exact-duplicate analysis 2.0.
+- Storage Intelligence 2.0 trends and aging runtime/UI integration.
 - richer executable-aware Network Evidence identity and higher-level temporal summaries without introducing packet capture.
-- Safe Actions 2.0 preview/recovery UX.
-- Vault Health.
-- local diagnostics, benchmarks, and CI gates.
+- Safe Actions 2.0 dependency-preview/post-action UX expansion and a dedicated Vault Health page.
+- local diagnostics, benchmarks, and CI migration gates.
 - bounded predefined macOS log/event recipes.
 - broader System Snapshot & Diff across selected macOS object types.
 - privacy-aware investigation bundle export.
@@ -163,6 +208,8 @@ v2.3 must preserve:
 - no cloud dependency for core functionality;
 - no arbitrary web-exposed shell or `sudo` execution path;
 - no mutation that bypasses Sentinel preview, confirmation, journaling, and recovery boundaries;
-- Continue Investigation remains read-only, bounded, and transparent about truncation/visibility limits.
+- Continue Investigation remains read-only, bounded, and transparent about truncation/visibility limits;
+- Cmd+K remains typed Sentinel navigation/search rather than an arbitrary command runner;
+- Visibility status describes evidence access and never substitutes for a security verdict.
 
 See `UPGRADE_V2.3_PLAN.md`, `SYSTEM_CONSOLE_V2.3.md`, and `V2.3_BRANCH_CHECKLIST.md` for the implementation plan and branch gates.
