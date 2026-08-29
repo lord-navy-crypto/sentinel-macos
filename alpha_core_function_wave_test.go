@@ -86,4 +86,20 @@ func TestStorageGrowthAnalysisMarksPartialAttribution(t *testing.T){
 	if !strings.Contains(strings.ToLower(analysis.Interpretation),"partial"){t.Fatalf("partial comparison must surface directional limitation: %+v",analysis)}
 }
 
+func TestGlobalTimelineAnalysisBuildsActivityWindows(t *testing.T){
+	in:=GlobalTimelineResponse{Events:[]InvestigationTimelineEvent{
+		{At:100,Source:"filesystem_change",Kind:"modified",Severity:"info",Path:"/tmp/A"},
+		{At:140,Source:"incident",Kind:"evidence",Severity:"review",Path:"/tmp/A",IncidentID:"i1"},
+		{At:180,Source:"intelligence",Kind:"system_evidence",Severity:"high",Path:"/tmp/A"},
+		{At:500,Source:"filesystem_change",Kind:"modified",Severity:"info",Path:"/tmp/B"},
+	}}
+	analysis:=BuildGlobalTimelineAnalysisV23(in)
+	if len(analysis.Windows)!=2{t.Fatalf("expected 2 activity windows, got %+v",analysis.Windows)}
+	if !analysis.Windows[0].CrossSource||analysis.Windows[0].HighCount!=1||analysis.Windows[0].ReviewCount!=2{t.Fatalf("unexpected first window: %+v",analysis.Windows[0])}
+	if len(analysis.CoObservations)!=3{t.Fatalf("three sources in one window should produce 3 source pairs: %+v",analysis.CoObservations)}
+	if len(analysis.ReviewWindows)!=1{t.Fatalf("expected one review window: %+v",analysis.ReviewWindows)}
+	raw,err:=json.Marshal(in);if err!=nil{t.Fatal(err)}
+	if !strings.Contains(string(raw),"source_co_observations")||!strings.Contains(string(raw),"window_gap_seconds"){t.Fatalf("timeline analysis missing from global timeline JSON: %s",raw)}
+}
+
 func containsString(rows []string,want string)bool{for _,x:=range rows{if x==want{return true}};return false}
