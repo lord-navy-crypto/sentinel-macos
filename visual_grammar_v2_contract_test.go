@@ -106,7 +106,7 @@ func TestVisualGrammarV2StorageUsesObservedNumbers(t *testing.T) {
 	}
 	for _, want := range []string{
 		"parseBytes", "storageHistory", "storageAging", ".delta-positive, .delta-negative",
-		"retained large file\(s\)", "Math.abs(value) / max * 100", "aria-label",
+		`retained large file\(s\)`, "Math.abs(value) / max * 100", "aria-label",
 	} {
 		if !strings.Contains(js, want) {
 			t.Fatalf("Storage quantitative visualization missing %q", want)
