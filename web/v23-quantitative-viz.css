@@ -1,0 +1,70 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+/* Quantitative encodings use aligned length only when values share a meaningful scale. */
+.quant-row{
+  display:grid!important;
+  grid-template-columns:minmax(180px,.95fr) minmax(220px,1.6fr)!important;
+  align-items:center!important;
+  gap:12px 18px!important;
+}
+.quant-copy{min-width:0}
+.quant-copy b,.quant-copy span{display:block;overflow-wrap:anywhere}
+.quant-copy span{margin-top:3px;color:var(--muted);font-size:10px}
+.quant-bar{
+  position:relative;
+  width:100%;
+  height:7px;
+  overflow:hidden;
+  border-radius:999px;
+  background:rgba(143,164,190,.10);
+  border:1px solid rgba(143,164,190,.12);
+}
+.quant-bar-fill{
+  display:block;
+  width:0;
+  height:100%;
+  min-width:2px;
+  border-radius:999px;
+  background:var(--accent);
+}
+.quant-bar.growth .quant-bar-fill{background:var(--warn)}
+.quant-bar.reduction .quant-bar-fill{background:var(--ok)}
+.quant-bar.age .quant-bar-fill{background:var(--info)}
+
+body[data-workspace="storage"] .summary-grid,
+body[data-workspace="system"] .summary-grid{
+  border-top:1px solid var(--line-soft);
+  border-bottom:1px solid var(--line-soft);
+}
+body[data-workspace="storage"] .stack,
+body[data-workspace="system"] .stack{
+  display:grid;
+  gap:0;
+}
+body[data-workspace="storage"] .stack>.card,
+body[data-workspace="system"] .stack>.card{
+  border-radius:0;
+  border-left:2px solid rgba(130,182,244,.42);
+  background:linear-gradient(90deg,rgba(130,182,244,.035),transparent 64%);
+}
+body[data-workspace="system"] .compare-row{
+  display:grid;
+  grid-template-columns:1fr 1fr auto;
+  align-items:end;
+  gap:10px;
+  margin:14px 0 18px;
+  padding:12px 0 16px;
+  border-top:1px solid var(--line-soft);
+  border-bottom:1px solid var(--line-soft);
+}
+body[data-workspace="system"] .compare-row label{
+  color:var(--muted-2);
+  font-size:9px;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+body[data-workspace="system"] .compare-row select{display:block;width:100%;margin-top:6px}
+
+@media(max-width:720px){
+  .quant-row{grid-template-columns:1fr!important;gap:7px!important}
+  body[data-workspace="system"] .compare-row{grid-template-columns:1fr}
+}
