@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Sentinel Compare Center</title>
+  <link rel="stylesheet" href="/control-plane.css">
+  <link rel="stylesheet" href="/compare-center.css">
+  <link rel="stylesheet" href="/v23-navigation.css">
+</head>
+<body>
+<main class="shell">
+  <header class="hero">
+    <div><p class="eyebrow">Sentinel v2.3 · Tool</p><h1>Compare Center</h1><p>Choose the kind of change you want to compare. Sentinel keeps each comparison tied to its original evidence model instead of mixing unrelated measurements.</p></div>
+  </header>
+  <p id="notice" class="notice" role="status" aria-live="polite"></p>
+  <section class="compare-grid">
+    <a class="compare-card" data-path="/system-center.html"><span class="kicker">System</span><h2>System Snapshot & Diff</h2><p>Compare retained system snapshots and inspect typed added/removed changes, shared-reference correlations, and investigation targets.</p><b>Open System comparison →</b></a>
+    <a class="compare-card" data-path="/storage-center.html"><span class="kicker">Storage</span><h2>Storage Growth</h2><p>Compare retained storage captures, directory/file-type changes, growth attribution, reduction, and churn.</p><b>Open Storage comparison →</b></a>
+    <a class="compare-card" data-path="/network-relations.html"><span class="kicker">Network</span><h2>Network History</h2><p>Compare retained network snapshots to see appeared/ended relationships, process changes, endpoint changes, and state transitions.</p><b>Open Network comparison →</b></a>
+    <a class="compare-card" data-path="/intelligence-center.html"><span class="kicker">Incidents</span><h2>Incident Evolution</h2><p>Compare episodes inside a stable Incident Story and see evidence/source/path changes and escalation or de-escalation.</p><b>Open Incident comparison →</b></a>
+  </section>
+  <section class="compare-note"><h2>Comparison rule</h2><p>Net change, co-observation, relationship correlation, and confidence are different concepts. Compare Center keeps those meanings separate and does not turn change into a malware probability.</p></section>
+</main>
+<script src="/compare-center.js"></script>
+<script src="/v23-navigation.js"></script>
+</body>
+</html>
