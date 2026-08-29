@@ -4,7 +4,7 @@
   const $ = id => document.getElementById(id);
   const el = (tag, cls='', text='') => { const n=document.createElement(tag); if(cls)n.className=cls; if(text!=='')n.textContent=String(text); return n; };
   const metric = (label,value) => { const n=el('div','metric'); n.append(el('span','',label),el('b','',value)); return n; };
-  const fmtBytes = n => { let v=Math.abs(Number(n||0)),u=['B','KB','MB','GB','TB'],i=0;while(v>=1024&&i<u.length-1){v/=1024;i++;}return `${v.toFixed(i>1?1:0)} ${u[i]}`; };
+  const fmtBytes = n => { const raw=Number(n||0),sign=raw<0?'-':raw>0?'+':'';let v=Math.abs(raw),u=['B','KB','MB','GB','TB'],i=0;while(v>=1024&&i<u.length-1){v/=1024;i++;}return `${sign}${v.toFixed(i>1?1:0)} ${u[i]}`; };
   async function api(url, options={}) { options.headers={...(options.headers||{}),'X-Sentinel-Token':token}; const r=await fetch(url,options); const d=await r.json().catch(()=>({})); if(!r.ok)throw new Error(d.error||`HTTP ${r.status}`); return d; }
   const postMode = mode => api(`/api/system/query/structured?mode=${encodeURIComponent(mode)}`,{method:'POST'});
   function wireLinks(){for(const a of document.querySelectorAll('[data-path]'))a.href=`${a.dataset.path}#token=${encodeURIComponent(token)}`;for(const a of document.querySelectorAll('.hero-actions a')){const u=new URL(a.getAttribute('href'),location.origin);a.href=`${u.pathname}#token=${encodeURIComponent(token)}`;}}
