@@ -45,6 +45,27 @@
       </div>
     </section>
 
+    <section id="sessionPanel" class="control-card">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Investigation Sessions</p>
+          <h2>Save the investigation, not the file contents</h2>
+        </div>
+        <p id="sessionStorageNote">Loading bounded session history…</p>
+      </div>
+      <div class="session-controls">
+        <input id="sessionTitle" type="text" maxlength="96" autocomplete="off" spellcheck="false" placeholder="Session title (optional)">
+        <textarea id="sessionNote" maxlength="1200" rows="2" placeholder="Optional note for the current branch"></textarea>
+        <div class="candidate-actions">
+          <button id="saveSession" type="button">Save Session</button>
+          <button id="bookmarkBranch" type="button" disabled>Bookmark Current Branch</button>
+          <button id="refreshSessions" type="button">Refresh Sessions</button>
+          <span id="activeSessionStatus" class="badge">No active session</span>
+        </div>
+      </div>
+      <div id="sessionList" class="candidate-list"></div>
+    </section>
+
     <section id="branchSummary" class="summary-card hidden" aria-live="polite"></section>
 
     <div class="two-column">
