@@ -1,3 +1,79 @@
 /* SPDX-License-Identifier: MPL-2.0 */
-:root{color-scheme:dark;--bg:#0b0d12;--panel:#141821;--panel2:#1a202b;--line:#2b3342;--text:#f4f6fa;--muted:#9da8b8;--accent:#7aa2ff;--warn:#f2bf62;--bad:#ff7e82;--ok:#6fd3a8}
-*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top,#131927,var(--bg) 42%);color:var(--text);font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.shell{max-width:1240px;margin:0 auto;padding:28px 20px 60px}.hero{display:flex;justify-content:space-between;gap:24px;align-items:flex-start;margin-bottom:24px}.hero h1{font-size:34px;margin:4px 0 6px}.hero p{max-width:760px;color:var(--muted)}.eyebrow{text-transform:uppercase;letter-spacing:.12em;font-size:11px;color:var(--accent);margin:0}.hero-actions{display:flex;gap:8px;flex-wrap:wrap}.hero-actions a,button{border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:10px;padding:9px 12px;text-decoration:none;cursor:pointer}button:hover,.hero-actions a:hover{border-color:var(--accent)}button:disabled{opacity:.55;cursor:default}.notice{min-height:20px;color:var(--warn)}.panel{border:1px solid var(--line);background:linear-gradient(180deg,var(--panel),#11151d);border-radius:18px;padding:18px;margin:16px 0;box-shadow:0 14px 36px rgba(0,0,0,.18)}.heading{display:flex;justify-content:space-between;gap:18px;align-items:center}.heading h2{font-size:23px;margin:2px 0}.help{color:var(--muted);margin:6px 0 16px}.summary-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:12px 0}.metric,.card,.row{border:1px solid var(--line);background:var(--panel2);border-radius:12px;padding:12px}.metric span,.card small,.row small{display:block;color:var(--muted);font-size:11px}.metric b{display:block;font-size:20px;margin-top:3px}.card-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.card h3{font-size:15px;margin:0 0 6px}.card p,.row p{margin:5px 0;color:var(--muted);overflow-wrap:anywhere}.stack{display:grid;gap:8px;margin-top:12px}.row{display:flex;justify-content:space-between;align-items:flex-start;gap:14px}.row-main{min-width:0;flex:1}.row-actions{display:flex;gap:7px;flex-wrap:wrap}.row-actions a{border:1px solid var(--line);color:var(--text);text-decoration:none;border-radius:8px;padding:6px 8px;font-size:12px}.badge{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:3px 7px;font-size:11px;margin:2px 5px 2px 0}.badge.review{border-color:var(--warn);color:var(--warn)}.badge.high{border-color:var(--bad);color:var(--bad)}.badge.ok{border-color:var(--ok);color:var(--ok)}.compare-row{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end;margin:12px 0}.compare-row label{display:grid;gap:5px;color:var(--muted)}select{width:100%;border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:9px;padding:8px}.diff-group{border-left:3px solid var(--accent);padding-left:12px}.delta-positive{color:var(--warn)}.delta-negative{color:var(--ok)}code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#c5d4ff;overflow-wrap:anywhere}@media(max-width:900px){.summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.card-grid{grid-template-columns:1fr 1fr}.hero{flex-direction:column}.compare-row{grid-template-columns:1fr}}@media(max-width:580px){.card-grid,.summary-grid{grid-template-columns:1fr}.row,.heading{flex-direction:column}.shell{padding:20px 12px 50px}}
+:root{color-scheme:dark}
+*{box-sizing:border-box}body{margin:0;color:var(--text);font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.shell{max-width:1240px;margin:0 auto;padding:28px 20px 60px}.hero-actions{display:flex;gap:8px;flex-wrap:wrap}.notice{min-height:20px;color:var(--warn)}.panel{padding:20px;margin:16px 0}.heading{display:flex;justify-content:space-between;gap:18px;align-items:center}.heading h2{font-size:22px;margin:2px 0}.help{color:var(--muted);margin:6px 0 16px;max-width:900px;font-size:12px;line-height:1.55}
+
+/* Shared summary language: one continuous status strip. */
+.summary-grid{
+  display:grid;
+  grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:0;
+  margin:12px 0;
+  border-top:1px solid var(--line-soft);
+  border-bottom:1px solid var(--line-soft);
+}
+.summary-grid .metric,.summary-grid>div{
+  min-width:0;
+  border:0;
+  border-right:1px solid var(--line-soft);
+  border-radius:0;
+  background:transparent;
+  padding:11px 12px;
+}
+.summary-grid>*:last-child{border-right:0}
+.metric span,.card small,.row small{display:block;color:var(--muted-2);font-size:9px;text-transform:uppercase;letter-spacing:.06em}.metric b{display:block;font-size:18px;font-variant-numeric:tabular-nums;margin-top:4px}
+
+/* Security source evidence is a compact source matrix. */
+.card-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:0 20px;
+  border-top:1px solid var(--line-soft);
+}
+.card{
+  min-width:0;
+  border:0;
+  border-bottom:1px solid var(--line-soft);
+  background:transparent;
+  border-radius:0;
+  padding:12px 2px;
+}
+.card h3{font-size:13px;margin:0 0 5px}.card p,.row p{margin:4px 0;color:var(--muted);font-size:11px;line-height:1.5;overflow-wrap:anywhere}
+
+/* Retained evidence and review signals are chronological/evidence rows. */
+.stack{display:grid;gap:0;margin-top:12px;border-top:1px solid var(--line-soft)}
+.row{
+  position:relative;
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:14px;
+  border:0;
+  border-bottom:1px solid var(--line-soft);
+  background:transparent;
+  border-radius:0;
+  padding:11px 2px 11px 14px;
+}
+.row::before{content:"";position:absolute;left:1px;top:17px;width:5px;height:5px;border-radius:50%;background:var(--muted-2)}
+.row-main{min-width:0;flex:1}.row-actions{display:flex;gap:7px;flex-wrap:wrap}.row-actions a{text-decoration:none;font-size:10px}.badge{display:inline-block;padding:3px 7px;font-size:9px;margin:2px 5px 2px 0}.badge.review{border-color:rgba(230,186,103,.34);color:var(--warn)}.badge.high{border-color:rgba(233,135,135,.36);color:var(--bad)}.badge.ok{border-color:rgba(119,201,154,.32);color:var(--ok)}
+
+/* Snapshot comparison is visually before -> after without changing labels or controls. */
+.compare-row{
+  display:grid;
+  grid-template-columns:1fr 1fr auto;
+  gap:9px;
+  align-items:end;
+  margin:12px 0 16px;
+  padding:12px 0 14px;
+  border-top:1px solid var(--line-soft);
+  border-bottom:1px solid var(--line-soft);
+}
+.compare-row label{display:grid;gap:5px;color:var(--muted-2);font-size:9px;text-transform:uppercase;letter-spacing:.07em}.compare-row select{margin-top:1px;text-transform:none;letter-spacing:normal}
+select{width:100%;padding:8px 9px}.diff-group{border-left:2px solid rgba(130,182,244,.56);padding-left:13px}.delta-positive{color:var(--warn)}.delta-negative{color:var(--ok)}code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#c5d4ff;overflow-wrap:anywhere}
+
+@media(max-width:900px){
+  .summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.summary-grid>*:nth-child(2n){border-right:0}.summary-grid>*:not(:nth-last-child(-n+2)){border-bottom:1px solid var(--line-soft)}
+  .card-grid{grid-template-columns:1fr 1fr}.hero{flex-direction:column}.compare-row{grid-template-columns:1fr}
+}
+@media(max-width:580px){
+  .card-grid,.summary-grid{grid-template-columns:1fr}.summary-grid>*{border-right:0;border-bottom:1px solid var(--line-soft)!important}.summary-grid>*:last-child{border-bottom:0!important}.row,.heading{flex-direction:column}.shell{padding:20px 12px 50px}
+}
