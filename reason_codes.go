@@ -45,6 +45,7 @@ func appendUniqueString(dst []string, value string) []string {
 func BuildIncidentExplanation(in Incident) IncidentExplanation {
 	out := IncidentExplanation{}
 	sources := map[string]int{}
+	kinds := map[string]int{}
 	high, review := 0, 0
 
 	for _, e := range in.Evidence {
@@ -52,9 +53,14 @@ func BuildIncidentExplanation(in Incident) IncidentExplanation {
 		if source == "" {
 			source = "unknown"
 		}
+		kind := strings.ToLower(strings.TrimSpace(e.Kind))
+		if kind == "" {
+			kind = "observation"
+		}
 		sources[source]++
+		kinds[kind]++
 
-		fact := fmt.Sprintf("%s:%s", source, firstNonEmpty(strings.TrimSpace(e.Kind), "observation"))
+		fact := fmt.Sprintf("%s:%s", source, kind)
 		if e.Path != "" {
 			fact += " · " + e.Path
 		}
@@ -104,6 +110,12 @@ func BuildIncidentExplanation(in Incident) IncidentExplanation {
 	if n := sources["filesystem"]; n > 0 {
 		addReason("filesystem_activity", "filesystem", "increase", 5, n, "Related filesystem activity was observed.")
 	}
+	if n := sources["system_console"]; n > 0 {
+		out.DerivedRelationships = append(out.DerivedRelationships, "Typed System Console evidence contributed to this object-centered story.")
+		addReason("system_console_evidence", "system", "increase", 8, n, "A bounded typed macOS evidence query contributed review context.")
+	}
+	addReason("gatekeeper_rejected", "integrity", "increase", 25, kinds["gatekeeper_rejected"], "Gatekeeper returned rejected/reviewable evidence for the selected object.")
+	addReason("code_signing_unverified", "integrity", "increase", 20, kinds["code_signing_unverified"], "Code-signing inspection returned a non-zero reviewable result for the selected object.")
 	addReason("high_severity_evidence", "evidence", "increase", 20, high, "One or more contributing observations were marked high attention.")
 	addReason("review_severity_evidence", "evidence", "increase", 10, review, "One or more contributing observations were marked for review.")
 
