@@ -24,16 +24,28 @@
     return '';
   }
 
-  function incidentStartingPath(incident) {
-    const primary = cleanAbsolutePath(incident?.primary_path);
-    if (primary) return primary;
+  function incidentEvidencePaths(incident) {
+    const paths = [];
+    const seen = new Set();
+    const add = value => {
+      const path = cleanAbsolutePath(value);
+      if (!path || seen.has(path)) return;
+      seen.add(path);
+      paths.push(path);
+    };
+    add(incident?.primary_path);
     for (const evidence of incident?.evidence || []) {
-      for (const value of [evidence?.path, evidence?.object_key, evidence?.target]) {
-        const path = cleanAbsolutePath(value);
-        if (path) return path;
-      }
+      // Only accept fields that are already explicit absolute paths. Sentinel does
+      // not guess a path out of arbitrary prose because that would create false
+      // investigation branches from human-readable evidence text.
+      for (const value of [evidence?.path, evidence?.object_key, evidence?.target, evidence?.detail]) add(value);
+      if (paths.length >= 6) break;
     }
-    return '';
+    return paths.slice(0, 6);
+  }
+
+  function incidentStartingPath(incident) {
+    return incidentEvidencePaths(incident)[0] || '';
   }
 
   function investigationURL(path) {
@@ -41,11 +53,17 @@
     return `/investigation.html#${params.toString()}`;
   }
 
-  function makeContinueButton(path, title) {
+  function shortPathLabel(path) {
+    const parts = String(path || '').split('/').filter(Boolean);
+    const leaf = parts[parts.length - 1] || path;
+    return leaf.length > 34 ? `${leaf.slice(0, 31)}…` : leaf;
+  }
+
+  function makeContinueButton(path, title, label = 'Continue Investigation') {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'tiny continue-investigation';
-    button.textContent = 'Continue Investigation';
+    button.textContent = label;
     button.title = title;
     button.addEventListener('click', () => {
       location.href = investigationURL(path);
@@ -83,19 +101,39 @@
     const cards = [...container.querySelectorAll('.behavior-change')];
     const rendered = lastIncidents.slice().reverse();
     cards.forEach((card, index) => {
-      if (card.querySelector('.continue-investigation')) return;
+      if (card.dataset.sentinelIncidentBranches === '1') return;
       const incident = rendered[index];
-      const path = incidentStartingPath(incident);
-      if (!path) return;
+      const paths = incidentEvidencePaths(incident);
+      if (!paths.length) return;
+      card.dataset.sentinelIncidentBranches = '1';
+
       let row = card.querySelector('.row-actions');
       if (!row) {
         row = document.createElement('div');
         row.className = 'row-actions investigation-actions';
         card.append(row);
       }
-      row.append(
-        makeContinueButton(path, 'Continue from this incident primary object into file, runtime, persistence, network, and Object Story evidence.')
-      );
+      paths.forEach((path, pathIndex) => {
+        const label = pathIndex === 0
+          ? 'Continue Investigation'
+          : `Evidence: ${shortPathLabel(path)}`;
+        row.append(
+          makeContinueButton(
+            path,
+            pathIndex === 0
+              ? 'Continue from this incident object into file, runtime, persistence, network, and Object Story evidence.'
+              : `Continue directly from this explicit local evidence node: ${path}`,
+            label,
+          )
+        );
+      });
+
+      if (paths.length > 1) {
+        const hint = document.createElement('small');
+        hint.className = 'muted';
+        hint.textContent = `${paths.length} explicit local evidence branches available`;
+        row.append(hint);
+      }
     });
   }
 
