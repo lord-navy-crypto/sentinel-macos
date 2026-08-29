@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -83,5 +84,29 @@ func TestNetworkHistoryEphemeralModeDoesNotWriteState(t *testing.T) {
 	}
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		t.Fatalf("ephemeral mode unexpectedly wrote state: %v", err)
+	}
+}
+
+func TestNetworkHistoryTimelineSummaryIsBoundedAndNonCausal(t *testing.T) {
+	snapshot := NetworkHistorySnapshot{RowsSeen: 12, RowsStored: 7, Truncated: true}
+	diff := &NetworkHistoryDiff{
+		Added: []NetworkHistoryRelation{{Process: "A"}, {Process: "B"}},
+		Ended: []NetworkHistoryRelation{{Process: "C"}},
+	}
+	detail := networkSnapshotTimelineDetail(snapshot, diff)
+	for _, want := range []string{"7 normalized relationship", "12 currently visible TCP row", "2 newly present", "1 absent", "do not establish exact connection start/end times"} {
+		if !strings.Contains(detail, want) {
+			t.Fatalf("timeline summary missing %q: %s", want, detail)
+		}
+	}
+}
+
+func TestFindNetworkHistorySnapshotUsesRetainedStableID(t *testing.T) {
+	snapshots := []NetworkHistorySnapshot{{ID: "network-snapshot-a"}, {ID: "network-snapshot-b"}}
+	if got, ok := findNetworkHistorySnapshot(snapshots, "network-snapshot-b"); !ok || got.ID != "network-snapshot-b" {
+		t.Fatalf("expected retained snapshot lookup, got %+v ok=%v", got, ok)
+	}
+	if _, ok := findNetworkHistorySnapshot(snapshots, "missing"); ok {
+		t.Fatal("missing snapshot ID must not be guessed")
 	}
 }
