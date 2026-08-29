@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Sentinel System Console</title>
   <link rel="stylesheet" href="/system-console.css">
+  <link rel="stylesheet" href="/system-console-domains.css">
 </head>
 <body>
   <main class="console-shell">
@@ -12,16 +13,16 @@
       <div>
         <p class="eyebrow">Sentinel v2.3 development</p>
         <h1>System Console</h1>
-        <p class="subtitle">Understand, investigate, control, and recover without turning macOS administration into an arbitrary shell.</p>
+        <p class="subtitle">A visual Terminal-backed macOS toolbox: real system commands become typed buttons, large capability groups, structured evidence, and Sentinel-managed control workflows.</p>
       </div>
       <a id="backLink" class="back-link" href="/">Back to Sentinel</a>
     </header>
 
     <section class="principles" aria-label="System Console principles">
       <article><b>Understand</b><span>See what macOS is doing.</span></article>
-      <article><b>Investigate</b><span>Inspect objects and evidence.</span></article>
-      <article><b>Control</b><span>Use previewed Sentinel actions.</span></article>
-      <article><b>Recover</b><span>Keep rollback and history visible.</span></article>
+      <article><b>Investigate</b><span>Inspect objects, processes, services, networks, logs, and evidence.</span></article>
+      <article><b>Control</b><span>Use typed Sentinel workflows instead of arbitrary privileged commands.</span></article>
+      <article><b>Recover</b><span>Keep rollback, history, and recovery state visible.</span></article>
     </section>
 
     <p id="notice" class="notice" role="status" aria-live="polite"></p>
@@ -30,9 +31,9 @@
       <div class="section-heading">
         <div>
           <p class="eyebrow">Ask the Mac</p>
-          <h2>Start with a question, not a command</h2>
+          <h2>Start with a question or jump into the toolbox</h2>
         </div>
-        <p>Sentinel maps common system questions to bounded evidence sources so you do not need to memorize Terminal syntax first.</p>
+        <p>Common questions map to bounded macOS evidence. Below them, the Terminal Toolbox exposes the larger fixed-command catalog as visual buttons.</p>
       </div>
       <div class="recipe-grid">
         <button class="recipe-card" type="button" data-recipe-tool="process-table"><b>What is running right now?</b><span>Inspect processes, ownership, CPU, memory, and elapsed runtime.</span></button>
@@ -70,10 +71,10 @@
     <section>
       <div class="section-heading">
         <div>
-          <p class="eyebrow">Allowlisted macOS evidence</p>
-          <h2>Visual system tools</h2>
+          <p class="eyebrow">Visual Terminal Toolbox</p>
+          <h2>macOS capabilities as big function groups</h2>
         </div>
-        <p>Read-only tools run fixed executables with explicit arguments, bounded time, and bounded output. Managed actions stay inside Sentinel Safe Actions and recovery workflows.</p>
+        <p>Read-only buttons execute allowlisted macOS tools with fixed arguments, bounded time, and bounded output. Control/recovery buttons stay inside typed Sentinel workflows.</p>
       </div>
       <div id="toolGroups" class="tool-groups"></div>
     </section>
@@ -88,7 +89,7 @@
       </div>
       <div id="structuredOutput" class="structured-output hidden" aria-live="polite"></div>
       <details class="raw-evidence" open>
-        <summary>Raw evidence</summary>
+        <summary>Raw Terminal evidence</summary>
         <pre id="queryOutput" tabindex="0"></pre>
       </details>
       <div id="queryLimitations" class="limitations"></div>
@@ -96,5 +97,6 @@
   </main>
   <script src="/system-console.js"></script>
   <script src="/system-console-links.js"></script>
+  <script src="/system-console-domains.js"></script>
 </body>
 </html>
