@@ -48,6 +48,8 @@ jobs:
           node --check web/process-relations.js
           node --check web/process-relations-bridge.js
           node --check web/network-relations.js
+          node --check web/intelligence-center.js
+          node --check web/command-palette.js
 
       - name: Shell syntax
         run: |
