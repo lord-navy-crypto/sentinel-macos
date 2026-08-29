@@ -16,6 +16,7 @@ const (
 	incidentHistoryLimit  = 120
 	incidentEvidenceLimit = 40
 	incidentWindowSeconds = int64(15 * 60)
+	incidentHistoryVersion = 3
 )
 
 type IncidentEvidence struct {
@@ -82,10 +83,33 @@ func incidentHistoryPath() string {
 	return filepath.Join(base, "incident-history.json.gz")
 }
 
-func normalizeLoadedIncident(x Incident) Incident {
-	if x.StoryKey == "" {
-		x.StoryKey = firstNonEmpty(x.ID, entityID("incident-story", x.PrimaryPath))
+func stableIncidentStoryKey(x Incident) string {
+	anchor := canonicalIncidentPath(x.PrimaryPath)
+	if anchor == "" {
+		for _, p := range x.RelatedPaths {
+			if anchor = canonicalIncidentPath(p); anchor != "" {
+				break
+			}
+		}
 	}
+	if anchor == "" {
+		for _, e := range x.Evidence {
+			if anchor = canonicalIncidentPath(e.Path); anchor != "" {
+				break
+			}
+		}
+	}
+	if anchor != "" {
+		return entityID("incident-story", anchor)
+	}
+	return firstNonEmpty(x.StoryKey, x.ID)
+}
+
+func normalizeLoadedIncident(x Incident) Incident {
+	// v2.3 stories are object-centered and stable across bounded correlation
+	// episodes. Older v1/v2 histories encoded the 15-minute window in StoryKey;
+	// normalize them in memory so the next safe state write migrates them.
+	x.StoryKey = stableIncidentStoryKey(x)
 	if x.OccurrenceCount <= 0 {
 		x.OccurrenceCount = len(x.Evidence)
 		if x.OccurrenceCount == 0 {
@@ -105,12 +129,21 @@ func newIncidentManager(ephemeral bool) *incidentManager {
 			Version   int        `json:"version"`
 			Incidents []Incident `json:"incidents"`
 		}
-		if readGzipJSON(m.path, &w) == nil && (w.Version == 1 || w.Version == 2) {
+		if readGzipJSON(m.path, &w) == nil && (w.Version == 1 || w.Version == 2 || w.Version == incidentHistoryVersion) {
 			if len(w.Incidents) > incidentHistoryLimit {
 				w.Incidents = w.Incidents[len(w.Incidents)-incidentHistoryLimit:]
 			}
-			for _, x := range w.Incidents {
-				m.history = append(m.history, normalizeLoadedIncident(x))
+			byStory := map[string]int{}
+			for _, raw := range w.Incidents {
+				x := normalizeLoadedIncident(raw)
+				if i, ok := byStory[x.StoryKey]; ok {
+					merged := mergeIncident(m.history[i], x)
+					merged.State = "historical"
+					m.history[i] = merged
+					continue
+				}
+				byStory[x.StoryKey] = len(m.history)
+				m.history = append(m.history, x)
 			}
 		}
 	}
@@ -257,15 +290,15 @@ func incidentFromCluster(anchor string, ev []IncidentEvidence) (Incident, bool) 
 	}
 	rec = append(rec, "If action is necessary, prefer Reveal/Rename/Vault; Sentinel provides no permanent deletion.")
 	first, last := ev[0].At, ev[len(ev)-1].At
-	storyWindow := first / incidentWindowSeconds
-	storyKey := entityID("incident-story", fmt.Sprintf("%s|%d", anchor, storyWindow))
+	storyKey := entityID("incident-story", anchor)
 	id := entityID("incident", fmt.Sprintf("%s|%d|%d|%s", storyKey, first, last, strings.Join(sources, ",")))
 	return Incident{ID: id, StoryKey: storyKey, State: "active", CreatedAt: first, UpdatedAt: last, OccurrenceCount: len(ev), Severity: sev, Confidence: confidence, ConfidenceBand: incidentBand(confidence), Title: title, PrimaryPath: anchor, Sources: sources, RelatedPaths: paths, Evidence: append([]IncidentEvidence(nil), ev...), Recommended: rec, Note: "Evidence confidence estimates how strongly observations form one story. It is not malware probability and does not determine intent."}, true
 }
 
 // buildIncidentCandidates correlates existing Sentinel evidence. Correlation is
-// time-windowed so unrelated observations on the same path hours apart do not
-// become one misleading story. Confidence is relationship confidence only.
+// time-windowed so unrelated observations on the same path hours apart remain
+// distinct episodes, while the stable StoryKey lets history represent the same
+// object-centered story across episode boundaries.
 func (a *app) buildIncidentCandidates() []Incident {
 	buckets := map[string][]IncidentEvidence{}
 	add := func(anchor, path string, e IncidentEvidence) {
@@ -358,9 +391,7 @@ func (a *app) buildIncidentCandidates() []Incident {
 func mergeIncident(old, cur Incident) Incident {
 	out := old
 	out.State = "active"
-	if out.StoryKey == "" {
-		out.StoryKey = cur.StoryKey
-	}
+	out.StoryKey = stableIncidentStoryKey(cur)
 	if out.CreatedAt == 0 || (cur.CreatedAt > 0 && cur.CreatedAt < out.CreatedAt) {
 		out.CreatedAt = cur.CreatedAt
 	}
@@ -384,6 +415,7 @@ func mergeIncident(old, cur Incident) Incident {
 	out.OccurrenceCount = len(out.Evidence)
 	out.Recommended = uniqueStrings(append(out.Recommended, cur.Recommended...))
 	out.Note = cur.Note
+	// ID remains the latest bounded episode ID; StoryKey is the stable entity.
 	out.ID = cur.ID
 	return out
 }
@@ -397,8 +429,22 @@ func (m *incidentManager) store(current []Incident) {
 	for i := range merged {
 		merged[i] = normalizeLoadedIncident(merged[i])
 		merged[i].State = "historical"
+		if previous, ok := index[merged[i].StoryKey]; ok {
+			merged[previous] = mergeIncident(merged[previous], merged[i])
+			merged[previous].State = "historical"
+			merged[i].StoryKey = ""
+			continue
+		}
 		index[merged[i].StoryKey] = i
 	}
+	compacted := merged[:0]
+	index = map[string]int{}
+	for _, x := range merged {
+		if x.StoryKey == "" { continue }
+		index[x.StoryKey] = len(compacted)
+		compacted = append(compacted, x)
+	}
+	merged = compacted
 	for _, x := range current {
 		x = normalizeLoadedIncident(x)
 		x.State = "active"
@@ -418,7 +464,7 @@ func (m *incidentManager) store(current []Incident) {
 		_ = writePrivateGzipJSON(m.path, struct {
 			Version   int        `json:"version"`
 			Incidents []Incident `json:"incidents"`
-		}{2, m.history})
+		}{incidentHistoryVersion, m.history})
 	}
 }
 
@@ -429,10 +475,11 @@ func (m *incidentManager) snapshot(includeHistory bool) IncidentStatus {
 	if includeHistory {
 		active := map[string]bool{}
 		for _, x := range m.current {
-			active[x.StoryKey] = true
+			active[stableIncidentStoryKey(x)] = true
 		}
 		rows = append([]Incident(nil), m.history...)
 		for i := range rows {
+			rows[i] = normalizeLoadedIncident(rows[i])
 			if active[rows[i].StoryKey] {
 				rows[i].State = "active"
 			} else {
@@ -442,7 +489,7 @@ func (m *incidentManager) snapshot(includeHistory bool) IncidentStatus {
 	} else {
 		rows = append([]Incident(nil), rows...)
 	}
-	st := IncidentStatus{GeneratedAt: time.Now().UTC().Format(time.RFC3339), Count: len(rows), Persistent: m.persistent, HistoryPath: m.path, Incidents: rows, Note: "Incidents correlate time-bounded local evidence into review stories. Confidence is relationship confidence, never malware probability."}
+	st := IncidentStatus{GeneratedAt: time.Now().UTC().Format(time.RFC3339), Count: len(rows), Persistent: m.persistent, HistoryPath: m.path, Incidents: rows, Note: "Incidents correlate time-bounded local evidence into object-centered review stories. Confidence is relationship confidence, never malware probability."}
 	for _, x := range rows {
 		switch strings.ToLower(x.Severity) {
 		case "high":
@@ -461,6 +508,7 @@ func (m *incidentManager) find(id string) (Incident, bool) {
 	defer m.mu.RUnlock()
 	for _, rows := range [][]Incident{m.current, m.history} {
 		for _, x := range rows {
+			x = normalizeLoadedIncident(x)
 			if x.ID == id || x.StoryKey == id {
 				return x, true
 			}
