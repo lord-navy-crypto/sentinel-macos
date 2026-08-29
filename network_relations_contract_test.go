@@ -29,6 +29,9 @@ func TestNetworkRelationshipExplorerSeparatesCurrentEvidenceFromExplicitHistory(
 		`Capture History Snapshot`,
 		`Refresh Current does not append history`,
 		`Explicit Snapshot History`,
+		`historyFrom`,
+		`historyTo`,
+		`Compare Selected`,
 		`not packet capture or continuous surveillance`,
 		`Cross-snapshot identity ignores transient PID changes`,
 		`/network-relations.js`,
@@ -36,7 +39,7 @@ func TestNetworkRelationshipExplorerSeparatesCurrentEvidenceFromExplicitHistory(
 }
 
 func TestNetworkRelationshipExplorerUsesCurrentAndHistoryAPIs(t *testing.T) {
-	requireNetworkRelationSourceContains(t, "web/network-relations.js",
+	source := requireNetworkRelationSourceContains(t, "web/network-relations.js",
 		`/api/network`,
 		`/api/network/history`,
 		`method: 'POST'`,
@@ -47,8 +50,13 @@ func TestNetworkRelationshipExplorerUsesCurrentAndHistoryAPIs(t *testing.T) {
 		`endpoint_class`,
 		`Open Process Explorer`,
 		`Latest snapshot difference`,
+		`Selected snapshot difference`,
+		`Historical PID is context only`,
 		`Refresh Current`,
 	)
+	if strings.Contains(source, `Open Sample PID`) {
+		t.Fatal("historical PID must not be navigated as if it were still current")
+	}
 	requireNetworkRelationSourceContains(t, "main.go",
 		`networkHistory *networkHistoryManager`,
 		`newNetworkHistoryManager(*ephemeral)`,
@@ -84,6 +92,9 @@ func TestNetworkHistoryBackendIsBoundedMetadataOnly(t *testing.T) {
 		`PID and local ephemeral ports are deliberately excluded`,
 		`explicit Sentinel snapshots`,
 		`never packet contents`,
+		`network snapshot unavailable`,
+		`both from and to snapshot IDs are required for comparison`,
+		`findNetworkHistorySnapshot`,
 	)
 	for _, forbidden := range []string{"pcap", "tcpdump", "packet payload", "exec.Command(", "WebSocket("} {
 		if strings.Contains(source, forbidden) {
