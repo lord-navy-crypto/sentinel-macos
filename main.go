@@ -100,11 +100,13 @@ func main() {
 	mux.HandleFunc("/api/quick-check", a.auth(a.work.wrap("quick-check", a.handleQuickCheck)))
 	mux.HandleFunc("/api/search", a.auth(a.handleUniversalSearch))
 	mux.HandleFunc("/api/search/deep", a.auth(a.work.wrap("deep-search", a.handleDeepFileSearch)))
+	mux.HandleFunc("/api/search/command", a.auth(a.handleCommandPalette))
 	mux.HandleFunc("/api/weakness-audit", a.auth(a.handleWeaknessAudit))
 	mux.HandleFunc("/api/coverage", a.auth(a.handleCoverageMap))
 	mux.HandleFunc("/api/review-queue", a.auth(a.handleReviewQueue))
 	mux.HandleFunc("/api/guided-snapshot", a.auth(a.work.wrap("monitoring-snapshot", a.handleGuidedSnapshot)))
 	mux.HandleFunc("/api/capabilities", a.auth(a.handleCapabilities))
+	mux.HandleFunc("/api/visibility", a.auth(a.handleVisibilityCenterV2))
 	mux.HandleFunc("/api/processes", a.auth(a.handleProcesses))
 	mux.HandleFunc("/api/startup", a.auth(a.handleStartup))
 	mux.HandleFunc("/api/launch-services", a.auth(a.work.wrap("launch-services", a.handleLaunchServices)))
@@ -122,8 +124,11 @@ func main() {
 	mux.HandleFunc("/api/report/export", a.auth(a.work.wrap("report-export", a.handleReportExport)))
 	mux.HandleFunc("/api/cleanup/preview", a.auth(a.handleCleanupPreview))
 	mux.HandleFunc("/api/intelligence/graph", a.auth(a.handleIntelligenceGraph))
+	mux.HandleFunc("/api/intelligence/graph/v2", a.auth(a.work.wrap("evidence-graph-v2", a.handleEvidenceGraphV2)))
 	mux.HandleFunc("/api/intelligence/timeline", a.auth(a.handleTimeline))
+	mux.HandleFunc("/api/intelligence/timeline/global", a.auth(a.handleGlobalTimeline))
 	mux.HandleFunc("/api/object/story", a.auth(a.handleObjectStory))
+	mux.HandleFunc("/api/object/story/v2", a.auth(a.work.wrap("object-story-v2", a.handleObjectStoryV2)))
 	mux.HandleFunc("/api/behavior", a.auth(a.handleBehavior))
 	mux.HandleFunc("/api/behavior/history", a.auth(a.handleBehaviorHistory))
 	mux.HandleFunc("/api/behavior/health", a.auth(a.handleBehaviorHealth))
@@ -155,6 +160,7 @@ func main() {
 	mux.HandleFunc("/api/changes/history", a.auth(a.handleChangeHistory))
 	mux.HandleFunc("/api/changes/reconcile", a.auth(a.work.wrap("change-reconcile", a.handleChangeReconcile)))
 	mux.HandleFunc("/api/incidents", a.auth(a.handleIncidents))
+	mux.HandleFunc("/api/incidents/v2", a.auth(a.handleIncidentIntelligenceV2))
 	mux.HandleFunc("/api/incidents/detail", a.auth(a.work.wrap("incident-deep-review", a.handleIncidentDetail)))
 	mux.HandleFunc("/api/advanced-sensor/status", a.auth(a.handleAdvancedSensorStatus))
 	mux.HandleFunc("/api/readiness", a.auth(a.work.wrap("readiness", a.handleReadiness)))
@@ -168,7 +174,7 @@ func main() {
 			html := strings.Replace(
 				string(page),
 				"<script src=\"/app.js\"></script>",
-				"<script src=\"/core-compat.js\"></script>\n<script src=\"/app.js\"></script>\n<script src=\"/investigation-bridge.js\"></script>",
+				"<script src=\"/core-compat.js\"></script>\n<script src=\"/app.js\"></script>\n<script src=\"/investigation-bridge.js\"></script>\n<script src=\"/command-palette.js\"></script>",
 				1,
 			)
 			if r.URL.Query().Get("desktop") == "1" {
@@ -284,8 +290,6 @@ func (a *app) auth(next http.HandlerFunc) http.HandlerFunc {
 
 func (a *app) requestGuard(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Defense-in-depth for a localhost application: reject unexpected Host
-		// values (DNS rebinding) and cross-site browser requests before auth.
 		if a.allowedHost != "" && r.Host != a.allowedHost {
 			writeJSON(w, http.StatusMisdirectedRequest, map[string]any{"error": "unexpected Host header"})
 			return
