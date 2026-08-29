@@ -35,6 +35,15 @@
     return `${route}#token=${encodeURIComponent(token)}`;
   }
 
+  function commandPreview(tool) {
+    if (!tool || tool.mode !== 'read_only' || !tool.command) return '';
+    const short = String(tool.command).split('/').filter(Boolean).pop() || tool.command;
+    const args = Array.isArray(tool.base_args) ? tool.base_args.map(String) : [];
+    if (tool.target_kind === 'pid') args.push('<PID>');
+    if (tool.target_kind === 'path') args.push('<absolute-path>');
+    return [short, ...args].join(' ');
+  }
+
   function enhanceManagedButtons(catalog) {
     const byID = new Map((catalog.tools || []).map(tool => [tool.id, tool]));
     for (const card of groups.querySelectorAll('.tool-card')) {
@@ -60,6 +69,12 @@
     for (const card of cards) {
       const tool = toolsByID.get(card.dataset.toolId || '');
       const domain = tool?.domain || card.querySelector('.meta .badge')?.textContent?.trim() || 'other';
+      const preview = commandPreview(tool);
+      if (preview && !card.querySelector('.terminal-command-preview')) {
+        const command = create('code', 'terminal-command-preview', preview);
+        const meta = card.querySelector('.meta');
+        if (meta) meta.insertAdjacentElement('afterend', command); else card.append(command);
+      }
       if (!byDomain.has(domain)) byDomain.set(domain, []);
       byDomain.get(domain).push({card, tool});
     }
@@ -92,7 +107,7 @@
       head.append(text, count); box.append(head);
       const grid = create('div', 'domain-tool-grid');
       for (const entry of entries) {
-        entry.card.dataset.searchText = `${entry.tool?.name || ''} ${entry.tool?.summary || ''} ${domain} ${entry.tool?.intent || ''}`.toLowerCase();
+        entry.card.dataset.searchText = `${entry.tool?.name || ''} ${entry.tool?.summary || ''} ${commandPreview(entry.tool)} ${domain} ${entry.tool?.intent || ''}`.toLowerCase();
         grid.append(entry.card);
       }
       box.append(grid); sectionRoot.append(box);
