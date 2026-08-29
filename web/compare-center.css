@@ -1,53 +1,74 @@
 /* SPDX-License-Identifier: MPL-2.0 */
+.compare-workspace{
+  margin:12px 0 30px;
+  padding:20px 22px 8px;
+  border:1px solid var(--line-soft);
+  border-left:3px solid rgba(130,182,244,.68);
+  border-radius:12px;
+  background:
+    linear-gradient(90deg,rgba(130,182,244,.045),transparent 44%),
+    rgba(12,17,24,.86);
+}
+.compare-workspace-head{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:22px;
+}
+.compare-workspace-head h2{margin:4px 0 0;font-size:24px;letter-spacing:-.025em}
+.compare-workspace-head>p{max-width:560px;margin:0;color:var(--muted);line-height:1.55}
+
 .compare-grid{
   display:grid;
-  grid-template-columns:repeat(2,minmax(0,1fr));
-  gap:0 28px;
-  margin:14px 0 28px;
+  grid-template-columns:1fr;
+  gap:0;
+  margin:4px 0 8px;
   border-top:1px solid var(--line-soft);
   border-bottom:1px solid var(--line-soft);
 }
 .compare-card{
   position:relative;
   display:grid;
-  grid-template-columns:18px 1fr;
-  grid-template-areas:"marker kicker" "marker title" "marker body" "marker action";
-  align-content:start;
-  min-height:188px;
+  grid-template-columns:88px minmax(220px,.9fr) minmax(300px,1.6fr) minmax(150px,auto);
+  grid-template-areas:"kicker title body action";
+  align-items:center;
+  gap:16px;
+  min-height:0;
   border:0;
   border-bottom:1px solid var(--line-soft);
   background:transparent;
   border-radius:0;
-  padding:20px 2px 18px;
+  padding:15px 2px 15px 12px;
   color:var(--text);
   text-decoration:none;
   box-shadow:none;
   transition:background .14s ease;
 }
-.compare-card:nth-last-child(-n+2){border-bottom:0}
+.compare-card:last-child{border-bottom:0}
 .compare-card::before{
   content:"";
-  grid-area:marker;
-  align-self:stretch;
-  justify-self:start;
-  width:1px;
-  min-height:100%;
-  margin-left:4px;
-  background:linear-gradient(180deg,rgba(130,182,244,.72),rgba(130,182,244,.08));
+  position:absolute;
+  left:0;
+  top:12px;
+  bottom:12px;
+  width:2px;
+  background:rgba(130,182,244,.24);
 }
 .compare-card::after{
   content:"";
   position:absolute;
-  left:3px;
-  top:25px;
-  width:4px;
-  height:4px;
+  left:-2px;
+  top:50%;
+  width:6px;
+  height:6px;
   border-radius:50%;
-  background:var(--accent);
+  background:var(--panel3);
+  border:1px solid rgba(130,182,244,.62);
+  transform:translateY(-50%);
 }
 .compare-card:hover{
   border-color:var(--line-soft);
-  background:linear-gradient(90deg,rgba(130,182,244,.055),transparent 68%);
+  background:linear-gradient(90deg,rgba(130,182,244,.065),transparent 72%);
   transform:none;
 }
 .compare-card .kicker{
@@ -59,24 +80,26 @@
 }
 .compare-card h2{
   grid-area:title;
-  font-size:21px;
-  letter-spacing:-.02em;
-  margin:6px 0 5px;
+  font-size:17px;
+  letter-spacing:-.018em;
+  margin:0;
 }
 .compare-card p{
   grid-area:body;
-  max-width:500px;
+  max-width:600px;
   color:var(--muted);
+  font-size:11px;
   line-height:1.55;
-  margin:0 0 16px;
+  margin:0;
 }
 .compare-card b{
   grid-area:action;
-  align-self:end;
-  margin-top:auto;
-  font-size:11px;
+  align-self:center;
+  justify-self:end;
+  font-size:10px;
   font-weight:650;
   color:#cbd9e9;
+  text-align:right;
 }
 .compare-note{
   border-left-color:rgba(230,186,103,.58);
@@ -87,8 +110,17 @@
 .compare-note h2{font-size:15px;letter-spacing:-.01em;margin:0 0 5px}
 .compare-note p{max-width:900px;color:var(--muted);line-height:1.55;margin:0}
 
+@media(max-width:980px){
+  .compare-card{grid-template-columns:74px minmax(190px,.8fr) 1.4fr auto;gap:12px}
+}
 @media(max-width:760px){
-  .compare-grid{grid-template-columns:1fr}
-  .compare-card,.compare-card:nth-last-child(-n+2){border-bottom:1px solid var(--line-soft)}
-  .compare-card:last-child{border-bottom:0}
+  .compare-workspace{padding:16px}
+  .compare-workspace-head{align-items:flex-start;flex-direction:column;gap:7px}
+  .compare-card{
+    grid-template-columns:72px 1fr;
+    grid-template-areas:"kicker action" "title title" "body body";
+    gap:6px 12px;
+    padding:14px 2px 14px 12px;
+  }
+  .compare-card b{justify-self:end}
 }
