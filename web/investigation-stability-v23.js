@@ -14,9 +14,12 @@
     return button instanceof HTMLButtonElement && actionPattern.test((button.textContent || '').trim());
   }
 
-  function continuationButtons() {
-    return Array.from(document.querySelectorAll('#candidateList button, #nextTargetList button, #runtimeContextBody button, #sessionList button'))
+  function controlledButtons() {
+    const dynamic = Array.from(document.querySelectorAll('#candidateList button, #nextTargetList button, #runtimeContextBody button, #sessionList button'))
       .filter(isContinuationButton);
+    const branchBack = document.getElementById('branchBack');
+    const branchForward = document.getElementById('branchForward');
+    return [...dynamic, branchBack, branchForward].filter(button => button instanceof HTMLButtonElement);
   }
 
   function targetFor(button) {
@@ -43,7 +46,7 @@
       notice.textContent = '';
       automaticBusyNotice = false;
     }
-    for (const button of continuationButtons()) {
+    for (const button of controlledButtons()) {
       if (running) {
         if (!savedDisabled.has(button)) savedDisabled.set(button, button.disabled);
         button.disabled = true;
