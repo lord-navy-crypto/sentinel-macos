@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: MPL-2.0 */
 /* Domain layout is intentionally roomy: the global Terminal stylesheet also styles
    .tool-card, so every domain card explicitly resets that inner grid here. */
+.console-header-actions{display:flex;align-items:center;justify-content:flex-end;gap:9px;flex-wrap:wrap}.console-header-actions .back-link{display:inline-flex;align-items:center;border:1px solid var(--line-soft,var(--line));border-radius:9px;padding:8px 10px}
 .terminal-toolbar{
   position:static;
   z-index:auto;
@@ -70,6 +71,7 @@
   .domain-box .tool-card form{grid-template-columns:minmax(0,1fr) auto}
 }
 @media(max-width:620px){
+  .console-header-actions{justify-content:flex-start}
   .terminal-toolbar{padding:14px;margin-bottom:20px}
   .domain-box{padding:14px}.domain-box-grid{gap:20px}.domain-box-header{flex-direction:column;gap:10px}.domain-box .tool-card{padding:12px}
   .domain-box .tool-card form{grid-template-columns:1fr}.domain-box .tool-card form button{width:100%}

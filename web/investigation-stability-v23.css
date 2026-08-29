@@ -1,0 +1,34 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+.investigation-is-busy #nextTargetsPanel,
+.investigation-is-busy #candidatesPanel,
+.investigation-is-busy #runtimeContextPanel{position:relative}
+.investigation-is-busy #nextTargetsPanel::before,
+.investigation-is-busy #candidatesPanel::before,
+.investigation-is-busy #runtimeContextPanel::before{
+  content:"Investigation in progress";
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  margin:0 0 12px;
+  padding:5px 9px;
+  border:1px solid var(--line-soft,var(--line));
+  border-radius:999px;
+  color:var(--muted);
+  font-size:10px;
+  letter-spacing:.05em;
+  text-transform:uppercase;
+}
+.investigation-is-busy #nextTargetsPanel::after,
+.investigation-is-busy #candidatesPanel::after,
+.investigation-is-busy #runtimeContextPanel::after{
+  content:"";
+  display:block;
+  height:2px;
+  width:100%;
+  margin:-6px 0 14px;
+  background:linear-gradient(90deg,var(--accent),transparent 72%);
+  animation:sentinel-investigation-pulse 1.1s ease-in-out infinite alternate;
+}
+.investigation-is-busy button[aria-busy="true"]{opacity:.55;cursor:progress}
+@keyframes sentinel-investigation-pulse{from{opacity:.35}to{opacity:1}}
+@media(prefers-reduced-motion:reduce){.investigation-is-busy #nextTargetsPanel::after,.investigation-is-busy #candidatesPanel::after,.investigation-is-busy #runtimeContextPanel::after{animation:none}}
