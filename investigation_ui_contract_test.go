@@ -44,6 +44,9 @@ func TestContinueInvestigationRoutesAndBridgeAreWired(t *testing.T) {
 		`/investigation.html#`,
 		`findingStartingPath`,
 		`incidentStartingPath`,
+		`incidentEvidencePaths`,
+		`paths.length >= 6`,
+		`explicit local evidence node`,
 		`attachIncidentButtons`,
 	)
 }
