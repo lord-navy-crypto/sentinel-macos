@@ -235,19 +235,12 @@
     card.append(head);
     const context = [];
     if (relation.user) context.push(`user ${relation.user}`);
-    if (Number(relation.pid || 0) > 0) context.push(`sample PID ${relation.pid}`);
+    if (Number(relation.pid || 0) > 0) context.push(`sample PID at capture ${relation.pid}`);
     if (Number(relation.rows || 0) > 1) context.push(`${relation.rows} merged row(s)`);
     if (relation.sample_local) context.push(`sample local ${relation.sample_local}`);
     if (relation.sample_remote) context.push(`sample remote ${relation.sample_remote}`);
     if (context.length) card.append(el('span', '', context.join(' · ')));
-    if (Number(relation.pid || 0) > 0) {
-      const actions = el('div', 'row-actions');
-      const open = el('button', '', 'Open Sample PID');
-      open.type = 'button';
-      open.addEventListener('click', () => { location.href = processURL(relation.pid); });
-      actions.append(open);
-      card.append(actions);
-    }
+    card.append(el('span', '', 'Historical PID is context only and is not opened directly because macOS can reuse PIDs.'));
     return card;
   }
 
@@ -330,8 +323,8 @@
     try {
       const data = await api('/api/network/history', {method: 'POST'});
       const count = Number(data?.snapshot?.rows_stored || 0);
-      showNotice(`Captured ${count} normalized network relationship(s). This explicit snapshot contains metadata only, not packet contents.`);
       await Promise.all([loadNetwork(), loadHistory()]);
+      showNotice(`Captured ${count} normalized network relationship(s). This explicit snapshot contains metadata only, not packet contents.`);
     } catch (error) {
       showNotice(error?.message || 'Network history capture failed.');
     } finally {
