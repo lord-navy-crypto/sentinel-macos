@@ -17,6 +17,23 @@ func visualSource(t *testing.T, path string) string {
 	return string(raw)
 }
 
+func visualStylePaths() []string {
+	return []string{
+		"web/v23-visual-system.css",
+		"web/v23-navigation.css",
+		"web/easy.css",
+		"web/scan-center.css",
+		"web/compare-center.css",
+		"web/control-plane.css",
+		"web/intelligence-center.css",
+		"web/process-relations.css",
+		"web/network-relations.css",
+		"web/launch-services.css",
+		"web/vault-health.css",
+		"web/system-console.css",
+	}
+}
+
 func TestFirstPrinciplesVisualSystemIsGlobal(t *testing.T) {
 	nav := visualSource(t, "web/v23-navigation.css")
 	visual := visualSource(t, "web/v23-visual-system.css")
@@ -95,6 +112,17 @@ func TestVisualRedesignUsesDifferentEncodingsForDifferentEvidence(t *testing.T) 
 			if !strings.Contains(source, want) {
 				t.Fatalf("%s missing visual contract %q", path, want)
 			}
+		}
+	}
+}
+
+func TestVisualStylesHaveBalancedBraces(t *testing.T) {
+	for _, path := range visualStylePaths() {
+		source := visualSource(t, path)
+		open := strings.Count(source, "{")
+		close := strings.Count(source, "}")
+		if open == 0 || open != close {
+			t.Fatalf("%s has unbalanced CSS braces: open=%d close=%d", path, open, close)
 		}
 	}
 }
