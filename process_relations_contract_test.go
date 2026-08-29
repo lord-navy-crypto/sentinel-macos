@@ -55,15 +55,30 @@ func TestProcessRelationshipExplorerIsLinkedFromSystemConsole(t *testing.T) {
 	)
 }
 
+func TestInvestigationRuntimeLinksToProcessRelationshipExplorer(t *testing.T) {
+	requireProcessRelationSourceContains(t, "web/investigation.html", `/process-relations-bridge.js`)
+	requireProcessRelationSourceContains(t, "web/process-relations-bridge.js",
+		`runtimeContextPanel`,
+		`Open Process Explorer`,
+		`/process-relations.html#`,
+		`MutationObserver`,
+	)
+}
+
 func TestProcessRelationshipExplorerAvoidsDynamicCodeAndShellSurface(t *testing.T) {
-	source := requireProcessRelationSourceContains(t, "web/process-relations.js", `X-Sentinel-Token`)
-	for _, forbidden := range []string{"eval(", "new Function(", "document.write(", "innerHTML", "sudo", "exec("} {
-		if strings.Contains(source, forbidden) {
-			t.Fatalf("process relationship explorer contains forbidden pattern %q", forbidden)
+	for _, path := range []string{"web/process-relations.js", "web/process-relations-bridge.js"} {
+		source := requireProcessRelationSourceContains(t, path)
+		for _, forbidden := range []string{"eval(", "new Function(", "document.write(", "innerHTML", "sudo", "exec("} {
+			if strings.Contains(source, forbidden) {
+				t.Fatalf("%s contains forbidden pattern %q", path, forbidden)
+			}
 		}
 	}
 }
 
 func TestProcessRelationshipExplorerJavaScriptIsInCI(t *testing.T) {
-	requireProcessRelationSourceContains(t, ".github/workflows/v23-ci.yml", `node --check web/process-relations.js`)
+	requireProcessRelationSourceContains(t, ".github/workflows/v23-ci.yml",
+		`node --check web/process-relations.js`,
+		`node --check web/process-relations-bridge.js`,
+	)
 }
