@@ -33,8 +33,7 @@ func TestContinueInvestigationRoutesAndBridgeAreWired(t *testing.T) {
 		`/investigation-bridge.js`,
 	)
 	requireInvestigationSourceContains(t, "deep_investigation.go",
-		`mode")
-	requireInvestigationSourceContains(t, "deep_investigation.go",
+		`mode`,
 		`sessions`,
 		`handleInvestigationSessions`,
 	)
