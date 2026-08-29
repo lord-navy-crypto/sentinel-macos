@@ -11,6 +11,7 @@
   const badge = (text,kind='') => el('span',`badge ${kind}`,text);
   const tokenHref = (path, extra='') => `${path}#token=${encodeURIComponent(token)}${extra}`;
   const investigate = path => { const a=el('a','','Investigate'); a.href=tokenHref('/investigation.html',`&path=${encodeURIComponent(path)}`); return a; };
+  function wireWorkspaceLinks(){for(const a of document.querySelectorAll('.hero-actions a')){const u=new URL(a.getAttribute('href'),location.origin);a.href=`${u.pathname}${u.search}#token=${encodeURIComponent(token)}`;}}
 
   async function api(url, options={}) {
     options.headers={...(options.headers||{}),'X-Sentinel-Token':token};
@@ -49,6 +50,7 @@
   function renderAging(data){const summary=$('storageAgingSummary'),box=$('storageAging');if(!summary||!box)return;summary.replaceChildren(metric('Large files considered',data.files_considered||0),metric('Bytes considered',fmtBytes(data.bytes_considered)),metric('Age buckets',(data.buckets||[]).length),metric('Trend points',(data.trend||[]).length));box.replaceChildren();for(const b of data.buckets||[]){const row=el('div','row'),main=el('div','row-main');main.append(el('b','',b.label),el('p','',`${b.files||0} retained large file(s) · ${fmtBytes(b.bytes)}`));row.append(main);box.append(row);}for(const f of (data.oldest_large_files||[]).slice(0,30)){const row=el('div','row'),main=el('div','row-main'),actions=el('div','row-actions');main.append(el('b','',`${f.age_days} days · ${f.name||f.path}`),el('p','',`${fmtBytes(f.size)} · ${f.path}`));if(String(f.path||'').startsWith('/'))actions.append(investigate(f.path));row.append(main,actions);box.append(row);}for(const l of data.limitations||[])box.append(el('p','help',`Limitation: ${l}`));if(data.note)box.append(el('p','help',data.note));}
   async function loadAging(){const b=$('refreshStorageAging');if(b)b.disabled=true;try{renderAging(await api('/api/storage/aging'));}catch(e){notice(e.message)}finally{if(b)b.disabled=false;}}
 
+  wireWorkspaceLinks();
   if(!token){notice('Missing Sentinel session token. Open this workspace from the running Sentinel app.');return;}
   if(workspace==='security'){$('refreshSecurity')?.addEventListener('click',refreshSecurity);postMode('security-posture').then(renderSecurity).catch(e=>notice(e.message));}
   if(workspace==='system'){$('captureSnapshot')?.addEventListener('click',captureSnapshot);$('compareSnapshots')?.addEventListener('click',compareSnapshots);$('refreshEvidence')?.addEventListener('click',()=>loadSystemEvidence().catch(e=>notice(e.message)));Promise.all([loadSnapshots(),loadSystemEvidence()]).catch(e=>notice(e.message));}
