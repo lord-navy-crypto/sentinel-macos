@@ -5,71 +5,25 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Sentinel Process Relationship Explorer</title>
   <link rel="stylesheet" href="/process-relations.css">
+  <link rel="stylesheet" href="/v23-navigation.css">
 </head>
 <body>
   <main class="shell">
     <header class="hero">
-      <div>
-        <p class="eyebrow">Sentinel v2.3 · Runtime relationships</p>
-        <h1>Process Relationship Explorer</h1>
-        <p>Follow one PID across parent/child processes, executable identity, open files and loaded objects, TCP evidence, persistence references, and Object Story context.</p>
-      </div>
+      <div><p class="eyebrow">Sentinel v2.3 · Runtime relationships</p><h1>Process Relationship Explorer</h1><p>Follow one PID across parent/child processes, executable identity, open files and loaded objects, TCP evidence, persistence references, and Object Story context.</p></div>
       <a id="backLink" class="back-link" href="/">Back to Sentinel</a>
     </header>
-
-    <section class="principles">
-      <article><b>Process</b><span>Start from one PID.</span></article>
-      <article><b>Lineage</b><span>See parents and visible children.</span></article>
-      <article><b>Resources</b><span>Correlate open objects and sockets.</span></article>
-      <article><b>Persistence</b><span>Connect runtime state to launch configuration.</span></article>
-    </section>
-
+    <section class="principles"><article><b>Process</b><span>Start from one PID.</span></article><article><b>Lineage</b><span>See parents and visible children.</span></article><article><b>Resources</b><span>Correlate open objects and sockets.</span></article><article><b>Persistence</b><span>Connect runtime state to launch configuration.</span></article></section>
     <p id="notice" class="notice" role="status" aria-live="polite"></p>
-
-    <section class="panel control-panel">
-      <div>
-        <p class="eyebrow">Choose a running process</p>
-        <h2>Inspect PID relationships</h2>
-      </div>
-      <form id="pidForm">
-        <input id="pidInput" inputmode="numeric" autocomplete="off" placeholder="PID, e.g. 1234" required>
-        <button id="inspectPID" type="submit">Inspect Process</button>
-      </form>
-    </section>
-
+    <section class="panel control-panel"><div><p class="eyebrow">Choose a running process</p><h2>Inspect PID relationships</h2></div><form id="pidForm"><input id="pidInput" inputmode="numeric" autocomplete="off" placeholder="PID, e.g. 1234" required><button id="inspectPID" type="submit">Inspect Process</button></form></section>
     <section id="summaryPanel" class="panel hidden"></section>
-
-    <section id="lineagePanel" class="panel hidden">
-      <div class="section-head"><div><p class="eyebrow">Lineage</p><h2>Parent & Child Processes</h2></div><span class="badge">current snapshot</span></div>
-      <div class="relation-grid">
-        <div><h3>Parent chain</h3><div id="parentList" class="list"></div></div>
-        <div><h3>Visible children</h3><div id="childList" class="list"></div></div>
-      </div>
-    </section>
-
-    <section id="resourcePanel" class="panel hidden">
-      <div class="section-head"><div><p class="eyebrow">Resources</p><h2>Open Objects & TCP</h2></div><span class="badge">bounded</span></div>
-      <div class="relation-grid">
-        <div><h3>Open files / loaded objects</h3><div id="openFileList" class="list"></div></div>
-        <div><h3>TCP evidence</h3><div id="networkList" class="list"></div></div>
-      </div>
-    </section>
-
-    <section id="persistencePanel" class="panel hidden">
-      <div class="section-head"><div><p class="eyebrow">Persistence</p><h2>Why can this executable start?</h2></div><span class="badge">correlated</span></div>
-      <div id="persistenceList" class="list"></div>
-    </section>
-
-    <section id="storyPanel" class="panel hidden">
-      <div class="section-head"><div><p class="eyebrow">Object Story</p><h2>Evidence Context</h2></div><span class="badge">local evidence</span></div>
-      <div id="storyBody"></div>
-    </section>
-
-    <section id="limitationsPanel" class="panel hidden">
-      <div class="section-head"><div><p class="eyebrow">Visibility</p><h2>Limits & Unknowns</h2></div></div>
-      <div id="limitationsList" class="limitations"></div>
-    </section>
+    <section id="lineagePanel" class="panel hidden"><div class="section-head"><div><p class="eyebrow">Lineage</p><h2>Parent & Child Processes</h2></div><span class="badge">current snapshot</span></div><div class="relation-grid"><div><h3>Parent chain</h3><div id="parentList" class="list"></div></div><div><h3>Visible children</h3><div id="childList" class="list"></div></div></div></section>
+    <section id="resourcePanel" class="panel hidden"><div class="section-head"><div><p class="eyebrow">Resources</p><h2>Open Objects & TCP</h2></div><span class="badge">bounded</span></div><div class="relation-grid"><div><h3>Open files / loaded objects</h3><div id="openFileList" class="list"></div></div><div><h3>TCP evidence</h3><div id="networkList" class="list"></div></div></div></section>
+    <section id="persistencePanel" class="panel hidden"><div class="section-head"><div><p class="eyebrow">Persistence</p><h2>Why can this executable start?</h2></div><span class="badge">correlated</span></div><div id="persistenceList" class="list"></div></section>
+    <section id="storyPanel" class="panel hidden"><div class="section-head"><div><p class="eyebrow">Object Story</p><h2>Evidence Context</h2></div><span class="badge">local evidence</span></div><div id="storyBody"></div></section>
+    <section id="limitationsPanel" class="panel hidden"><div class="section-head"><div><p class="eyebrow">Visibility</p><h2>Limits & Unknowns</h2></div></div><div id="limitationsList" class="limitations"></div></section>
   </main>
   <script src="/process-relations.js"></script>
+  <script src="/v23-navigation.js"></script>
 </body>
 </html>
