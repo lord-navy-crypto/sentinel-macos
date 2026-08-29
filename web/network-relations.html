@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sentinel Network Relationship Explorer</title>
+  <link rel="stylesheet" href="/network-relations.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Sentinel v2.3 · Current network evidence</p>
+        <h1>Network Relationship Explorer</h1>
+        <p>See which visible processes own current TCP sockets, which endpoints are listening or established, and where to continue the process investigation. This is a bounded current snapshot, not packet capture or historical surveillance.</p>
+      </div>
+      <a id="backLink" class="back-link" href="/">Back to Sentinel</a>
+    </header>
+
+    <section class="principles">
+      <article><b>Process</b><span>Group sockets by visible PID.</span></article>
+      <article><b>Socket</b><span>Preserve LISTEN / ESTABLISHED state.</span></article>
+      <article><b>Endpoint</b><span>Keep normalized local/remote context visible.</span></article>
+      <article><b>Continue</b><span>Jump into Process Relationship Explorer.</span></article>
+    </section>
+
+    <p id="notice" class="notice" role="status" aria-live="polite"></p>
+
+    <section class="panel controls">
+      <div>
+        <p class="eyebrow">Current snapshot</p>
+        <h2>Filter visible TCP relationships</h2>
+      </div>
+      <div class="filter-grid">
+        <input id="searchInput" type="search" autocomplete="off" spellcheck="false" placeholder="Process, PID, local/remote endpoint…">
+        <select id="stateFilter">
+          <option value="all">All states</option>
+          <option value="LISTEN">LISTEN</option>
+          <option value="ESTABLISHED">ESTABLISHED</option>
+          <option value="OTHER">OTHER</option>
+        </select>
+        <select id="classFilter">
+          <option value="all">All endpoint classes</option>
+        </select>
+        <button id="refreshNetwork" type="button">Refresh Snapshot</button>
+      </div>
+    </section>
+
+    <section id="summaryPanel" class="panel hidden"></section>
+
+    <div class="two-column">
+      <section id="processPanel" class="panel hidden">
+        <div class="section-head"><div><p class="eyebrow">Process → socket</p><h2>Processes with TCP Evidence</h2></div><span id="processCount" class="badge">0</span></div>
+        <div id="processList" class="list"></div>
+      </section>
+
+      <section id="endpointPanel" class="panel hidden">
+        <div class="section-head"><div><p class="eyebrow">Endpoint aggregation</p><h2>Visible Remote / Listen Endpoints</h2></div><span id="endpointCount" class="badge">0</span></div>
+        <div id="endpointList" class="list"></div>
+      </section>
+    </div>
+
+    <section id="limitationsPanel" class="panel">
+      <div class="section-head"><div><p class="eyebrow">Visibility</p><h2>What this snapshot means</h2></div></div>
+      <div class="limitations">
+        <div>• This view is based on Sentinel's bounded current TCP evidence; connections can appear or disappear immediately after collection.</div>
+        <div>• It does not inspect packet contents, decrypt traffic, or claim a connection is malicious.</div>
+        <div>• Historical endpoint behavior is not yet represented here; this page intentionally labels itself as a current snapshot.</div>
+      </div>
+    </section>
+  </main>
+  <script src="/network-relations.js"></script>
+</body>
+</html>
