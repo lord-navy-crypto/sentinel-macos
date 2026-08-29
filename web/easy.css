@@ -154,7 +154,7 @@
 }
 .one-click-heading button:disabled{opacity:.65;cursor:progress}
 
-/* Status output = answer -> explanation -> continuation. */
+/* Status output is a ledger: answer -> explanation -> continuation. */
 .one-click-results{
   display:grid;
   grid-template-columns:1fr;
