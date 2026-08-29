@@ -19,14 +19,14 @@ const (
 )
 
 type InvestigationSessionBranch struct {
-	Path          string `json:"path"`
-	ParentPath    string `json:"parent_path,omitempty"`
-	Kind          string `json:"kind,omitempty"`
-	Note          string `json:"note,omitempty"`
-	Bookmarked    bool   `json:"bookmarked"`
-	FirstVisited  string `json:"first_visited"`
-	LastVisited   string `json:"last_visited"`
-	VisitCount    int    `json:"visit_count"`
+	Path         string `json:"path"`
+	ParentPath   string `json:"parent_path,omitempty"`
+	Kind         string `json:"kind,omitempty"`
+	Note         string `json:"note,omitempty"`
+	Bookmarked   bool   `json:"bookmarked"`
+	FirstVisited string `json:"first_visited"`
+	LastVisited  string `json:"last_visited"`
+	VisitCount   int    `json:"visit_count"`
 }
 
 type InvestigationSession struct {
@@ -59,6 +59,11 @@ type InvestigationSessionSaveRequest struct {
 	Note       string `json:"note,omitempty"`
 	Bookmarked bool   `json:"bookmarked"`
 }
+
+var (
+	investigationSessionsGlobalMu sync.Mutex
+	investigationSessionsGlobal   *investigationSessionManager
+)
 
 func investigationSessionsPath() string {
 	base := sentinelStateDir()
@@ -107,11 +112,28 @@ func newInvestigationSessionManager(ephemeral bool) *investigationSessionManager
 	return m
 }
 
+// Sentinel runs one app instance per local engine process, so one lazily-created
+// manager is enough and avoids forcing unrelated app construction/tests to know
+// about Investigation Sessions. --ephemeral still creates a memory-only manager.
+func investigationSessionsFor(ephemeral bool) *investigationSessionManager {
+	investigationSessionsGlobalMu.Lock()
+	defer investigationSessionsGlobalMu.Unlock()
+	if investigationSessionsGlobal == nil {
+		investigationSessionsGlobal = newInvestigationSessionManager(ephemeral)
+	}
+	return investigationSessionsGlobal
+}
+
 func (m *investigationSessionManager) persistLocked() error {
 	if m == nil || !m.persistent || m.path == "" {
 		return nil
 	}
 	return writePrivateGzipJSON(m.path, investigationSessionEnvelope{Version: SentinelSchemaV23, Sessions: m.sessions})
+}
+
+func cloneInvestigationSession(session InvestigationSession) InvestigationSession {
+	session.Branches = append([]InvestigationSessionBranch(nil), session.Branches...)
+	return session
 }
 
 func (m *investigationSessionManager) save(req InvestigationSessionSaveRequest) (InvestigationSession, error) {
@@ -191,12 +213,13 @@ func (m *investigationSessionManager) save(req InvestigationSessionSaveRequest) 
 		if note != "" || req.Note != "" {
 			branch.Note = note
 		}
+		// A normal revisit must never silently remove a bookmark. Bookmarking is
+		// therefore monotonic in v2.3; a future explicit edit API can add unbookmark.
 		branch.Bookmarked = req.Bookmarked || branch.Bookmarked
 		branch.LastVisited = now
 		branch.VisitCount++
 	}
 	if len(session.Branches) > investigationSessionBranchLimit {
-		// Preserve bookmarks first, then retain the newest ordinary branches.
 		bookmarked := make([]InvestigationSessionBranch, 0)
 		ordinary := make([]InvestigationSessionBranch, 0)
 		for _, branch := range session.Branches {
@@ -216,20 +239,26 @@ func (m *investigationSessionManager) save(req InvestigationSessionSaveRequest) 
 		session.Branches = append(bookmarked, ordinary...)
 	}
 	session.UpdatedAt = now
+	savedID := session.ID
 
 	sort.SliceStable(m.sessions, func(i, j int) bool { return m.sessions[i].UpdatedAt < m.sessions[j].UpdatedAt })
 	if len(m.sessions) > investigationSessionLimit {
 		m.sessions = append([]InvestigationSession(nil), m.sessions[len(m.sessions)-investigationSessionLimit:]...)
 	}
 	if err := m.persistLocked(); err != nil {
-		return *session, err
+		for _, saved := range m.sessions {
+			if saved.ID == savedID {
+				return cloneInvestigationSession(saved), err
+			}
+		}
+		return InvestigationSession{}, err
 	}
 	for _, saved := range m.sessions {
-		if saved.ID == session.ID {
-			return saved, nil
+		if saved.ID == savedID {
+			return cloneInvestigationSession(saved), nil
 		}
 	}
-	return *session, nil
+	return InvestigationSession{}, fmt.Errorf("investigation session was evicted by retention bounds")
 }
 
 func (m *investigationSessionManager) list() []InvestigationSession {
@@ -238,25 +267,26 @@ func (m *investigationSessionManager) list() []InvestigationSession {
 	}
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	out := append([]InvestigationSession(nil), m.sessions...)
-	for i := range out {
-		out[i].Branches = append([]InvestigationSessionBranch(nil), out[i].Branches...)
+	out := make([]InvestigationSession, 0, len(m.sessions))
+	for _, session := range m.sessions {
+		out = append(out, cloneInvestigationSession(session))
 	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].UpdatedAt > out[j].UpdatedAt })
 	return out
 }
 
 func (a *app) handleInvestigationSessions(w http.ResponseWriter, r *http.Request) {
-	if a == nil || a.sessions == nil {
+	m := investigationSessionsFor(a != nil && a.ephemeral)
+	if m == nil {
 		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"error": "investigation sessions unavailable"})
 		return
 	}
 	switch r.Method {
 	case http.MethodGet:
 		writeJSON(w, http.StatusOK, map[string]any{
-			"sessions": a.sessions.list(),
-			"persistent": a.sessions.persistent,
-			"note": "Investigation Sessions store paths, branch metadata, bookmarks, and user notes only. They do not copy investigated file contents.",
+			"sessions":   m.list(),
+			"persistent": m.persistent,
+			"note":       "Investigation Sessions store paths, branch metadata, bookmarks, and user notes only. They do not copy investigated file contents.",
 		})
 	case http.MethodPost:
 		var req InvestigationSessionSaveRequest
@@ -264,7 +294,7 @@ func (a *app) handleInvestigationSessions(w http.ResponseWriter, r *http.Request
 			writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid request: " + err.Error()})
 			return
 		}
-		session, err := a.sessions.save(req)
+		session, err := m.save(req)
 		if err != nil {
 			writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
 			return
