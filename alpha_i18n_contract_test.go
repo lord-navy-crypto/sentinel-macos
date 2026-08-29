@@ -16,7 +16,7 @@ func readAlphaContractFile(t *testing.T, path string) string {
 
 func TestI18nFoundationSupportsEnglishAndChinese(t *testing.T) {
 	s := readAlphaContractFile(t, "web/i18n.js")
-	for _, want := range []string{"sentinel.locale", "zh-CN", "English", "中文", "sentinel:localechange", "supportedLocales", "data-i18n", "localStorage"} {
+	for _, want := range []string{"sentinel.locale", "zh-CN", "English", "中文", "sentinel:localechange", "supportedLocales", "data-i18n", "localStorage", "Why this result", "Continue →"} {
 		if !strings.Contains(s, want) { t.Fatalf("i18n foundation missing %q", want) }
 	}
 	for _, bad := range []string{"innerHTML", "eval(", "new Function", "document.write"} {
@@ -46,8 +46,8 @@ func TestAlphaCenterIsReadOnlyCapabilitySurface(t *testing.T) {
 }
 
 func TestEasyDeepensOneClickWithoutMutation(t *testing.T) {
-	all := readAlphaContractFile(t, "web/easy.html") + "\n" + readAlphaContractFile(t, "web/easy.js")
-	for _, want := range []string{"oneClickRecommendations", "Why this result", "Continue", "/alpha-center.html", "/i18n.js", "easy.recommendations"} {
+	all := readAlphaContractFile(t, "web/easy.html") + "\n" + readAlphaContractFile(t, "web/easy.js") + "\n" + readAlphaContractFile(t, "web/i18n.js")
+	for _, want := range []string{"oneClickRecommendations", "common.why", "common.continue", "/alpha-center.html", "/i18n.js", "easy.recommendations"} {
 		if !strings.Contains(all, want) { t.Fatalf("Easy Alpha expansion missing %q", want) }
 	}
 	for _, bad := range []string{"innerHTML", "eval(", "new Function", "document.write", "/api/actions/execute", "/api/trust/capture", "/api/changes/start", "sudo "} {
