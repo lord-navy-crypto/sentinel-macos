@@ -25,7 +25,15 @@
 
   <section id="graph" class="panel">
     <div class="heading"><div><p class="eyebrow">Relationships</p><h2>Evidence Graph 2.0</h2></div><p>Typed nodes and edges across current evidence, incidents, and explicit network history.</p></div>
-    <form id="graphFilters" class="filters"><input name="q" placeholder="Filter label / ref"><select name="type"><option value="">All node types</option><option>file</option><option>process</option><option>startup</option><option>network</option><option>endpoint</option><option>incident</option><option value="network_snapshot">network snapshot</option></select><input name="source" placeholder="Source"><button>Apply</button></form>
+    <form id="graphFilters" class="filters">
+      <input name="q" placeholder="Filter label / ref">
+      <select name="type"><option value="">All node types</option><option>file</option><option>process</option><option>startup</option><option>network</option><option>endpoint</option><option>incident</option><option value="network_snapshot">network snapshot</option></select>
+      <input name="source" placeholder="Source">
+      <input name="since" type="datetime-local" aria-label="Graph observed since">
+      <input name="until" type="datetime-local" aria-label="Graph observed until">
+      <button>Apply</button>
+    </form>
+    <p class="muted">Time filtering applies only to nodes/edges with retained timestamps. Untimed current observations remain visible only when no time range is selected.</p>
     <div id="graphMeta" class="metrics"></div><div id="graphNodes" class="cards"></div><details><summary>Relationships</summary><div id="graphEdges" class="rows"></div></details>
   </section>
 
@@ -36,8 +44,16 @@
   </section>
 
   <section id="timeline" class="panel">
-    <div class="heading"><div><p class="eyebrow">Time</p><h2>Global Timeline</h2></div><p>Filesystem, incident, and Sentinel intelligence events in one bounded chronology.</p></div>
-    <form id="timelineFilters" class="filters"><input name="source" placeholder="Source"><input name="kind" placeholder="Kind"><select name="severity"><option value="">All severity</option><option>high</option><option>review</option><option>info</option></select><input name="path" placeholder="Exact absolute path"><button>Apply</button></form>
+    <div class="heading"><div><p class="eyebrow">Time</p><h2>Global Timeline</h2></div><p>Filesystem, incident, Sentinel intelligence, and retained Safe Action journal evidence in one bounded chronology.</p></div>
+    <form id="timelineFilters" class="filters">
+      <input name="source" placeholder="Source">
+      <input name="kind" placeholder="Kind">
+      <select name="severity"><option value="">All severity</option><option>high</option><option>review</option><option>info</option></select>
+      <input name="path" placeholder="Exact absolute path">
+      <input name="since" type="datetime-local" aria-label="Timeline since">
+      <input name="until" type="datetime-local" aria-label="Timeline until">
+      <button>Apply</button>
+    </form>
     <div id="timelineMeta" class="metrics"></div><div id="timelineRows" class="timeline"></div>
   </section>
 
