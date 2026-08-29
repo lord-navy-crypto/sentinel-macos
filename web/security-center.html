@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Sentinel Security Center</title>
+  <link rel="stylesheet" href="/control-plane.css">
+  <link rel="stylesheet" href="/v23-navigation.css">
+</head>
+<body data-workspace="security">
+<main class="shell">
+  <header class="hero"><div><p class="eyebrow">Sentinel v2.3 · Security</p><h1>Security Center</h1><p>One focused page for Gatekeeper, FileVault, SIP, System Extensions, retained review signals, and the bridge into Incidents.</p></div><nav class="hero-actions"><a href="/intelligence-center.html">Incidents & Explain Why</a><a href="/system-console.html">Security Terminal Tools</a></nav></header>
+  <p id="notice" class="notice" role="status" aria-live="polite"></p>
+  <section class="panel"><div class="heading"><div><p class="eyebrow">Current posture</p><h2>Security Posture</h2></div><button id="refreshSecurity" type="button">Refresh Security</button></div><p class="help">Runs only fixed typed local security queries. Review signals are evidence for investigation, not malware probability.</p><div id="securitySummary" class="summary-grid"></div></section>
+  <section class="panel"><div class="heading"><div><p class="eyebrow">Typed local evidence</p><h2>Security Sources</h2></div></div><div id="securityEvidence" class="card-grid"></div></section>
+  <section class="panel"><div class="heading"><div><p class="eyebrow">What deserves attention</p><h2>Review Signals</h2></div></div><div id="securitySignals" class="stack"></div></section>
+</main>
+<script src="/workspace-centers.js"></script>
+<script src="/v23-navigation.js"></script>
+</body>
+</html>

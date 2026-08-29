@@ -1,0 +1,94 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+.compare-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:0 28px;
+  margin:14px 0 28px;
+  border-top:1px solid var(--line-soft);
+  border-bottom:1px solid var(--line-soft);
+}
+.compare-card{
+  position:relative;
+  display:grid;
+  grid-template-columns:18px 1fr;
+  grid-template-areas:"marker kicker" "marker title" "marker body" "marker action";
+  align-content:start;
+  min-height:188px;
+  border:0;
+  border-bottom:1px solid var(--line-soft);
+  background:transparent;
+  border-radius:0;
+  padding:20px 2px 18px;
+  color:var(--text);
+  text-decoration:none;
+  box-shadow:none;
+  transition:background .14s ease;
+}
+.compare-card:nth-last-child(-n+2){border-bottom:0}
+.compare-card::before{
+  content:"";
+  grid-area:marker;
+  align-self:stretch;
+  justify-self:start;
+  width:1px;
+  min-height:100%;
+  margin-left:4px;
+  background:linear-gradient(180deg,rgba(130,182,244,.72),rgba(130,182,244,.08));
+}
+.compare-card::after{
+  content:"";
+  position:absolute;
+  left:3px;
+  top:25px;
+  width:4px;
+  height:4px;
+  border-radius:50%;
+  background:var(--accent);
+}
+.compare-card:hover{
+  border-color:var(--line-soft);
+  background:linear-gradient(90deg,rgba(130,182,244,.055),transparent 68%);
+  transform:none;
+}
+.compare-card .kicker{
+  grid-area:kicker;
+  font-size:9px;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:var(--muted-2);
+}
+.compare-card h2{
+  grid-area:title;
+  font-size:21px;
+  letter-spacing:-.02em;
+  margin:6px 0 5px;
+}
+.compare-card p{
+  grid-area:body;
+  max-width:500px;
+  color:var(--muted);
+  line-height:1.55;
+  margin:0 0 16px;
+}
+.compare-card b{
+  grid-area:action;
+  align-self:end;
+  margin-top:auto;
+  font-size:11px;
+  font-weight:650;
+  color:#cbd9e9;
+}
+.compare-note{
+  border-left-color:rgba(230,186,103,.58);
+  background:linear-gradient(90deg,rgba(230,186,103,.035),transparent 50%),rgba(14,19,26,.7);
+  border-radius:10px;
+  padding:17px 18px;
+}
+.compare-note h2{font-size:15px;letter-spacing:-.01em;margin:0 0 5px}
+.compare-note p{max-width:900px;color:var(--muted);line-height:1.55;margin:0}
+
+@media(max-width:760px){
+  .compare-grid{grid-template-columns:1fr}
+  .compare-card,.compare-card:nth-last-child(-n+2){border-bottom:1px solid var(--line-soft)}
+  .compare-card:last-child{border-bottom:0}
+}

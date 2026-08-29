@@ -12,7 +12,7 @@ func TestDesktopDistributionAssets(t *testing.T) {
 		"desktop/SentinelDesktop.swift": {"NSWorkspace.shared.open", "WKWebView", "Open in Browser", "Open App View", "Quit Sentinel", "Process()", "--desktop", "SENTINEL_DESKTOP_BOOTSTRAP", "desktop", "value: \"1\""},
 		"build-desktop-macos.sh":        {"swiftc", "lipo -create", "-framework WebKit", "NSAllowsLocalNetworking", "Sentinel.app", "native WebKit App View"},
 		"release-direct-macos.sh":       {"Developer ID", "--options runtime", "notarytool submit", "stapler staple", "hdiutil create"},
-		"DIRECT_DISTRIBUTION_GUIDE.md":  {"Sentinel-2.2.dmg", "Developer ID", "notarytool"},
+		"DIRECT_DISTRIBUTION_GUIDE.md":  {"Developer ID", "notarytool"},
 		"web/desktop-ui.js":             {"desktop-ui.css", "More tools", "window.fetch = async", "sentinel-task-progress", "job.phase_percent", "job.hash_bytes_done", "Hashing duplicate candidates", "Progress appears only after a real localhost request starts.", "Local request failed:", "Interface error:"},
 		"web/desktop-ui.css":            {".mode-switch{display:none!important}", "grid-template-columns:244px", "overflow-y:scroll!important", ".sentinel-task-progress", ".sentinel-percent-bar"},
 	}
@@ -27,6 +27,20 @@ func TestDesktopDistributionAssets(t *testing.T) {
 				t.Fatalf("%s missing %q", path, needle)
 			}
 		}
+	}
+
+	versionBytes, err := os.ReadFile("VERSION")
+	if err != nil {
+		t.Fatal(err)
+	}
+	version := strings.TrimSpace(string(versionBytes))
+	guideBytes, err := os.ReadFile("DIRECT_DISTRIBUTION_GUIDE.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectedBetaDMG := "Sentinel-" + version + "-beta.dmg"
+	if !strings.Contains(string(guideBytes), expectedBetaDMG) {
+		t.Fatalf("DIRECT_DISTRIBUTION_GUIDE.md missing current VERSION-derived artifact %q", expectedBetaDMG)
 	}
 }
 

@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Sentinel System Center</title>
+  <link rel="stylesheet" href="/control-plane.css">
+  <link rel="stylesheet" href="/v23-navigation.css">
+</head>
+<body data-workspace="system">
+<main class="shell">
+  <header class="hero"><div><p class="eyebrow">Sentinel v2.3 · System</p><h1>System Center</h1><p>System Snapshot & Diff plus retained typed system evidence, separated from Security, Storage, and Recovery so this page stays compact.</p></div><nav class="hero-actions"><a href="/system-console.html">Terminal Toolbox</a><a href="/control-plane.html">Combined Control Plane</a></nav></header>
+  <p id="notice" class="notice" role="status" aria-live="polite"></p>
+  <section class="panel"><div class="heading"><div><p class="eyebrow">Explicit capture</p><h2>System Snapshot & Diff</h2></div><button id="captureSnapshot" type="button">Capture System Snapshot</button></div><p class="help">Captures selected processes, launch services, TCP relationships, mounts/filesystems, and core security state. It is bounded and is not a complete macOS audit log.</p><div class="compare-row"><label>Baseline <select id="snapshotFrom"></select></label><label>Target <select id="snapshotTo"></select></label><button id="compareSnapshots" type="button">Compare</button></div><div id="snapshotList" class="stack"></div><div id="snapshotDiff" class="stack"></div></section>
+  <section class="panel"><div class="heading"><div><p class="eyebrow">Retained provenance</p><h2>Typed System Evidence</h2></div><button id="refreshEvidence" type="button">Refresh Evidence</button></div><p class="help">Compact typed summaries and signals only. Raw Terminal output remains in the current System Console query and is not copied into retained history.</p><div id="systemEvidence" class="stack"></div></section>
+</main>
+<script src="/workspace-centers.js"></script>
+<script src="/v23-navigation.js"></script>
+</body>
+</html>

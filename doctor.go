@@ -70,23 +70,24 @@ func (a *app) handleDoctor(w http.ResponseWriter, r *http.Request) {
 }
 
 type SupportDiagnostics struct {
-	SchemaVersion  int                  `json:"schema_version"`
-	ReportKind     string               `json:"report_kind"`
-	GeneratedAt    string               `json:"generated_at"`
-	Version        string               `json:"version"`
-	Doctor         DoctorReport         `json:"doctor"`
-	Behavior       map[string]any       `json:"behavior_state"`
-	Trust          map[string]any       `json:"trust_state"`
-	Actions        map[string]any       `json:"safe_actions_state"`
-	Coverage       map[string]int       `json:"visibility_coverage"`
-	Posture        map[string]any       `json:"sentinel_posture"`
-	Changes        map[string]any       `json:"change_monitor"`
-	Incidents      map[string]any       `json:"incidents"`
-	AdvancedSensor AdvancedSensorStatus `json:"advanced_sensor"`
-	Readiness      map[string]any       `json:"sentinel_readiness"`
-	StateRecovery  map[string]any       `json:"state_recovery"`
-	Runtime        map[string]any       `json:"runtime"`
-	Privacy        string               `json:"privacy"`
+	SchemaVersion  int                           `json:"schema_version"`
+	ReportKind     string                        `json:"report_kind"`
+	GeneratedAt    string                        `json:"generated_at"`
+	Version        string                        `json:"version"`
+	Doctor         DoctorReport                  `json:"doctor"`
+	Behavior       map[string]any                `json:"behavior_state"`
+	Trust          map[string]any                `json:"trust_state"`
+	Actions        map[string]any                `json:"safe_actions_state"`
+	Coverage       map[string]int                `json:"visibility_coverage"`
+	Posture        map[string]any                `json:"sentinel_posture"`
+	Changes        map[string]any                `json:"change_monitor"`
+	Incidents      map[string]any                `json:"incidents"`
+	AdvancedSensor AdvancedSensorStatus          `json:"advanced_sensor"`
+	Readiness      map[string]any                `json:"sentinel_readiness"`
+	StateRecovery  map[string]any                `json:"state_recovery"`
+	Runtime        map[string]any                `json:"runtime"`
+	Analysis       RuntimeDiagnosticsAnalysisV23 `json:"runtime_analysis"`
+	Privacy        string                        `json:"privacy"`
 }
 
 func (a *app) supportDiagnostics() SupportDiagnostics {
@@ -112,6 +113,7 @@ func (a *app) supportDiagnostics() SupportDiagnostics {
 		Readiness:      map[string]any{"score": readiness.Score, "band": readiness.Band, "checks": len(readiness.Checks)},
 		StateRecovery:  map[string]any{"recovered_reads": recovery.RecoveredReads},
 		Runtime:        map[string]any{"ephemeral": a.ephemeral, "work_gate": a.work.status(), "single_instance_guard": a.instanceLock != nil && a.instanceLock.held},
+		Analysis:       a.runtimeDiagnosticsAnalysisV23(),
 		Privacy:        "Low-sensitivity support diagnostics intentionally omit hostname, process lists, network endpoints, file paths, file fingerprints, Vault paths, Vault manifests, incident object paths, and action-journal object details.",
 	}
 }

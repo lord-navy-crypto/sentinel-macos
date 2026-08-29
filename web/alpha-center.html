@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Sentinel Alpha Capability Center</title>
+  <link rel="stylesheet" href="/control-plane.css">
+  <link rel="stylesheet" href="/alpha-center.css">
+  <link rel="stylesheet" href="/v23-navigation.css">
+</head>
+<body>
+<main class="shell">
+  <header class="hero alpha-hero">
+    <div><p class="eyebrow" data-i18n="alpha.eyebrow">Sentinel · Alpha program</p><h1 data-i18n="alpha.title">Alpha Capability Center</h1><p data-i18n="alpha.body">A live expansion surface for capability depth, product readiness, evidence coverage, recovery, and bilingual operation. Alpha here is an ongoing development track, not a claim of production readiness.</p></div>
+    <button id="refreshAlpha" type="button" data-i18n="alpha.refresh">Refresh live state</button>
+  </header>
+  <p id="notice" class="notice" role="status" aria-live="polite"></p>
+
+  <section class="alpha-panel"><div class="alpha-heading"><div><p class="eyebrow">Live</p><h2 data-i18n="alpha.runtime">Runtime readiness</h2></div><span id="readinessBand" class="alpha-pill">—</span></div><div id="readinessSummary" class="alpha-summary"></div><div id="readinessChecks" class="alpha-stack"></div></section>
+
+  <section class="alpha-panel"><div class="alpha-heading"><div><p class="eyebrow">Depth model</p><h2 data-i18n="alpha.pillars">Capability pillars</h2></div></div><div id="pillarGrid" class="pillar-grid"></div></section>
+
+  <section class="alpha-panel"><div class="alpha-heading"><div><p class="eyebrow">Next</p><h2 data-i18n="alpha.gaps">Depth & next upgrades</h2></div></div><div id="gapList" class="alpha-stack"></div></section>
+
+  <section class="alpha-panel"><div class="alpha-heading"><div><p class="eyebrow">I18N</p><h2 data-i18n="alpha.localization">Localization</h2></div><span id="localePill" class="alpha-pill">EN / 中文</span></div><p class="alpha-muted" data-i18n="alpha.localization.detail">English and Simplified Chinese are active. Language preference is stored locally in this browser session profile.</p></section>
+  <p class="alpha-muted" data-i18n="alpha.note">Scores describe Sentinel capability/runtime state, not whether the Mac is safe.</p>
+</main>
+<script src="/i18n.js"></script>
+<script src="/alpha-center.js"></script>
+<script src="/v23-navigation.js"></script>
+</body>
+</html>

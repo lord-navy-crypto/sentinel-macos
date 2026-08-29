@@ -1,0 +1,87 @@
+name: Sentinel v2.3 branch validation
+
+on:
+  push:
+    branches:
+      - upgrade/v2.3-stable
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  core:
+    name: Go core and web contracts
+    runs-on: macos-latest
+    timeout-minutes: 24
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+          cache: true
+
+      - name: Go tests
+        run: go test ./...
+
+      - name: v2.3 pre-regression contracts
+        run: |
+          go test ./... -run 'Migration|IncidentStory|Timeline|Export|StorageAging|ReasonCodeRegistry|RuleRegistry|VaultHealth|Navigation|PreRegression|SessionNote|Alpha|I18n|ScanCenter'
+
+      - name: Darwin architecture build smoke
+        run: |
+          CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o /tmp/sentinel-v23-arm64 .
+          CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o /tmp/sentinel-v23-amd64 .
+          test -s /tmp/sentinel-v23-arm64
+          test -s /tmp/sentinel-v23-amd64
+
+      - name: Go race tests
+        run: go test -race ./...
+
+      - name: Go vet
+        run: go vet ./...
+
+      - name: JavaScript syntax
+        run: |
+          node --check web/app.js
+          node --check web/core-compat.js
+          node --check web/desktop-ui.js
+          node --check web/i18n.js
+          node --check web/easy.js
+          node --check web/scan-center.js
+          node --check web/compare-center.js
+          node --check web/alpha-center.js
+          node --check web/workspace-centers.js
+          node --check web/system-console.js
+          node --check web/system-console-links.js
+          node --check web/system-console-domains.js
+          node --check web/system-console-investigation-v23.js
+          node --check web/control-plane.js
+          node --check web/control-plane-aging-v23.js
+          node --check web/investigation.js
+          node --check web/investigation-bridge.js
+          node --check web/investigation-session-note-guard.js
+          node --check web/investigation-export-v23.js
+          node --check web/launch-services.js
+          node --check web/process-relations.js
+          node --check web/process-relations-bridge.js
+          node --check web/network-relations.js
+          node --check web/intelligence-center.js
+          node --check web/intelligence-release-prep-v23.js
+          node --check web/command-palette.js
+          node --check web/v23-navigation.js
+          node --check web/vault-health.js
+          node --check web/pre-regression.js
+
+      - name: Shell syntax
+        run: |
+          bash -n build-macos.sh
+          bash -n build-desktop-macos.sh
+          bash -n package-dev-dmg-macos.sh
+          bash -n release-direct-macos.sh
+          bash -n verify-release-macos.sh

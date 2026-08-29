@@ -1,0 +1,53 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+.shell{width:min(1180px,calc(100% - 40px));margin:0 auto;padding:34px 0 76px}
+.hero,.heading{display:flex;justify-content:space-between;gap:20px;align-items:flex-start}.hero nav{display:flex;gap:8px}.hero a{text-decoration:none}.notice{min-height:24px;color:var(--warn)}
+.panel{margin:16px 0}.heading{align-items:center;margin-bottom:14px}.heading h2{margin:2px 0;font-size:21px}
+
+.summary-grid{
+  display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;
+  border-top:1px solid var(--line-soft);border-bottom:1px solid var(--line-soft)
+}
+.fact{
+  border:0;border-right:1px solid var(--line-soft);background:transparent;border-radius:0;padding:11px 12px
+}
+.fact:last-child{border-right:0}.fact span,.item span,.item p,.meaning{display:block;color:var(--muted);margin:3px 0 0}.fact span{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted-2)}.fact b,.item b{display:block}.fact b{font-size:15px;font-variant-numeric:tabular-nums;margin-top:4px}
+
+/* Recovery history becomes a verification chain rather than stacked cards. */
+.stack{
+  position:relative;display:grid;gap:0;margin-top:12px;padding-left:20px;border-top:1px solid var(--line-soft)
+}
+.stack::before{content:"";position:absolute;left:5px;top:14px;bottom:14px;width:1px;background:var(--line-strong)}
+.item{
+  position:relative;border:0;border-bottom:1px solid var(--line-soft);background:transparent;border-radius:0;padding:13px 2px 13px 8px
+}
+.item::before{content:"";position:absolute;left:-18px;top:19px;width:7px;height:7px;border-radius:50%;background:var(--panel3);border:1px solid rgba(130,182,244,.65)}
+.item-head{display:flex;justify-content:space-between;gap:12px}.pill{padding:3px 7px;color:var(--muted);font-size:9px}.pill.good{color:var(--ok);border-color:rgba(119,201,154,.3)}.pill.warn{color:var(--warn);border-color:rgba(230,186,103,.3)}.pill.bad{color:var(--bad);border-color:rgba(233,135,135,.32)}
+.kv{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;margin-top:10px;
+  border-top:1px solid var(--line-soft);border-bottom:1px solid var(--line-soft)
+}
+.kv div{min-width:0;border-right:1px solid var(--line-soft);padding:8px 9px}.kv div:last-child{border-right:0}.kv code{display:block;color:#c7d9f2;overflow-wrap:anywhere;margin-top:3px;font-size:10px}
+.actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.observation{border-left:2px solid rgba(130,182,244,.5);padding-left:11px;margin-top:10px}
+
+.isolation-block{border-top:1px solid var(--line-soft);margin-top:14px;padding-top:14px}
+.isolation-facts{display:flex;flex-wrap:wrap;gap:6px;margin:9px 0}.isolation-facts span{border:1px solid var(--line-soft);border-radius:999px;padding:3px 7px;font-size:9px;color:#c7d9f2}
+.isolation-checks{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 18px;margin-top:10px;border-top:1px solid var(--line-soft)
+}
+.isolation-check{
+  border:0;border-bottom:1px solid var(--line-soft);background:transparent;border-radius:0;padding:10px 2px
+}
+.isolation-check-head{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}.isolation-check p{font-size:11px;color:var(--muted)}
+.empty{color:var(--muted);padding:18px 2px;text-align:left;border:0;border-top:1px dashed var(--line-soft);border-radius:0}
+
+@media(max-width:800px){
+  .summary-grid,.kv,.isolation-checks{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .summary-grid .fact:nth-child(2),.kv div:nth-child(2){border-right:0}.summary-grid .fact:nth-child(-n+2),.kv div:nth-child(-n+2){border-bottom:1px solid var(--line-soft)}
+  .hero{flex-direction:column}
+}
+@media(max-width:520px){
+  .summary-grid,.kv,.isolation-checks{grid-template-columns:1fr}.shell{width:min(100% - 20px,1180px)}.item-head{flex-direction:column}
+  .summary-grid .fact,.kv div{border-right:0;border-bottom:1px solid var(--line-soft)!important}.summary-grid .fact:last-child,.kv div:last-child{border-bottom:0!important}
+}

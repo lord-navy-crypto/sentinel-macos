@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sentinel Intelligence Center</title>
+  <link rel="stylesheet" href="/intelligence-center.css">
+  <link rel="stylesheet" href="/command-palette.css">
+  <link rel="stylesheet" href="/v23-navigation.css">
+</head>
+<body>
+<main class="shell">
+  <header class="hero"><div><p class="eyebrow">Sentinel v2.3 · Unified Intelligence</p><h1>Intelligence Center</h1><p>One bounded workspace for relationships, incidents, time, object history, and visibility.</p></div><div class="hero-actions"><button id="cmdButton" type="button">⌘K Search</button><a id="backLink" href="/">Back to Sentinel</a></div></header>
+  <nav class="section-nav" aria-label="Intelligence Center sections"><button type="button" data-jump="graph">Evidence Graph 2.0</button><button type="button" data-jump="incidents">Incidents 2.0</button><button type="button" data-jump="timeline">Global Timeline</button><button type="button" data-jump="object">Object Story 2.0</button><button type="button" data-jump="visibility">Visibility</button></nav>
+  <p id="notice" class="notice" role="status" aria-live="polite"></p>
+  <section id="graph" class="panel"><div class="heading"><div><p class="eyebrow">Relationships</p><h2>Evidence Graph 2.0</h2></div><p>Typed nodes and edges across current evidence, incidents, and explicit network history.</p></div><form id="graphFilters" class="filters"><input name="q" placeholder="Filter label / ref"><select name="type"><option value="">All node types</option><option>file</option><option>process</option><option>startup</option><option>network</option><option>endpoint</option><option>incident</option><option value="network_snapshot">network snapshot</option></select><input name="source" placeholder="Source"><input name="since" type="datetime-local" aria-label="Graph observed since"><input name="until" type="datetime-local" aria-label="Graph observed until"><button>Apply</button></form><p class="muted">Time filtering applies only to nodes/edges with retained timestamps. Untimed current observations remain visible only when no time range is selected.</p><div id="graphMeta" class="metrics"></div><div id="graphNodes" class="cards"></div><details><summary>Relationships</summary><div id="graphEdges" class="rows"></div></details></section>
+  <section id="incidents" class="panel"><div class="heading"><div><p class="eyebrow">Correlation</p><h2>Incident Intelligence 2.0</h2></div><button id="rebuildIncidents" type="button">Rebuild incidents</button></div><p class="muted">Stable object-centered StoryKeys coexist with bounded episode IDs. Confidence explains relationship strength, not malware probability.</p><div id="incidentList" class="cards"></div></section>
+  <section id="timeline" class="panel"><div class="heading"><div><p class="eyebrow">Time</p><h2>Global Timeline</h2></div><p>Filesystem, incident, Sentinel intelligence, and retained Safe Action journal evidence in one bounded chronology.</p></div><form id="timelineFilters" class="filters"><input name="source" placeholder="Source"><input name="kind" placeholder="Kind"><select name="severity"><option value="">All severity</option><option>high</option><option>review</option><option>info</option></select><input name="path" placeholder="Exact absolute path"><input name="since" type="datetime-local" aria-label="Timeline since"><input name="until" type="datetime-local" aria-label="Timeline until"><button>Apply</button></form><div id="timelineMeta" class="metrics"></div><div id="timelineRows" class="timeline"></div></section>
+  <section id="object" class="panel"><div class="heading"><div><p class="eyebrow">Object dossier</p><h2>Object Story 2.0</h2></div><p>Identity + runtime + incident membership + retained timeline + continuation targets.</p></div><form id="objectForm" class="filters object-form"><input id="objectPath" name="path" required placeholder="/Applications/Example.app"><button>Build dossier</button></form><div id="objectResult"></div></section>
+  <section id="visibility" class="panel"><div class="heading"><div><p class="eyebrow">Evidence coverage</p><h2>Visibility & Permissions</h2></div><button id="refreshVisibility" type="button">Refresh</button></div><p class="muted">Unavailable evidence reduces visibility. It never becomes a safety signal.</p><div id="visibilityMetrics" class="metrics"></div><div id="visibilityList" class="cards"></div></section>
+</main>
+<script src="/intelligence-center.js"></script>
+<script src="/command-palette.js"></script>
+<script src="/intelligence-release-prep-v23.js"></script>
+<script src="/v23-navigation.js"></script>
+</body>
+</html>

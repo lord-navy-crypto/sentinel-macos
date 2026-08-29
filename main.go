@@ -26,21 +26,22 @@ import (
 var webFS embed.FS
 
 type app struct {
-	token        string
-	allowedHost  string
-	serverOrigin string
-	startedAt    time.Time
-	ephemeral    bool
-	instanceLock *runtimeLock
-	work         *workGate
-	jobs         *scanManager
-	intel        *intelligenceManager
-	behavior     *behaviorManager
-	trust        *trustManager
-	persistence  *persistenceManager
-	actions      *actionManager
-	changes      *changeManager
-	incidents    *incidentManager
+	token          string
+	allowedHost    string
+	serverOrigin   string
+	startedAt      time.Time
+	ephemeral      bool
+	instanceLock   *runtimeLock
+	work           *workGate
+	jobs           *scanManager
+	intel          *intelligenceManager
+	behavior       *behaviorManager
+	trust          *trustManager
+	persistence    *persistenceManager
+	actions        *actionManager
+	changes        *changeManager
+	incidents      *incidentManager
+	networkHistory *networkHistoryManager
 }
 
 func main() {
@@ -72,9 +73,22 @@ func main() {
 	}
 	defer instanceLock.release()
 
+	// Normalize legacy Sentinel-owned metadata before any manager reads it.
+	// Migration strictly decodes the primary store first, uses the atomic
+	// state writer for changed files, and therefore preserves .bak rollback
+	// copies. In --ephemeral mode this is a no-write compatibility check.
+	runV23StateMigrations(*ephemeral)
+
 	token := randomToken(24)
 	intel := newIntelligenceManager()
-	a := &app{token: token, startedAt: time.Now(), ephemeral: *ephemeral, instanceLock: instanceLock, work: newWorkGate(2), jobs: newScanManager(), intel: intel, behavior: newBehaviorManager(*ephemeral), trust: newTrustManager(*ephemeral), persistence: newPersistenceManager(), actions: newActionManager(*ephemeral), changes: newChangeManager(intel, *ephemeral), incidents: newIncidentManager(*ephemeral)}
+	a := &app{
+		token: token, startedAt: time.Now(), ephemeral: *ephemeral, instanceLock: instanceLock,
+		work: newWorkGate(2), jobs: newScanManager(), intel: intel,
+		behavior: newBehaviorManager(*ephemeral), trust: newTrustManager(*ephemeral),
+		persistence: newPersistenceManager(), actions: newActionManager(*ephemeral),
+		changes: newChangeManager(intel, *ephemeral), incidents: newIncidentManager(*ephemeral),
+		networkHistory: newNetworkHistoryManager(*ephemeral),
+	}
 
 	mux := http.NewServeMux()
 	staticFS, err := fs.Sub(webFS, "web")
@@ -85,28 +99,45 @@ func main() {
 
 	mux.HandleFunc("/api/overview", a.auth(a.handleOverview))
 	mux.HandleFunc("/api/system-profile", a.auth(a.handleSystemProfile))
+	mux.HandleFunc("/api/system/console", a.auth(a.handleSystemConsole))
+	mux.HandleFunc("/api/system/query", a.auth(a.work.wrap("system-query", a.handleSystemConsoleQuery)))
+	mux.HandleFunc("/api/system/query/structured", a.auth(a.work.wrap("system-query-structured", a.handleSystemConsoleStructuredQuery)))
+	mux.HandleFunc("/api/system/object/inspect", a.auth(a.work.wrap("system-object-inspect", a.handleSystemObjectInspect)))
 	mux.HandleFunc("/api/quick-check", a.auth(a.work.wrap("quick-check", a.handleQuickCheck)))
 	mux.HandleFunc("/api/search", a.auth(a.handleUniversalSearch))
 	mux.HandleFunc("/api/search/deep", a.auth(a.work.wrap("deep-search", a.handleDeepFileSearch)))
+	mux.HandleFunc("/api/search/command", a.auth(a.handleCommandPalette))
 	mux.HandleFunc("/api/weakness-audit", a.auth(a.handleWeaknessAudit))
 	mux.HandleFunc("/api/coverage", a.auth(a.handleCoverageMap))
 	mux.HandleFunc("/api/review-queue", a.auth(a.handleReviewQueue))
 	mux.HandleFunc("/api/guided-snapshot", a.auth(a.work.wrap("monitoring-snapshot", a.handleGuidedSnapshot)))
 	mux.HandleFunc("/api/capabilities", a.auth(a.handleCapabilities))
+	mux.HandleFunc("/api/visibility", a.auth(a.handleVisibilityCenterV2))
 	mux.HandleFunc("/api/processes", a.auth(a.handleProcesses))
 	mux.HandleFunc("/api/startup", a.auth(a.handleStartup))
+	mux.HandleFunc("/api/launch-services", a.auth(a.work.wrap("launch-services", a.handleLaunchServices)))
+	mux.HandleFunc("/api/launch-services/detail", a.auth(a.work.wrap("launch-service-detail", a.handleLaunchServiceDetail)))
 	mux.HandleFunc("/api/network", a.auth(a.handleNetwork))
+	mux.HandleFunc("/api/network/history", a.auth(a.handleNetworkHistory))
 	mux.HandleFunc("/api/background", a.auth(a.handleBackgroundItems))
 	mux.HandleFunc("/api/storage/scan", a.auth(a.handleStorageScan))
 	mux.HandleFunc("/api/storage/jobs", a.auth(a.handleStorageJobs))
 	mux.HandleFunc("/api/storage/cancel", a.auth(a.handleStorageCancel))
+	mux.HandleFunc("/api/storage/aging", a.auth(a.handleStorageAgingV23))
 	mux.HandleFunc("/api/security/audit", a.auth(a.work.wrap("security-audit", a.handleSecurityAudit)))
+	mux.HandleFunc("/api/security/investigate", a.auth(a.work.wrap("continue-investigation", a.handleContinueInvestigation)))
+	mux.HandleFunc("/api/security/context", a.auth(a.work.wrap("investigation-runtime-context", a.handleInvestigationRuntimeContext)))
+	mux.HandleFunc("/api/security/investigation/export", a.auth(a.work.wrap("investigation-bundle-export", a.handleInvestigationBundleExportV23)))
 	mux.HandleFunc("/api/process/detail", a.auth(a.handleProcessDetail))
 	mux.HandleFunc("/api/report/export", a.auth(a.work.wrap("report-export", a.handleReportExport)))
 	mux.HandleFunc("/api/cleanup/preview", a.auth(a.handleCleanupPreview))
 	mux.HandleFunc("/api/intelligence/graph", a.auth(a.handleIntelligenceGraph))
+	mux.HandleFunc("/api/intelligence/graph/v2", a.auth(a.work.wrap("evidence-graph-v2", a.handleEvidenceGraphV2)))
 	mux.HandleFunc("/api/intelligence/timeline", a.auth(a.handleTimeline))
+	mux.HandleFunc("/api/intelligence/timeline/global", a.auth(a.handleGlobalTimeline))
+	mux.HandleFunc("/api/intelligence/timeline/grouped", a.auth(a.handleGroupedGlobalTimeline))
 	mux.HandleFunc("/api/object/story", a.auth(a.handleObjectStory))
+	mux.HandleFunc("/api/object/story/v2", a.auth(a.work.wrap("object-story-v2", a.handleObjectStoryV2)))
 	mux.HandleFunc("/api/behavior", a.auth(a.handleBehavior))
 	mux.HandleFunc("/api/behavior/history", a.auth(a.handleBehaviorHistory))
 	mux.HandleFunc("/api/behavior/health", a.auth(a.handleBehaviorHealth))
@@ -128,6 +159,7 @@ func main() {
 	mux.HandleFunc("/api/actions/execute", a.auth(a.handleActionExecute))
 	mux.HandleFunc("/api/actions/journal", a.auth(a.handleActionJournal))
 	mux.HandleFunc("/api/actions/vault", a.auth(a.handleVault))
+	mux.HandleFunc("/api/actions/vault/isolation", a.auth(a.work.wrap("vault-isolation", a.handleVaultIsolation)))
 	mux.HandleFunc("/api/actions/reveal", a.auth(a.handleReveal))
 	mux.HandleFunc("/api/changes/status", a.auth(a.handleChangeStatus))
 	mux.HandleFunc("/api/changes/events", a.auth(a.handleChangeEvents))
@@ -138,9 +170,12 @@ func main() {
 	mux.HandleFunc("/api/changes/history", a.auth(a.handleChangeHistory))
 	mux.HandleFunc("/api/changes/reconcile", a.auth(a.work.wrap("change-reconcile", a.handleChangeReconcile)))
 	mux.HandleFunc("/api/incidents", a.auth(a.handleIncidents))
+	mux.HandleFunc("/api/incidents/v2", a.auth(a.handleIncidentIntelligenceV2))
 	mux.HandleFunc("/api/incidents/detail", a.auth(a.work.wrap("incident-deep-review", a.handleIncidentDetail)))
+	mux.HandleFunc("/api/incidents/export", a.auth(a.work.wrap("incident-export", a.handleIncidentExportV23)))
 	mux.HandleFunc("/api/advanced-sensor/status", a.auth(a.handleAdvancedSensorStatus))
 	mux.HandleFunc("/api/readiness", a.auth(a.work.wrap("readiness", a.handleReadiness)))
+	mux.HandleFunc("/api/pre-regression", a.auth(a.handlePreRegressionV23))
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" || r.URL.Path == "/index.html" {
 			page, readErr := fs.ReadFile(staticFS, "index.html")
@@ -151,7 +186,7 @@ func main() {
 			html := strings.Replace(
 				string(page),
 				"<script src=\"/app.js\"></script>",
-				"<script src=\"/core-compat.js\"></script>\n<script src=\"/app.js\"></script>",
+				"<script src=\"/core-compat.js\"></script>\n<script src=\"/app.js\"></script>\n<script src=\"/investigation-bridge.js\"></script>\n<script src=\"/command-palette.js\"></script>",
 				1,
 			)
 			if r.URL.Query().Get("desktop") == "1" {
@@ -267,8 +302,6 @@ func (a *app) auth(next http.HandlerFunc) http.HandlerFunc {
 
 func (a *app) requestGuard(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Defense-in-depth for a localhost application: reject unexpected Host
-		// values (DNS rebinding) and cross-site browser requests before auth.
 		if a.allowedHost != "" && r.Host != a.allowedHost {
 			writeJSON(w, http.StatusMisdirectedRequest, map[string]any{"error": "unexpected Host header"})
 			return

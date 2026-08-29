@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sentinel System Console</title>
+  <link rel="stylesheet" href="/system-console.css">
+  <link rel="stylesheet" href="/system-console-domains.css">
+  <link rel="stylesheet" href="/v23-navigation.css">
+</head>
+<body>
+  <main class="console-shell">
+    <header class="console-header">
+      <div>
+        <p class="eyebrow">Sentinel v2.3 development</p>
+        <h1>System Console</h1>
+        <p class="subtitle">A visual Terminal-backed macOS toolbox: real system commands become typed buttons, large capability groups, structured evidence, and Sentinel-managed control workflows.</p>
+      </div>
+      <a id="backLink" class="back-link" href="/easy.html">Back to Easy</a>
+    </header>
+
+    <section class="principles" aria-label="System Console principles">
+      <article><b>Understand</b><span>See what macOS is doing.</span></article>
+      <article><b>Investigate</b><span>Inspect objects, processes, services, networks, logs, and evidence.</span></article>
+      <article><b>Control</b><span>Use typed Sentinel workflows instead of arbitrary privileged commands.</span></article>
+      <article><b>Recover</b><span>Keep rollback, history, and recovery state visible.</span></article>
+    </section>
+
+    <p id="notice" class="notice" role="status" aria-live="polite"></p>
+
+    <section class="recipe-panel">
+      <div class="section-heading">
+        <div><p class="eyebrow">Ask the Mac</p><h2>Start with a question, not a command</h2></div>
+        <p>Common questions map to bounded macOS evidence. You can also jump directly into the Terminal Toolbox below, where the larger fixed-command catalog is exposed as visual buttons.</p>
+      </div>
+      <div class="recipe-grid">
+        <button class="recipe-card" type="button" data-recipe-tool="process-table"><b>What is running right now?</b><span>Inspect processes, ownership, CPU, memory, and elapsed runtime.</span></button>
+        <button class="recipe-card" type="button" data-recipe-tool="disk-filesystems"><b>Where is disk capacity going?</b><span>Start with mounted filesystem usage before a deeper Storage Intelligence scan.</span></button>
+        <button class="recipe-card" type="button" data-recipe-tool="mount-table"><b>What volumes are mounted?</b><span>See local, external, and mounted filesystem relationships.</span></button>
+        <button class="recipe-card" type="button" data-recipe-tool="route-table"><b>How is this Mac routing traffic?</b><span>Inspect the current route table without changing network configuration.</span></button>
+        <button class="recipe-card" type="button" data-recipe-tool="power-settings"><b>What power rules are active?</b><span>Inspect the current macOS power-management configuration.</span></button>
+        <button class="recipe-card" type="button" data-recipe-focus="object"><b>What is this app or file?</b><span>Combine metadata, quarantine attributes, code signing, Gatekeeper, and plist context.</span></button>
+        <button class="recipe-card" type="button" data-recipe-tool="process-open-files"><b>What is this process using?</b><span>Enter a PID and inspect the files and sockets currently opened by that process.</span></button>
+        <button class="recipe-card" type="button" data-recipe-tool="gatekeeper-assessment"><b>Why might macOS reject this app?</b><span>Enter an app path and inspect Gatekeeper's local assessment as evidence.</span></button>
+        <a id="processRelationsRecipe" class="recipe-card recipe-link" href="/process-relations.html"><b>How is this process connected?</b><span>Follow a PID through parents, children, executable identity, open objects, TCP evidence, and persistence.</span></a>
+        <a id="networkRelationsRecipe" class="recipe-card recipe-link" href="/network-relations.html"><b>Which processes are talking on the network?</b><span>Group current TCP sockets by PID and endpoint, then continue into the owning process.</span></a>
+        <a id="launchServicesRecipe" class="recipe-card recipe-link" href="/launch-services.html"><b>Why does this start automatically?</b><span>Map LaunchAgents and LaunchDaemons to their executable targets, current PIDs, and deeper investigation branches.</span></a>
+        <a id="controlPlaneRecipe" class="recipe-card recipe-link" href="/system-center.html"><b>What changed on this Mac?</b><span>Open the focused System Center for System Snapshot & Diff and retained typed system evidence.</span></a>
+      </div>
+    </section>
+
+    <section class="object-panel">
+      <div class="section-heading"><div><p class="eyebrow">Unified object entry point</p><h2>Inspect a Mac object</h2></div><p>Enter one absolute path. Sentinel combines local metadata, extended attributes, signing, Gatekeeper, and plist evidence when applicable.</p></div>
+      <form id="objectForm" class="object-form"><label for="objectPath">Absolute path</label><div class="input-row"><input id="objectPath" name="path" type="text" spellcheck="false" autocomplete="off" placeholder="/Applications/Example.app" required><button type="submit">Inspect object</button></div></form>
+      <div id="objectResult" class="result-panel hidden" aria-live="polite"></div>
+    </section>
+
+    <section>
+      <div class="section-heading"><div><p class="eyebrow">Visual Terminal Toolbox</p><h2>macOS capabilities as big function groups</h2></div><p>Read-only buttons execute allowlisted macOS tools with fixed arguments, bounded time, and bounded output. Control/recovery buttons stay inside typed Sentinel workflows.</p></div>
+      <div id="toolGroups" class="tool-groups"></div>
+    </section>
+
+    <section id="queryOutputSection" class="output-section hidden">
+      <div class="section-heading"><div><p class="eyebrow">Local evidence</p><h2 id="queryTitle">Query result</h2></div><p id="queryMeta"></p></div>
+      <div id="structuredOutput" class="structured-output hidden" aria-live="polite"></div>
+      <details class="raw-evidence" open><summary>Raw evidence · Terminal output</summary><pre id="queryOutput" tabindex="0"></pre></details>
+      <div id="queryLimitations" class="limitations"></div>
+    </section>
+  </main>
+  <script src="/system-console.js"></script>
+  <script src="/system-console-links.js"></script>
+  <script src="/system-console-domains.js"></script>
+  <script src="/system-console-investigation-v23.js"></script>
+  <script src="/v23-navigation.js"></script>
+</body>
+</html>

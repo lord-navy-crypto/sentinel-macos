@@ -6,6 +6,18 @@
  * presentation layer cannot break the core Sentinel event-binding chain.
  */
 
+/* v2.3 is now the normal product shell. The old monolithic dashboard remains
+ * available only when explicitly requested with ?legacy=1 so existing APIs and
+ * compatibility workflows are not deleted during regression testing. */
+(() => {
+  const params = new URLSearchParams(location.search);
+  if ((location.pathname === '/' || location.pathname === '/index.html') && params.get('legacy') !== '1') {
+    const token = new URLSearchParams(location.hash.slice(1)).get('token') || '';
+    const hash = token ? `#token=${encodeURIComponent(token)}` : '';
+    location.replace(`/easy.html${hash}`);
+  }
+})();
+
 function readinessEscape(value) {
   return String(value ?? '').replace(/[&<>'"]/g, c => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
@@ -190,4 +202,27 @@ window.loadReadiness = loadReadiness;
     }
     return response;
   };
+})();
+
+/*
+ * v2.3 System Console entry point.
+ *
+ * Keep this separate from SPA navigation so the new control-plane surface can
+ * evolve without destabilizing the v2.2 view/router contract.
+ */
+(() => {
+  if (document.getElementById('systemConsoleShortcut')) return;
+  const actions = document.querySelector('.sidebar-actions');
+  if (!actions) return;
+  const token = new URLSearchParams(location.hash.slice(1)).get('token') || '';
+  const button = document.createElement('button');
+  button.id = 'systemConsoleShortcut';
+  button.className = 'side-action';
+  button.type = 'button';
+  button.textContent = 'System Console';
+  button.title = 'Open the v2.3 visual macOS System Console';
+  button.addEventListener('click', () => {
+    location.href = `/system-console.html#token=${encodeURIComponent(token)}`;
+  });
+  actions.appendChild(button);
 })();
