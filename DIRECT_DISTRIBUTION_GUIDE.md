@@ -1,4 +1,4 @@
-# Sentinel 2.2 — macOS Distribution Plan
+# Sentinel 2.3 — macOS Distribution Plan
 
 ## Current priority: public Beta first
 
@@ -57,11 +57,11 @@ For the current public-testing Beta DMG:
 SENTINEL_RELEASE_CHANNEL=beta ./package-dev-dmg-macos.sh
 ```
 
-With the current `VERSION` value `2.2.0`, this produces:
+With the current `VERSION` value `2.3.0`, this produces:
 
 ```text
-dist/Sentinel-2.2.0-beta.dmg
-dist/Sentinel-2.2.0-beta.dmg.sha256
+dist/Sentinel-2.3.0-beta.dmg
+dist/Sentinel-2.3.0-beta.dmg.sha256
 ```
 
 Artifact filenames are derived from the repository `VERSION` file. If `VERSION` changes, use the filename printed by the packaging script rather than hard-coding an older version string.
@@ -70,17 +70,17 @@ Artifact filenames are derived from the repository `VERSION` file. If `VERSION` 
 
 Until Developer ID/notarization is enabled, use explicit Beta naming so testers do not confuse the build with the future production-signed release.
 
-Recommended Beta assets for version 2.2.0:
+Recommended Beta assets for version 2.3.0:
 
 ```text
-Sentinel-2.2.0-beta.dmg
-Sentinel-2.2.0-beta.dmg.sha256
+Sentinel-2.3.0-beta.dmg
+Sentinel-2.3.0-beta.dmg.sha256
 ```
 
 The GitHub Release title should also make the status explicit, for example:
 
 ```text
-Sentinel 2.2 Beta
+Sentinel 2.3 Beta
 ```
 
 The release notes should state that the Beta may not yet be Developer ID signed/notarized and therefore macOS Gatekeeper may treat it differently from a future production build.
@@ -148,10 +148,10 @@ export SENTINEL_BUNDLE_ID='io.github.lord-navy-crypto.sentinel'
 ./release-direct-macos.sh
 ```
 
-With the current `VERSION` value `2.2.0`, the production artifact is:
+With the current `VERSION` value `2.3.0`, the production artifact is:
 
 ```text
-dist/Sentinel-2.2.0.dmg
+dist/Sentinel-2.3.0.dmg
 ```
 
 The production pipeline:
