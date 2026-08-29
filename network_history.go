@@ -216,6 +216,19 @@ func diffNetworkHistory(from, to NetworkHistorySnapshot) NetworkHistoryDiff {
 	return diff
 }
 
+func findNetworkHistorySnapshot(snapshots []NetworkHistorySnapshot, id string) (NetworkHistorySnapshot, bool) {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return NetworkHistorySnapshot{}, false
+	}
+	for _, snapshot := range snapshots {
+		if snapshot.ID == id {
+			return snapshot, true
+		}
+	}
+	return NetworkHistorySnapshot{}, false
+}
+
 func (m *networkHistoryManager) persistLocked() error {
 	if m == nil || !m.persistent || m.path == "" {
 		return nil
@@ -276,9 +289,30 @@ func (a *app) handleNetworkHistory(w http.ResponseWriter, r *http.Request) {
 			diff := diffNetworkHistory(snapshots[1], snapshots[0])
 			latestDiff = &diff
 		}
+		fromID := strings.TrimSpace(r.URL.Query().Get("from"))
+		toID := strings.TrimSpace(r.URL.Query().Get("to"))
+		if (fromID == "") != (toID == "") {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"error": "both from and to snapshot IDs are required for comparison"})
+			return
+		}
+		var comparison *NetworkHistoryDiff
+		if fromID != "" {
+			from, ok := findNetworkHistorySnapshot(snapshots, fromID)
+			if !ok {
+				writeJSON(w, http.StatusNotFound, map[string]any{"error": "from network snapshot not found"})
+				return
+			}
+			to, ok := findNetworkHistorySnapshot(snapshots, toID)
+			if !ok {
+				writeJSON(w, http.StatusNotFound, map[string]any{"error": "to network snapshot not found"})
+				return
+			}
+			diff := diffNetworkHistory(from, to)
+			comparison = &diff
+		}
 		writeJSON(w, http.StatusOK, map[string]any{
-			"snapshots": snapshots, "latest_diff": latestDiff, "persistent": a.networkHistory.persistent,
-			"retention": networkHistorySnapshotLimit,
+			"snapshots": snapshots, "latest_diff": latestDiff, "comparison": comparison,
+			"persistent": a.networkHistory.persistent, "retention": networkHistorySnapshotLimit,
 			"note": "Network Evidence history is created only by explicit Sentinel snapshots. It stores bounded normalized relationship metadata, never packet contents, decrypted traffic, or a continuous background capture.",
 		})
 	case http.MethodPost:
