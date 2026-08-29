@@ -94,15 +94,24 @@ The following foundations are already present in `upgrade/v2.3-stable` and are n
 - direct continuation from executable or path-bearing open objects into Continue Investigation.
 - Continue Investigation runtime cards can open the matching PID directly in Process Relationship Explorer.
 
-### Network Relationship Explorer
+### Network Relationship Explorer / Network Evidence 2.0
 
 - dedicated current-snapshot workspace built on Sentinel's existing bounded `/api/network` evidence.
 - process → TCP socket grouping with LISTEN / ESTABLISHED state preserved.
 - endpoint aggregation using existing normalized local/remote/endpoint-class fields.
 - process, PID, endpoint, state, and endpoint-class filtering.
-- direct navigation from an owning PID into Process Relationship Explorer.
-- explicit UI wording that this is current bounded evidence rather than packet capture, connection verdicting, or historical surveillance.
-- normalized cross-session endpoint history remains planned work and is not claimed by this surface.
+- direct navigation from a **current** owning PID into Process Relationship Explorer.
+- authenticated `/api/network/history` endpoint for explicit bounded history capture and retained-snapshot comparison.
+- **Refresh Current never writes history**; only an explicit **Capture History Snapshot** action appends a history record.
+- normal mode stores compact history in Sentinel-owned private gzip state; `--ephemeral` keeps the same snapshot workflow memory-only.
+- retention is bounded to at most **32 snapshots**, each with at most **400 normalized relationships**.
+- stable historical relationship identity intentionally excludes transient PID changes and ESTABLISHED local ephemeral-port churn; those values remain sample context rather than identity.
+- historical sample PIDs are displayed only as capture-time context and are not opened directly, because macOS can later reuse a PID for a different process.
+- latest-snapshot diff plus arbitrary retained **baseline → target** comparison, with Added / Absent semantics kept separate from claims about exact connection start/end times.
+- failed TCP collection is treated as missing evidence and is never persisted as an empty snapshot, preventing a collection failure from manufacturing an “everything disappeared” diff.
+- every successful explicit history capture adds one bounded summary event to Sentinel's session timeline rather than flooding the timeline with one event per endpoint.
+- history stores relationship metadata only; Sentinel does not capture packet contents, decrypt traffic, or run continuous background packet surveillance.
+- Network Evidence comparisons are observational context, not connection verdicts or malware probability.
 
 ## Planned release-defining changes
 
@@ -123,7 +132,7 @@ The following foundations are already present in `upgrade/v2.3-stable` and are n
 - deterministic local Rule Engine integration and configurable bounded rules.
 - staged exact-duplicate analysis.
 - Storage Intelligence 2.0 trends.
-- Network Evidence 2.0 normalized cross-session history within available macOS evidence boundaries.
+- richer executable-aware Network Evidence identity and higher-level temporal summaries without introducing packet capture.
 - Safe Actions 2.0 preview/recovery UX.
 - Vault Health.
 - local diagnostics, benchmarks, and CI gates.
