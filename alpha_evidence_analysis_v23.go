@@ -48,8 +48,7 @@ func BuildEvidenceGraphAnalysisV23(in EvidenceGraphV2) EvidenceGraphAnalysisV23 
 	out:=EvidenceGraphAnalysisV23{TypeCounts:map[string]int{},RelationCounts:map[string]int{},Limitations:[]string{"Topology is computed only over the bounded Evidence Graph response; truncated nodes/edges can split apparent components.","High connectivity means many retained relationships, not higher malware probability, intent, or causation."},Note:"Graph analysis identifies retained structural relationships so investigation can prioritize connected evidence without inventing conclusions."}
 	nodes:=map[string]EvidenceGraphV2Node{};adj:=map[string]map[string]bool{};inDegree,outDegree:=map[string]int{},map[string]int{}
 	for _,n:=range in.Nodes{nodes[n.ID]=n;out.TypeCounts[n.Type]++;if adj[n.ID]==nil{adj[n.ID]=map[string]bool{}}}
-	validEdges:=[]EvidenceGraphV2Edge{}
-	for _,e:=range in.Edges{if _,ok:=nodes[e.From];!ok{continue};if _,ok:=nodes[e.To];!ok{continue};out.RelationCounts[e.Type]++;outDegree[e.From]++;inDegree[e.To]++;adj[e.From][e.To]=true;adj[e.To][e.From]=true;validEdges=append(validEdges,e)}
+	for _,e:=range in.Edges{if _,ok:=nodes[e.From];!ok{continue};if _,ok:=nodes[e.To];!ok{continue};out.RelationCounts[e.Type]++;outDegree[e.From]++;inDegree[e.To]++;adj[e.From][e.To]=true;adj[e.To][e.From]=true}
 	connected:=[]EvidenceGraphConnectedNodeV23{}
 	for _,n:=range in.Nodes{degree:=len(adj[n.ID]);if degree==0{out.IsolatedNodeIDs=append(out.IsolatedNodeIDs,n.ID);continue};out.ConnectedNodes++;connected=append(connected,EvidenceGraphConnectedNodeV23{ID:n.ID,Type:n.Type,Label:n.Label,Degree:degree,InDegree:inDegree[n.ID],OutDegree:outDegree[n.ID],Severity:n.Severity})}
 	out.IsolatedNodes=len(out.IsolatedNodeIDs);sort.Strings(out.IsolatedNodeIDs);if len(out.IsolatedNodeIDs)>40{out.IsolatedNodeIDs=out.IsolatedNodeIDs[:40]}
