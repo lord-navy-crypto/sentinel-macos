@@ -275,8 +275,13 @@
     if (!panel) return;
     const phase = String(job.phase || job.status || 'walking');
     const percent = Number(job.phase_percent || (job.status === 'complete' ? 100 : 12));
-    const hashed = Number(job.hash_bytes_done || 0);
-    const detail = `${Number(job.files_visited || 0).toLocaleString()} files · ${Number(job.dirs_visited || 0).toLocaleString()} folders${hashed ? ` · ${hashed.toLocaleString()} hash bytes processed` : ''}`;
+    const hashFilesDone = Number(job.hash_files_done || 0);
+    const hashFilesTotal = Number(job.hash_files_total || 0);
+    const hashBytesDone = Number(job.hash_bytes_done || 0);
+    const hashBytesTotal = Number(job.hash_bytes_total || 0);
+    let detail = `${Number(job.files_visited || 0).toLocaleString()} files · ${Number(job.dirs_visited || 0).toLocaleString()} folders`;
+    if (hashFilesTotal > 0) detail += ` · hash ${Math.min(hashFilesDone + 1, hashFilesTotal)}/${hashFilesTotal}`;
+    if (hashBytesTotal > 0) detail += ` · ${hashBytesDone.toLocaleString()} / ${hashBytesTotal.toLocaleString()} hash bytes`;
     const stateName = job.status === 'failed' ? 'error' : job.status === 'complete' ? 'complete' : 'running';
     setPanel(panel, percent, storagePhaseLabel(phase), detail, stateName);
   };
