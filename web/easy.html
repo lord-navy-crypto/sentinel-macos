@@ -12,6 +12,16 @@
 <main class="shell">
   <header class="hero"><div><p class="eyebrow">Sentinel v2.3 · Easy</p><h1>Mac at a glance</h1><p>See the few things that matter now, then move into one focused workspace. Easy no longer opens the legacy v2.2 dashboard.</p></div><nav class="hero-actions"><a href="/security-center.html">Review Security</a><a href="/investigation.html">Investigate an Object</a></nav></header>
   <p id="notice" class="notice" role="status" aria-live="polite"></p>
+
+  <section class="one-click-check" aria-labelledby="oneClickTitle">
+    <div class="one-click-heading">
+      <div><p class="eyebrow">Quick read-only review</p><h2 id="oneClickTitle">One-click Check</h2><p>Refresh the simple checks that matter most: security, incidents, disk pressure, recovery, Vault isolation, baselines, change monitoring, and evidence visibility.</p></div>
+      <button id="oneClickCheck" type="button">One-click Check</button>
+    </div>
+    <div id="oneClickResults" class="one-click-results"><div class="check-empty">Press One-click Check to run a fresh bounded local review. Nothing is changed automatically.</div></div>
+    <p id="oneClickNote" class="status-note">This check summarizes observable local evidence. It is not a malware probability or a safety certificate.</p>
+  </section>
+
   <section class="easy-status" id="easyStatus"></section>
   <p class="status-note" id="statusNote">Loading retained local Sentinel state…</p>
 
@@ -30,7 +40,7 @@
 
   <section class="easy-group"><h2>Deep tools</h2><p>Use these when you need more evidence, recovery detail, or direct typed macOS tools.</p><div class="workspace-grid">
     <a class="workspace-card" data-path="/intelligence-center.html"><span class="kicker">Advanced</span><h2>Connect the evidence</h2><p>Evidence Graph, Incidents, Global Timeline, Object Story, and visibility.</p><b>Open Intelligence Center →</b></a>
-    <a class="workspace-card" data-path="/vault-health.html"><span class="kicker">Recover</span><h2>What can Sentinel undo or restore?</h2><p>Vault manifests, action journal, reversible actions, and recovery health.</p><b>Open Recovery →</b></a>
+    <a class="workspace-card" data-path="/vault-health.html"><span class="kicker">Recover</span><h2>What can Sentinel undo or restore?</h2><p>Vault manifests, live isolation verification, action journal, reversible actions, and recovery health.</p><b>Open Recovery →</b></a>
     <a class="workspace-card" data-path="/system-console.html"><span class="kicker">Terminal</span><h2>Use the macOS toolbox directly</h2><p>Fixed typed Terminal-backed buttons with structured output and investigation links.</p><b>Open Terminal Toolbox →</b></a>
   </div></section>
 </main>
