@@ -3,10 +3,16 @@
   const params = new URLSearchParams(location.hash.slice(1));
   const token = params.get('token') || '';
   const initialPath = params.get('path') || '';
-  const history = [];
+  const initialSessionID = params.get('session') || '';
+  const branchHistory = [];
   let historyIndex = -1;
+  let activeSessionID = initialSessionID;
+  let sessionCatalog = [];
+  let sessionPersistent = false;
+  let sessionSaving = false;
 
   const $ = selector => document.querySelector(selector);
+  const sessionsURL = '/api/security/investigate?mode=sessions';
 
   function el(tag, className = '', text = '') {
     const node = document.createElement(tag);
@@ -67,6 +73,178 @@
     const cell = el('div');
     cell.append(el('span', '', label), el('b', '', value));
     grid.append(cell);
+  }
+
+  function currentEntry() {
+    return historyIndex >= 0 ? branchHistory[historyIndex] || null : null;
+  }
+
+  function currentParentPath() {
+    if (historyIndex <= 0) return '';
+    return branchHistory[historyIndex - 1]?.report?.path || '';
+  }
+
+  function currentSession() {
+    return sessionCatalog.find(session => session.id === activeSessionID) || null;
+  }
+
+  function updateLocation(path = '') {
+    const hash = new URLSearchParams({token});
+    if (path) hash.set('path', path);
+    if (activeSessionID) hash.set('session', activeSessionID);
+    window.history.replaceState(null, '', `/investigation.html#${hash.toString()}`);
+  }
+
+  function updateSessionControls() {
+    const entry = currentEntry();
+    const active = currentSession();
+    $('#saveSession').disabled = sessionSaving || !entry?.report?.path;
+    $('#bookmarkBranch').disabled = sessionSaving || !entry?.report?.path;
+    $('#refreshSessions').disabled = sessionSaving;
+    const status = $('#activeSessionStatus');
+    if (active) {
+      status.textContent = `${active.title || 'Investigation'} · ${(active.branches || []).length} branches`;
+      status.className = 'badge good';
+      if (!$('#sessionTitle').value.trim()) $('#sessionTitle').value = active.title || '';
+    } else if (activeSessionID) {
+      status.textContent = 'Session ID not in retained history';
+      status.className = 'badge warn';
+    } else {
+      status.textContent = 'No active session';
+      status.className = 'badge';
+    }
+  }
+
+  function renderSessionBranchList(card, session) {
+    const branches = [...(session.branches || [])]
+      .sort((a, b) => Number(Boolean(b.bookmarked)) - Number(Boolean(a.bookmarked)) || String(b.last_visited || '').localeCompare(String(a.last_visited || '')))
+      .slice(0, 8);
+    if (!branches.length) return;
+    const block = el('div', 'section-block');
+    block.append(el('h3', '', 'Saved branches'));
+    for (const branch of branches) {
+      const row = el('article', 'next-target');
+      const copy = el('div', 'next-target-copy');
+      copy.append(el('b', '', `${branch.bookmarked ? '★ ' : ''}${branch.kind || 'branch'} · ${Number(branch.visit_count || 1)} visit(s)`));
+      copy.append(el('span', 'target-path', branch.path || '—'));
+      if (branch.note) copy.append(el('p', '', branch.note));
+      const open = el('button', '', 'Open branch');
+      open.type = 'button';
+      open.addEventListener('click', () => resumeSession(session, branch.path));
+      row.append(copy, open);
+      block.append(row);
+    }
+    card.append(block);
+  }
+
+  function renderSessions(payload) {
+    sessionCatalog = Array.isArray(payload?.sessions) ? payload.sessions : [];
+    sessionPersistent = Boolean(payload?.persistent);
+    $('#sessionStorageNote').textContent = sessionPersistent
+      ? 'Stored in Sentinel private local state. Paths, branch metadata, bookmarks, and notes only; investigated file contents are not copied.'
+      : 'Memory-only session history for this Sentinel process. Nothing from Investigation Sessions is persisted in --ephemeral mode.';
+
+    const list = $('#sessionList');
+    clear(list);
+    if (!sessionCatalog.length) {
+      const empty = el('div', 'fact');
+      empty.append(el('b', '', 'No saved Investigation Sessions yet'), el('span', '', 'Run an investigation, then choose Save Session. Once active, later branches are recorded automatically within bounded retention.'));
+      list.append(empty);
+      updateSessionControls();
+      return;
+    }
+
+    for (const session of sessionCatalog.slice(0, 10)) {
+      const card = el('article', 'candidate');
+      const head = el('div', 'candidate-head');
+      const copy = el('div');
+      copy.append(el('h3', '', session.title || 'Investigation Session'));
+      copy.append(el('code', '', session.root_path || '—'));
+      const state = session.id === activeSessionID ? el('span', 'badge good', 'active') : el('span', 'badge', 'saved');
+      head.append(copy, state);
+      card.append(head);
+
+      const mini = el('div', 'inspection-mini');
+      addKV(mini, 'Branches', (session.branches || []).length);
+      addKV(mini, 'Bookmarks', (session.branches || []).filter(branch => branch.bookmarked).length);
+      addKV(mini, 'Updated', formatTime(session.updated_at));
+      addKV(mini, 'Session ID', session.id || '—');
+      card.append(mini);
+
+      const actions = el('div', 'candidate-actions');
+      const lastBranch = [...(session.branches || [])].sort((a, b) => String(b.last_visited || '').localeCompare(String(a.last_visited || '')))[0];
+      const resume = el('button', '', 'Resume Session');
+      resume.type = 'button';
+      resume.addEventListener('click', () => resumeSession(session, lastBranch?.path || session.root_path));
+      actions.append(resume);
+      const root = el('button', '', 'Open Root');
+      root.type = 'button';
+      root.addEventListener('click', () => resumeSession(session, session.root_path));
+      actions.append(root);
+      card.append(actions);
+
+      if (session.id === activeSessionID) renderSessionBranchList(card, session);
+      list.append(card);
+    }
+    updateSessionControls();
+  }
+
+  async function loadSessions(quiet = false) {
+    if (!token) return;
+    try {
+      const payload = await api(sessionsURL);
+      renderSessions(payload);
+    } catch (error) {
+      if (!quiet) showNotice(`Investigation Sessions: ${error.message}`);
+    }
+  }
+
+  async function saveCurrentBranch({bookmarked = false, quiet = false} = {}) {
+    const entry = currentEntry();
+    if (!entry?.report?.path) {
+      if (!quiet) showNotice('Investigate an object before saving a session.');
+      return null;
+    }
+    sessionSaving = true;
+    updateSessionControls();
+    try {
+      const saved = await api(sessionsURL, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          session_id: activeSessionID || '',
+          title: $('#sessionTitle').value.trim(),
+          path: entry.report.path,
+          parent_path: currentParentPath(),
+          kind: entry.report.kind || '',
+          note: $('#sessionNote').value,
+          bookmarked,
+        }),
+      });
+      activeSessionID = saved.id || activeSessionID;
+      if (saved.title) $('#sessionTitle').value = saved.title;
+      updateLocation(entry.report.path);
+      await loadSessions(true);
+      if (!quiet) showNotice(bookmarked ? 'Current branch bookmarked in the Investigation Session.' : 'Investigation Session saved. Later branches in this active session will be recorded automatically.');
+      return saved;
+    } catch (error) {
+      if (!quiet) showNotice(`Session save failed: ${error.message}`);
+      return null;
+    } finally {
+      sessionSaving = false;
+      updateSessionControls();
+    }
+  }
+
+  function resumeSession(session, path) {
+    if (!session?.id || !path) return;
+    activeSessionID = session.id;
+    $('#sessionTitle').value = session.title || '';
+    $('#sessionNote').value = '';
+    branchHistory.splice(0);
+    historyIndex = -1;
+    updateSessionControls();
+    runInvestigation(path, '', true);
   }
 
   function renderSummary(report) {
@@ -425,8 +603,9 @@
 
   function updateBranchControls() {
     $('#branchBack').disabled = historyIndex <= 0;
-    $('#branchForward').disabled = historyIndex < 0 || historyIndex >= history.length - 1;
-    $('#branchPosition').textContent = historyIndex >= 0 ? `Branch ${historyIndex + 1} of ${history.length}` : 'No branch yet';
+    $('#branchForward').disabled = historyIndex < 0 || historyIndex >= branchHistory.length - 1;
+    $('#branchPosition').textContent = historyIndex >= 0 ? `Branch ${historyIndex + 1} of ${branchHistory.length}` : 'No branch yet';
+    updateSessionControls();
   }
 
   function renderEntry(entry) {
@@ -440,7 +619,7 @@
     renderNextTargets(report, runtimeContext);
     renderLimitations(report, storyError, runtimeContext, contextError);
     updateBranchControls();
-    history.replaceState(null, '', `/investigation.html#${new URLSearchParams({token, path: report.path || ''}).toString()}`);
+    updateLocation(report.path || '');
     window.scrollTo({top: 0, behavior: 'smooth'});
   }
 
@@ -475,37 +654,43 @@
         contextError: contextResult.status === 'rejected' ? String(contextResult.reason?.message || contextResult.reason || 'unavailable') : '',
       };
       if (pushHistory) {
-        history.splice(historyIndex + 1);
-        history.push(entry);
-        historyIndex = history.length - 1;
+        branchHistory.splice(historyIndex + 1);
+        branchHistory.push(entry);
+        historyIndex = branchHistory.length - 1;
       } else if (historyIndex >= 0) {
-        history[historyIndex] = entry;
+        branchHistory[historyIndex] = entry;
       }
       renderEntry(entry);
+      if (activeSessionID) await saveCurrentBranch({quiet: true});
     } catch (error) {
       showNotice(error?.message || 'Investigation failed.');
     } finally {
       setBusy(false);
+      updateSessionControls();
     }
   }
 
   $('#investigationForm').addEventListener('submit', event => {
     event.preventDefault();
-    const parentID = historyIndex >= 0 ? history[historyIndex]?.report?.id || '' : '';
+    const parentID = currentEntry()?.report?.id || '';
     runInvestigation($('#investigationPath').value, parentID, true);
   });
 
   $('#branchBack').addEventListener('click', () => {
     if (historyIndex <= 0) return;
     historyIndex -= 1;
-    renderEntry(history[historyIndex]);
+    renderEntry(branchHistory[historyIndex]);
   });
 
   $('#branchForward').addEventListener('click', () => {
-    if (historyIndex < 0 || historyIndex >= history.length - 1) return;
+    if (historyIndex < 0 || historyIndex >= branchHistory.length - 1) return;
     historyIndex += 1;
-    renderEntry(history[historyIndex]);
+    renderEntry(branchHistory[historyIndex]);
   });
+
+  $('#saveSession').addEventListener('click', () => saveCurrentBranch({bookmarked: false, quiet: false}));
+  $('#bookmarkBranch').addEventListener('click', () => saveCurrentBranch({bookmarked: true, quiet: false}));
+  $('#refreshSessions').addEventListener('click', () => loadSessions(false));
 
   $('#backToSentinel').href = `/#token=${encodeURIComponent(token)}`;
   $('#investigationPath').value = initialPath;
@@ -513,7 +698,14 @@
 
   if (!token) {
     showNotice('Missing Sentinel session token. Open Continue Investigation from the running local Sentinel session.');
-  } else if (initialPath) {
-    runInvestigation(initialPath, '', true);
+  } else {
+    loadSessions(true).then(() => {
+      if (initialSessionID) {
+        const active = currentSession();
+        if (active && !$('#sessionTitle').value.trim()) $('#sessionTitle').value = active.title || '';
+        updateSessionControls();
+      }
+    });
+    if (initialPath) runInvestigation(initialPath, '', true);
   }
 })();
