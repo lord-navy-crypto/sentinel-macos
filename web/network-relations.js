@@ -19,6 +19,11 @@
     $('#notice').textContent = message;
   }
 
+  function formatTime(value) {
+    if (!value) return '—';
+    try { return new Date(value).toLocaleString(); } catch { return String(value); }
+  }
+
   async function api(url, options = {}) {
     options.headers = {...(options.headers || {}), 'X-Sentinel-Token': token};
     const response = await fetch(url, options);
@@ -152,7 +157,7 @@
       const copy = el('div');
       copy.append(el('b', '', group.pid > 0 ? `PID ${group.pid} · ${group.command}` : group.command));
       copy.append(el('span', '', `${group.user} · ${group.sockets.length} TCP row(s)`));
-      head.append(copy, el('span', 'badge', `${group.sockets.filter(row => row.state === 'ESTABLISHED').length} established`));
+      head.append(copy, el('span', 'badge', `${group.sockets.filter(row => String(row.state || '').toUpperCase() === 'ESTABLISHED').length} established`));
       card.append(head);
       const sockets = el('div', 'socket-list');
       for (const item of group.sockets.slice(0, 20)) sockets.append(socketRow(item));
@@ -220,6 +225,121 @@
     renderEndpoints(items);
   }
 
+  function historyRelationCard(relation, prefix = '') {
+    const card = el('article', 'row');
+    const head = el('div', 'row-head');
+    const copy = el('div');
+    copy.append(el('b', '', `${prefix}${relation.process || 'unknown process'} · ${relation.state || 'OTHER'}`));
+    copy.append(el('code', '', relation.endpoint || 'unknown endpoint'));
+    head.append(copy, el('span', 'badge', relation.endpoint_class || 'unclassified'));
+    card.append(head);
+    const context = [];
+    if (relation.user) context.push(`user ${relation.user}`);
+    if (Number(relation.pid || 0) > 0) context.push(`sample PID ${relation.pid}`);
+    if (Number(relation.rows || 0) > 1) context.push(`${relation.rows} merged row(s)`);
+    if (relation.sample_local) context.push(`sample local ${relation.sample_local}`);
+    if (relation.sample_remote) context.push(`sample remote ${relation.sample_remote}`);
+    if (context.length) card.append(el('span', '', context.join(' · ')));
+    if (Number(relation.pid || 0) > 0) {
+      const actions = el('div', 'row-actions');
+      const open = el('button', '', 'Open Sample PID');
+      open.type = 'button';
+      open.addEventListener('click', () => { location.href = processURL(relation.pid); });
+      actions.append(open);
+      card.append(actions);
+    }
+    return card;
+  }
+
+  function renderHistoryDiff(diff) {
+    const container = $('#historyDiff');
+    clear(container);
+    if (!diff) {
+      container.append(el('article', 'row', 'Capture at least two snapshots to compare normalized relationships.'));
+      return;
+    }
+    const header = el('article', 'row');
+    const head = el('div', 'row-head');
+    const copy = el('div');
+    copy.append(el('b', '', 'Latest snapshot difference'));
+    copy.append(el('span', '', `${(diff.added || []).length} added · ${(diff.ended || []).length} absent from latest`));
+    head.append(copy, el('span', 'badge', 'normalized'));
+    header.append(head);
+    if (diff.note) header.append(el('span', '', diff.note));
+    container.append(header);
+
+    for (const relation of (diff.added || []).slice(0, 30)) {
+      container.append(historyRelationCard(relation, 'Added · '));
+    }
+    for (const relation of (diff.ended || []).slice(0, 30)) {
+      container.append(historyRelationCard(relation, 'Absent in latest · '));
+    }
+    const omitted = Math.max(0, (diff.added || []).length - 30) + Math.max(0, (diff.ended || []).length - 30);
+    if (omitted) container.append(el('span', '', `${omitted} additional changed relationship(s) omitted from this bounded visual list.`));
+  }
+
+  function renderHistory(data) {
+    const snapshots = Array.isArray(data?.snapshots) ? data.snapshots : [];
+    $('#historyMode').textContent = data?.persistent ? `Persistent · max ${data?.retention || 32}` : `Memory-only · max ${data?.retention || 32}`;
+    $('#historyNote').textContent = data?.note || 'Explicit bounded Network Evidence history.';
+    renderHistoryDiff(data?.latest_diff || null);
+
+    const list = $('#historyList');
+    clear(list);
+    if (!snapshots.length) {
+      list.append(el('article', 'row', 'No explicit network-history snapshots yet. Refresh Current does not create history.'));
+      return;
+    }
+    for (const entry of snapshots.slice(0, 12)) {
+      const card = el('article', 'row');
+      const head = el('div', 'row-head');
+      const copy = el('div');
+      copy.append(el('b', '', formatTime(entry.captured_at)));
+      copy.append(el('span', '', `${Number(entry.rows_stored || 0)} normalized relation(s) from ${Number(entry.rows_seen || 0)} visible TCP row(s)`));
+      head.append(copy, el('span', 'badge', entry.truncated ? 'bounded / truncated' : 'within bound'));
+      card.append(head);
+      const relations = Array.isArray(entry.relations) ? entry.relations : [];
+      const preview = relations.slice(0, 6).map(relation => `${relation.process || 'process'} → ${relation.endpoint || 'endpoint'}`);
+      if (preview.length) card.append(el('span', '', preview.join(' · ')));
+      if (relations.length > 6) card.append(el('span', '', `+ ${relations.length - 6} additional normalized relationship(s) in this snapshot.`));
+      list.append(card);
+    }
+    if (snapshots.length > 12) list.append(el('span', '', `Showing 12 of ${snapshots.length} retained snapshots.`));
+  }
+
+  async function loadHistory() {
+    if (!token) return;
+    try {
+      const data = await api('/api/network/history');
+      renderHistory(data);
+    } catch (error) {
+      $('#historyNote').textContent = error?.message || 'Network history unavailable.';
+      $('#historyMode').textContent = 'Unavailable';
+    }
+  }
+
+  async function captureHistory() {
+    if (!token) {
+      showNotice('Missing Sentinel session token. Open Network Relationship Explorer from the running local Sentinel session.');
+      return;
+    }
+    const button = $('#captureNetwork');
+    button.disabled = true;
+    button.textContent = 'Capturing…';
+    showNotice('');
+    try {
+      const data = await api('/api/network/history', {method: 'POST'});
+      const count = Number(data?.snapshot?.rows_stored || 0);
+      showNotice(`Captured ${count} normalized network relationship(s). This explicit snapshot contains metadata only, not packet contents.`);
+      await Promise.all([loadNetwork(), loadHistory()]);
+    } catch (error) {
+      showNotice(error?.message || 'Network history capture failed.');
+    } finally {
+      button.disabled = false;
+      button.textContent = 'Capture History Snapshot';
+    }
+  }
+
   async function loadNetwork() {
     if (!token) {
       showNotice('Missing Sentinel session token. Open Network Relationship Explorer from the running local Sentinel session.');
@@ -239,7 +359,7 @@
       showNotice(error?.message || 'Network snapshot failed.');
     } finally {
       button.disabled = false;
-      button.textContent = 'Refresh Snapshot';
+      button.textContent = 'Refresh Current';
     }
   }
 
@@ -247,6 +367,7 @@
   $('#stateFilter').addEventListener('change', renderFiltered);
   $('#classFilter').addEventListener('change', renderFiltered);
   $('#refreshNetwork').addEventListener('click', loadNetwork);
+  $('#captureNetwork').addEventListener('click', captureHistory);
   $('#backLink').href = `/#token=${encodeURIComponent(token)}`;
-  loadNetwork();
+  Promise.all([loadNetwork(), loadHistory()]);
 })();
