@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Sentinel Scan Center</title>
+  <link rel="stylesheet" href="/control-plane.css">
+  <link rel="stylesheet" href="/scan-center.css">
+  <link rel="stylesheet" href="/v23-navigation.css">
+</head>
+<body>
+<main class="shell">
+  <header class="hero scan-hero">
+    <div>
+      <p class="eyebrow">Sentinel v2.3 · Scan</p>
+      <h1>Scan Center</h1>
+      <p>Run bounded local scans without returning to the legacy dashboard. Scanning is read-only; Safe Actions remain a separate explicit workflow.</p>
+    </div>
+  </header>
+  <p id="notice" class="notice" role="status" aria-live="polite"></p>
+
+  <section class="scan-grid">
+    <article class="scan-card">
+      <div><p class="eyebrow">Fast</p><h2>Quick Scan</h2><p>Refresh security findings, incidents, disk pressure, baselines, recovery health, and evidence visibility in one bounded pass.</p></div>
+      <button id="runQuickScan" type="button">Run Quick Scan</button>
+      <div id="quickScanResult" class="scan-result muted">Not run in this session.</div>
+    </article>
+
+    <article class="scan-card">
+      <div><p class="eyebrow">Security</p><h2>Security Audit</h2><p>Rebuild the current explainable security review from local evidence. A high score means review the evidence; it is not malware probability.</p></div>
+      <button id="runSecurityScan" type="button">Run Security Audit</button>
+      <div id="securityScanResult" class="scan-result muted">Not run in this session.</div>
+    </article>
+
+    <article class="scan-card">
+      <div><p class="eyebrow">Deep object</p><h2>Deep Object Scan</h2><p>Start a bounded investigation of one file, app, folder, or executable path, including integrity, identity, relationships, and continuation targets.</p></div>
+      <form id="deepScanForm" class="scan-form">
+        <label for="deepScanPath">Path</label>
+        <input id="deepScanPath" type="text" autocomplete="off" placeholder="/Applications/Example.app or ~/Downloads/file">
+        <button type="submit">Start Deep Scan</button>
+      </form>
+      <div class="scan-result muted">Deep scanning opens Investigation so the evidence can be continued instead of ending at one report.</div>
+    </article>
+  </section>
+
+  <section class="scan-panel">
+    <div class="scan-panel-head">
+      <div><p class="eyebrow">Filesystem</p><h2>Full Storage Scan</h2><p>Bounded, cancellable traversal with large-file, category, file-type, duplicate-candidate, and aging evidence.</p></div>
+      <span id="storageState" class="scan-pill">Idle</span>
+    </div>
+    <form id="storageScanForm" class="storage-controls">
+      <label>Scope
+        <select id="storageScope">
+          <option value="home">Home</option>
+          <option value="downloads">Downloads</option>
+          <option value="desktop">Desktop</option>
+          <option value="documents">Documents</option>
+          <option value="library">Library</option>
+        </select>
+      </label>
+      <label>Large file threshold (MB)
+        <input id="storageMinMB" type="number" min="1" max="1048576" value="100">
+      </label>
+      <label>Result limit
+        <input id="storageLimit" type="number" min="10" max="250" value="100">
+      </label>
+      <div class="storage-actions">
+        <button id="startStorageScan" type="submit">Start Full Scan</button>
+        <button id="cancelStorageScan" type="button" class="secondary" disabled>Cancel Scan</button>
+      </div>
+    </form>
+
+    <div id="storageProgress" class="progress-block hidden">
+      <div class="progress-head"><b id="storagePhase">Starting…</b><span id="storagePercent">0%</span></div>
+      <progress id="storageProgressBar" max="100" value="0"></progress>
+      <div id="storageMetrics" class="scan-metrics"></div>
+      <p id="storageCurrent" class="muted"></p>
+    </div>
+    <div id="storageResult" class="storage-result"><div class="muted">No storage scan has run in this session.</div></div>
+  </section>
+</main>
+<script src="/scan-center.js"></script>
+<script src="/v23-navigation.js"></script>
+</body>
+</html>
