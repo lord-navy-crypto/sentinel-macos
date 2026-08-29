@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Sentinel Control Plane</title>
   <link rel="stylesheet" href="/control-plane.css">
+  <link rel="stylesheet" href="/v23-navigation.css">
 </head>
 <body>
   <main class="shell">
@@ -12,11 +13,12 @@
       <div>
         <p class="eyebrow">Sentinel v2.3 development</p>
         <h1>Control Plane Center</h1>
-        <p>Security Posture, explicit System Snapshot & Diff, Storage History, typed Terminal evidence, and Recovery Center in one bounded local workspace.</p>
+        <p>Security Posture, explicit System Snapshot & Diff, Storage History & Aging, typed Terminal evidence, and Recovery Center in one bounded local workspace.</p>
       </div>
       <nav class="hero-actions">
         <a id="systemConsoleLink" href="/system-console.html">Terminal Toolbox</a>
         <a id="intelligenceLink" href="/intelligence-center.html">Intelligence Center</a>
+        <a id="vaultHealthLink" href="/vault-health.html">Vault Health</a>
         <a id="backLink" href="/">Sentinel</a>
       </nav>
     </header>
@@ -24,61 +26,38 @@
     <p id="notice" class="notice" role="status" aria-live="polite"></p>
 
     <section class="panel" id="securityPanel">
-      <div class="heading">
-        <div><p class="eyebrow">Security layer above Terminal</p><h2>Security Posture</h2></div>
-        <button id="refreshPosture" type="button">Refresh Security Posture</button>
-      </div>
+      <div class="heading"><div><p class="eyebrow">Security layer above Terminal</p><h2>Security Posture</h2></div><button id="refreshPosture" type="button">Refresh Security Posture</button></div>
       <p class="help">Refresh runs fixed typed queries for Gatekeeper, FileVault, SIP, and System Extensions, then summarizes retained signals. A review signal is not a malware verdict.</p>
-      <div id="postureSummary" class="summary-grid"></div>
-      <div id="postureEvidence" class="card-grid"></div>
-      <div id="postureSignals" class="stack"></div>
+      <div id="postureSummary" class="summary-grid"></div><div id="postureEvidence" class="card-grid"></div><div id="postureSignals" class="stack"></div>
     </section>
 
     <section class="panel" id="snapshotPanel">
-      <div class="heading">
-        <div><p class="eyebrow">Explicit capture</p><h2>System Snapshot & Diff</h2></div>
-        <button id="captureSnapshot" type="button">Capture System Snapshot</button>
-      </div>
+      <div class="heading"><div><p class="eyebrow">Explicit capture</p><h2>System Snapshot & Diff</h2></div><button id="captureSnapshot" type="button">Capture System Snapshot</button></div>
       <p class="help">Captures selected current processes, launch services, TCP state, mounts/filesystems, and core security posture. Retention is bounded; it is not a complete audit log.</p>
-      <div class="compare-row">
-        <label>Baseline <select id="snapshotFrom"></select></label>
-        <label>Target <select id="snapshotTo"></select></label>
-        <button id="compareSnapshots" type="button">Compare Selected</button>
-      </div>
-      <div id="snapshotList" class="stack"></div>
-      <div id="snapshotDiff" class="stack"></div>
+      <div class="compare-row"><label>Baseline <select id="snapshotFrom"></select></label><label>Target <select id="snapshotTo"></select></label><button id="compareSnapshots" type="button">Compare Selected</button></div>
+      <div id="snapshotList" class="stack"></div><div id="snapshotDiff" class="stack"></div>
     </section>
 
     <section class="panel" id="storagePanel">
-      <div class="heading">
-        <div><p class="eyebrow">Growth attribution</p><h2>Storage History</h2></div>
-        <button id="captureStorage" type="button">Capture Latest Storage Scan</button>
-      </div>
-      <p class="help">Captures the latest completed Storage Intelligence result into the existing bounded storage-history model. Run a storage scan in Sentinel first when no completed result is available.</p>
-      <div id="storageSummary" class="summary-grid"></div>
-      <div id="storageHistory" class="stack"></div>
+      <div class="heading"><div><p class="eyebrow">Growth + bounded age evidence</p><h2>Storage History & Aging</h2></div><div class="hero-actions"><button id="captureStorage" type="button">Capture Latest Storage Scan</button><button id="refreshStorageAging" type="button">Refresh Aging</button></div></div>
+      <p class="help">History captures completed Storage Intelligence results explicitly. Aging uses modification timestamps only for the bounded large-file set retained by the latest scan; it is not a complete inventory of every file.</p>
+      <div id="storageSummary" class="summary-grid"></div><div id="storageHistory" class="stack"></div>
+      <div id="storageAgingSummary" class="summary-grid"></div><div id="storageAging" class="stack"></div>
     </section>
 
     <section class="panel" id="recoveryPanel">
-      <div class="heading">
-        <div><p class="eyebrow">Recover</p><h2>Recovery Center 2.0</h2></div>
-        <button id="refreshRecovery" type="button">Refresh Recovery State</button>
-      </div>
-      <p class="help">Aggregates Sentinel-owned Safe Actions, Vault, action journal, Change Monitor checkpoints, and retained history health. No permanent-delete path is introduced.</p>
-      <div id="recoverySummary" class="summary-grid"></div>
-      <div id="recoveryAdvisories" class="stack"></div>
-      <div id="recoveryJournal" class="stack"></div>
+      <div class="heading"><div><p class="eyebrow">Recover</p><h2>Recovery Center 2.0</h2></div><button id="refreshRecovery" type="button">Refresh Recovery State</button></div>
+      <p class="help">Aggregates Sentinel-owned Safe Actions, Vault, action journal, Change Monitor checkpoints, and retained history health. No permanent-delete path is introduced. Use Vault Health for manifest/journal/post-action detail.</p>
+      <div id="recoverySummary" class="summary-grid"></div><div id="recoveryAdvisories" class="stack"></div><div id="recoveryJournal" class="stack"></div>
     </section>
 
     <section class="panel" id="evidencePanel">
-      <div class="heading">
-        <div><p class="eyebrow">Provenance without raw-log retention</p><h2>Typed System Evidence</h2></div>
-        <button id="refreshEvidence" type="button">Refresh Evidence Journal</button>
-      </div>
+      <div class="heading"><div><p class="eyebrow">Provenance without raw-log retention</p><h2>Typed System Evidence</h2></div><button id="refreshEvidence" type="button">Refresh Evidence Journal</button></div>
       <p class="help">This journal keeps compact typed summaries/signals only. Raw Terminal output remains visible in System Console for the current query but is not copied into this retained journal.</p>
       <div id="systemEvidence" class="stack"></div>
     </section>
   </main>
   <script src="/control-plane.js"></script>
+  <script src="/v23-navigation.js"></script>
 </body>
 </html>
