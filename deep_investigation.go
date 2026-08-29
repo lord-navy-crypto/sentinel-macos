@@ -213,10 +213,6 @@ func deepInvestigationWalk(ctx context.Context, root string, rootIsBundle bool) 
 		} else if ok {
 			truncated = true
 		}
-		// When scanning a broad parent directory, treat nested bundles as
-		// continuation targets instead of exploding every app bundle immediately.
-		// When the selected root itself is a bundle, descend so Sentinel can expose
-		// the actual internal executables/libraries the user asked to investigate.
 		if d.IsDir() && path != root && investigationBundleKind(path) != "directory" && !rootIsBundle {
 			return fs.SkipDir
 		}
@@ -263,8 +259,6 @@ func continueInvestigation(ctx context.Context, rawPath, parentID string) Contin
 		inspectCount := 0
 		for i := range candidates {
 			if inspectCount < deepInvestigationInspectMax {
-				// Auto-inspection is intentionally small; the rest remain explicit
-				// continuation targets so one click cannot hash an entire disk tree.
 				inspection := inspectIntegrity(candidates[i].Path)
 				candidates[i].Inspection = &inspection
 				applyIntegrityPriority(&candidates[i])
@@ -333,6 +327,12 @@ func continueInvestigation(ctx context.Context, rawPath, parentID string) Contin
 }
 
 func (a *app) handleContinueInvestigation(w http.ResponseWriter, r *http.Request) {
+	// Reuse the authenticated investigation endpoint for bounded session metadata
+	// so v2.3 can ship Session persistence without creating an unrelated API surface.
+	if r.URL.Query().Get("mode") == "sessions" {
+		a.handleInvestigationSessions(w, r)
+		return
+	}
 	if r.Method != http.MethodPost {
 		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "POST required"})
 		return
