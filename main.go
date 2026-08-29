@@ -26,21 +26,22 @@ import (
 var webFS embed.FS
 
 type app struct {
-	token        string
-	allowedHost  string
-	serverOrigin string
-	startedAt    time.Time
-	ephemeral    bool
-	instanceLock *runtimeLock
-	work         *workGate
-	jobs         *scanManager
-	intel        *intelligenceManager
-	behavior     *behaviorManager
-	trust        *trustManager
-	persistence  *persistenceManager
-	actions      *actionManager
-	changes      *changeManager
-	incidents    *incidentManager
+	token          string
+	allowedHost    string
+	serverOrigin   string
+	startedAt      time.Time
+	ephemeral      bool
+	instanceLock   *runtimeLock
+	work           *workGate
+	jobs           *scanManager
+	intel          *intelligenceManager
+	behavior       *behaviorManager
+	trust          *trustManager
+	persistence    *persistenceManager
+	actions        *actionManager
+	changes        *changeManager
+	incidents      *incidentManager
+	networkHistory *networkHistoryManager
 }
 
 func main() {
@@ -74,7 +75,14 @@ func main() {
 
 	token := randomToken(24)
 	intel := newIntelligenceManager()
-	a := &app{token: token, startedAt: time.Now(), ephemeral: *ephemeral, instanceLock: instanceLock, work: newWorkGate(2), jobs: newScanManager(), intel: intel, behavior: newBehaviorManager(*ephemeral), trust: newTrustManager(*ephemeral), persistence: newPersistenceManager(), actions: newActionManager(*ephemeral), changes: newChangeManager(intel, *ephemeral), incidents: newIncidentManager(*ephemeral)}
+	a := &app{
+		token: token, startedAt: time.Now(), ephemeral: *ephemeral, instanceLock: instanceLock,
+		work: newWorkGate(2), jobs: newScanManager(), intel: intel,
+		behavior: newBehaviorManager(*ephemeral), trust: newTrustManager(*ephemeral),
+		persistence: newPersistenceManager(), actions: newActionManager(*ephemeral),
+		changes: newChangeManager(intel, *ephemeral), incidents: newIncidentManager(*ephemeral),
+		networkHistory: newNetworkHistoryManager(*ephemeral),
+	}
 
 	mux := http.NewServeMux()
 	staticFS, err := fs.Sub(webFS, "web")
@@ -102,6 +110,7 @@ func main() {
 	mux.HandleFunc("/api/launch-services", a.auth(a.work.wrap("launch-services", a.handleLaunchServices)))
 	mux.HandleFunc("/api/launch-services/detail", a.auth(a.work.wrap("launch-service-detail", a.handleLaunchServiceDetail)))
 	mux.HandleFunc("/api/network", a.auth(a.handleNetwork))
+	mux.HandleFunc("/api/network/history", a.auth(a.handleNetworkHistory))
 	mux.HandleFunc("/api/background", a.auth(a.handleBackgroundItems))
 	mux.HandleFunc("/api/storage/scan", a.auth(a.handleStorageScan))
 	mux.HandleFunc("/api/storage/jobs", a.auth(a.handleStorageJobs))
