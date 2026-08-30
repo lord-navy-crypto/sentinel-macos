@@ -57,32 +57,36 @@
     return best || 0;
   }
 
-  async function readBaselineState() {
-    const [system, network, storage, quick, timeline, cases, coverage] = await Promise.all([
+  async function readBaselineState(includeAnalysis = true) {
+    // Startup reads only retained-history metadata. Quick Check, timeline, and
+    // incident history are deferred unless a caller explicitly needs the richer
+    // post-scan analysis state.
+    const [system, network, storage, coverage] = await Promise.all([
       structured('system-snapshots').catch(() => ({snapshots: []})),
       api('/api/network/history').catch(() => ({snapshots: []})),
       structured('storage-history').catch(() => ({snapshots: []})),
-      api('/api/quick-check').catch(() => ({})),
-      api('/api/intelligence/timeline/grouped').catch(() => ({groups: []})),
-      api('/api/incidents/v2?history=1').catch(() => ({incidents: []})),
       api('/api/coverage').catch(() => ({items: []})),
     ]);
+    let quick = {}, timeline = {groups: []}, cases = {incidents: []};
+    if (includeAnalysis) {
+      [quick, timeline, cases] = await Promise.all([
+        api('/api/quick-check').catch(() => ({})),
+        api('/api/intelligence/timeline/grouped').catch(() => ({groups: []})),
+        api('/api/incidents/v2?history=1').catch(() => ({incidents: []})),
+      ]);
+    }
     const systemRows = system.snapshots || [];
     const networkRows = network.snapshots || [];
     const storageRows = storage.snapshots || [];
     const systemAt = latestTime(systemRows, ['captured_at', 'created_at']);
     const networkAt = latestTime(networkRows, ['captured_at', 'created_at']);
     const storageAt = latestTime(storageRows, ['captured_at', 'created_at']);
-    const retained = [
-      systemRows.length > 0,
-      networkRows.length > 0,
-      storageRows.length > 0,
-      Boolean(quick.behavior_baseline),
-      Boolean(quick.persistence_baseline),
-    ];
+    const retained = [systemRows.length > 0, networkRows.length > 0, storageRows.length > 0];
+    if (includeAnalysis) retained.push(Boolean(quick.behavior_baseline), Boolean(quick.persistence_baseline));
     return {
       system, network, storage, quick, timeline, cases, coverage,
       systemAt, networkAt, storageAt,
+      analysisLoaded: includeAnalysis,
       readyCount: retained.filter(Boolean).length,
       readyTotal: retained.length,
     };
@@ -177,25 +181,28 @@
     const coverageCount = (model.coverage.items || []).length;
     const timelineCount = Number(model.timeline.group_count ?? (model.timeline.groups || []).length);
     const caseCount = Number(model.cases.count ?? (model.cases.incidents || []).length);
-    const baselineReady = model.readyCount >= 4;
+    const baselineReady = model.readyCount >= Math.max(2, model.readyTotal - 1);
+    const currentEvidence = model.analysisLoaded
+      ? `${caseCount} case(s) · ${timelineCount} timeline group(s)`
+      : 'Lightweight startup · open Easy Scan for the current review queue';
     return `<div class="scan-center-grid">
       <article class="scan-card easy">
         <div class="scan-card-head"><span>01</span>${badge('FAST', 'focus')}</div>
         <h3>Easy Scan</h3>
         <p>Fast, read-only current-state review. It does not rewrite Behavior, Trust, Persistence, or user files.</p>
-        <div class="scan-metrics"><span>Current evidence</span><b>${caseCount} case(s) · ${timelineCount} timeline group(s)</b></div>
+        <div class="scan-metrics"><span>Current evidence</span><b>${esc(currentEvidence)}</b></div>
         <button type="button" class="s24-action primary" data-scan-center="easy">Run Easy Scan</button>
       </article>
       <article class="scan-card full ${baselineReady ? 'ready' : ''}">
         <div class="scan-card-head"><span>02</span>${badge(baselineReady ? 'BASELINE READY' : 'COMPREHENSIVE', baselineReady ? 'good' : 'warn')}</div>
         <h3>Full Scan</h3>
         <p>Build the broad retained evidence baseline: system, security, behavior, graph, cases, network, checkpoints, home-storage traversal, history, and recovery state.</p>
-        <div class="scan-metrics"><span>Retained coverage</span><b>${model.readyCount}/${model.readyTotal} core baseline families · ${coverageCount} visibility source(s)</b></div>
+        <div class="scan-metrics"><span>Retained coverage</span><b>${model.readyCount}/${model.readyTotal} startup baseline families · ${coverageCount} visibility source(s)</b></div>
         <div class="scan-card-actions"><button type="button" class="s24-action primary" data-scan-center="full" ${fullScan.running ? 'disabled' : ''}>${fullScan.running ? 'Full Scan running…' : 'Run Full Scan'}</button>${fullScan.running ? '<button type="button" class="s24-action" data-scan-center="cancel">Cancel</button>' : ''}</div>
       </article>
     </div>
     ${baselineStrip(model)}
-    <div class="s24-note scan-retained-note">After Full Scan, Sentinel reuses retained System / Network / Storage / Behavior / Case evidence for later analysis. Re-run only when you want newer evidence, the system materially changes, or continuity reports that a rescan is required. A retained baseline is not continuous surveillance and never becomes a permanent safety certificate.</div>
+    <div class="s24-note scan-retained-note">Full Scan never starts automatically. After an explicit Full Scan, Sentinel reuses retained System / Network / Storage / Behavior / Case evidence for later analysis. Re-run only when you want newer evidence, the system materially changes, or continuity reports that a rescan is required.</div>
     <div id="fullScanProgress">${fullScan.running ? renderFullScanProgress() : ''}</div>`;
   }
 
@@ -278,7 +285,7 @@
     fullScan.stages = scanStages().map(stage => ({...stage, status: 'pending', detail: ''}));
     const host = $('#fullScanProgress');
     if (host) host.innerHTML = renderFullScanProgress();
-    notice('Full Scan started. It creates local comparison/history state but does not modify user files. Keep Sentinel open until it finishes.');
+    notice('Full Scan started by explicit user action. It creates local comparison/history state but does not modify user files.');
 
     for (const stage of fullScan.stages) {
       if (fullScan.cancelRequested) {
@@ -288,6 +295,8 @@
       stage.status = 'running';
       stage.detail = 'Collecting bounded local evidence…';
       refreshProgress();
+      // Yield one turn so WebKit can paint the stage before the next request.
+      await new Promise(resolve => setTimeout(resolve, 0));
       try {
         await stage.run();
         stage.status = 'done';
@@ -302,6 +311,7 @@
         stage.detail = error?.message || 'Source unavailable or bounded';
       }
       refreshProgress();
+      await new Promise(resolve => setTimeout(resolve, 0));
     }
 
     fullScan.running = false;
@@ -334,19 +344,19 @@
       quick.textContent = 'Easy Scan';
       quick.title = 'Fast read-only current-state review';
     }
-    const model = await readBaselineState();
-    if ($('#scanCenterBand')) return;
+    const model = await readBaselineState(false);
+    if ($('#scanCenterBand') || S.state?.lens !== 'status') return;
     const question = stage.querySelector('.s24-question');
     const scanBand = document.createElement('section');
     scanBand.id = 'scanCenterBand';
     scanBand.className = 's24-band scan-center-band';
-    scanBand.innerHTML = `<div class="s24-band-index">SCAN</div><div class="s24-band-body"><div class="s24-band-head"><div><h2>Scan Center</h2><p>Choose the smallest useful observation, or build the comprehensive retained baseline once and analyze from it.</p></div></div>${scanCenterHTML(model)}</div>`;
+    scanBand.innerHTML = `<div class="s24-band-index">SCAN</div><div class="s24-band-body"><div class="s24-band-head"><div><h2>Scan Center</h2><p>Choose the smallest useful observation, or explicitly build a comprehensive retained baseline.</p></div></div>${scanCenterHTML(model)}</div>`;
     if (question?.nextSibling) stage.insertBefore(scanBand, question.nextSibling); else stage.prepend(scanBand);
 
     const mapBand = document.createElement('section');
     mapBand.id = 'capabilityAtlasBand';
     mapBand.className = 's24-band capability-atlas-band';
-    mapBand.innerHTML = `<div class="s24-band-index">MAP</div><div class="s24-band-body"><div class="s24-band-head"><div><h2>Complete Capability Atlas</h2><p>Every primary Sentinel function and major 2.4 upgrade, arranged by investigation intent. Open any tile directly.</p></div></div>${capabilityAtlasHTML()}</div>`;
+    mapBand.innerHTML = `<div class="s24-band-index">MAP</div><div class="s24-band-body"><div class="s24-band-head"><div><h2>Complete Capability Atlas</h2><p>Every primary Sentinel function and major upgrade, arranged by investigation intent. Open any tile directly.</p></div></div>${capabilityAtlasHTML()}</div>`;
     stage.append(mapBand);
   }
 
@@ -354,7 +364,8 @@
   if (typeof baseStatusRenderer === 'function') {
     registerLens('status', async () => {
       await baseStatusRenderer();
-      await injectScanCenter();
+      // Never block first paint on Scan Center metadata, and never start Full Scan here.
+      setTimeout(() => { injectScanCenter().catch(() => {}); }, 0);
     });
   }
 
