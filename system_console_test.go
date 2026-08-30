@@ -150,6 +150,7 @@ func TestSystemConsoleIntegrationContract(t *testing.T) {
 			"structuredOutput",
 			"Raw evidence",
 			"/system-console.js",
+			"/v23-navigation.js",
 		},
 		"web/system-console.js": {
 			"/api/system/query/structured",
@@ -158,9 +159,10 @@ func TestSystemConsoleIntegrationContract(t *testing.T) {
 			"toolIndex",
 			"data-recipe-tool",
 		},
-		"web/core-compat.js": {
-			"systemConsoleShortcut",
-			"/system-console.html#token=",
+		"web/v23-navigation.js": {
+			"Sentinel 2.4 · AUX",
+			"productHref('status')",
+			"/system-console.html",
 		},
 	}
 	for path, needles := range checks {
