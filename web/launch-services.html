@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Sentinel Launch & Service Explorer</title>
   <link rel="stylesheet" href="/launch-services.css">
-  <link rel="stylesheet" href="/v23-navigation.css">
+  <link rel="stylesheet" href="/aux-navigation.css">
 </head>
 <body>
   <main class="launch-shell">
-    <header class="hero"><div><p class="eyebrow">Sentinel v2.3 · Persistence intelligence</p><h1>Launch & Service Explorer</h1><p class="subtitle">Answer “Why does this start automatically?” by connecting LaunchAgent/LaunchDaemon configuration to the executable it launches, its current runtime state, and deeper investigation evidence.</p></div><div class="hero-actions"><a id="systemConsoleLink" href="/system-console.html" class="secondary-link">System Console</a><a id="backLink" href="/" class="secondary-link">Back to Sentinel</a></div></header>
+    <header class="hero"><div><p class="eyebrow">Sentinel 2.4 · AUX Persistence</p><h1>Launch & Service Explorer</h1><p class="subtitle">Answer “Why does this start automatically?” by connecting LaunchAgent/LaunchDaemon configuration to the executable it launches, its current runtime state, and deeper investigation evidence.</p></div><div class="hero-actions"><a id="systemConsoleLink" href="/system-console.html" class="secondary-link">System Console</a><a id="backLink" href="/" class="secondary-link">Back to Sentinel</a></div></header>
     <section class="principles"><article><b>Configuration</b><span>Which plist declares the job?</span></article><article><b>Target</b><span>Which executable does it point to?</span></article><article><b>Runtime</b><span>Is that exact executable currently observed?</span></article><article><b>Continue</b><span>Branch into plist or executable evidence.</span></article></section>
     <p id="notice" class="notice" role="status" aria-live="polite"></p>
     <section class="summary-card panel" data-viz="relations"><div class="section-head"><div><p class="eyebrow">Visible persistence snapshot</p><h2>Automatic launch map</h2></div><button id="refreshLaunchServices" type="button">Refresh</button></div><div id="summaryGrid" class="summary-grid"><div class="empty">Loading visible LaunchAgents and LaunchDaemons…</div></div><p id="summaryNote" class="note"></p></section>
@@ -19,6 +19,6 @@
     <section id="limitationsPanel" class="limitations-card panel hidden" data-viz="visibility"><div class="section-head"><div><p class="eyebrow">Visibility</p><h2>Limits and unknowns</h2></div></div><div id="limitationsList" class="limitations"></div></section>
   </main>
   <script src="/launch-services.js"></script>
-  <script src="/v23-navigation.js"></script>
+  <script src="/aux-navigation.js"></script>
 </body>
 </html>
