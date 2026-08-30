@@ -26,26 +26,61 @@ Sentinel application frontend
       ├─ case-stories.js
       ├─ system-evidence.js
       ├─ workbench.js
+      ├─ full-scan.js
       ├─ runtime.js
       ├─ shell.css
       ├─ advanced.css
-      └─ workbench.css
+      ├─ workbench.css
+      └─ full-scan.css
 ```
 
 The same product source opens in the default browser or Sentinel's native WKWebView App View. There is no separate legacy dashboard, desktop-only DOM rewrite layer, or monolithic frontend controller in the normal startup path.
 
-## Product model
+## Product model and visual Capability Atlas
 
-Sentinel organizes work by intent rather than by a wall of diagnostic modules:
+Sentinel organizes work by intent rather than by a wall of diagnostic modules. **Status → Complete Capability Atlas** renders the whole product as six visual groups:
 
-- **Orient** — current state and a bounded review snapshot.
-- **Investigate** — cases, search, relationships, audit, exact-object verification, and Workbench investigation context.
-- **Compare** — change stream, system checkpoints, behavior differences, and approved-reference drift.
-- **System** — machine, processes, auto-start, persistence, background registrations, network, and storage.
-- **Act** — reclaim review, Safe Change simulation, reversible mutation, and recovery context.
-- **Limits** — visibility boundaries, completeness, permissions, capabilities, and evidence semantics.
+- **Orient** — Status, Easy Scan, Full Scan, Evidence Completeness, Product Onboarding.
+- **Investigate** — Cases, Search, Graph/Timeline, Audit, Object Story, Explain This, Smart Next Step.
+- **Compare** — Change Flow, System Checkpoints, Behavior, Reference, A/B comparison, historical heatmaps.
+- **System** — Machine, Processes, Auto-start, Persistence, Background, Network, Storage and forecast.
+- **Act** — Reclaim, Safe Change, Simulation, Recovery and Evidence Bundle.
+- **Limits** — Visibility, Local Evidence Assistant, command routing, Watch Rules, workspace/selection/keyboard tools.
+
+Every Capability Atlas tile opens the corresponding canonical Lens or Workbench surface. See `docs/CAPABILITY_ATLAS.md` for the complete tree and data flow.
 
 A result is evidence, not a verdict. Priority and attention scores rank review work; they are not malware probabilities. A signature, Gatekeeper result, relationship edge, network endpoint, reference match, or observed change must be interpreted in context.
+
+## Scan Center — Easy Scan + Full Scan
+
+The Status view now presents two scan paths side by side.
+
+### Easy Scan
+
+Easy Scan is the fast, read-only current-state path. It reads Quick Check and the review queue without rewriting Behavior, Trust, Persistence, or user files.
+
+### Full Scan
+
+Full Scan is the comprehensive retained-baseline path. One explicit run orchestrates the existing real Sentinel evidence engine:
+
+```text
+Visibility / capabilities
+→ current system + process + launch + network
+→ security audit
+→ monitoring / Behavior / Persistence capture
+→ Graph + Timeline
+→ Case correlation
+→ System Checkpoint
+→ Network History
+→ deep Home storage traversal + hash analysis
+→ Storage History
+→ Recovery / Safe Action health / readiness
+→ final review + retained analysis refresh
+```
+
+The deep-storage stage uses the existing cancellable job pipeline and reports real files/folders visited, hash progress, skipped slow paths, and bounded errors. Full Scan does not call Safe Action execution and does not permanently delete user data.
+
+After Full Scan, normal Lenses can reuse retained System, Network, Storage, Behavior/Persistence, Case, and intelligence evidence. This reduces unnecessary repeated acquisition, but it does **not** mean one scan is eternally current. The Status Scan Center displays retained capture age/freshness; re-run when you want newer evidence, the Mac materially changes, or continuity reports that a rescan is required.
 
 ## Investigation Workbench — 30 integrated improvements
 
@@ -86,25 +121,29 @@ These features reuse real Sentinel APIs wherever evidence is required. Workbench
 
 The Local Evidence Assistant currently uses deterministic local evidence routing: it reads explicit Sentinel APIs, separates Observed / Derived / Unknown / Next, does not use a cloud model, and does not invent missing observations. Watch Rules compare bounded API signatures while Sentinel is open; they do not pretend to be an entitlement-backed Endpoint Security sensor.
 
-## Core capabilities retained
+## Core capabilities retained and upgraded
 
-The Workbench is additive. Existing hardened functionality remains available, including:
+The Workbench and Scan Center are additive. Existing hardened functionality remains available and is now easier to locate through the Capability Atlas:
 
 - system overview and readiness;
-- Quick Check and unified review queue;
+- Quick Check / Easy Scan and unified review queue;
+- Full Scan retained-baseline orchestration;
 - Incident / Case correlation and Case JSON export;
 - evidence search and bounded deep filename/path search;
-- Evidence Graph 2.0, grouped/global timelines, and Object Story 2.0 backend evidence;
+- Evidence Graph 2.0 backend + Graph 3.0 interaction layer;
+- grouped/global timelines + Timeline 3.0 controls/heatmaps;
+- Object Story 2.0 backend + Object Story 3.0 workflow;
 - security audit and exact-path integrity inspection;
 - current process, startup, persistence, background, and TCP evidence;
-- explicit Network History snapshots and comparison;
+- Process Story and Launch/Persistence evolution views;
+- explicit Network History snapshots, evolution, and comparison;
 - Change Monitor with native FSEvents where available and polling fallback;
 - retained System Checkpoints and structured differences;
 - Behavior history and Trusted Profile compare/history/restore;
-- Storage Intelligence with cancellable traversal, history, aging, SHA-256 exact duplicates, and separate filename-family heuristics;
+- Storage Intelligence with cancellable traversal, history, aging, forecast, SHA-256 exact duplicates, and separate filename-family heuristics;
 - Cleanup Preview without automatic deletion;
-- reversible Safe Actions with server preview, typed confirmation, one-time code, revalidation, Vault recovery metadata, and action journal;
-- visibility/capability reporting so missing evidence remains explicit.
+- Safe Change Simulation plus reversible Safe Actions with server preview, typed confirmation, one-time code, revalidation, Vault recovery metadata, and action journal;
+- visibility/capability reporting and Evidence Completeness so missing evidence remains explicit.
 
 ## Safety boundaries
 
@@ -113,11 +152,13 @@ Sentinel deliberately separates observation from mutation.
 - The HTTP service binds to `127.0.0.1` only.
 - API requests require the current session token and retain Host / Origin / Fetch-Metadata protections.
 - Sentinel has no permanent-delete API.
+- Full Scan acquires/retains evidence and comparison state; it does not execute Safe Actions.
 - Safe Change Simulation stops at server preview and never submits the execution confirmation.
 - Safe Actions remain limited to explicitly supported operations and do not overwrite an existing destination.
 - Mutating Safe Actions are disabled in `--ephemeral` mode.
 - Vaulting a file does not claim software is malicious or that an already-running process stopped.
 - Missing visibility lowers confidence; it never becomes invented evidence.
+- A retained Full Scan baseline is not continuous surveillance or a permanent safety certificate.
 - Optional Endpoint Security visibility remains entitlement-, packaging-, approval-, and permission-dependent.
 
 ## Build the macOS app
@@ -135,14 +176,15 @@ For a clean reinstall into `/Applications` while preserving Sentinel user state:
 ./reinstall-macos.sh
 ```
 
-The desktop builder validates the canonical 10-script / 3-style application chain, the Workbench capability marker, and embedded Workbench evidence in both Apple Silicon and Intel Go engines. `Info.plist` records:
+The desktop builder validates the canonical **11-script / 4-style** application chain, Workbench and Full Scan capability markers, and embedded product evidence in both Apple Silicon and Intel Go engines. `Info.plist` records:
 
 ```text
 SentinelDesktopUI = 2.4 Native Frontend
 SentinelWorkbench = 30-function Investigation Workbench
+SentinelScanCenter = Easy Scan + Full Scan + Capability Atlas
 ```
 
-The reinstall helper refuses a bundle that does not contain both identities.
+The reinstall helper refuses a bundle that does not contain all three identities.
 
 ## Development engine
 
@@ -168,12 +210,14 @@ bash SMOKE_TEST_LOCALHOST.command
 
 CI additionally checks:
 
-- product and Workbench contracts;
+- product, Workbench, Full Scan, Capability Atlas, and visual contracts;
 - Darwin arm64 and x86_64 engine builds;
 - actual `Sentinel.app` desktop packaging;
-- Workbench marker embedding in both engines;
+- Workbench and Full Scan markers embedded in both engines;
+- `SentinelScanCenter` package identity;
 - Go race behavior and `go vet`;
-- every canonical product JavaScript module including `workbench.js`;
+- every canonical product JavaScript module including `workbench.js` and `full-scan.js`;
+- old `scan-center.js/css` names remain physically absent from the current product;
 - auxiliary JavaScript and shell syntax;
 - retired dashboard/controller paths remain absent.
 
@@ -198,13 +242,14 @@ A production distribution can use Developer ID signing, Hardened Runtime, Apple 
 
 ```text
 web/index.html              canonical product document
-web/app/                    modular default Sentinel application + Workbench
+web/app/                    modular default Sentinel application
 web/aux-*                   shared auxiliary-workspace foundation
 web/*-center.html           retained specialist workspaces
 
 desktop/                    native AppKit/WKWebView launcher
 endpointsecurity/           optional entitlement-gated sensor scaffold
 
+docs/CAPABILITY_ATLAS.md    current visual product/function map
 docs/history/               retired architecture/planning documents
 docs/releases/              historical release notes
 .github/workflows/ci.yml    current validation pipeline
@@ -219,13 +264,14 @@ Important runtime files:
 - `web/app/case-stories.js` — stable Story / Episode / Explain Why Case model.
 - `web/app/system-evidence.js` — Network History and Launch relationship depth.
 - `web/app/workbench.js` — 30-function cross-lens investigation layer.
+- `web/app/full-scan.js` — Easy/Full Scan orchestration, retained freshness, and Capability Atlas.
 - `web/app/runtime.js` — navigation, delegation, global search/export, and bootstrap.
-- `web/app/shell.css`, `advanced.css`, `workbench.css` — canonical visual layers.
+- `web/app/shell.css`, `advanced.css`, `workbench.css`, `full-scan.css` — canonical visual layers.
 - `desktop/SentinelDesktop.swift` — native launcher and WKWebView container.
-- `build-desktop-macos.sh` — Universal macOS app build and Workbench validation.
+- `build-desktop-macos.sh` — Universal macOS app build and product identity validation.
 - `reinstall-macos.sh` — clean rebuild/reinstall and identity verification.
 
-Standalone deep workspaces are auxiliary surfaces, not a second product architecture. Historical release/schema names are preserved only where they describe actual backward-compatible data formats.
+Standalone deep workspaces are auxiliary surfaces, not a second product architecture. Historical release/schema names are preserved only where they describe actual backward-compatible data formats. Historical `scan-center.js/css` runtime names are retired; current Scan Center behavior lives in `full-scan.js/css`.
 
 ## License
 
