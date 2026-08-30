@@ -1,207 +1,392 @@
 // SPDX-License-Identifier: MPL-2.0
-// Sentinel 2.4 Investigation Workbench — cross-lens product evolution layer.
+// Sentinel 2.4 Full Scan Center — visual capability atlas + retained-evidence orchestration.
 (() => {
   'use strict';
   const S = window.SentinelApp;
-  if (!S) throw new Error('Sentinel application core did not load before Investigation Workbench.');
-  const {$,$$,state,api,busy,activity,notice,esc,bytes,fmt,badge,sev,ledger,table,empty,registerLens} = S;
+  if (!S) throw new Error('Sentinel application core did not load before Full Scan Center.');
+  const {$, api, activity, notice, esc, badge, registerLens} = S;
+  const SCAN_MARKER = 'Sentinel 2.4 Full Scan Center';
 
-  const STORE_KEY = 'sentinel24-investigation-workbench-v1';
-  const FEATURES = [
-    'Interactive Evidence Graph 3.0','Process Story 2.0','Unified Investigation Workspace','Timeline 3.0','Network Intelligence 2.0','Launch & Persistence Drift','System Checkpoint 2.0','Storage Intelligence 2.0','Case Stories 3.0','Object Story 3.0','Permission & Visibility Assistant','Evidence Completeness Meter','Explain This','Smart Next Step','Cross-Lens Selection','Compare Any Two Objects','Reference Profiles 2.0','Safe Change Simulation','Recovery Center 2.0','Evidence Bundle','Local Evidence Assistant','Natural-language Command Bar','Saved Queries','Watch Rules','Visual Relationship Matrix','Change Evidence Flow','Historical Heatmaps','Workspace Persistence','Keyboard Workflow','Product Onboarding'
+  const fullScan = {
+    running: false,
+    cancelRequested: false,
+    storageJob: '',
+    stages: [],
+    startedAt: 0,
+    completedAt: 0,
+  };
+
+  async function structured(mode, params = {}) {
+    const q = new URLSearchParams({mode, ...params});
+    return api('/api/system/query/structured?' + q.toString(), {method: 'POST'});
+  }
+
+  function ageText(value) {
+    if (!value) return 'not captured';
+    const raw = typeof value === 'number' ? (value < 1e12 ? value * 1000 : value) : Date.parse(value);
+    if (!Number.isFinite(raw)) return String(value);
+    const delta = Math.max(0, Date.now() - raw);
+    const mins = Math.floor(delta / 60000);
+    if (mins < 2) return 'just now';
+    if (mins < 60) return `${mins} min ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 48) return `${hours} h ago`;
+    return `${Math.floor(hours / 24)} d ago`;
+  }
+
+  function freshness(value) {
+    if (!value) return {label: 'missing', cls: 'warn'};
+    const raw = typeof value === 'number' ? (value < 1e12 ? value * 1000 : value) : Date.parse(value);
+    if (!Number.isFinite(raw)) return {label: 'retained', cls: 'focus'};
+    const hours = (Date.now() - raw) / 3600000;
+    if (hours <= 1) return {label: 'fresh', cls: 'good'};
+    if (hours <= 24) return {label: 'recent', cls: 'focus'};
+    return {label: 'older', cls: 'warn'};
+  }
+
+  function latestTime(rows, keys) {
+    let best = 0;
+    for (const row of rows || []) {
+      for (const key of keys) {
+        const value = row?.[key];
+        if (!value) continue;
+        const raw = typeof value === 'number' ? (value < 1e12 ? value * 1000 : value) : Date.parse(value);
+        if (Number.isFinite(raw) && raw > best) best = raw;
+      }
+    }
+    return best || 0;
+  }
+
+  async function readBaselineState() {
+    const [system, network, storage, quick, timeline, cases, coverage] = await Promise.all([
+      structured('system-snapshots').catch(() => ({snapshots: []})),
+      api('/api/network/history').catch(() => ({snapshots: []})),
+      structured('storage-history').catch(() => ({snapshots: []})),
+      api('/api/quick-check').catch(() => ({})),
+      api('/api/intelligence/timeline/grouped').catch(() => ({groups: []})),
+      api('/api/incidents/v2?history=1').catch(() => ({incidents: []})),
+      api('/api/coverage').catch(() => ({items: []})),
+    ]);
+    const systemRows = system.snapshots || [];
+    const networkRows = network.snapshots || [];
+    const storageRows = storage.snapshots || [];
+    const systemAt = latestTime(systemRows, ['captured_at', 'created_at']);
+    const networkAt = latestTime(networkRows, ['captured_at', 'created_at']);
+    const storageAt = latestTime(storageRows, ['captured_at', 'created_at']);
+    const retained = [
+      systemRows.length > 0,
+      networkRows.length > 0,
+      storageRows.length > 0,
+      Boolean(quick.behavior_baseline),
+      Boolean(quick.persistence_baseline),
+    ];
+    return {
+      system, network, storage, quick, timeline, cases, coverage,
+      systemAt, networkAt, storageAt,
+      readyCount: retained.filter(Boolean).length,
+      readyTotal: retained.length,
+    };
+  }
+
+  const CAPABILITY_GROUPS = [
+    {
+      id: 'orient', label: 'ORIENT', question: 'What matters now?',
+      items: [
+        ['Status', 'status', 'Live instruments · readiness'],
+        ['Easy Scan', 'snapshot', 'Fast read-only review queue'],
+        ['Full Scan', 'status', 'Comprehensive retained baseline'],
+        ['Evidence Completeness', 'visibility', 'Coverage before inference'],
+        ['Product Onboarding', 'guide', 'Guided investigation model'],
+      ],
+    },
+    {
+      id: 'investigate', label: 'INVESTIGATE', question: 'Why is this happening?',
+      items: [
+        ['Case Stories 3.0', 'cases', 'Story / episode / evidence'],
+        ['Search + Saved Queries', 'search', 'Known evidence + bounded deep search'],
+        ['Graph 3.0', 'relations', 'Filters · matrix · topology'],
+        ['Timeline 3.0', 'relations', 'Range · density · heatmap'],
+        ['Security Audit', 'audit', 'Explainable review priority'],
+        ['Object Story 3.0', 'object', 'Exact identity + relations'],
+        ['Explain This', 'object', 'Observed / derived / unknown'],
+        ['Smart Next Step', 'cases', 'Evidence-guided continuation'],
+      ],
+    },
+    {
+      id: 'compare', label: 'COMPARE', question: 'What changed?',
+      items: [
+        ['Change Evidence Flow', 'changes', 'Bounded events · continuity'],
+        ['System Checkpoint 2.0', 'changes', 'Retained before / after state'],
+        ['Behavior History', 'behavior', 'Adjacent observation differences'],
+        ['Reference Profiles 2.0', 'reference', 'Approved state + drift history'],
+        ['Compare Any Two Objects', 'object', 'Cross-lens A / B evidence'],
+        ['Historical Heatmaps', 'relations', 'Retained time concentration'],
+      ],
+    },
+    {
+      id: 'system', label: 'SYSTEM', question: 'What exists on this Mac?',
+      items: [
+        ['Machine', 'machine', 'Hardware · OS · runtime'],
+        ['Processes + Story 2.0', 'processes', 'Live process identity'],
+        ['Auto-start', 'startup', 'Launch declaration → target → PID'],
+        ['Launch & Persistence Drift', 'persistence', 'Configuration evolution'],
+        ['Background', 'background', 'Background registrations'],
+        ['Network Intelligence 2.0', 'network', 'Current + retained relationships'],
+        ['Storage Intelligence 2.0', 'storage', 'Traverse · measure · hash · history'],
+        ['Storage Forecast', 'storage', 'Explicit retained trend estimate'],
+      ],
+    },
+    {
+      id: 'act', label: 'ACT', question: 'What reversible action is justified?',
+      items: [
+        ['Reclaim Review', 'reclaim', 'Review candidates only'],
+        ['Safe Change', 'change', 'Preview → confirm → execute'],
+        ['Safe Change Simulation', 'change', 'Server preview without execution'],
+        ['Recovery Center 2.0', 'change', 'Vault · journal · recovery readiness'],
+        ['Evidence Bundle', 'cases', 'Portable local investigation evidence'],
+      ],
+    },
+    {
+      id: 'limits', label: 'LIMITS', question: 'What can Sentinel establish?',
+      items: [
+        ['Permission & Visibility Assistant', 'visibility', 'Available / limited / unavailable'],
+        ['Local Evidence Assistant', 'guide', 'Deterministic local analysis'],
+        ['Natural-language Command Bar', 'search', 'Route questions to evidence'],
+        ['Watch Rules', 'changes', 'Session-bounded evidence checks'],
+        ['Unified Investigation Workspace', 'cases', 'Notes · hypotheses · bookmarks'],
+        ['Workspace Persistence', 'cases', 'Retained investigation metadata'],
+        ['Cross-Lens Selection', 'relations', 'One selected object across views'],
+        ['Keyboard Workflow', 'guide', '⌘K + evidence navigation'],
+      ],
+    },
   ];
 
-  function defaults(){return {
-    version:1, selected:null, compareA:null, compareB:null,
-    savedQueries:[], watchRules:[], investigations:[], activeInvestigation:'',
-    caseState:{}, checkpointMeta:{}, launchBaseline:null,
-    workspace:{lens:'status',graph:{q:'',type:'',source:''},timelineRange:'all'},
-    onboardingDone:false, assistantHistory:[]
-  };}
-  function loadStore(){try{return {...defaults(),...JSON.parse(localStorage.getItem(STORE_KEY)||'{}')};}catch{return defaults();}}
-  const wb = loadStore();
-  function saveStore(){try{localStorage.setItem(STORE_KEY,JSON.stringify(wb));}catch{}}
-  function uid(prefix='wb'){return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`;}
-  function stable(value){if(Array.isArray(value))return value.map(stable);if(value&&typeof value==='object'){const out={};for(const k of Object.keys(value).sort())out[k]=stable(value[k]);return out;}return value;}
-  function fingerprint(value){const s=JSON.stringify(stable(value));let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return (h>>>0).toString(16).padStart(8,'0');}
-  function downloadJSON(name,data){const blob=new Blob([JSON.stringify(data,null,2)+'\n'],{type:'application/json'}),href=URL.createObjectURL(blob),a=document.createElement('a');a.href=href;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(href),1200);}
-  async function structured(mode,params={}){const q=new URLSearchParams({mode,...params});return api('/api/system/query/structured?'+q.toString(),{method:'POST'});}
-
-  function selectionLabel(s=wb.selected){if(!s)return 'No selection';return s.path||s.label||(s.pid?`PID ${s.pid}`:s.type||'Evidence');}
-  function setSelection(next){if(!next)return;wb.selected={type:next.type||'evidence',path:next.path||'',pid:Number(next.pid||0),label:next.label||next.path||(next.pid?`PID ${next.pid}`:'Evidence'),at:Date.now()};saveStore();renderSelectionChip();highlightSelection();}
-  function renderSelectionChip(){let chip=$('#wbSelectionChip');if(!chip){chip=document.createElement('button');chip.id='wbSelectionChip';chip.type='button';chip.className='s24-quiet wb-selection-chip';chip.dataset.workbench='selection';const actions=$('.s24-command-actions');if(actions)actions.prepend(chip);}if(chip){chip.textContent=wb.selected?`Selected · ${selectionLabel().split('/').pop()}`:'Select evidence';chip.title=selectionLabel();}}
-  function installWorkbenchButton(){if($('#workbenchButton'))return;const b=document.createElement('button');b.id='workbenchButton';b.type='button';b.className='s24-quiet';b.textContent='Workbench';b.dataset.workbench='open';const actions=$('.s24-command-actions');if(actions)actions.insertBefore(b,$('#refreshButton'));renderSelectionChip();}
-  function highlightSelection(){const selected=wb.selected;if(!selected)return;const needle=(selected.path||String(selected.pid||'')).toLowerCase();if(!needle)return;for(const row of $$('.s24-table tbody tr,.s24-feed-item,.s24-checkpoint')){row.classList.toggle('wb-related',row.textContent.toLowerCase().includes(needle));}}
-
-  function openContext(title,html){$('#contextTitle').textContent=title;$('#contextBody').innerHTML=html;$('#contextTray').hidden=false;}
-  function panelButton(label,action,cls=''){return `<button type="button" class="s24-action ${cls}" data-wb-action="${esc(action)}">${esc(label)}</button>`;}
-  function section(title,body,desc=''){return `<section class="wb-section"><div class="wb-section-head"><div><h3>${esc(title)}</h3>${desc?`<p>${esc(desc)}</p>`:''}</div></div>${body}</section>`;}
-  function featureGrid(){return `<div class="wb-feature-grid">${FEATURES.map((x,i)=>`<div class="wb-feature"><span>${String(i+1).padStart(2,'0')}</span><b>${esc(x)}</b><small>LIVE</small></div>`).join('')}</div>`;}
-
-  function smartNextSteps(){const s=wb.selected,lens=state.lens;const out=[];if(s?.path){out.push(['Verify exact object','object']);out.push(['See relationships','relations']);out.push(['Compare reference','reference']);}if(s?.pid){out.push(['Open Process Story','process-story']);out.push(['Inspect network','network']);}if(lens==='changes')out.push(['Compare checkpoints','changes']);if(lens==='network')out.push(['Capture network history','network']);if(lens==='cases')out.push(['Inspect Object Story','object']);if(!out.length){out.push(['Run Snapshot','snapshot'],['Check Visibility','visibility'],['Inspect Cases','cases']);}return out.slice(0,5);}
-  function nextStepHTML(){return `<div class="wb-next">${smartNextSteps().map(([label,target])=>`<button type="button" data-wb-next="${esc(target)}"><span>NEXT</span><b>${esc(label)}</b></button>`).join('')}</div>`;}
-
-  async function explainSelection(){const s=wb.selected;if(!s)return openContext('Explain This',section('No selected evidence',empty('Select a path, process, graph node, Case object, or network process first.'))+section('Next useful step',nextStepHTML()));busy('Explaining selected evidence',selectionLabel(s));let data=null;try{if(s.path)data=await api('/api/object/story/v2?path='+encodeURIComponent(s.path));else if(s.pid)data=await processStoryData(s.pid);}catch(e){data={error:e.message};}openContext(`Explain · ${selectionLabel(s).split('/').pop()}`,section('Observed',`<pre>${esc(JSON.stringify(data,null,2))}</pre>`,'Returned local Sentinel evidence only.')+section('Interpretation boundary','<div class="s24-note">A relationship, novelty, signature state, endpoint, or priority signal is context. This view does not convert evidence into a malware verdict.</div>')+section('Smart next step',nextStepHTML()));activity('Ready',100,'Selected evidence explained');}
-
-  async function processStoryData(pid){let detail=null;try{detail=await api('/api/process/detail?pid='+encodeURIComponent(pid));}catch{const p=await api('/api/processes');detail=(p.processes||[]).find(x=>Number(x.pid)===Number(pid))||{pid};}
-    const [network,launch]=await Promise.all([api('/api/network').catch(()=>({items:[]})),api('/api/launch-services').catch(()=>({items:[]}))]);
-    const net=(network.items||[]).filter(x=>Number(x.pid)===Number(pid));const command=String(detail.command||detail.executable||detail.path||'');
-    const launches=(launch.items||[]).filter(x=>(x.running_pids||[]).map(Number).includes(Number(pid))||(command&&x.executable&&command.includes(x.executable)));
-    return {pid,detail,network:net,launch_relationships:launches,note:'Process Story correlates current process, launch, and TCP evidence. Missing ancestry means the current source did not expose it.'};}
-  async function openProcessStory(pid){busy('Building Process Story',`PID ${pid}`);const d=await processStoryData(pid);setSelection({type:'process',pid,label:d.detail?.command||`PID ${pid}`});const net=d.network||[],launch=d.launch_relationships||[];openContext(`Process Story · PID ${pid}`,section('Process identity',ledger([['PID',pid],['Command',d.detail?.command||d.detail?.executable||'—'],['User',d.detail?.user||'—'],['CPU',d.detail?.cpu??'—'],['Memory',d.detail?.memory??'—']]))+section('Launch origin',launch.length?table(['Scope','Label','Executable'],launch.slice(0,20).map(x=>[esc(x.scope||''),esc(x.label||''),`<code>${esc(x.executable||'')}</code>`])):empty('No exact visible launch relationship matched this process.'))+section('Current network relationships',net.length?table(['State','Local','Remote','Class'],net.slice(0,40).map(x=>[esc(x.state||''),`<code>${esc(x.local||'')}</code>`,`<code>${esc(x.remote||'')}</code>`,esc(x.endpoint_class||'')])):empty('No visible TCP relationship matched this PID.'))+section('Unknowns','<div class="s24-note">Process ancestry is shown only when an available evidence source exposes it. Sentinel does not invent parent/child history from current PID state.</div>')+section('Next useful step',nextStepHTML()));activity('Ready',100,'Process Story loaded');}
-
-  function currentInvestigation(){return wb.investigations.find(x=>x.id===wb.activeInvestigation)||null;}
-  function investigationPanel(){const active=currentInvestigation();const list=wb.investigations.map(x=>`<button type="button" class="wb-list-row ${x.id===wb.activeInvestigation?'active':''}" data-wb-investigation="${esc(x.id)}"><b>${esc(x.title)}</b><small>${esc(new Date(x.updated||x.created).toLocaleString())}</small></button>`).join('')||empty('No saved investigations yet.');const editor=active?`<label class="wb-field"><span>Title</span><input id="wbInvTitle" value="${esc(active.title)}"></label><label class="wb-field"><span>Notes</span><textarea id="wbInvNotes" rows="6">${esc(active.notes||'')}</textarea></label><label class="wb-field"><span>Hypothesis / question</span><textarea id="wbInvHypothesis" rows="4">${esc(active.hypothesis||'')}</textarea></label><div class="wb-actions">${panelButton('Save investigation','save-investigation','primary')}${panelButton('Bookmark selected evidence','bookmark-selection')}${panelButton('Export investigation','export-investigation')}</div><div class="wb-bookmarks">${(active.bookmarks||[]).map(b=>`<div><b>${esc(b.label||b.path||`PID ${b.pid}`)}</b><small>${esc(b.path||b.type||'')}</small></div>`).join('')||empty('No bookmarked evidence.')}</div>`:empty('Create or select an investigation to keep notes, hypotheses, bookmarks, and filters together.');return `<div class="wb-two"><div>${panelButton('New investigation','new-investigation','primary')}${list}</div><div>${editor}</div></div>`;}
-
-  function savedQueryPanel(){return `<form id="wbSavedQueryForm" class="wb-inline"><input name="query" placeholder="processes connecting to new endpoints"><button class="s24-action primary" type="submit">Save query</button></form><div class="wb-list">${wb.savedQueries.map(q=>`<div class="wb-list-row"><div><b>${esc(q.text)}</b><small>${esc(q.created?new Date(q.created).toLocaleString():'')}</small></div><div>${panelButton('Run',`run-query:${q.id}`)}${panelButton('Remove',`remove-query:${q.id}`)}</div></div>`).join('')||empty('No saved queries.')}</div>`;}
-
-  function watchRulePanel(){return `<form id="wbWatchRuleForm" class="wb-form"><label class="wb-field"><span>Rule type</span><select name="kind"><option value="network">Network relationships</option><option value="launch">Launch configuration</option><option value="changes">Change events</option><option value="cases">Case stories</option><option value="reference">Reference drift</option><option value="object">Selected object identity</option></select></label><label class="wb-field"><span>Label</span><input name="label" placeholder="Watch new network relationships"></label><button class="s24-action primary" type="submit">Create session watch</button></form><div class="s24-note">Watch Rules run while Sentinel is open. They compare bounded API evidence to the previous checked signature; they are not a background Endpoint Security sensor.</div><div class="wb-list">${wb.watchRules.map(r=>`<div class="wb-list-row"><div><b>${esc(r.label||r.kind)}</b><small>${esc(r.kind)} · ${r.lastChanged?`changed ${new Date(r.lastChanged).toLocaleString()}`:'not changed yet'}</small></div><div>${panelButton('Check now',`check-watch:${r.id}`)}${panelButton('Remove',`remove-watch:${r.id}`)}</div></div>`).join('')||empty('No session watch rules.')}</div>`;}
-
-  async function visibilityAssistantHTML(){const [v,c,caps,sensor]=await Promise.all([api('/api/visibility').catch(()=>({})),api('/api/coverage').catch(()=>({items:[]})),api('/api/capabilities').catch(()=>({items:[]})),api('/api/advanced-sensor/status').catch(()=>null)]);const rows=c.items||v.items||[],available=rows.filter(x=>['available','full','ready','healthy'].includes(String(x.status||'').toLowerCase())).length,limited=rows.filter(x=>['limited','partial','review'].includes(String(x.status||'').toLowerCase())).length,unavailable=Math.max(0,rows.length-available-limited),score=rows.length?Math.round((available+.5*limited)/rows.length*100):0;const advice=rows.filter(x=>!['available','full','ready','healthy'].includes(String(x.status||'').toLowerCase())).map(x=>`${x.area||x.name||'Evidence'}: ${x.detail||x.status||'limited'}`);return section('Evidence completeness',`<div class="wb-completeness"><strong>${score}%</strong><div><span>available ${available}</span><span>limited ${limited}</span><span>unavailable ${unavailable}</span></div><progress max="100" value="${score}"></progress></div>`,'Completeness describes observable evidence coverage, never safety.')+section('Permission & visibility assistant',advice.length?`<div class="wb-advice">${advice.map(x=>`<p>${esc(x)}</p>`).join('')}</div>`:'<div class="s24-note good">No limited coverage item was returned by the current coverage model.</div>')+section('Advanced sensor boundary',sensor?`<pre>${esc(JSON.stringify(sensor,null,2))}</pre>`:empty('Advanced sensor status unavailable.'))+section('Available capabilities',`<pre>${esc(JSON.stringify(caps,null,2))}</pre>`);}
-
-  async function loadNetworkEvolution(){const h=await api('/api/network/history');const snaps=h.snapshots||[],map=new Map();for(const snap of snaps){for(const r of snap.relations||[]){const key=`${r.process||'process'} → ${r.endpoint||'endpoint'}`;const old=map.get(key)||{key,count:0,first:snap.captured_at,last:snap.captured_at,states:new Set()};old.count++;old.first=Math.min(Number(old.first||0)||Infinity,Number(snap.captured_at||0)||Infinity);old.last=Math.max(Number(old.last||0),Number(snap.captured_at||0));old.states.add(r.state||'');map.set(key,old);}}const rows=[...map.values()].sort((a,b)=>b.count-a.count).slice(0,80);return section('Network evolution',ledger([['Snapshots',snaps.length],['Unique retained relationships',map.size],['Persistent',h.persistent?'Yes':'No']])+ (rows.length?table(['Occurrences','First','Last','Relationship'],rows.map(x=>[String(x.count),esc(fmt(x.first)),esc(fmt(x.last)),esc(x.key)])):empty('Capture Network History snapshots to build recurrence evidence.')),'Recurrence counts explicit retained snapshots only.');}
-
-  async function loadLaunchDrift(){const d=await api('/api/launch-services'),items=d.items||[],now=items.map(x=>({key:x.plist_path||x.label||x.executable,label:x.label,scope:x.scope,executable:x.executable,run_at_load:!!x.run_at_load,keep_alive:!!x.keep_alive,target_exists:x.target_exists})).sort((a,b)=>String(a.key).localeCompare(String(b.key)));const prev=wb.launchBaseline?.items||[],pmap=new Map(prev.map(x=>[x.key,x])),nmap=new Map(now.map(x=>[x.key,x])),added=now.filter(x=>!pmap.has(x.key)),removed=prev.filter(x=>!nmap.has(x.key)),changed=now.filter(x=>{const p=pmap.get(x.key);return p&&fingerprint(p)!==fingerprint(x);});return section('Launch & Persistence Drift',ledger([['Current declarations',now.length],['Baseline',wb.launchBaseline?new Date(wb.launchBaseline.at).toLocaleString():'Not captured'],['Added',added.length],['Removed',removed.length],['Changed',changed.length]])+`<div class="wb-actions">${panelButton('Capture current launch baseline','capture-launch-baseline','primary')}</div>`+((added.length||removed.length||changed.length)?`<div class="s24-diff-detail">${added.slice(0,30).map(x=>`<p class="added">+ ${esc(x.label||x.key)}</p>`).join('')}${removed.slice(0,30).map(x=>`<p class="removed">− ${esc(x.label||x.key)}</p>`).join('')}${changed.slice(0,30).map(x=>`<p>Δ ${esc(x.label||x.key)} · executable/config state changed</p>`).join('')}</div>`:empty('No local launch baseline difference available.')),'Baseline metadata is stored in this local UI workspace; current evidence still comes from the Sentinel engine.');}
-
-  async function checkpoint2HTML(){const d=await structured('system-snapshots').catch(()=>({snapshots:[]})),rows=d.snapshots||[];return section('System Checkpoint 2.0',`<div class="wb-checkpoints">${rows.slice(0,30).map(x=>{const meta=wb.checkpointMeta[x.id]||{};return `<div class="wb-checkpoint ${meta.pinned?'pinned':''}"><time>${esc(fmt(x.captured_at))}</time><b>${esc(meta.name||'Unnamed checkpoint')}</b><small>${Number((x.processes||[]).length)} process · ${Number((x.startup||[]).length)} startup · ${Number((x.network||[]).length)} network</small><div>${panelButton(meta.pinned?'Unpin':'Pin',`pin-checkpoint:${x.id}`)}${panelButton('Name',`name-checkpoint:${x.id}`)}</div></div>`;}).join('')||empty('No retained System Checkpoints.')}</div>`,'Names and pins are local workspace metadata attached to engine-owned checkpoint IDs.');}
-
-  function linearForecast(snaps){const rows=(snaps||[]).map(x=>({t:Number(x.created_at||x.captured_at||0),v:Number(x.visible_bytes||0)})).filter(x=>x.t&&x.v).sort((a,b)=>a.t-b.t);if(rows.length<3)return null;const first=rows[0],last=rows.at(-1),days=Math.max(1,(last.t-first.t)/86400),perDay=(last.v-first.v)/days;return {points:rows.length,perDay,week:last.v+perDay*7,month:last.v+perDay*30,current:last.v};}
-  async function storageForecastHTML(){const h=await structured('storage-history').catch(()=>({snapshots:[]})),f=linearForecast(h.snapshots||[]);return section('Storage forecasting',f?ledger([['Retained points',f.points],['Observed linear rate',`${bytes(Math.abs(f.perDay))} / day ${f.perDay>=0?'growth':'decline'}`],['Current measured',bytes(f.current)],['7-day linear estimate',bytes(Math.max(0,f.week))],['30-day linear estimate',bytes(Math.max(0,f.month))]])+'<div class="s24-note">Forecast is a simple linear extrapolation from retained bounded scans. It is not a filesystem guarantee.</div>':empty('Capture at least three comparable Storage History measurements to estimate a trend.'));}
-
-  async function referenceProfilesHTML(){const [status,history,health]=await Promise.all([api('/api/trust/status').catch(()=>({})),api('/api/trust/history').catch(()=>({})),api('/api/trust/health').catch(()=>({}))]);const entries=history.entries||history.history||[];return section('Reference Profiles 2.0',ledger([['Current profile',status.has_profile?'Available':'Not established'],['Updated',fmt(status.updated_at)],['Objects',status.objects||0],['History entries',entries.length||health.history_entries||0],['Previous restore',health.backup_exists?'Available':'Unavailable']])+`<div class="wb-actions">${panelButton('Compare current','compare-reference-now','primary')}${panelButton('Export current profile','export-reference')}${health.backup_exists?panelButton('Restore previous profile','restore-reference'):''}</div>`+(entries.length?`<div class="wb-list">${entries.slice(0,30).map((e,i)=>`<div class="wb-list-row"><div><b>${esc(e.kind||e.drift_band||`History ${i+1}`)}</b><small>${esc(fmt(e.at||e.compared_at||e.created_at))}</small></div><span>${esc(String(e.drift_index??e.change_count??''))}</span></div>`).join('')}</div>`:empty('No retained Trust Drift history returned.')),'The engine currently supports one active Trusted Profile plus history and previous-profile restore. History is exposed as versioned reference evidence without pretending multiple active profiles exist.');}
-
-  async function recoveryCenterHTML(){const [recovery,status,health,journal,vault]=await Promise.all([structured('recovery').catch(()=>null),api('/api/actions/status').catch(()=>null),api('/api/actions/health').catch(()=>null),api('/api/actions/journal').catch(()=>null),api('/api/actions/vault').catch(()=>null)]);return section('Recovery Center 2.0',ledger([['Readiness',recovery?.analysis?.readiness||recovery?.mode||'—'],['Safe Actions',health?.healthy===false?'Review':'Ready'],['Journal entries',(journal?.entries||journal?.journal||[]).length||0],['Vault entries',(vault?.items||vault?.entries||[]).length||0],['Ephemeral',status?.ephemeral?'Yes':'No']]))+section('Recovery evidence',`<pre>${esc(JSON.stringify({recovery,status,health,journal,vault},null,2))}</pre>`,'This is recovery metadata; it does not execute a restore.');}
-
-  async function compareSubject(subject){if(!subject)return null;if(subject.path){try{return await api('/api/object/story/v2?path='+encodeURIComponent(subject.path));}catch{return await api('/api/object/story?path='+encodeURIComponent(subject.path));}}if(subject.pid)return processStoryData(subject.pid);return subject;}
-  async function compareAB(){if(!wb.compareA||!wb.compareB)return openContext('Compare Any Two Objects',section('Need two selections',empty('Set Compare A and Compare B from the selected-evidence Workbench.')));busy('Comparing selected evidence');const [a,b]=await Promise.all([compareSubject(wb.compareA),compareSubject(wb.compareB)]);const pa=JSON.stringify(stable(a)),pb=JSON.stringify(stable(b)),same=pa===pb;openContext('Compare Any Two Objects',section('A',ledger([['Selection',selectionLabel(wb.compareA)],['Type',wb.compareA.type||'evidence']]))+section('B',ledger([['Selection',selectionLabel(wb.compareB)],['Type',wb.compareB.type||'evidence']]))+section('Difference',`<div class="s24-note ${same?'good':'warn'}">${same?'Returned normalized evidence is identical.':'Returned normalized evidence differs. Review the bounded raw comparison below.'}</div><div class="wb-two"><pre>${esc(JSON.stringify(a,null,2))}</pre><pre>${esc(JSON.stringify(b,null,2))}</pre></div>`));activity('Ready',100,'Two evidence subjects compared');}
-
-  async function evidenceBundle(){busy('Building Evidence Bundle','Collecting bounded local evidence');const s=wb.selected;const fetches={generated_at:new Date().toISOString(),selection:s,workspace:wb.workspace,investigation:currentInvestigation(),limitations:['Bundle contains only evidence visible to this Sentinel session.','Missing sources remain missing; bundle generation does not reconstruct history.']};const tasks=[['overview','/api/overview'],['visibility','/api/visibility'],['coverage','/api/coverage'],['cases','/api/incidents/v2?history=1'],['graph','/api/intelligence/graph/v2'],['timeline','/api/intelligence/timeline/grouped'],['network_history','/api/network/history'],['trust','/api/trust/status'],['action_health','/api/actions/health']];await Promise.all(tasks.map(async([k,u])=>{try{fetches[k]=await api(u);}catch(e){fetches[k]={unavailable:e.message};}}));if(s?.path){try{fetches.object_story=await api('/api/object/story/v2?path='+encodeURIComponent(s.path));}catch(e){fetches.object_story={unavailable:e.message};}}if(s?.pid){try{fetches.process_story=await processStoryData(s.pid);}catch(e){fetches.process_story={unavailable:e.message};}}downloadJSON(`sentinel-evidence-bundle-${Date.now()}.json`,fetches);activity('Ready',100,'Evidence Bundle exported');}
-
-  async function assistantAnswer(prompt){const q=String(prompt||'').trim().toLowerCase(),observed=[],derived=[],unknown=[],next=[];if(!q)return {observed:['No question supplied.'],derived:[],unknown:[],next:['Ask about changes, network, cases, storage, a selected object, or visibility.']};
-    try{if(/network|endpoint|connection/.test(q)){const d=await api('/api/network');observed.push(`${(d.items||[]).length} visible current TCP rows.`);const h=await api('/api/network/history').catch(()=>({snapshots:[]}));observed.push(`${(h.snapshots||[]).length} explicitly retained Network History snapshots.`);derived.push('Current network rows and retained history are separate evidence scopes.');next.push('Open System → Network and compare retained snapshots.');}
-      if(/change|changed|since|difference/.test(q)){const d=await api('/api/changes/events');observed.push(`${(d.events||[]).length} retained/live change events are visible in this session.`);const s=await structured('system-snapshots').catch(()=>({snapshots:[]}));observed.push(`${(s.snapshots||[]).length} System Checkpoints are available.`);next.push('Open Compare → Changes and compare two checkpoints.');}
-      if(/case|incident|story/.test(q)){const d=await api('/api/incidents/v2?history=1');observed.push(`${(d.incidents||[]).length} stable Case Stories are retained.`);derived.push('Case confidence describes evidence grouping, not maliciousness.');next.push('Open Investigate → Cases and inspect Explain Why.');}
-      if(/storage|disk|large|duplicate/.test(q)){const h=await structured('storage-history').catch(()=>({snapshots:[]}));observed.push(`${(h.snapshots||[]).length} Storage History snapshots are retained.`);next.push('Open System → Storage for current measurement, trend, aging, and exact-duplicate evidence.');}
-      if(/permission|visibility|coverage|see/.test(q)){const c=await api('/api/coverage');observed.push(`Coverage reports ${c.available||0} available, ${c.limited||0} limited, ${c.unavailable||0} unavailable sources.`);next.push('Open Limits → Visibility and review limited evidence sources.');}
-      if(/selected|this object|this process|file|executable/.test(q)&&wb.selected){const d=await compareSubject(wb.selected);observed.push(`Selected evidence: ${selectionLabel()}.`);observed.push(`Returned ${Object.keys(d||{}).length} top-level evidence fields.`);next.push(wb.selected.path?'Open Object Story and Reference comparison.':'Open Process Story and Network relationships.');}
-    }catch(e){unknown.push(`One requested local evidence source was unavailable: ${e.message}`);}
-    if(!observed.length){unknown.push('The deterministic local assistant did not map this question to a bounded evidence source.');next.push('Use the command bar or choose a Lens directly.');}
-    unknown.push('The assistant does not infer intent or reconstruct evidence that Sentinel did not observe.');return {observed,derived,unknown,next,mode:'deterministic-local-evidence',note:'No cloud model is used. This assistant summarizes only explicit Sentinel API evidence; a future local model can replace the language layer without changing evidence boundaries.'};}
-
-  async function assistantPanel(prompt=''){const answer=prompt?await assistantAnswer(prompt):null;return `<form id="wbAssistantForm" class="wb-form"><label class="wb-field"><span>Ask local evidence</span><textarea name="prompt" rows="3" placeholder="What changed since my last checkpoint?">${esc(prompt)}</textarea></label><button class="s24-action primary" type="submit">Analyze local evidence</button></form>${answer?`<div class="wb-assistant">${section('Observed',answer.observed.map(x=>`<p>${esc(x)}</p>`).join('')||empty('None'))}${section('Derived',answer.derived.map(x=>`<p>${esc(x)}</p>`).join('')||empty('No bounded derivation.'))}${section('Unknown',answer.unknown.map(x=>`<p>${esc(x)}</p>`).join(''))}${section('Next',answer.next.map(x=>`<p>${esc(x)}</p>`).join(''))}</div>`:'<div class="s24-note">Deterministic local evidence mode is active. It never sends the question to a cloud model and never invents missing evidence.</div>'}`;}
-
-  function onboardingHTML(){return section('Start with four actions',`<div class="wb-onboarding"><div><span>01</span><b>Check Visibility</b><p>Know which evidence sources are available before interpreting results.</p>${panelButton('Open Visibility','goto:visibility')}</div><div><span>02</span><b>Run Snapshot</b><p>Build the smallest bounded current-state review queue.</p>${panelButton('Run Snapshot','goto:snapshot')}</div><div><span>03</span><b>Inspect one Story</b><p>Use Cases or Object Story to connect evidence.</p>${panelButton('Open Cases','goto:cases')}</div><div><span>04</span><b>Capture a Checkpoint</b><p>Create explicit before/after evidence for later comparison.</p>${panelButton('Open Changes','goto:changes')}</div></div>`)+section('Product model','<div class="s24-note good">Observe → connect → compare → verify → change only when evidence supports it.</div>')+`<div class="wb-actions">${panelButton('Mark onboarding complete','finish-onboarding','primary')}</div>`;}
-
-  async function openWorkbench(tab='overview'){
-    let body='';
-    if(tab==='overview')body=section('30-function evolution',featureGrid(),'All thirty improvements are integrated into the existing Sentinel intent/lens model; no second dashboard is created.')+section('Selected evidence',ledger([['Selection',selectionLabel()],['Type',wb.selected?.type||'—'],['Compare A',selectionLabel(wb.compareA)],['Compare B',selectionLabel(wb.compareB)]])+`<div class="wb-actions">${panelButton('Explain This','explain-selection','primary')}${panelButton('Set Compare A','set-compare-a')}${panelButton('Set Compare B','set-compare-b')}${panelButton('Compare A/B','compare-ab')}${panelButton('Export Evidence Bundle','export-bundle')}</div>`)+section('Smart next step',nextStepHTML())+section('Workspace persistence',ledger([['Last Lens',wb.workspace.lens||state.lens],['Investigations',wb.investigations.length],['Saved queries',wb.savedQueries.length],['Watch rules',wb.watchRules.length]]));
-    if(tab==='investigations')body=section('Unified Investigation Workspace',investigationPanel(),'Notes, hypotheses, bookmarks and filters persist locally in this Sentinel UI workspace.');
-    if(tab==='queries')body=section('Saved Queries',savedQueryPanel())+section('Watch Rules',watchRulePanel());
-    if(tab==='visibility')body=await visibilityAssistantHTML();
-    if(tab==='evolution')body=await loadNetworkEvolution()+await loadLaunchDrift()+await checkpoint2HTML()+await storageForecastHTML()+await referenceProfilesHTML();
-    if(tab==='recovery')body=await recoveryCenterHTML();
-    if(tab==='assistant')body=section('Local Evidence Assistant',await assistantPanel());
-    if(tab==='onboarding')body=onboardingHTML();
-    const tabs=[['overview','Overview'],['investigations','Investigations'],['queries','Queries & Watches'],['visibility','Visibility'],['evolution','Evolution'],['recovery','Recovery'],['assistant','Assistant']];
-    openContext('Investigation Workbench',`<nav class="wb-tabs">${tabs.map(([id,label])=>`<button type="button" class="${id===tab?'active':''}" data-wb-tab="${id}">${label}</button>`).join('')}</nav><div class="wb-panel">${body}</div>`);
+  function baselineStrip(model) {
+    const sources = [
+      ['System checkpoint', model.systemAt, (model.system.snapshots || []).length],
+      ['Network history', model.networkAt, (model.network.snapshots || []).length],
+      ['Storage history', model.storageAt, (model.storage.snapshots || []).length],
+    ];
+    return `<div class="scan-baseline-strip">${sources.map(([label, at, count]) => {
+      const f = freshness(at);
+      return `<div><span>${esc(label)}</span><b>${esc(ageText(at))}</b><small>${badge(`${count} retained`, f.cls)} ${badge(f.label, f.cls)}</small></div>`;
+    }).join('')}</div>`;
   }
 
-  function graphMatrix(graph){const nodes=(graph.nodes||[]).slice(0,18),index=new Map(nodes.map((n,i)=>[n.id,i])),grid=Array.from({length:nodes.length},()=>Array(nodes.length).fill(''));for(const e of graph.edges||[]){const a=index.get(e.from),b=index.get(e.to);if(a!=null&&b!=null)grid[a][b]=e.type||'•';}return nodes.length?`<div class="wb-matrix-wrap"><table class="wb-matrix"><thead><tr><th></th>${nodes.map((n,i)=>`<th title="${esc(n.label||n.id)}">${i+1}</th>`).join('')}</tr></thead><tbody>${nodes.map((n,i)=>`<tr><th title="${esc(n.label||n.id)}">${i+1}</th>${grid[i].map(v=>`<td class="${v?'hit':''}" title="${esc(v)}">${v?'•':''}</td>`).join('')}</tr>`).join('')}</tbody></table><div class="wb-matrix-key">${nodes.map((n,i)=>`<span><b>${i+1}</b> ${esc(n.label||n.id)}</span>`).join('')}</div></div>`:empty('No graph nodes matched the current filter.');}
-  function timelineHeatmap(events){const rows=events||[];const cells=Array.from({length:7},()=>Array(24).fill(0));for(const e of rows){const t=Number(e.at||e.last_at||e.first_at||0);if(!t)continue;const d=new Date(t*1000);cells[d.getDay()][d.getHours()]++;}const peak=Math.max(1,...cells.flat());return `<div class="wb-heatmap"><div class="hours">${Array.from({length:24},(_,i)=>`<span>${i}</span>`).join('')}</div>${cells.map((day,d)=>`<div class="day"><b>${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d]}</b>${day.map(n=>`<i title="${n} event(s)" style="--heat:${n/peak}"></i>`).join('')}</div>`).join('')}</div>`;}
-  async function renderGraphWorkbench(){const f=wb.workspace.graph||{},q=new URLSearchParams();if(f.q)q.set('q',f.q);if(f.type)q.set('type',f.type);if(f.source)q.set('source',f.source);const graph=await api('/api/intelligence/graph/v2'+(q.toString()?`?${q}`:''));const range=wb.workspace.timelineRange||'all',seconds={hour:3600,day:86400,week:604800,month:2592000}[range]||0,turl='/api/intelligence/timeline/global'+(seconds?`?since=${Math.floor(Date.now()/1000-seconds)}`:'');const timeline=await api(turl).catch(()=>({events:[]}));return `<div class="wb-graph-controls"><label>Query<input id="wbGraphQ" value="${esc(f.q||'')}"></label><label>Type<input id="wbGraphType" value="${esc(f.type||'')}"></label><label>Source<input id="wbGraphSource" value="${esc(f.source||'')}"></label><label>Time<select id="wbTimelineRange"><option value="all" ${range==='all'?'selected':''}>All retained</option><option value="hour" ${range==='hour'?'selected':''}>1 hour</option><option value="day" ${range==='day'?'selected':''}>24 hours</option><option value="week" ${range==='week'?'selected':''}>7 days</option><option value="month" ${range==='month'?'selected':''}>30 days</option></select></label>${panelButton('Apply','apply-graph-filters','primary')}${panelButton('Reset','reset-graph-filters')}</div><div class="wb-two"><div><h3>Visual Relationship Matrix</h3>${graphMatrix(graph)}</div><div><h3>Historical Heatmap</h3>${timelineHeatmap(timeline.events||[])}</div></div><div class="s24-note">Graph filters use the engine's Graph 2.0 query contract. Matrix and heatmap are alternate views over the same bounded evidence.</div>`;}
-  async function enhanceRelations(){try{const html=await renderGraphWorkbench();const stage=$('#evidenceStage');if(stage&&!$('#wbRelationsBand')){const sec=document.createElement('section');sec.id='wbRelationsBand';sec.className='s24-band';sec.innerHTML=`<div class="s24-band-index">03</div><div class="s24-band-body"><div class="s24-band-head"><div><h2>Graph 3.0 controls</h2><p>Filter, matrix, time range, and historical heatmap over retained evidence.</p></div></div><div id="wbRelationsOutput">${html}</div></div>`;stage.append(sec);}highlightSelection();}catch(e){notice('Graph 3.0 controls unavailable: '+e.message);}}
-  async function changeFlow(){const d=await api('/api/changes/events').catch(()=>({events:[]})),events=d.events||[],counts=new Map();for(const e of events){const k=e.kind||'change';counts.set(k,(counts.get(k)||0)+1);}const rows=[...counts.entries()].sort((a,b)=>b[1]-a[1]).slice(0,8);return `<div class="wb-flow"><div><b>Observed scope</b><small>${events.length} events</small></div>${rows.map(([k,n])=>`<span>→</span><div><b>${esc(k)}</b><small>${n}</small></div>`).join('')}<span>→</span><div><b>Review</b><small>evidence only</small></div></div>`;}
-  async function enhanceChanges(){const stage=$('#evidenceStage');if(!stage||$('#wbChangeFlow'))return;try{const flow=await changeFlow();const sec=document.createElement('section');sec.id='wbChangeFlow';sec.className='s24-band';sec.innerHTML=`<div class="s24-band-index">05</div><div class="s24-band-body"><div class="s24-band-head"><div><h2>Change evidence flow</h2><p>Flow summarizes observed event kinds without claiming causality.</p></div></div>${flow}</div>`;stage.append(sec);}catch{}}
-  async function enhanceStorage(){const stage=$('#evidenceStage');if(!stage||$('#wbStorageForecast'))return;try{const sec=document.createElement('section');sec.id='wbStorageForecast';sec.className='s24-band';sec.innerHTML=`<div class="s24-band-index">07</div><div class="s24-band-body">${await storageForecastHTML()}</div>`;stage.append(sec);}catch{}}
-  function enhanceCases(){for(const story of $$('[data-case-story]')){if(story.querySelector('.wb-case-state'))continue;const id=story.dataset.caseStory,status=wb.caseState[id]||'watching',tools=story.querySelector('.s24-band-tools');if(tools){const select=document.createElement('select');select.className='wb-case-state';select.dataset.caseState=id;for(const x of ['open','watching','resolved','archived']){const o=document.createElement('option');o.value=x;o.textContent=x[0].toUpperCase()+x.slice(1);o.selected=x===status;select.append(o);}tools.append(select);}}highlightSelection();}
-  async function enhanceReference(){const stage=$('#evidenceStage');if(!stage||$('#wbReferenceProfiles'))return;try{const sec=document.createElement('section');sec.id='wbReferenceProfiles';sec.className='s24-band';sec.innerHTML=`<div class="s24-band-index">04</div><div class="s24-band-body">${await referenceProfilesHTML()}</div>`;stage.append(sec);}catch{}}
-  async function enhanceSafeChange(){const form=$('[data-form="safe-action"]');if(form&&!$('#wbSafeSimulation')){const button=document.createElement('button');button.id='wbSafeSimulation';button.type='button';button.className='s24-action';button.dataset.wbAction='simulate-safe-change';button.textContent='Simulate without execution';form.querySelector('.s24-form-actions')?.append(button);}}
-
-  async function simulateSafeChange(){const form=$('[data-form="safe-action"]');if(!form)throw new Error('Open Act → Safe Change first.');const fd=new FormData(form),action=String(fd.get('action')||''),path=String(fd.get('path')||'').trim();if(!path)throw new Error('Enter an exact path first.');if(action==='reveal')return openContext('Safe Change Simulation',section('Reveal',ledger([['Action','Reveal in Finder'],['Path',path],['Mutation','No file mutation']])));const req={action,path};if(action==='rename')req.new_name=String(fd.get('new_name')||'').trim();busy('Simulating Safe Change',path);const p=await api('/api/actions/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(req)});openContext('Safe Change Simulation',section('Server preview',ledger([['Action',p.display_action||p.action],['Source',p.source],['Destination',p.destination||'—'],['Reversible',p.reversible?'Yes':'No'],['Risk',p.risk??0]]))+section('Dependencies',(p.dependencies||[]).map(x=>`<p>${esc(`${x.title}: ${x.detail}`)}</p>`).join('')||empty('No dependency advisory.'))+section('Consequences',(p.consequences||[]).map(x=>`<p>${esc(x)}</p>`).join('')||empty('No consequence advisory.'))+'<div class="s24-note good">Simulation stops at preview. It does not submit the one-time confirmation code or execute the action.</div>');activity('Preview ready',100,'Simulation completed without execution');}
-
-  function parseNaturalCommand(text){const q=String(text||'').trim().toLowerCase();if(!q)return null;if(/^\/[^ ]/.test(q))return {lens:'object',path:text.trim()};if(/visibility|permission|coverage/.test(q))return {lens:'visibility'};if(/case|incident|story/.test(q))return {lens:'cases'};if(/graph|relation|connected|connection map/.test(q))return {lens:'relations'};if(/network|endpoint|tcp|port/.test(q))return {lens:'network'};if(/startup|auto.?start|launch|persistence/.test(q))return {lens:'startup'};if(/storage|disk|large file|duplicate/.test(q))return {lens:'storage'};if(/change|changed|since|checkpoint/.test(q))return {lens:'changes'};if(/reference|baseline|trusted profile/.test(q))return {lens:'reference'};if(/process|running/.test(q))return {lens:'processes'};if(/audit|unsigned|signature|gatekeeper/.test(q))return {lens:'audit'};if(/safe change|vault|rename|recovery/.test(q))return {lens:'change'};if(/snapshot|observe|review queue/.test(q))return {lens:'snapshot'};if(/object|exact file|verify/.test(q))return {lens:'object'};return null;}
-  async function runNaturalCommand(text){const cmd=parseNaturalCommand(text);if(!cmd)return false;if(cmd.path){setSelection({type:'file',path:cmd.path,label:cmd.path});await S.navigate('object');setTimeout(()=>{const f=$('[data-form="object"] input[name="path"]');if(f){f.value=cmd.path;f.form?.requestSubmit();}},40);return true;}await S.navigate(cmd.lens);return true;}
-
-  async function watchSnapshot(rule){if(rule.kind==='network'){const d=await api('/api/network');return (d.items||[]).map(x=>[x.command,x.state,x.local,x.remote,x.endpoint_class]);}if(rule.kind==='launch'){const d=await api('/api/launch-services');return (d.items||[]).map(x=>[x.plist_path,x.executable,x.run_at_load,x.keep_alive,x.target_exists]);}if(rule.kind==='changes'){const d=await api('/api/changes/events');return (d.events||[]).map(x=>[x.id,x.at,x.kind,x.path]);}if(rule.kind==='cases'){const d=await api('/api/incidents/v2?history=1');return (d.incidents||[]).map(x=>[x.stable_id,x.episode_id,x.state,x.occurrence_count]);}if(rule.kind==='reference'){const d=await api('/api/trust/status');return d.last_drift||d;}if(rule.kind==='object'){if(!wb.selected?.path)throw new Error('Select an exact object before creating/checking an object watch.');return api('/api/integrity/inspect?path='+encodeURIComponent(wb.selected.path));}return {};}
-  async function checkWatch(rule,quiet=false){const snap=await watchSnapshot(rule),sig=fingerprint(snap),changed=!!rule.signature&&rule.signature!==sig;rule.signature=sig;rule.lastChecked=Date.now();if(changed){rule.lastChanged=Date.now();if(!quiet)notice(`Watch changed · ${rule.label||rule.kind}`);try{if(window.Notification&&Notification.permission==='granted')new Notification('Sentinel watch changed',{body:rule.label||rule.kind});}catch{}}saveStore();return changed;}
-  async function checkAllWatches(){for(const r of wb.watchRules){try{await checkWatch(r,true);}catch{}}}
-
-  async function handleWBAction(action){
-    if(action==='explain-selection')return explainSelection();
-    if(action==='set-compare-a'){if(!wb.selected)throw new Error('Select evidence first.');wb.compareA={...wb.selected};saveStore();return openWorkbench('overview');}
-    if(action==='set-compare-b'){if(!wb.selected)throw new Error('Select evidence first.');wb.compareB={...wb.selected};saveStore();return openWorkbench('overview');}
-    if(action==='compare-ab')return compareAB();
-    if(action==='export-bundle')return evidenceBundle();
-    if(action==='new-investigation'){const x={id:uid('inv'),title:`Investigation ${wb.investigations.length+1}`,created:Date.now(),updated:Date.now(),notes:'',hypothesis:'',bookmarks:[]};wb.investigations.unshift(x);wb.activeInvestigation=x.id;saveStore();return openWorkbench('investigations');}
-    if(action==='save-investigation'){const x=currentInvestigation();if(!x)return;x.title=$('#wbInvTitle')?.value.trim()||x.title;x.notes=$('#wbInvNotes')?.value||'';x.hypothesis=$('#wbInvHypothesis')?.value||'';x.updated=Date.now();saveStore();notice('Investigation saved.');return openWorkbench('investigations');}
-    if(action==='bookmark-selection'){const x=currentInvestigation();if(!x||!wb.selected)throw new Error('Select an investigation and evidence first.');x.bookmarks=x.bookmarks||[];x.bookmarks.push({...wb.selected,bookmarked:Date.now()});x.updated=Date.now();saveStore();return openWorkbench('investigations');}
-    if(action==='export-investigation'){const x=currentInvestigation();if(!x)throw new Error('No active investigation.');downloadJSON(`sentinel-investigation-${x.id}.json`,x);return;}
-    if(action.startsWith('run-query:')){const q=wb.savedQueries.find(x=>x.id===action.split(':')[1]);if(q){const ran=await runNaturalCommand(q.text);if(!ran){const search=$('#globalSearch');if(search){search.value=q.text;search.dispatchEvent(new Event('input',{bubbles:true}));}}}return;}
-    if(action.startsWith('remove-query:')){wb.savedQueries=wb.savedQueries.filter(x=>x.id!==action.split(':')[1]);saveStore();return openWorkbench('queries');}
-    if(action.startsWith('check-watch:')){const r=wb.watchRules.find(x=>x.id===action.split(':')[1]);if(r){const changed=await checkWatch(r);notice(changed?'Watch evidence changed.':'No bounded watch difference.');return openWorkbench('queries');}}
-    if(action.startsWith('remove-watch:')){wb.watchRules=wb.watchRules.filter(x=>x.id!==action.split(':')[1]);saveStore();return openWorkbench('queries');}
-    if(action==='capture-launch-baseline'){const d=await api('/api/launch-services'),items=(d.items||[]).map(x=>({key:x.plist_path||x.label||x.executable,label:x.label,scope:x.scope,executable:x.executable,run_at_load:!!x.run_at_load,keep_alive:!!x.keep_alive,target_exists:x.target_exists})).sort((a,b)=>String(a.key).localeCompare(String(b.key)));wb.launchBaseline={at:Date.now(),items};saveStore();return openWorkbench('evolution');}
-    if(action.startsWith('pin-checkpoint:')){const id=action.split(':')[1],m=wb.checkpointMeta[id]||{};m.pinned=!m.pinned;wb.checkpointMeta[id]=m;saveStore();return openWorkbench('evolution');}
-    if(action.startsWith('name-checkpoint:')){const id=action.split(':')[1],m=wb.checkpointMeta[id]||{},name=prompt('Checkpoint name',m.name||'');if(name!==null){m.name=name.trim();wb.checkpointMeta[id]=m;saveStore();}return openWorkbench('evolution');}
-    if(action==='compare-reference-now'){busy('Comparing reference');await api('/api/trust/compare',{method:'POST'});return openWorkbench('evolution');}
-    if(action==='export-reference'){return S.download('/api/trust/export','sentinel-trust-profile.json');}
-    if(action==='restore-reference'){if(!confirm('Restore the immediately previous Trusted Profile? This changes the active reference only; it does not modify user files.'))return;await api('/api/trust/restore',{method:'POST'});notice('Previous Trusted Profile restored.');return openWorkbench('evolution');}
-    if(action==='simulate-safe-change')return simulateSafeChange();
-    if(action==='apply-graph-filters'){wb.workspace.graph={q:$('#wbGraphQ')?.value.trim()||'',type:$('#wbGraphType')?.value.trim()||'',source:$('#wbGraphSource')?.value.trim()||''};wb.workspace.timelineRange=$('#wbTimelineRange')?.value||'all';saveStore();const out=$('#wbRelationsOutput');if(out){busy('Applying Graph 3.0 filters');out.innerHTML=await renderGraphWorkbench();activity('Ready',100,'Graph filters applied');}return;}
-    if(action==='reset-graph-filters'){wb.workspace.graph={q:'',type:'',source:''};wb.workspace.timelineRange='all';saveStore();const out=$('#wbRelationsOutput');if(out)out.innerHTML=await renderGraphWorkbench();return;}
-    if(action==='finish-onboarding'){wb.onboardingDone=true;saveStore();notice('Onboarding complete.');return openWorkbench('overview');}
-    if(action.startsWith('goto:'))return S.navigate(action.split(':')[1]);
+  function scanCenterHTML(model) {
+    const coverageCount = (model.coverage.items || []).length;
+    const timelineCount = Number(model.timeline.group_count ?? (model.timeline.groups || []).length);
+    const caseCount = Number(model.cases.count ?? (model.cases.incidents || []).length);
+    const baselineReady = model.readyCount >= 4;
+    return `<div class="scan-center-grid">
+      <article class="scan-card easy">
+        <div class="scan-card-head"><span>01</span>${badge('FAST', 'focus')}</div>
+        <h3>Easy Scan</h3>
+        <p>Fast, read-only current-state review. It does not rewrite Behavior, Trust, Persistence, or user files.</p>
+        <div class="scan-metrics"><span>Current evidence</span><b>${caseCount} case(s) · ${timelineCount} timeline group(s)</b></div>
+        <button type="button" class="s24-action primary" data-scan-center="easy">Run Easy Scan</button>
+      </article>
+      <article class="scan-card full ${baselineReady ? 'ready' : ''}">
+        <div class="scan-card-head"><span>02</span>${badge(baselineReady ? 'BASELINE READY' : 'COMPREHENSIVE', baselineReady ? 'good' : 'warn')}</div>
+        <h3>Full Scan</h3>
+        <p>Build the broad retained evidence baseline: system, security, behavior, graph, cases, network, checkpoints, home-storage traversal, history, and recovery state.</p>
+        <div class="scan-metrics"><span>Retained coverage</span><b>${model.readyCount}/${model.readyTotal} core baseline families · ${coverageCount} visibility source(s)</b></div>
+        <div class="scan-card-actions"><button type="button" class="s24-action primary" data-scan-center="full" ${fullScan.running ? 'disabled' : ''}>${fullScan.running ? 'Full Scan running…' : 'Run Full Scan'}</button>${fullScan.running ? '<button type="button" class="s24-action" data-scan-center="cancel">Cancel</button>' : ''}</div>
+      </article>
+    </div>
+    ${baselineStrip(model)}
+    <div class="s24-note scan-retained-note">After Full Scan, Sentinel reuses retained System / Network / Storage / Behavior / Case evidence for later analysis. Re-run only when you want newer evidence, the system materially changes, or continuity reports that a rescan is required. A retained baseline is not continuous surveillance and never becomes a permanent safety certificate.</div>
+    <div id="fullScanProgress">${fullScan.running ? renderFullScanProgress() : ''}</div>`;
   }
 
-  function wrapProductFunctions(){
-    const baseRelations=S.renderRelations;if(typeof baseRelations==='function'){S.renderRelations=async(record=false)=>{await baseRelations(record);await enhanceRelations();};registerLens('relations',()=>S.renderRelations(false));}
-    const baseChanges=S.renderChanges;if(typeof baseChanges==='function'){S.renderChanges=async()=>{await baseChanges();await enhanceChanges();};registerLens('changes',S.renderChanges);}
-    const baseStorage=S.renderStorage;if(typeof baseStorage==='function'){S.renderStorage=async()=>{await baseStorage();await enhanceStorage();};registerLens('storage',S.renderStorage);}
-    const baseCases=S.renderCases;if(typeof baseCases==='function'){S.renderCases=async(rebuild=false)=>{await baseCases(rebuild);enhanceCases();};registerLens('cases',()=>S.renderCases(false));}
-    const baseReference=S.renderReference;if(typeof baseReference==='function'){S.renderReference=async()=>{await baseReference();await enhanceReference();};registerLens('reference',S.renderReference);}
-    const baseSafe=S.renderSafeChange;if(typeof baseSafe==='function'){S.renderSafeChange=async()=>{await baseSafe();await enhanceSafeChange();};registerLens('change',S.renderSafeChange);}
-    const baseStory=S.openStory;if(typeof baseStory==='function'){S.openStory=async subject=>{if(subject?.path)setSelection({type:'file',path:subject.path,label:subject.path});if(subject?.pid)setSelection({type:'process',pid:Number(subject.pid),label:`PID ${subject.pid}`});await baseStory(subject);if(subject?.path)await enrichObjectStory(subject.path);};}
+  function capabilityAtlasHTML() {
+    return `<div class="capability-atlas">${CAPABILITY_GROUPS.map(group => `<section class="capability-group ${group.id}"><header><span>${esc(group.label)}</span><p>${esc(group.question)}</p></header><div>${group.items.map(([name, lens, detail]) => `<button type="button" class="capability-tile" data-scan-lens="${esc(lens)}"><b>${esc(name)}</b><small>${esc(detail)}</small><i>OPEN ${esc(String(lens).toUpperCase())}</i></button>`).join('')}</div></section>`).join('')}</div><div class="capability-crosscut"><button type="button" data-scan-center="workbench"><b>Investigation Workbench</b><small>30 integrated upgrades · selection · queries · watches · evolution · recovery · assistant</small></button><button type="button" data-scan-lens="visibility"><b>Evidence boundary first</b><small>Missing permission lowers confidence; it never proves absence.</small></button></div>`;
   }
-  async function enrichObjectStory(path){try{const [timeline,trust,changes]=await Promise.all([api('/api/intelligence/timeline/global?path='+encodeURIComponent(path)).catch(()=>({events:[]})),api('/api/trust/status').catch(()=>({})),api('/api/changes/history').catch(()=>({entries:[]}))]);const body=$('#contextBody');if(!body)return;const relatedChanges=(changes.entries||changes.events||[]).filter(x=>String(x.path||'')===path).slice(-20);body.insertAdjacentHTML('beforeend',section('Object Story 3.0 · evolution',ledger([['Selected path',path],['Timeline events',(timeline.events||[]).length],['Retained matching changes',relatedChanges.length],['Trusted Profile',trust.has_profile?'Available':'Not established']])+(timeline.events||[]).length?`<div class="wb-mini-feed">${(timeline.events||[]).slice(-20).map(e=>`<p><b>${esc(fmt(e.at))}</b> ${esc(e.kind||e.source||'evidence')} · ${esc(e.detail||'')}</p>`).join('')}</div>`:'')+section('Smart next step',nextStepHTML()));}catch{}}
 
-  document.addEventListener('click',async event=>{
-    const wbOpen=event.target.closest('[data-workbench]');if(wbOpen){event.preventDefault();return openWorkbench('overview');}
-    const tab=event.target.closest('[data-wb-tab]');if(tab)return openWorkbench(tab.dataset.wbTab);
-    const act=event.target.closest('[data-wb-action]');if(act){try{return await handleWBAction(act.dataset.wbAction);}catch(e){notice(e.message);activity('Error',0,e.message);return;}}
-    const inv=event.target.closest('[data-wb-investigation]');if(inv){wb.activeInvestigation=inv.dataset.wbInvestigation;saveStore();return openWorkbench('investigations');}
-    const next=event.target.closest('[data-wb-next]');if(next){const t=next.dataset.wbNext;if(t==='process-story'){if(wb.selected?.pid)return openProcessStory(wb.selected.pid);return notice('Select a process first.');}return S.navigate(t);}
-    const pid=event.target.closest('[data-story-pid],[data-system-pid]');if(pid)setSelection({type:'process',pid:Number(pid.dataset.storyPid||pid.dataset.systemPid||0),label:`PID ${pid.dataset.storyPid||pid.dataset.systemPid}`});
-    const path=event.target.closest('[data-story-path],[data-case-object]');if(path){const raw=path.dataset.storyPath||path.dataset.caseObject||'';try{setSelection({type:'file',path:decodeURIComponent(raw),label:decodeURIComponent(raw)});}catch{}}
-    const graph=event.target.closest('[data-advanced-node]');if(graph){const id=decodeURIComponent(graph.dataset.advancedNode||'');const node=state.advancedGraphNodes?.get(id);if(node)setSelection({type:node.type||'graph',path:node.ref&&String(node.ref).startsWith('/')?node.ref:'',pid:node.type==='process'?Number(node.ref||0):0,label:node.label||node.ref||id});for(const n of $$('[data-advanced-node]'))n.classList.toggle('wb-focus',n===graph);}
-  },true);
+  function renderFullScanProgress() {
+    if (!fullScan.stages.length) return '';
+    const done = fullScan.stages.filter(s => ['done', 'limited'].includes(s.status)).length;
+    return `<div class="full-scan-progress"><div class="full-scan-summary"><div><span>FULL SCAN</span><b>${fullScan.running ? 'Building retained evidence baseline' : 'Scan finished'}</b><small>${done}/${fullScan.stages.length} stage(s) completed or bounded-limited</small></div><progress max="${fullScan.stages.length}" value="${done}"></progress></div><div class="full-scan-stages">${fullScan.stages.map((s, i) => `<div class="full-scan-stage ${esc(s.status)}"><span>${String(i + 1).padStart(2, '0')}</span><div><b>${esc(s.label)}</b><small>${esc(s.detail || stageStatusText(s.status))}</small></div>${badge(s.status.toUpperCase(), s.status === 'done' ? 'good' : s.status === 'limited' ? 'warn' : s.status === 'running' ? 'focus' : '')}</div>`).join('')}</div></div>`;
+  }
 
-  document.addEventListener('change',event=>{const c=event.target.closest('[data-case-state]');if(c){wb.caseState[c.dataset.caseState]=c.value;saveStore();}});
-  document.addEventListener('submit',async event=>{
-    if(event.target.id==='wbSavedQueryForm'){event.preventDefault();const text=String(new FormData(event.target).get('query')||'').trim();if(text){wb.savedQueries.unshift({id:uid('q'),text,created:Date.now()});saveStore();}return openWorkbench('queries');}
-    if(event.target.id==='wbWatchRuleForm'){event.preventDefault();const fd=new FormData(event.target),kind=fd.get('kind'),label=String(fd.get('label')||'').trim()||String(kind);const r={id:uid('watch'),kind,label,created:Date.now(),signature:'',lastChecked:0,lastChanged:0};wb.watchRules.unshift(r);try{await checkWatch(r,true);}catch(e){notice(e.message);}saveStore();return openWorkbench('queries');}
-    if(event.target.id==='wbAssistantForm'){event.preventDefault();const prompt=String(new FormData(event.target).get('prompt')||'');const answer=await assistantAnswer(prompt);wb.assistantHistory.unshift({at:Date.now(),prompt,answer});wb.assistantHistory=wb.assistantHistory.slice(0,20);saveStore();openContext('Investigation Workbench',`<nav class="wb-tabs"><button data-wb-tab="assistant" class="active">Assistant</button><button data-wb-tab="overview">Overview</button></nav><div class="wb-panel">${section('Local Evidence Assistant',await assistantPanel(prompt))}</div>`);}
+  function stageStatusText(status) {
+    return ({pending: 'Waiting', running: 'Collecting local evidence…', done: 'Captured', limited: 'Completed with an unavailable / bounded source', cancelled: 'Cancelled'})[status] || status;
+  }
+
+  function refreshProgress() {
+    const node = $('#fullScanProgress');
+    if (node) node.innerHTML = renderFullScanProgress();
+    const done = fullScan.stages.filter(s => ['done', 'limited'].includes(s.status)).length;
+    const pct = Math.round(done / Math.max(1, fullScan.stages.length) * 100);
+    const active = fullScan.stages.find(s => s.status === 'running');
+    activity(fullScan.running ? 'Full Scan' : 'Ready', pct, active ? active.label : `${done}/${fullScan.stages.length} Full Scan stages`);
+  }
+
+  async function pollStorageJob(id) {
+    while (!fullScan.cancelRequested) {
+      const j = await api('/api/storage/jobs?id=' + encodeURIComponent(id));
+      const stage = fullScan.stages.find(s => s.id === 'storage');
+      if (stage) {
+        const phase = String(j.phase || 'scan').replaceAll('_', ' ');
+        stage.detail = `${phase} · ${Number(j.files_visited || 0).toLocaleString()} files · ${Number(j.dirs_visited || 0).toLocaleString()} folders`;
+        if (j.hash_files_total) stage.detail += ` · hashes ${Number(j.hash_files_done || 0)}/${Number(j.hash_files_total || 0)}`;
+        if (j.slow_paths_skipped) stage.detail += ` · ${Number(j.slow_paths_skipped).toLocaleString()} slow path(s) skipped`;
+        refreshProgress();
+      }
+      if (j.status === 'running') {
+        await new Promise(resolve => setTimeout(resolve, 650));
+        continue;
+      }
+      if (j.status === 'failed') throw new Error(j.error || 'Storage traversal failed');
+      if (j.status === 'cancelled') throw new Error('Storage traversal cancelled');
+      return j.result || null;
+    }
+    throw new Error('Full Scan cancelled');
+  }
+
+  function scanStages() {
+    return [
+      {id: 'visibility', label: 'Visibility & capability map', run: async () => Promise.all([api('/api/visibility'), api('/api/coverage'), api('/api/capabilities')])},
+      {id: 'system', label: 'Current system, process, launch & network state', run: async () => Promise.all([api('/api/overview'), api('/api/system-profile'), api('/api/processes'), api('/api/startup'), api('/api/background'), api('/api/network'), api('/api/launch-services')])},
+      {id: 'security', label: 'Security posture & explainable audit', run: async () => Promise.all([api('/api/security/audit'), api('/api/quick-check')])},
+      {id: 'behavior', label: 'Monitoring / Behavior / Persistence baseline', run: async () => api('/api/guided-snapshot', {method: 'POST'})},
+      {id: 'graph', label: 'Evidence Graph & Timeline capture', run: async () => { await api('/api/intelligence/graph', {method: 'POST'}); return Promise.all([api('/api/intelligence/graph/v2'), api('/api/intelligence/timeline/grouped')]); }},
+      {id: 'cases', label: 'Case correlation & story history', run: async () => { await api('/api/incidents', {method: 'POST'}); return api('/api/incidents/v2?history=1'); }},
+      {id: 'checkpoint', label: 'System Checkpoint 2.0', run: async () => structured('system-snapshot-capture')},
+      {id: 'network-history', label: 'Network Intelligence history snapshot', run: async () => api('/api/network/history', {method: 'POST'})},
+      {id: 'storage', label: 'Deep home-storage traversal & hash analysis', run: async () => {
+        const job = await api('/api/storage/jobs', {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({scope: 'home', min_mb: 20, limit: 1000}),
+        });
+        fullScan.storageJob = job.id;
+        return pollStorageJob(job.id);
+      }},
+      {id: 'storage-history', label: 'Storage History retained snapshot', run: async () => structured('storage-snapshot-capture')},
+      {id: 'recovery', label: 'Recovery, Safe Action health & readiness', run: async () => Promise.all([api('/api/readiness'), api('/api/actions/health'), structured('recovery')])},
+      {id: 'analysis', label: 'Final review queue & retained analysis refresh', run: async () => Promise.all([api('/api/review-queue'), api('/api/behavior/history'), api('/api/trust/status'), api('/api/persistence'), api('/api/intelligence/timeline/grouped')])},
+    ];
+  }
+
+  async function startFullScan() {
+    if (fullScan.running) return;
+    fullScan.running = true;
+    fullScan.cancelRequested = false;
+    fullScan.storageJob = '';
+    fullScan.startedAt = Date.now();
+    fullScan.completedAt = 0;
+    fullScan.stages = scanStages().map(stage => ({...stage, status: 'pending', detail: ''}));
+    const host = $('#fullScanProgress');
+    if (host) host.innerHTML = renderFullScanProgress();
+    notice('Full Scan started. It creates local comparison/history state but does not modify user files. Keep Sentinel open until it finishes.');
+
+    for (const stage of fullScan.stages) {
+      if (fullScan.cancelRequested) {
+        stage.status = 'cancelled';
+        break;
+      }
+      stage.status = 'running';
+      stage.detail = 'Collecting bounded local evidence…';
+      refreshProgress();
+      try {
+        await stage.run();
+        stage.status = 'done';
+        stage.detail = 'Captured successfully';
+      } catch (error) {
+        if (fullScan.cancelRequested) {
+          stage.status = 'cancelled';
+          stage.detail = 'Cancelled by user';
+          break;
+        }
+        stage.status = 'limited';
+        stage.detail = error?.message || 'Source unavailable or bounded';
+      }
+      refreshProgress();
+    }
+
+    fullScan.running = false;
+    fullScan.completedAt = Date.now();
+    fullScan.storageJob = '';
+    refreshProgress();
+    if (fullScan.cancelRequested) {
+      notice('Full Scan cancelled. Evidence already captured by completed stages remains retained; no fabricated completion state was created.');
+      return;
+    }
+    const limited = fullScan.stages.filter(stage => stage.status === 'limited').length;
+    notice(limited ? `Full Scan complete with ${limited} bounded/unavailable stage(s). Retained evidence is ready for analysis.` : 'Full Scan complete. Retained evidence baseline is ready for analysis.');
+    setTimeout(() => S.navigate('status', {push: false}), 250);
+  }
+
+  async function cancelFullScan() {
+    if (!fullScan.running) return;
+    fullScan.cancelRequested = true;
+    if (fullScan.storageJob) {
+      try { await api('/api/storage/cancel?id=' + encodeURIComponent(fullScan.storageJob), {method: 'POST'}); } catch {}
+    }
+    notice('Cancelling Full Scan after the current bounded request. Completed evidence remains retained.');
+  }
+
+  async function injectScanCenter() {
+    const stage = $('#evidenceStage');
+    if (!stage) return;
+    const quick = stage.querySelector('[data-do="quickcheck"]');
+    if (quick) {
+      quick.textContent = 'Easy Scan';
+      quick.title = 'Fast read-only current-state review';
+    }
+    const model = await readBaselineState();
+    if ($('#scanCenterBand')) return;
+    const question = stage.querySelector('.s24-question');
+    const scanBand = document.createElement('section');
+    scanBand.id = 'scanCenterBand';
+    scanBand.className = 's24-band scan-center-band';
+    scanBand.innerHTML = `<div class="s24-band-index">SCAN</div><div class="s24-band-body"><div class="s24-band-head"><div><h2>Scan Center</h2><p>Choose the smallest useful observation, or build the comprehensive retained baseline once and analyze from it.</p></div></div>${scanCenterHTML(model)}</div>`;
+    if (question?.nextSibling) stage.insertBefore(scanBand, question.nextSibling); else stage.prepend(scanBand);
+
+    const mapBand = document.createElement('section');
+    mapBand.id = 'capabilityAtlasBand';
+    mapBand.className = 's24-band capability-atlas-band';
+    mapBand.innerHTML = `<div class="s24-band-index">MAP</div><div class="s24-band-body"><div class="s24-band-head"><div><h2>Complete Capability Atlas</h2><p>Every primary Sentinel function and major 2.4 upgrade, arranged by investigation intent. Open any tile directly.</p></div></div>${capabilityAtlasHTML()}</div>`;
+    stage.append(mapBand);
+  }
+
+  const baseStatusRenderer = S.renderers.status;
+  if (typeof baseStatusRenderer === 'function') {
+    registerLens('status', async () => {
+      await baseStatusRenderer();
+      await injectScanCenter();
+    });
+  }
+
+  document.addEventListener('click', async event => {
+    const lens = event.target.closest('[data-scan-lens]');
+    if (lens) {
+      await S.navigate(lens.dataset.scanLens);
+      return;
+    }
+    const control = event.target.closest('[data-scan-center]');
+    if (!control) return;
+    try {
+      const action = control.dataset.scanCenter;
+      if (action === 'easy') return S.navigate('snapshot');
+      if (action === 'full') return startFullScan();
+      if (action === 'cancel') return cancelFullScan();
+      if (action === 'workbench') {
+        const button = $('#workbenchButton');
+        if (button) button.click();
+        else notice('Investigation Workbench is unavailable in this product build.');
+      }
+    } catch (error) {
+      notice(error?.message || String(error));
+      activity('Error', 0, error?.message || String(error));
+    }
   });
 
-  document.addEventListener('keydown',async event=>{
-    const tag=String(event.target?.tagName||'').toLowerCase(),typing=['input','textarea','select'].includes(tag);
-    if(event.target?.id==='globalSearch'&&event.key==='Enter'){const text=event.target.value;if(parseNaturalCommand(text)){event.preventDefault();event.stopImmediatePropagation();await runNaturalCommand(text);return;}}
-    if(typing)return;
-    const key=event.key.toLowerCase();
-    if(key==='g'){event.preventDefault();return S.navigate('relations');}
-    if(key==='t'){event.preventDefault();return S.navigate('changes');}
-    if(key==='o'){event.preventDefault();return wb.selected?.path?S.openStory({path:wb.selected.path}):S.navigate('object');}
-    if(key==='c'){event.preventDefault();return S.navigate('cases');}
-    if(key==='w'){event.preventDefault();return openWorkbench('overview');}
-    if(event.key==='Enter'&&(event.metaKey||event.ctrlKey)&&wb.selected){event.preventDefault();return explainSelection();}
-  },true);
-
-  function restoreWorkspaceBeforeRuntime(){const params=new URLSearchParams(location.hash.slice(1));if(!params.get('lens')&&wb.workspace.lens){params.set('lens',wb.workspace.lens);location.hash=params.toString();}}
-  function observeWorkspace(){const observer=new MutationObserver(()=>{if(state.lens&&wb.workspace.lens!==state.lens){wb.workspace.lens=state.lens;saveStore();}highlightSelection();});const rail=$('#lensRail'),stage=$('#evidenceStage');if(rail)observer.observe(rail,{childList:true,subtree:true,attributes:true});if(stage)observer.observe(stage,{childList:true,subtree:true});}
-
-  restoreWorkspaceBeforeRuntime();installWorkbenchButton();wrapProductFunctions();observeWorkspace();
-  setInterval(()=>{if(document.visibilityState==='visible'&&wb.watchRules.length)checkAllWatches();},60000);
-  setTimeout(()=>{if(!wb.onboardingDone)openWorkbench('onboarding');},900);
-
-  S.Workbench={FEATURES,store:wb,open:openWorkbench,setSelection,explainSelection,openProcessStory,evidenceBundle,assistantAnswer,runNaturalCommand};
-  window.__SENTINEL_WORKBENCH__={marker:'Sentinel 2.4 Investigation Workbench',features:FEATURES.length};
+  S.scanCenter = {
+    marker: SCAN_MARKER,
+    startFullScan,
+    cancelFullScan,
+    readBaselineState,
+    capabilityGroups: CAPABILITY_GROUPS,
+  };
 })();
