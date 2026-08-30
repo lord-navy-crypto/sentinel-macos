@@ -65,11 +65,35 @@ func TestActionDockStabilizesStatusPlacementAfterAsyncScanCenter(t *testing.T) {
 	}
 }
 
+func TestActionDockSynchronizesFullScanControls(t *testing.T) {
+	raw, err := os.ReadFile("web/app/action-dock.js")
+	if err != nil { t.Fatal(err) }
+	s := string(raw)
+	for _, want := range []string{
+		"syncFullScanButtons", "[data-scan-center=\"full\"]", "aria-busy", "Scanning…",
+		"S.scanCenter?.startFullScan", "S.scanCenter?.cancelFullScan", "event.stopImmediatePropagation()", "}, true);",
+	} {
+		if !strings.Contains(s, want) { t.Fatalf("Full Scan control synchronization missing %q", want) }
+	}
+}
+
+func TestActionDockProvidesPostScanAnalysisActions(t *testing.T) {
+	raw, err := os.ReadFile("web/app/action-dock.js")
+	if err != nil { t.Fatal(err) }
+	s := string(raw)
+	for _, want := range []string{
+		"FULL SCAN READY", "Continue with the retained evidence", "Choose the next analysis without repeating the scan",
+		"Open Cases", "Review Changes", "Inspect Storage", "Compare Reference", "Workbench", "scanCancelled",
+	} {
+		if !strings.Contains(s, want) { t.Fatalf("post-scan analysis experience missing %q", want) }
+	}
+}
+
 func TestActionDockVisualLayerIsResponsive(t *testing.T) {
 	raw, err := os.ReadFile("web/app/action-dock.css")
 	if err != nil { t.Fatal(err) }
 	s := string(raw)
-	for _, want := range []string{".s24-action-dock", ".s24-header-scan", "@media (max-width:980px)", "@media (max-width:620px)"} {
+	for _, want := range []string{".s24-action-dock", ".s24-header-scan", ".s24-scan-followup", "[data-scan-center=\"full\"][aria-busy=\"true\"]", "@media (max-width:980px)", "@media (max-width:620px)"} {
 		if !strings.Contains(s, want) { t.Fatalf("Action Dock CSS missing %q", want) }
 	}
 }
