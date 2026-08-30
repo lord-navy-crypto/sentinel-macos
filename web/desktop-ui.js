@@ -132,7 +132,7 @@
 
   const oldSearch = takeOne('.global-search-wrap');
   if (oldSearch) {
-    oldSearch.className = 'v5-search';
+    oldSearch.className = 'global-search-wrap v5-search';
     const input = byId('globalSearch');
     if (input) input.placeholder = 'Search evidence…';
   }
