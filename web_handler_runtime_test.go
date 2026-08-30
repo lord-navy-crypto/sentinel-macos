@@ -3,76 +3,79 @@ package main
 
 import (
 	"os"
-	"regexp"
 	"strings"
 	"testing"
 )
 
-func TestNamedWebEventHandlersAreDefined(t *testing.T) {
-	appBytes, err := os.ReadFile("web/app.js")
+func TestSentinel24RuntimeIsSelfContained(t *testing.T) {
+	htmlBytes, err := os.ReadFile("web/index.html")
 	if err != nil {
 		t.Fatal(err)
 	}
-	compatBytes, err := os.ReadFile("web/core-compat.js")
+	jsBytes, err := os.ReadFile("web/sentinel-24.js")
 	if err != nil {
 		t.Fatal(err)
 	}
-	app := string(appBytes)
-	defs := app + "\n" + string(compatBytes)
+	html := string(htmlBytes)
+	js := string(jsBytes)
 
-	// Only named handler references are checked here. Arrow callbacks are defined
-	// inline and therefore cannot fail because a separate function name is absent.
-	re := regexp.MustCompile(`addEventListener\(\s*['\"][^'\"]+['\"]\s*,\s*([A-Za-z_$][A-Za-z0-9_$]*)\s*\)`)
-	seen := map[string]bool{}
-	for _, match := range re.FindAllStringSubmatch(app, -1) {
-		name := match[1]
-		if seen[name] {
-			continue
+	for _, required := range []string{
+		`src="/sentinel-24.js"`,
+		`href="/sentinel-24.css"`,
+		"document.addEventListener('click'",
+		"document.addEventListener('submit'",
+		"X-Sentinel-Token",
+		"const RENDERERS",
+		"window.__SENTINEL_24__",
+	} {
+		if !strings.Contains(html+"\n"+js, required) {
+			t.Fatalf("Sentinel 2.4 runtime missing %q", required)
 		}
-		seen[name] = true
-		patterns := []string{
-			"function " + name + "(",
-			"async function " + name + "(",
-			"const " + name + " =",
-			"let " + name + " =",
-			"var " + name + " =",
-			"window." + name + " =",
-		}
-		defined := false
-		for _, pattern := range patterns {
-			if strings.Contains(defs, pattern) {
-				defined = true
-				break
-			}
-		}
-		if !defined {
-			t.Errorf("web/app.js binds named handler %q but neither app.js nor core-compat.js defines it", name)
-		}
-	}
-	if len(seen) < 25 {
-		t.Fatalf("named-handler audit saw only %d handlers; expected broad UI coverage", len(seen))
 	}
 }
 
-func TestCoreCompatibilityLoadsBeforeAppJS(t *testing.T) {
+func TestServerServesSentinel24WithoutLegacyScriptInjection(t *testing.T) {
 	mainBytes, err := os.ReadFile("main.go")
 	if err != nil {
 		t.Fatal(err)
 	}
 	mainSource := string(mainBytes)
-	needle := "<script src=\\\"/core-compat.js\\\"></script>\\n<script src=\\\"/app.js\\\"></script>"
-	if !strings.Contains(mainSource, needle) {
-		t.Fatal("root dashboard must load core-compat.js before app.js")
+	for _, required := range []string{
+		`fs.ReadFile(staticFS, "index.html")`,
+		`X-Sentinel-UI", "2.4-native`,
+		`_, _ = w.Write(page)`,
+	} {
+		if !strings.Contains(mainSource, required) {
+			t.Fatalf("Sentinel 2.4 root serving contract missing %q", required)
+		}
 	}
+	for _, retired := range []string{
+		`core-compat.js`,
+		`<script src=\"/app.js\"></script>`,
+		`desktop-ui.js`,
+		`legacy-diagnostic`,
+		`v5-evidence-notebook`,
+	} {
+		if strings.Contains(mainSource, retired) {
+			t.Fatalf("Sentinel 2.4 server still injects retired frontend runtime %q", retired)
+		}
+	}
+}
 
-	compatBytes, err := os.ReadFile("web/core-compat.js")
+func TestSentinel24RuntimeKeepsErrorsVisibleInsteadOfInventingEvidence(t *testing.T) {
+	jsBytes, err := os.ReadFile("web/sentinel-24.js")
 	if err != nil {
 		t.Fatal(err)
 	}
-	compat := string(compatBytes)
-	for _, required := range []string{"async function loadReadiness", "/api/readiness", "window.loadReadiness = loadReadiness"} {
-		if !strings.Contains(compat, required) {
-			t.Fatalf("web/core-compat.js missing %q", required)
+	js := string(jsBytes)
+	for _, required := range []string{
+		"throw new Error",
+		"notice(e.message)",
+		"activity('Error'",
+		"The interface did not invent replacement evidence.",
+	} {
+		if !strings.Contains(js, required) {
+			t.Fatalf("Sentinel 2.4 explicit failure semantics missing %q", required)
 		}
 	}
 }
