@@ -58,6 +58,7 @@ jobs:
           node --check web/app/lenses/act-limits.js
           node --check web/app/advanced.js
           node --check web/app/case-stories.js
+          node --check web/app/system-evidence.js
           node --check web/app/runtime.js
 
       - name: Auxiliary workspace JavaScript syntax
