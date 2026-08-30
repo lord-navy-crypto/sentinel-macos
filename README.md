@@ -1,8 +1,8 @@
 # Sentinel 2.4 — Local macOS System Intelligence
 
-Sentinel is a local-first macOS evidence and system-intelligence application. It observes current system state, correlates related evidence, compares change over time, verifies individual objects, measures storage pressure, and exposes a deliberately bounded reversible-response path.
+Sentinel is a local-first macOS evidence and system-intelligence application. It observes current state, connects related evidence, compares change over time, verifies exact objects, measures storage pressure, and exposes deliberately bounded reversible actions.
 
-The current product has one frontend architecture:
+The current product has one frontend architecture and one investigation model:
 
 ```text
 Sentinel.app
@@ -22,43 +22,89 @@ Sentinel application frontend
       │   ├─ compare.js
       │   ├─ system.js
       │   └─ act-limits.js
+      ├─ advanced.js
+      ├─ case-stories.js
+      ├─ system-evidence.js
+      ├─ workbench.js
       ├─ runtime.js
       ├─ shell.css
-      └─ README.md
+      ├─ advanced.css
+      └─ workbench.css
 ```
 
-The same product source opens in the default browser or inside Sentinel's native WKWebView App View. There is no separate legacy dashboard, desktop-only DOM rewrite layer, or monolithic frontend controller in the normal startup path.
+The same product source opens in the default browser or Sentinel's native WKWebView App View. There is no separate legacy dashboard, desktop-only DOM rewrite layer, or monolithic frontend controller in the normal startup path.
 
 ## Product model
 
 Sentinel organizes work by intent rather than by a wall of diagnostic modules:
 
 - **Orient** — current state and a bounded review snapshot.
-- **Investigate** — cases, search, relationships, audit, and exact-object verification.
-- **Compare** — change stream, behavior differences, and approved-reference drift.
+- **Investigate** — cases, search, relationships, audit, exact-object verification, and Workbench investigation context.
+- **Compare** — change stream, system checkpoints, behavior differences, and approved-reference drift.
 - **System** — machine, processes, auto-start, persistence, background registrations, network, and storage.
-- **Act** — reclaim review and reversible Safe Change.
-- **Limits** — visibility boundaries and evidence semantics.
+- **Act** — reclaim review, Safe Change simulation, reversible mutation, and recovery context.
+- **Limits** — visibility boundaries, completeness, permissions, capabilities, and evidence semantics.
 
 A result is evidence, not a verdict. Priority and attention scores rank review work; they are not malware probabilities. A signature, Gatekeeper result, relationship edge, network endpoint, reference match, or observed change must be interpreted in context.
 
-## Core capabilities
+## Investigation Workbench — 30 integrated improvements
 
-Sentinel retains the hardened Go evidence engine while using a single current product UI. Current capabilities include:
+`web/app/workbench.js` is part of the canonical product startup path. It enhances existing Sentinel lenses instead of creating another dashboard. The integrated capability set is:
 
-- system overview and readiness checks;
+1. Interactive Evidence Graph 3.0
+2. Process Story 2.0
+3. Unified Investigation Workspace
+4. Timeline 3.0
+5. Network Intelligence 2.0
+6. Launch & Persistence Drift
+7. System Checkpoint 2.0
+8. Storage Intelligence 2.0
+9. Case Stories 3.0
+10. Object Story 3.0
+11. Permission & Visibility Assistant
+12. Evidence Completeness Meter
+13. Explain This
+14. Smart Next Step
+15. Cross-Lens Selection
+16. Compare Any Two Objects
+17. Reference Profiles 2.0
+18. Safe Change Simulation
+19. Recovery Center 2.0
+20. Evidence Bundle
+21. Local Evidence Assistant
+22. Natural-language Command Bar
+23. Saved Queries
+24. Watch Rules
+25. Visual Relationship Matrix
+26. Change Evidence Flow
+27. Historical Heatmaps
+28. Workspace Persistence
+29. Keyboard Workflow
+30. Product Onboarding
+
+These features reuse real Sentinel APIs wherever evidence is required. Workbench-only metadata such as notes, hypotheses, bookmarks, saved queries, checkpoint display names/pins, watch definitions, and local launch-baseline labels are explicitly separate from engine-observed evidence.
+
+The Local Evidence Assistant currently uses deterministic local evidence routing: it reads explicit Sentinel APIs, separates Observed / Derived / Unknown / Next, does not use a cloud model, and does not invent missing observations. Watch Rules compare bounded API signatures while Sentinel is open; they do not pretend to be an entitlement-backed Endpoint Security sensor.
+
+## Core capabilities retained
+
+The Workbench is additive. Existing hardened functionality remains available, including:
+
+- system overview and readiness;
 - Quick Check and unified review queue;
-- Incident / Case correlation;
-- evidence search and bounded deep filename search;
-- Evidence Graph and Object Story correlation;
+- Incident / Case correlation and Case JSON export;
+- evidence search and bounded deep filename/path search;
+- Evidence Graph 2.0, grouped/global timelines, and Object Story 2.0 backend evidence;
 - security audit and exact-path integrity inspection;
 - current process, startup, persistence, background, and TCP evidence;
-- Change Monitor with native FSEvents where available and a polling fallback;
-- Behavior history and Trusted Profile comparison;
-- Storage Intelligence with cancellable traversal, large-file measurement, SHA-256 exact-duplicate confirmation, and separate filename-family heuristics;
+- explicit Network History snapshots and comparison;
+- Change Monitor with native FSEvents where available and polling fallback;
+- retained System Checkpoints and structured differences;
+- Behavior history and Trusted Profile compare/history/restore;
+- Storage Intelligence with cancellable traversal, history, aging, SHA-256 exact duplicates, and separate filename-family heuristics;
 - Cleanup Preview without automatic deletion;
-- reversible Safe Actions with preview, typed confirmation, one-time code, server-side revalidation, Vault recovery metadata, and an action journal;
-- visibility/capability reporting so missing evidence is explicit rather than guessed.
+- reversible Safe Actions with server preview, typed confirmation, one-time code, revalidation, Vault recovery metadata, and action journal;
+- visibility/capability reporting so missing evidence remains explicit.
 
 ## Safety boundaries
 
@@ -67,10 +113,12 @@ Sentinel deliberately separates observation from mutation.
 - The HTTP service binds to `127.0.0.1` only.
 - API requests require the current session token and retain Host / Origin / Fetch-Metadata protections.
 - Sentinel has no permanent-delete API.
-- Safe Actions are limited to explicitly supported reversible operations and do not overwrite an existing destination.
+- Safe Change Simulation stops at server preview and never submits the execution confirmation.
+- Safe Actions remain limited to explicitly supported operations and do not overwrite an existing destination.
 - Mutating Safe Actions are disabled in `--ephemeral` mode.
-- Vaulting a file does not claim that software is malicious or that an already-running process has stopped.
-- Optional advanced/Endpoint Security visibility remains entitlement- and permission-dependent; unavailable visibility is reported as unavailable.
+- Vaulting a file does not claim software is malicious or that an already-running process stopped.
+- Missing visibility lowers confidence; it never becomes invented evidence.
+- Optional Endpoint Security visibility remains entitlement-, packaging-, approval-, and permission-dependent.
 
 ## Build the macOS app
 
@@ -87,7 +135,14 @@ For a clean reinstall into `/Applications` while preserving Sentinel user state:
 ./reinstall-macos.sh
 ```
 
-The desktop build produces a Universal launcher and embeds separate Go engines for Apple Silicon and Intel. The build verifies that the Sentinel frontend marker is present in both engine binaries.
+The desktop builder validates the canonical 10-script / 3-style application chain, the Workbench capability marker, and embedded Workbench evidence in both Apple Silicon and Intel Go engines. `Info.plist` records:
+
+```text
+SentinelDesktopUI = 2.4 Native Frontend
+SentinelWorkbench = 30-function Investigation Workbench
+```
+
+The reinstall helper refuses a bundle that does not contain both identities.
 
 ## Development engine
 
@@ -95,13 +150,13 @@ The desktop build produces a Universal launcher and embeds separate Go engines f
 ./RUN_SENTINEL.command
 ```
 
-For an isolated read-only/no-persistent-state session:
+For an intentionally isolated session:
 
 ```bash
 ./dist/sentinel-macos-arm64 --ephemeral
 ```
 
-Use the architecture-appropriate binary on Intel Macs.
+Use the architecture-appropriate binary on Intel Macs. Ephemeral mode intentionally disables persistent recovery-dependent mutation.
 
 ## Validation
 
@@ -111,7 +166,16 @@ go test ./...
 bash SMOKE_TEST_LOCALHOST.command
 ```
 
-CI additionally checks Go race behavior, `go vet`, every canonical application JavaScript module, auxiliary JavaScript, shell syntax, macOS architecture build smoke tests, and product contracts that prevent retired dashboard paths or the removed monolithic controller from returning.
+CI additionally checks:
+
+- product and Workbench contracts;
+- Darwin arm64 and x86_64 engine builds;
+- actual `Sentinel.app` desktop packaging;
+- Workbench marker embedding in both engines;
+- Go race behavior and `go vet`;
+- every canonical product JavaScript module including `workbench.js`;
+- auxiliary JavaScript and shell syntax;
+- retired dashboard/controller paths remain absent.
 
 ## Distribution
 
@@ -134,12 +198,12 @@ A production distribution can use Developer ID signing, Hardened Runtime, Apple 
 
 ```text
 web/index.html              canonical product document
-web/app/                    modular default Sentinel application
+web/app/                    modular default Sentinel application + Workbench
 web/aux-*                   shared auxiliary-workspace foundation
-web/*-center.html           retained deep workspaces with unique capabilities
+web/*-center.html           retained specialist workspaces
 
 desktop/                    native AppKit/WKWebView launcher
-endpointsecurity/           optional advanced-sensor source scaffold
+endpointsecurity/           optional entitlement-gated sensor scaffold
 
 docs/history/               retired architecture/planning documents
 docs/releases/              historical release notes
@@ -149,18 +213,19 @@ docs/releases/              historical release notes
 Important runtime files:
 
 - `main.go` — localhost server, API routing, authentication, and direct product serving.
-- `web/app/core.js` — authenticated local API client, state, intent/lens model, and shared evidence primitives.
-- `web/app/lenses/orient-investigate.js` — current state, snapshot, case, search, relation, audit, and object evidence.
-- `web/app/lenses/compare.js` — change, behavior, and reference comparison.
-- `web/app/lenses/system.js` — machine, process, startup, persistence, background, network, and storage evidence.
-- `web/app/lenses/act-limits.js` — reclaim review, reversible Safe Change, visibility, and evidence-model guidance.
-- `web/app/runtime.js` — navigation, event delegation, global search/export, and bootstrap.
-- `web/app/shell.css` — current visual system.
+- `web/app/core.js` — authenticated API client, state, intent/lens model, and evidence primitives.
+- `web/app/lenses/*` — base domain lenses.
+- `web/app/advanced.js` — Graph/Timeline, checkpoints, storage history/aging, recovery, and advanced evidence visualization.
+- `web/app/case-stories.js` — stable Story / Episode / Explain Why Case model.
+- `web/app/system-evidence.js` — Network History and Launch relationship depth.
+- `web/app/workbench.js` — 30-function cross-lens investigation layer.
+- `web/app/runtime.js` — navigation, delegation, global search/export, and bootstrap.
+- `web/app/shell.css`, `advanced.css`, `workbench.css` — canonical visual layers.
 - `desktop/SentinelDesktop.swift` — native launcher and WKWebView container.
-- `build-desktop-macos.sh` — Universal macOS app build.
-- `reinstall-macos.sh` — clean rebuild/reinstall helper.
+- `build-desktop-macos.sh` — Universal macOS app build and Workbench validation.
+- `reinstall-macos.sh` — clean rebuild/reinstall and identity verification.
 
-Standalone deep workspaces are auxiliary surfaces, not a second product architecture. Historical release/schema names are preserved only where they describe actual backward-compatibility data formats.
+Standalone deep workspaces are auxiliary surfaces, not a second product architecture. Historical release/schema names are preserved only where they describe actual backward-compatible data formats.
 
 ## License
 
