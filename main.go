@@ -189,8 +189,13 @@ func main() {
 				"<script src=\"/core-compat.js\"></script>\n<script src=\"/app.js\"></script>\n<script src=\"/investigation-bridge.js\"></script>\n<script src=\"/command-palette.js\"></script>",
 				1,
 			)
-			if r.URL.Query().Get("desktop") == "1" {
+			// V5 is the product UI for every normal entry point. The legacy DOM is
+			// retained only as an explicit diagnostic/compatibility escape hatch.
+			if r.URL.Query().Get("legacy") != "1" {
 				html = strings.Replace(html, "</body>", "<script src=\"/desktop-ui.js\"></script>\n</body>", 1)
+				w.Header().Set("X-Sentinel-UI", "v5-evidence-notebook")
+			} else {
+				w.Header().Set("X-Sentinel-UI", "legacy-diagnostic")
 			}
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			_, _ = w.Write([]byte(html))
