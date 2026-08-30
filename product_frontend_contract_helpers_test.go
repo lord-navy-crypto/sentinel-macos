@@ -34,3 +34,18 @@ func requireProductScript(t *testing.T, path string) string {
 	if err != nil { t.Fatalf("read canonical product script %s: %v", path, err) }
 	return string(raw)
 }
+
+func TestApplicationRegistersEveryDeclaredLens(t *testing.T) {
+	all := readProductScripts(t)
+	for _, lens := range []string{
+		"status","snapshot","cases","search","relations","audit","object",
+		"changes","behavior","reference",
+		"machine","processes","startup","persistence","background","network","storage",
+		"reclaim","change","visibility","guide",
+	} {
+		needle := "registerLens('" + lens + "'"
+		if !strings.Contains(all, needle) { t.Fatalf("canonical modular application does not register lens %q", lens) }
+	}
+	if got := strings.Count(all, "registerLens('"); got != 21 { t.Fatalf("expected exactly 21 canonical lens registrations, got %d", got) }
+	if _, err := os.Stat("web/app/controller.js"); !os.IsNotExist(err) { t.Fatal("retired monolithic controller returned") }
+}
