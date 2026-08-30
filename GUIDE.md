@@ -1,471 +1,257 @@
 # Sentinel 2.4 — User Guide
 
-Sentinel is a local-first macOS system-intelligence and evidence application. The Go engine runs locally, binds to `127.0.0.1`, and serves one Sentinel 2.4 product UI. Browser and native App View are two containers for the same authenticated localhost session.
+Sentinel is a local-first macOS evidence and system-intelligence application. The Go engine binds to `127.0.0.1`, authenticates the current session with an in-memory token, and serves one Sentinel 2.4 product UI in either the browser or native App View.
 
-The central rule remains: **evidence is not a verdict**. Current state, change, identity, relationships, trust context, recovery readiness, and visibility limits stay separate so incomplete observations do not become false certainty.
+The central rule is unchanged: **evidence is not a verdict**. Current state, identity, relationships, time, reference state, recovery readiness, and visibility limits remain separate concepts.
 
----
+## 1. Product workflow
 
-## 1. How to use the interface
-
-The normal workflow is:
+Use Sentinel in this order when possible:
 
 **Orient → Investigate → Compare → Verify exact objects → Act only when evidence supports it → Observe again**
 
-The interface has five persistent areas.
+The six Missions are:
 
-### Command bar
+- **Orient** — current state and bounded snapshot.
+- **Investigate** — Cases, Search, Relations, Audit, Object.
+- **Compare** — Changes, Behavior, Reference.
+- **System** — Machine, Processes, Auto-start, Persistence, Background, Network, Storage.
+- **Act** — Reclaim and Safe Change.
+- **Limits** — Visibility and evidence model.
 
-At the top of the window:
+The top command bar also includes **Workbench**, the selected-evidence chip, Search, Refresh, and Export.
 
-- **Search** — search processes, paths, endpoints, and cases. `⌘K` focuses search.
-- **Refresh** — reload the currently selected Lens from live local evidence.
-- **Export** — export the currently supported evidence view when that Lens provides an export action.
-- **LOCAL** — reminds you that the active product session is backed by the localhost engine.
+## 2. Investigation Workbench
 
-### Mission ribbon
+Click **Workbench** in the command bar. It is not another dashboard; it is a cross-lens investigation layer over the same Sentinel APIs and evidence.
 
-Click one of the six Missions:
+Tabs:
 
-- **Orient** — what deserves attention now?
-- **Investigate** — what explains this observation?
-- **Compare** — what changed?
-- **System** — what exists on this Mac now?
-- **Act** — what reversible change is justified?
-- **Limits** — what can Sentinel actually establish?
+- **Overview** — selected evidence, Compare A/B, Explain This, Smart Next Step, Evidence Bundle, and the 30 integrated capability list.
+- **Investigations** — named local workspaces with notes, hypotheses, bookmarks, and export.
+- **Queries & Watches** — saved natural-language queries and bounded session Watch Rules.
+- **Visibility** — Permission/Visibility Assistant, completeness meter, capabilities, and advanced-sensor boundary.
+- **Evolution** — Network evolution, Launch/Persistence drift, named/pinned System Checkpoints, Storage forecasting, and Reference history.
+- **Recovery** — Safe Action readiness, Vault, journal, and recovery evidence.
+- **Assistant** — deterministic Local Evidence Assistant.
 
-### Lens rail
+### Workbench evidence boundary
 
-After selecting a Mission, click a Lens underneath it. The Lens is the actual working view.
+Engine evidence and Workbench metadata are deliberately different:
 
-### Evidence Stage
+**Engine evidence** includes current/retained process, network, launch, Case, graph, timeline, checkpoint, storage, trust, integrity, and recovery data returned by authenticated localhost APIs.
 
-The center of the window is the Evidence Stage. It is not a card dashboard. Each Lens is organized around a question, then evidence, relationships, time, comparison, or action.
+**Workbench metadata** includes investigation notes, hypotheses, bookmarks, saved queries, local watch definitions, display names/pins for checkpoints, local Case workflow state, Compare A/B selection, and the local Launch baseline used by the drift view.
 
-### Context tray
+Workbench metadata helps organize an investigation; it does not become system evidence merely because Sentinel stores or displays it.
 
-Buttons such as **Explain**, **Object Story**, or graph-node selection can open the Context tray. The tray is for deeper evidence about the selected object without replacing the current Lens.
+## 3. The 30 integrated improvements
 
-### Activity bar
+### 1. Interactive Evidence Graph 3.0
 
-The bottom Activity bar reports real local work such as scanning, hashing, capturing, comparing, exporting, or loading evidence. For Storage it reports the real backend phase and progress rather than a fake animation.
+Open **Investigate → Relations**. The Workbench adds query, node type, source, and retained-time filters over Graph 2.0 evidence. It also adds a Visual Relationship Matrix and Historical Heatmap.
 
----
+Graph nodes remain bounded evidence objects. An edge is a relationship, not proof of causality or intent.
 
-# 2. Orient
+### 2. Process Story 2.0
 
-## Status
+Select a process by clicking **Explain** where available, or select a PID and use Workbench. Process Story joins current process details with matching launch relationships and current TCP evidence. If ancestry is unavailable from the current evidence source, Sentinel says so rather than inventing a parent/child history.
 
-Click **Orient → Status**.
+### 3. Unified Investigation Workspace
 
-Status answers: **What deserves attention now?**
+Open **Workbench → Investigations**. Create an investigation, write notes/hypotheses, bookmark selected evidence, resume it later within the available Workbench state, and export the investigation JSON.
 
-Current instruments can include disk use, memory, typed review signals, active Cases, Safe Action health, Change Monitor state, readiness, and retained structured evidence.
+### 4. Timeline 3.0
 
-### Buttons
+The Relations Workbench can filter global retained timeline evidence to all retained data, 1 hour, 24 hours, 7 days, or 30 days. Historical Heatmap gives a 7×24 density view over the same retained timestamps.
 
-**Run Snapshot**
+### 5. Network Intelligence 2.0
 
-Starts a bounded read-only observation. Use this when you want Sentinel to refresh its evidence picture before investigating anything.
+Open **System → Network** and **Workbench → Evolution**. Sentinel shows current TCP relationships plus explicit Network History recurrence: how often a normalized process → endpoint relationship appears, and its first/last retained observation.
 
-**Refresh posture**
+### 6. Launch & Persistence Drift
 
-Reloads current Security Posture and structured local evidence without pretending that a higher review count means malware.
+Open **Workbench → Evolution**. Click **Capture current launch baseline**. Later reopen the view to compare current Launch Services metadata against that explicitly captured local baseline. Added, removed, and changed declarations are shown separately.
 
-### What to do next
+### 7. System Checkpoint 2.0
 
-- unexpected object or signal → **Investigate → Cases / Search / Object**;
-- unexplained relationship → **Investigate → Relations**;
-- question about change → **Compare**;
-- question about current system state → **System**.
+Use **Compare → Changes** to capture real System Checkpoints. In **Workbench → Evolution**, those engine-owned checkpoint IDs can receive local display names and pins. Names/pins are workspace metadata; checkpoint contents remain engine evidence.
 
----
+### 8. Storage Intelligence 2.0
 
-## Snapshot
+Open **System → Storage** for bounded measurement, exact SHA-256 duplicate groups, history, and aging. Workbench adds a simple retained-history trend/forecast when at least three comparable measurements exist. The forecast is explicitly a linear extrapolation, not a filesystem guarantee.
 
-Click **Orient → Snapshot**.
+### 9. Case Stories 3.0
 
-Snapshot is a bounded read-only observation and review queue. Attention/review priority means **where to inspect next**, not infection probability.
+Open **Investigate → Cases**. Existing Stable Story / Episode / Explain Why evidence remains intact. Workbench adds a local workflow state per story: **Open / Watching / Resolved / Archived**. This is investigation organization metadata and does not change the underlying Case evidence.
 
-A Monitoring Snapshot is separate from an ordinary Snapshot because monitoring can intentionally update local comparison state used by Behavior or Persistence workflows.
+### 10. Object Story 3.0
 
----
+Open an exact path through **Object Story** or the selected-evidence flow. Workbench enriches the Context tray with path-filtered retained timeline evidence, matching retained changes, Trusted Profile availability, and Smart Next Step guidance.
 
-# 3. Investigate
+### 11. Permission & Visibility Assistant
 
-## Cases — Case Stories 2.0
+Open **Workbench → Visibility**. Sentinel surfaces limited/unavailable coverage and explains which evidence source is affected instead of interpreting missing visibility as safety.
 
-Click **Investigate → Cases**.
+### 12. Evidence Completeness Meter
 
-Cases now use a Story → Episode → Evidence model.
+The Visibility Workbench summarizes available/limited/unavailable coverage into an evidence-completeness percentage. It measures observability, **not security or safety**.
 
-Each Case can show:
+### 13. Explain This
 
-- Stable Story ID;
-- current Episode ID;
-- occurrence count;
-- first/last seen;
-- confidence and confidence band;
-- evidence sources;
-- observed facts;
-- derived relationships;
-- interpretation;
-- explicit unknowns;
-- retained episodes;
-- Episode evolution;
-- ordered evidence timeline.
+Select evidence, open **Workbench → Overview**, and click **Explain This**. Sentinel retrieves the relevant Object Story or Process Story and separates what was observed from what should not be inferred.
 
-### Buttons
+### 14. Smart Next Step
 
-**Rebuild correlations**
+Workbench proposes a small number of evidence-driven next actions, such as Verify exact object, See relationships, Compare reference, Open Process Story, Inspect Network, Capture a checkpoint, or Check Visibility.
 
-Re-runs incident/case correlation against currently available retained evidence and reloads Case Stories.
+### 15. Cross-Lens Selection
 
-**Refresh**
+Selecting supported process/path/graph evidence creates a shared selection. Related rows can be highlighted as you move between lenses, and Object/Process/Compare/Explain actions can reuse that selection.
 
-Reloads the current retained Case model without forcing a correlation rebuild.
+### 16. Compare Any Two Objects
 
-**Export JSON**
+Select evidence, use **Set Compare A**, select another item, then **Set Compare B → Compare A/B**. Sentinel fetches normalized bounded evidence for both subjects and shows the two evidence structures side by side.
 
-Exports the current Case episode as a Sentinel evidence JSON bundle.
+### 17. Reference Profiles 2.0
 
-**Object Story**
+Open **Compare → Reference** or **Workbench → Evolution**. Sentinel exposes the current Trusted Profile, retained drift history, compare-now, export, health, and previous-profile restore where available. The engine still has one active Trusted Profile at a time; history is not misrepresented as multiple active profiles.
 
-Opens the primary object/path from that Case in the Context tray so you can continue from the exact object instead of interpreting the Case title alone.
+### 18. Safe Change Simulation
 
-### How to read a Case
+Open **Act → Safe Change**, choose an action and exact target, then click **Simulate without execution**. Sentinel calls the real server-side preview and displays destination, reversibility, dependencies, consequences, and risk context. Simulation stops before confirmation phrase/code and does not execute the action.
 
-Open **Explain why this is grouped** before drawing a conclusion. Keep these categories separate:
+### 19. Recovery Center 2.0
 
-- **Observed facts** — directly established evidence;
-- **Derived relationships** — connections Sentinel computed from evidence;
-- **Interpretation** — bounded explanatory context;
-- **Unknowns** — what the retained evidence cannot establish.
+Open **Workbench → Recovery**. The view combines recovery analysis, Safe Action health/status, journal evidence, and Vault evidence. It is a recovery-information surface; simply opening it does not restore or move anything.
 
----
+### 20. Evidence Bundle
 
-## Search
+Open **Workbench → Overview → Export Evidence Bundle**. Sentinel exports a bounded JSON package assembled from current localhost evidence such as overview, visibility, coverage, Cases, Graph, Timeline, Network History, reference state, Safe Action health, and selected Object/Process Story when applicable.
 
-Click **Investigate → Search** or use the global Search field.
+### 21. Local Evidence Assistant
 
-Search begins with known evidence. Deep path/filename search is explicit and bounded. It searches names and paths, not arbitrary file contents.
+Open **Workbench → Assistant**. The current implementation is deterministic and local: it maps questions to Sentinel evidence APIs and returns four sections — **Observed / Derived / Unknown / Next**. It does not call a cloud model and does not reconstruct evidence Sentinel never observed.
 
-No result only means **no result inside the searched coverage**.
+### 22. Natural-language Command Bar
 
-Use Search when you already know part of a process name, path, endpoint, or object identity.
+The top Search box can interpret bounded navigation intents such as:
 
----
+```text
+show network endpoints
+what changed since checkpoint
+open storage
+show launch persistence
+check visibility
+show cases
+```
 
-## Relations — Evidence Graph 2.0
+An absolute path can also route to exact-object verification. Unrecognized text still falls back to normal Sentinel search behavior.
 
-Click **Investigate → Relations**.
+### 23. Saved Queries
 
-This Lens combines an evidence topology graph with grouped global time evidence.
+Open **Workbench → Queries & Watches**. Save useful natural-language queries and run them again later from the same Workbench state.
 
-The topology can organize nodes into lanes such as:
+### 24. Watch Rules
 
-**Startup → File/Object → Process → Network → Case**
+Create a bounded watch for Network relationships, Launch configuration, Change events, Cases, Reference drift, or the selected object. A watch compares normalized API evidence against its previous signature.
 
-The graph keeps source provenance, review priority, observation windows, node/edge budgets, and truncation explicit.
+Watch Rules operate while Sentinel is open. They are not a background Endpoint Security sensor and do not claim continuous monitoring when the app is not running.
 
-### Buttons
+### 25. Visual Relationship Matrix
 
-**Capture evidence**
+Relations adds an adjacency-style matrix for a bounded subset of Graph nodes. This is useful when a node-link topology becomes visually dense.
 
-Records a fresh bounded intelligence/evidence capture, then rebuilds the Graph 2.0 view.
+### 26. Change Evidence Flow
 
-**Refresh**
+Open **Compare → Changes**. Workbench summarizes visible retained/live change-event kinds as a flow ending in Review. The flow summarizes evidence categories; arrows do not claim causal chains.
 
-Reloads Graph 2.0 and the grouped timeline from current retained evidence without forcing a new capture.
+### 27. Historical Heatmaps
 
-### Graph interaction
+Relations adds a 7-day × 24-hour density representation over retained global timeline timestamps. Empty time cells mean no retained event in that view, not proof that nothing happened on the Mac.
 
-Click/select a graph node to inspect its object context. When an exact path is available, Sentinel can continue into Object Story 2.0.
+### 28. Workspace Persistence
 
-An edge means **an observed/derived evidence relationship**, not proof of causality or malicious intent.
+Workbench preserves its working state through local product storage where that web container retains it: selected evidence, last Lens, graph filters, investigations, queries, watches, Case workflow state, checkpoint labels/pins, and onboarding state.
 
-### Global time density
+Engine-owned persistent histories such as Cases, Network History, System Checkpoints, Trust, Changes, and Recovery remain separate and are stored by the Go engine in Sentinel-owned state. Do not confuse UI workspace persistence with evidence retention.
 
-The timeline histogram shows where retained evidence is concentrated over time. Repeated observations can be grouped visually without deleting the underlying provenance.
+### 29. Keyboard Workflow
 
----
+Outside text fields:
 
-## Audit
+- **G** → Relations / Graph
+- **T** → Changes / temporal comparison
+- **O** → selected Object Story or Object Lens
+- **C** → Cases
+- **W** → Workbench
+- **⌘/Ctrl + Enter** → Explain selected evidence
+- **⌘K** → global Search
 
-Click **Investigate → Audit**.
+### 30. Product Onboarding
 
-Audit ranks evidence that deserves review and explains why it surfaced. Review/risk numbers are prioritization tools, not malware probabilities.
+The first Workbench onboarding uses four steps:
 
-Use Audit when you want a bounded queue of items to inspect rather than a full-system verdict.
+1. Check Visibility.
+2. Run Snapshot.
+3. Inspect one Story.
+4. Capture a System Checkpoint.
 
----
+The purpose is to teach the evidence workflow without creating a tutorial dashboard.
 
-## Object — Object Story / verification
+## 4. Core lenses and important clicks
 
-Click **Investigate → Object** and provide/select an exact path when requested.
+### Orient → Status
 
-Depending on availability, Sentinel can establish evidence such as:
+- **Run Snapshot** — bounded read-only observation.
+- **Refresh posture** — reload posture and structured evidence.
 
-- size, mode, modification time, and object type;
-- SHA-256 within configured budgets;
-- Mach-O architecture;
-- signing identity, Team ID, and certificate chain;
-- Gatekeeper context;
-- quarantine/download-origin metadata;
-- native Security.framework static-code validation on supported real-macOS builds;
-- related processes/persistence/background evidence;
-- related Cases;
-- first/last retained observation;
-- next related investigation targets.
+### Investigate → Cases
 
-In the Context tray, click a related target to continue the investigation from that object.
+- **Rebuild correlations** — rebuild Case correlation from retained/current evidence.
+- **Refresh** — reload without forcing rebuild.
+- **Export JSON** — export current Case episode.
+- **Object Story** — continue from the exact primary object.
 
-Signed or Gatekeeper-accepted software can still behave badly; identity evidence is not intent.
+### Investigate → Relations
 
----
+- **Capture evidence** — explicit fresh evidence capture.
+- **Refresh** — reload Graph/Timeline.
+- Workbench Graph filters/matrix/heatmap appear in the same Lens.
 
-# 4. Compare
+### System → Auto-start
 
-## Changes — live watch + System Checkpoints
+- **Refresh launch evidence** — reload plist → executable → running process relationships.
+- **Explain** — open Launch declaration and target evidence in Context.
 
-Click **Compare → Changes**.
+### System → Network
 
-Changes combines bounded live Change Monitor evidence with retained System Checkpoints.
+- **Refresh current** — current TCP evidence only; does not create history.
+- **Capture history snapshot** — explicitly retain normalized relationship metadata.
+- **Compare** — compare two retained Network snapshots.
+- **Explain** — continue from a process into Process Story/context.
 
-Use the live watch for deliberately selected directory roots. Native FSEvents can be used when available; bounded polling is the fallback.
+### System → Storage
 
-### System Checkpoints
+Configure scope, minimum size, and result limit, then **Measure storage**. Activity shows real traversal/hash progress. **Cancel** requests backend cancellation. Exact duplicate groups require SHA-256 agreement; filename families remain heuristics.
 
-Capture checkpoints when you want explicit state comparison across time. A checkpoint can contain bounded evidence about processes, startup state, network state, mounts, filesystem state, and security posture.
+### Compare → Changes
 
-Choose two retained checkpoints and compare them to see added/removed/changed evidence by category.
+Use Change Monitor for selected live scope and System Checkpoints for explicit A/B state comparison. A difference is evidence of change, not danger.
 
-A difference is evidence of change, not evidence of danger.
+### Compare → Reference
 
-If Change Monitor reports dropped/root-changed continuity, treat the stream as incomplete until a fresh bounded observation/reconciliation establishes current state.
+Capture/compare only when you intentionally want an approved reference. A reference match is context, not permanent certification.
 
----
+### Act → Safe Change
 
-## Behavior
+Mutation remains:
 
-Click **Compare → Behavior**.
+**exact target → server preview → dependency/consequence review → exact phrase → one-time code → acknowledgement → server revalidation → execute → recovery metadata**
 
-Behavior compares adjacent compact observations and asks **what differs from the previous observation?**
+Sentinel has no permanent-delete API.
 
-Repeated behavior is not automatically learned as safe.
-
----
-
-## Reference
-
-Click **Compare → Reference**.
-
-Trusted Profile comparison only exists after explicit user capture/approval. It answers **what differs from the reference state I approved?**
-
-A Trusted Profile is context, not permanent certification.
-
----
-
-# 5. System
-
-## Machine
-
-Click **System → Machine**.
-
-Shows model/chip/architecture, cores, memory, macOS/runtime information, and storage context. Sentinel intentionally does not require a serial number or Hardware UUID for this evidence model.
-
----
-
-## Processes
-
-Click **System → Processes**.
-
-This is current-state process evidence.
-
-Click **Explain** on a process row to continue into process/object context when available.
-
-Interpret a process together with executable identity, ancestry/relationships, persistence, and current activity rather than the command name alone.
-
----
-
-## Auto-start — deep Launch relationship view
-
-Click **System → Auto-start**.
-
-The current view joins ordinary startup evidence with Launch Services evidence and builds the relationship:
-
-**plist → executable target → current running process**
-
-It can show:
-
-- scope;
-- label;
-- RunAtLoad;
-- KeepAlive;
-- current PID match;
-- executable target;
-- missing target conditions;
-- visibility limitations.
-
-### Buttons
-
-**Refresh launch evidence**
-
-Reloads the launch relationship model.
-
-**Explain**
-
-Opens the selected Launch declaration in Context and shows configuration evidence, target evidence, runtime relationship, and why the declaration starts automatically.
-
-Persistence is common in legitimate software. A LaunchAgent/LaunchDaemon is not suspicious merely because it starts automatically.
-
----
-
-## Persistence / Background
-
-Use these Lenses for bounded persistence comparison and modern Background Task Management registrations.
-
-They complement Auto-start rather than replacing it.
-
----
-
-## Network — current evidence + explicit history
-
-Click **System → Network**.
-
-Network now includes:
-
-- visible TCP rows;
-- owning processes;
-- Established and Listen counts;
-- endpoint classes;
-- process → network relationships;
-- endpoint grouping;
-- explicitly retained Network History;
-- snapshot-to-snapshot normalized relationship comparison.
-
-### Buttons
-
-**Refresh current**
-
-Reloads current TCP evidence. It does **not** create history.
-
-**Capture history snapshot**
-
-Explicitly records normalized relationship metadata for later comparison. Sentinel does not capture packet contents.
-
-**Compare**
-
-Select a From and To Network History snapshot, then click **Compare** to display added relationships and relationships absent in the target snapshot.
-
-**Explain** on a process row
-
-Continues into process/object context.
-
-Historical PID values are context only because macOS can reuse PIDs.
-
----
-
-## Storage — measurement + history + aging
-
-Click **System → Storage**.
-
-Storage is a bounded, cancellable measurement pipeline:
-
-**Traverse → Measure → Hash candidates → Report**
-
-### Start a measurement
-
-Choose:
-
-- Scope;
-- Minimum file MB;
-- Large-file limit.
-
-Then click **Measure storage**.
-
-The Activity bar reports real backend progress such as files visited, folders visited, slow paths skipped, hashes completed, hash bytes, and the current hash path.
-
-Click **Cancel** to stop a long scan. Partial measured evidence can remain available when the backend can preserve it safely.
-
-### Results
-
-Storage keeps these concepts separate:
-
-- large files;
-- measured categories/file types;
-- exact duplicate groups confirmed by SHA-256 agreement;
-- filename/version families, which remain heuristics;
-- permission limitations;
-- slow paths skipped.
-
-### Storage History and Aging
-
-The advanced Storage view can retain explicit Storage snapshots, plot storage trend evidence, compare retained snapshots, and show large-file age buckets/oldest measured objects.
-
-A large or old file is not automatically disposable.
-
----
-
-# 6. Act
-
-## Reclaim
-
-Click **Act → Reclaim**.
-
-Reclaim is a review surface. It estimates what may be worth reviewing; it does not automatically delete files.
-
----
-
-## Safe Change — Recovery Workbench
-
-Click **Act → Safe Change**.
-
-Start by reading **Recovery readiness**. Sentinel can expose whether recovery prerequisites are Ready, Review, Blocked, or Ephemeral and can show Vault/journal/state-recovery context.
-
-Then use the bounded Safe Action workflow.
-
-Supported operations include:
-
-- Reveal in Finder;
-- Rename without overwrite;
-- move an eligible file to Sentinel Vault;
-- restore through recorded recovery metadata.
-
-There is no permanent-delete API.
-
-### Mutation flow
-
-A mutating action requires:
-
-1. choose the exact target;
-2. request a fresh Preview;
-3. read dependency/consequence information;
-4. enter the exact confirmation phrase;
-5. enter the one-time confirmation code;
-6. explicitly acknowledge the action;
-7. let the server revalidate immediately before execution;
-8. preserve no-overwrite/recovery/audit metadata where applicable.
-
-Vaulting a file does not terminate an already-running process and does not prove that malicious behavior has been neutralized.
-
----
-
-# 7. Limits
-
-## Visibility
-
-Click **Limits → Visibility**.
-
-Use this before interpreting missing evidence. It reports which evidence sources are available, limited, unavailable, or user-controlled.
-
-Missing permission lowers confidence; it never becomes evidence of safety.
-
----
-
-## Model
-
-Click **Limits → Model**.
+## 5. Visibility and interpretation rules
 
 Keep these rules visible:
 
@@ -476,258 +262,46 @@ Keep these rules visible:
 - Trusted Profile match ≠ safe forever;
 - evidence confidence ≠ malware probability;
 - observed change ≠ danger;
-- missing evidence reduces visibility rather than proving absence.
+- missing evidence lowers visibility rather than proving absence.
 
----
+## 6. Local state and ephemeral mode
 
-# 8. A practical click workflow
-
-For an unfamiliar item discovered on the Mac:
-
-1. **Orient → Status → Run Snapshot**.
-2. Open **Investigate → Cases** and check whether the object belongs to a repeated Story.
-3. Open **Investigate → Relations** to see connected startup/process/network/Case evidence.
-4. Click the relevant node or **Object Story**.
-5. Use **Investigate → Object** for exact identity/signing/hash evidence.
-6. If the question is temporal, use **Compare → Changes** or Network/System checkpoints.
-7. If a reversible change is justified, open **Act → Safe Change**.
-8. Read Recovery readiness first.
-9. Preview, confirm, execute, then observe again.
-
-For storage pressure:
-
-1. **System → Storage**.
-2. Configure bounded scan scope.
-3. Click **Measure storage**.
-4. Review measured large files and exact SHA-256 duplicate groups.
-5. Check Storage History/Aging before deciding whether an old object is actually obsolete.
-6. Use **Act → Reclaim** only as a review queue.
-
-For unexpected network activity:
-
-1. **System → Network → Refresh current**.
-2. Find the owning process/endpoint.
-3. Click **Explain** on the process when available.
-4. Click **Capture history snapshot** if you intentionally want a comparison point.
-5. Later capture another snapshot and click **Compare**.
-6. Continue into Object Story or Relations instead of interpreting the endpoint alone.
-
----
-
-# 9. Local state
-
-Normal persistent mode can store compact Sentinel-owned state under:
+Engine-owned persistent state normally lives under:
 
 ```text
 ~/Library/Application Support/Sentinel/
 ```
 
-Depending on enabled workflows this can include Behavior/Trust state, Change Monitor history/checkpoints, Incident/Case history, System/Network/Storage snapshots, and Safe Action/Vault recovery metadata.
+Depending on workflow it can contain compact Behavior/Trust state, Change history/checkpoints, Case history, Network/System/Storage snapshots, Investigation Session metadata, and Safe Action/Vault recovery metadata.
 
-`--ephemeral` avoids durable comparison/recovery state and disables mutating Safe Actions because durable recovery metadata would not exist.
+`--ephemeral` disables durable comparison/recovery-dependent mutation where required. Workbench session metadata must never be treated as a substitute for engine-owned retained evidence.
 
----
+## 7. Specialist workspaces
 
-# 10. Specialist workspaces
+The primary 2.4 product now contains the high-value functionality required for normal use. Specialist AUX pages can remain for deep engineering/debugging workflows such as typed System Console queries or legacy branching-investigation tooling, but the normal product does not depend on them.
 
-The primary Sentinel 2.4 UI now contains the main high-value capabilities that previously lived only in auxiliary pages, including Case Stories, Graph/Timeline/Object Story, System Checkpoints, Storage History/Aging, Network History, Launch relationship evidence, and Recovery readiness.
+## 8. Build and validation
 
-Some specialist workspaces can remain for deeper engineering/debugging workflows such as branching Investigation sessions, typed System Console queries, detailed relationship exploration, and development/readiness tools. They are auxiliary surfaces, not a second product UI, and are not required for the normal user workflow above.
+Build the macOS app:
 
----
+```bash
+./build-desktop-macos.sh
+```
 
-# 11. What we can develop next
+Clean reinstall while preserving Sentinel-owned user history/recovery state:
 
-The current product is functionally complete enough for normal Sentinel 2.4 use. Future development should improve depth, continuity, and interaction rather than create another parallel dashboard.
+```bash
+./reinstall-macos.sh
+```
 
-## Priority A — highest user value
+The desktop builder verifies the canonical **10 JavaScript modules + 3 styles**, the `Sentinel 2.4 Investigation Workbench` marker, major feature markers, and embedded Workbench content in both arm64 and x86_64 engines. The installed app must report:
 
-### 1. Interactive Evidence Graph
+```text
+Version: 2.4.0
+Desktop UI: 2.4 Native Frontend
+Investigation Workbench: 30-function Investigation Workbench
+```
 
-Upgrade Graph 2.0 from a bounded topology view into a richer investigation surface:
+CI additionally runs Go tests, Workbench/product contracts, real Desktop application packaging, Go race tests, `go vet`, canonical/AUX JavaScript syntax, and shell syntax.
 
-- click-to-focus and neighborhood expansion;
-- edge/source filters;
-- severity/review-priority filters;
-- time-window brushing;
-- hide/show evidence classes;
-- pin important objects;
-- compare the same graph between two checkpoints;
-- open Case/Object Story directly from graph selection.
-
-### 2. Unified Investigation Sessions
-
-Bring the best parts of the specialist Investigation workspace into the primary UI:
-
-- named investigation sessions;
-- bookmarks;
-- notes attached to evidence objects;
-- branching hypotheses/questions;
-- saved filters;
-- resumable investigation history;
-- evidence bundle export for one session.
-
-This should preserve the rule that notes/hypotheses are user interpretation, not observed evidence.
-
-### 3. Better Timeline interaction
-
-Extend the grouped Global Timeline with:
-
-- zoomable time ranges;
-- source/severity/object filters;
-- checkpoint markers;
-- Case episode markers;
-- network/storage/system capture markers;
-- click a time bucket to reveal the exact evidence behind it.
-
-### 4. Process Story / ancestry
-
-Create a first-class Process Story that joins:
-
-- parent/child ancestry;
-- executable identity;
-- signing evidence;
-- launch origin;
-- current network activity;
-- related files;
-- related Cases;
-- retained observations when available.
-
-This would make **Explain** on a process substantially more useful.
-
-### 5. Permission and visibility assistant
-
-Turn Visibility into an actionable setup assistant:
-
-- show which permission is missing;
-- explain exactly which evidence it affects;
-- provide safe UI navigation guidance for granting/revoking it;
-- re-check visibility after the user changes macOS settings;
-- never describe unavailable evidence as collected.
-
-## Priority B — deeper intelligence
-
-### 6. Network relationship evolution
-
-Build on explicit Network History:
-
-- endpoint recurrence over time;
-- process ↔ endpoint stability;
-- first/last observed relationship;
-- newly appearing endpoint relationships;
-- comparison against a user-approved reference;
-- richer domain/IP classification using local/system data when available.
-
-Do not turn endpoint novelty into a malware score.
-
-### 7. Launch/Persistence drift model
-
-Extend Auto-start and Persistence so Sentinel can show:
-
-- newly added launch declarations;
-- executable target changes;
-- plist hash changes;
-- signing identity changes;
-- target disappeared/reappeared;
-- current runtime match changed;
-- user-approved reference comparison.
-
-### 8. Storage forecasting and hot/cold evidence
-
-Build on Storage History/Aging:
-
-- growth rate by category/path;
-- projected pressure if the recent trend continues;
-- files repeatedly growing;
-- files never observed changing;
-- duplicate bytes over time;
-- workspace-specific storage history;
-- comparison between snapshots without rescanning unrelated scopes.
-
-Forecasts must remain estimates with visible assumptions.
-
-### 9. Recovery simulation
-
-Before Safe Change execution, add a dry-run recovery view:
-
-- where the object will move;
-- what restore would do;
-- whether the original path is writable;
-- potential overwrite conflicts;
-- recovery metadata that will be recorded;
-- whether a running process still holds the original object.
-
-## Priority C — platform depth
-
-### 10. Native local notifications
-
-Optional macOS notifications for user-chosen events such as:
-
-- Change Monitor continuity loss;
-- a selected watched root changed;
-- storage scan completed;
-- new explicit Case episode after a user-triggered observation;
-- recovery/Vault health requires attention.
-
-Notifications should be opt-in and should not imply continuous omniscient monitoring.
-
-### 11. Conditional Endpoint Security sensor
-
-If Apple entitlement, signing, deployment, user approval, and runtime requirements are actually satisfied, Sentinel could add an Endpoint Security-backed sensor for deeper process/file events.
-
-Until those conditions exist, the product must continue to report the sensor as unavailable rather than pretending source-code scaffolding equals active coverage.
-
-### 12. Local evidence assistant
-
-An optional local model could help summarize **already collected Sentinel evidence**:
-
-- explain a Case in plain language;
-- summarize differences between checkpoints;
-- suggest the next evidence Lens to inspect;
-- turn a large Object Story into a concise evidence summary.
-
-The assistant must cite the Sentinel evidence it used, distinguish facts from interpretation, and never invent missing observations.
-
-### 13. Evidence bundle / shareable report
-
-Create a portable, privacy-conscious export containing selected:
-
-- Case Story;
-- Object Story;
-- graph neighborhood;
-- timeline range;
-- checkpoint diff;
-- visibility limitations;
-- hashes/signing evidence;
-- user notes clearly marked as notes.
-
-This would be useful for debugging, support, research, and reproducible investigations.
-
----
-
-# 12. Development rule for future features
-
-New features should normally extend the current Mission/Lens model instead of adding another standalone dashboard.
-
-A new feature should answer at least one of these questions:
-
-- **Orient:** what deserves attention?
-- **Investigate:** what explains it?
-- **Compare:** what changed?
-- **System:** what exists now?
-- **Act:** what reversible action is justified?
-- **Limits:** what can and cannot be established?
-
-If it cannot answer one of those questions, it probably belongs in an engineering/debugging workspace rather than the main product.
-
----
-
-# 13. Build and distribution
-
-`build-desktop-macos.sh` builds the current macOS application with a Universal AppKit launcher and architecture-specific Go engines for Apple Silicon and Intel. Browser and native WKWebView App View load the same Sentinel 2.4 frontend.
-
-`reinstall-macos.sh` performs the clean application replacement while preserving Sentinel-owned history, baselines, and recovery state.
-
-Production distribution outside the Mac App Store can later use Developer ID signing, Hardened Runtime, notarization, and a stapled DMG. See `DIRECT_DISTRIBUTION_GUIDE.md`.
-
-For lower-level engineering and security details, see `FINAL_HARDENING_GUIDE.md`, `SECURITY.md`, and `TESTING.md`.
+See `README.md`, `QUICK_START.md`, `SECURITY.md`, and `TESTING.md` for additional engineering and distribution details.
