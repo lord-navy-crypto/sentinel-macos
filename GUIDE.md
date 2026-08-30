@@ -1,103 +1,191 @@
-## V2.2 Desktop Conversion
+# Sentinel 2.4 — User Guide
 
-The preferred direct-distribution path is now the native-window `Sentinel.app` built by `build-desktop-macos.sh` and distributed as one Developer ID signed/notarized DMG. See `DIRECT_DISTRIBUTION_GUIDE.md`.
+Sentinel is a local-first macOS system-intelligence and evidence application. The engine runs locally, binds to `127.0.0.1`, and serves one Sentinel 2.4 product frontend. The default browser and the native App View are two containers for the same authenticated localhost session.
 
-# Sentinel macOS V2.2 — User Guide
+Sentinel's central rule is simple: **evidence is not a verdict**. Current state, change, identity, relationships, trust context, and visibility limits remain separate concepts so the interface does not turn incomplete observations into false certainty.
 
-Sentinel is a local-first macOS system-intelligence platform. The browser is the interface; your Mac is the server. The normal engine binds to `127.0.0.1`, performs analysis locally, and preserves a strict distinction between evidence, trust context, and conclusions.
+## The Sentinel 2.4 workflow
 
-## The V2.2 workflow
+A useful default workflow is:
 
-**Observe → Change → Correlate → Incident → Explain → Targeted Review → Reversible Action → Observe again**
+**Orient → Investigate → Compare when needed → Verify exact objects → Act only with evidence → Observe again**
 
-### Home / Quick Check
+The product is organized by intent rather than by the old Easy/Advanced dashboard split.
 
-Use Quick Check first. It is deliberately read-only and does not create or update monitoring baselines. The Attention Index is review priority, not malware probability.
+## Orient
 
-### Change Monitor
+### Status
 
-Watch explicit directory roots. Native macOS builds use FSEvents when compiled with CGO/CoreServices; portable builds use bounded polling. V2.2 preserves compressed local history, native event checkpoints, smart resume, rescan-required semantics, and bounded hierarchy reconciliation.
+Status answers: **What deserves attention now?**
 
-### Incident Intelligence
+It shows current runtime/system instruments and Sentinel readiness. This is context for later interpretation, not a security score.
 
-Press **Rebuild incidents** to correlate current Filesystem, Persistence, Behavior, and Trust evidence. Read the timeline, sources, confidence, and recommended review steps before acting.
+### Snapshot
 
-### Search & Weakness
+Snapshot is a bounded read-only observation and review queue. The Attention Index prioritizes investigation work; it is not malware probability.
 
-Power Search queries current bounded evidence with filters such as `kind:incident`, `kind:change`, `severity:review`, `pid:1234`, and `path:downloads`. Deep Filename Search is explicit, bounded, filename/path-only, and does not follow symlinks or index content.
+A Monitoring Snapshot is separate from the ordinary read-only Snapshot because it can intentionally update local comparison state used by Behavior/Persistence workflows.
 
-Weakness Audit scores Sentinel's current visibility and defensive posture, not the Mac's infection status.
+## Investigate
 
-### Integrity Lab
+### Cases
 
-Integrity Lab can show:
+Cases correlate related observations into fewer evidence stories. Confidence describes how strongly observations relate to the same story; it does not describe the probability that software is malicious.
 
-- local SHA-256 within the configured hash budget;
-- file type, mode, size, modification time;
-- Mach-O architectures where available;
-- codesign identity, Team ID, authorities;
+### Search
+
+Search begins with current known evidence. Deep filename/path search is explicit and bounded, searches names/paths rather than file contents, and does not treat “no result” as meaningful outside known coverage.
+
+### Relations
+
+Relations shows observed links such as startup → file → process → endpoint together with timeline evidence. A relationship edge alone does not establish causality or intent.
+
+### Audit
+
+Audit ranks evidence that deserves review and explains why it was surfaced. Risk/review scores are attention mechanisms, not malware probabilities.
+
+### Object
+
+Object verification inspects one exact local path. Depending on availability it can establish facts such as:
+
+- size, mode, modification time, and file type;
+- SHA-256 within the configured hash budget;
+- Mach-O architectures;
+- signing identity, Team ID, and certificate authorities;
 - Gatekeeper context;
-- quarantine / download-origin metadata when accessible;
-- **native Security.framework static-code validation** in real-macOS CGO builds.
+- quarantine/download-origin metadata;
+- native Security.framework static-code validation in supported real-macOS CGO builds.
 
-The native validator requests all-architecture checking for universal code. A successful signature validation still does not prove good intent, and validation is only valid while the underlying code remains unchanged.
+A valid signature or accepted Gatekeeper assessment still does not prove good intent.
 
-### Behavior Diff
+## Compare
 
-Behavior Diff compares adjacent compact states. It answers “what changed?” and maintains bounded local history. Repeated behavior is not automatically considered safe.
+### Changes
 
-### Trust & Drift
+Change Monitor watches deliberately selected directory roots. Native macOS builds can use FSEvents when available; bounded polling is the fallback.
 
-A Trusted Profile exists only when the user explicitly creates one. It answers “what differs from the reference I approved?” Profile membership is context, not certification.
+Dropped/root-changed conditions create explicit rescan/reconciliation requirements rather than pretending event continuity is complete.
 
-### Persistence Integrity
+### Behavior
 
-Hashes visible LaunchAgent/LaunchDaemon plist configurations and identifies additions, removals, or content changes within the session.
+Behavior compares compact adjacent observations and answers **what differs from the previous observation?** Repeated behavior is not automatically learned as safe.
 
-### Evidence Graph / Object Story
+### Reference
 
-Object Story is the per-object view: path, identity, startup relationships, process lineage, network context, Behavior history, and Trust context.
+A Trusted Profile exists only after explicit user capture. Reference comparison answers **what differs from the state I approved?** Profile membership is context, not permanent certification.
 
-### Safe Actions
+## System
 
-Only reversible actions exist: Reveal, Rename, Vault, Restore. There is no permanent delete. Rename/Vault/Restore use preview, typed confirmation, a one-time code, revalidation, and no-overwrite movement. Vault does not terminate already-running processes and does not prove malware was neutralized.
+### Machine
+
+Machine explains model/chip/architecture, cores, memory, macOS/runtime information, and storage compatibility context. Sentinel does not need to expose the full serial number or Hardware UUID for this task.
+
+### Processes
+
+Processes is a current snapshot. A process should be interpreted together with its executable identity, ancestry, relationships, and current activity.
+
+### Auto-start / Persistence / Background
+
+These lenses expose visible launch declarations, configuration drift, and modern background registrations. Persistence is normal for many legitimate applications and requires context.
+
+### Network
+
+Network shows current visible TCP evidence. A public or unfamiliar endpoint is not suspicious by itself, and Sentinel does not claim visibility into encrypted payload contents or unobserved history.
+
+### Storage
+
+Storage Intelligence performs bounded, cancellable measurement and exposes real backend progress. It distinguishes:
+
+- large-file observations;
+- measured categories/file types;
+- **exact duplicate groups confirmed by SHA-256 agreement**;
+- possible version/name families, which remain heuristics rather than duplicate proof.
+
+Permission errors and slow-path skips are evidence about coverage and are shown instead of silently discarded.
+
+## Act
+
+### Reclaim
+
+Reclaim/cleanup preview estimates what may be worth reviewing. It does not automatically delete anything and does not claim that a large, old, cached, or duplicated-looking item is disposable.
+
+### Safe Change
+
+Observation and mutation are deliberately separated.
+
+Safe Change supports only the bounded actions implemented by Sentinel, including Reveal, Rename, Vault, and Restore. There is no permanent-delete API.
+
+Mutating actions require:
+
+1. an exact target;
+2. a fresh server-side preview;
+3. dependency/consequence review;
+4. an exact confirmation phrase;
+5. a one-time confirmation code;
+6. explicit acknowledgement;
+7. revalidation immediately before execution;
+8. no-overwrite movement and recovery/audit metadata where applicable.
+
+Vaulting an on-disk file does not terminate an already-running process and does not prove that malware was neutralized.
+
+## Limits
+
+### Visibility
+
+Visibility reports which evidence sources are available, limited, unavailable, or user-controlled. Missing permission or unavailable tooling lowers confidence; it never becomes invented evidence or an automatic safety signal.
+
+### Model
+
+Keep these interpretation rules in mind:
+
+- suspicious ≠ malicious;
+- signed ≠ safe;
+- Gatekeeper accepted ≠ malware-free;
+- public network endpoint ≠ suspicious by itself;
+- Trusted Profile match ≠ safe forever;
+- evidence confidence ≠ malware probability;
+- observed change ≠ danger;
+- missing evidence reduces visibility rather than proving absence.
 
 ## Local state
 
-Normal persistent mode can use compact local state under:
+Normal persistent mode can store compact Sentinel-owned state under:
 
-`~/Library/Application Support/Sentinel/`
+```text
+~/Library/Application Support/Sentinel/
+```
 
-V2.2 may store Behavior/Trust state, Safe Actions recovery metadata, compressed Change History/checkpoint, and compressed Incident History. Sentinel-owned directories are tightened to `0700`; state files are written `0600` where supported.
+Depending on the enabled workflow this can include Behavior/Trust state, Change Monitor history/checkpoints, Incident/Case history, and Safe Action/Vault recovery metadata. Sentinel-owned directories/files use restrictive local permissions where supported.
 
-`--ephemeral` prevents persistent Behavior/Trust/Change/Incident state and disables mutating Safe Actions because safe recovery metadata would not exist.
+`--ephemeral` avoids persistent comparison/recovery state and disables mutating Safe Actions because durable recovery metadata would not exist.
+
+## Specialist workspaces
+
+Sentinel 2.4 has one primary product UI, but several deeper auxiliary workspaces remain while their unique capabilities are migrated into the main intent/lens model. Examples include:
+
+- branching Continue Investigation sessions and bookmarks;
+- typed, allowlisted System Console queries and structured evidence;
+- retained System Snapshot & Diff;
+- Storage History and Large-File Aging;
+- detailed process/network relationship exploration;
+- Launch Services detail;
+- Vault/recovery health;
+- deeper Intelligence 2.0 graph/timeline/object filters.
+
+These workspaces share the same localhost engine/session and return to Sentinel 2.4. They are not the retired root dashboard and must not recreate it.
 
 ## Sentinel.app
 
-`build-app-macos.sh` creates a Finder-friendly development `Sentinel.app` wrapper containing both Mac architecture binaries. Production distribution still requires a real-Mac Developer ID signing and notarization workflow.
+`build-desktop-macos.sh` builds the current macOS application with a Universal AppKit launcher and architecture-specific Go engines for Apple Silicon and Intel. Browser and native WKWebView App View load the same Sentinel 2.4 frontend.
 
-## Endpoint Security boundary
+Production distribution outside the Mac App Store can later use Developer ID signing, Hardened Runtime, notarization, and a stapled DMG. See `DIRECT_DISTRIBUTION_GUIDE.md`.
 
-The normal V2.2 release does not install an Endpoint Security System Extension. Source scaffolding exists for a future notification-only advanced sensor, but Apple entitlement approval, System Extension packaging, user approval, Full Disk Access, signing, and real-Mac testing are mandatory before it can be called enabled.
+## Advanced sensor boundary
 
-## Interpretation rules
+Sentinel does not claim an Endpoint Security source is available unless the required entitlement, packaging, approval, permission, and runtime conditions are actually satisfied. Entitlement-gated scaffolding must not be described as enabled merely because source code exists.
 
-- Suspicious ≠ malicious.
-- Signed ≠ safe.
-- Gatekeeper accepted ≠ malware-free.
-- Public network ≠ suspicious by itself.
-- Trusted Profile match ≠ safe forever.
-- Evidence Confidence ≠ malware probability.
-- Missing evidence reduces visibility; it never becomes invented evidence.
+## Reliability
 
-## V2.2 inherited reliability layer
+The Go engine retains hardened behavior such as single persistent writer semantics, bounded heavy-work concurrency, strict JSON handling, local state/recovery validation, graceful shutdown, bounded histories, and explicit readiness/visibility reporting.
 
-Use **Final Readiness** before long monitoring sessions. It evaluates Sentinel's own runtime/state/recovery condition. Persistent mode permits one state writer; `--ephemeral` is the supported way to run an additional isolated read-only session.
-
-Incident **Deep Review** performs a fresh Integrity + Object Story inspection. Incident correlation is time-windowed to reduce false relationships between events that happen far apart.
-
-See `FINAL_HARDENING_GUIDE.md` for state recovery, concurrency, and graceful-shutdown details.
-
-## System Profile
-
-System Profile is an Easy Mode, read-only hardware explanation page. It is intended for users who do not know whether their Mac is Apple Silicon or Intel or how to interpret model/chip/core terminology. It reports useful compatibility information and explains each field. Full serial numbers and Hardware UUIDs are intentionally excluded because they are unique device identifiers and are unnecessary for Sentinel's local analysis.
+See `FINAL_HARDENING_GUIDE.md`, `SECURITY.md`, and `TESTING.md` for lower-level engineering details.
