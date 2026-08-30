@@ -3,19 +3,19 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Sentinel Storage Center</title>
+  <title>Sentinel Storage History</title>
   <link rel="stylesheet" href="/control-plane.css">
-  <link rel="stylesheet" href="/v23-navigation.css">
+  <link rel="stylesheet" href="/aux-navigation.css">
 </head>
 <body data-workspace="storage">
 <main class="shell">
-  <header class="hero"><div><p class="eyebrow">Sentinel v2.3 · Storage</p><h1>Storage Center</h1><p>Storage History, growth attribution, and bounded large-file aging on one dedicated page.</p></div><nav class="hero-actions"><a href="/investigation.html">Investigate a Path</a><a href="/system-console.html">Disk Terminal Tools</a></nav></header>
+  <header class="hero"><div><p class="eyebrow">Sentinel 2.4 · AUX Storage History</p><h1>Storage History</h1><p>Retained growth attribution and bounded large-file aging that extend the main Storage lens.</p></div><nav class="hero-actions"><a href="/#lens=storage">Current Storage</a><a href="/investigation.html">Investigate a Path</a><a href="/system-console.html">Disk Terminal Tools</a></nav></header>
   <p id="notice" class="notice" role="status" aria-live="polite"></p>
   <section class="panel" data-viz="diff"><div class="heading"><div><p class="eyebrow">History and growth</p><h2>Storage History</h2></div><button id="captureStorage" type="button">Capture Latest Storage Scan</button></div><p class="help">A completed Storage Intelligence result is captured explicitly. History is bounded to 24 snapshots and preserves partial-evidence semantics.</p><div id="storageSummary" class="summary-grid"></div><div id="storageHistory" class="stack"></div></section>
   <section class="panel" data-viz="quantitative"><div class="heading"><div><p class="eyebrow">Bounded aging evidence</p><h2>Large-File Aging</h2></div><button id="refreshStorageAging" type="button">Refresh Aging</button></div><p class="help">Age buckets use modification timestamps only from the bounded large-file evidence retained by the latest Storage scan. This is not a complete filesystem inventory.</p><div id="storageAgingSummary" class="summary-grid"></div><div id="storageAging" class="stack"></div></section>
 </main>
 <script src="/workspace-centers.js"></script>
-<script src="/storage-visualization-v23.js"></script>
-<script src="/v23-navigation.js"></script>
+<script src="/storage-visualization.js"></script>
+<script src="/aux-navigation.js"></script>
 </body>
 </html>
