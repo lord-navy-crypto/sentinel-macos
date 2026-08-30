@@ -1,10 +1,9 @@
-name: Sentinel branch validation
+name: Sentinel validation
 
 on:
   push:
     branches:
       - main
-      - upgrade/v2.3-stable
   pull_request:
     branches:
       - main
@@ -14,7 +13,7 @@ permissions:
 
 jobs:
   core:
-    name: Go core and product contracts
+    name: Core, product, and distribution contracts
     runs-on: macos-latest
     timeout-minutes: 24
     steps:
@@ -30,7 +29,7 @@ jobs:
       - name: Go tests
         run: go test ./...
 
-      - name: Pre-regression contracts
+      - name: Product contracts
         run: |
           go test ./... -run 'Migration|IncidentStory|Timeline|Export|StorageAging|ReasonCodeRegistry|RuleRegistry|VaultHealth|Navigation|PreRegression|SessionNote|Alpha|I18n|ScanCenter|ContinueInvestigation|TerminalGuide|VisualGrammarV2'
 
@@ -52,31 +51,31 @@ jobs:
       - name: Sentinel 2.4 JavaScript syntax
         run: node --check web/sentinel-24.js
 
-      - name: Retained specialist workspace JavaScript syntax
+      - name: Auxiliary workspace JavaScript syntax
         run: |
           node --check web/i18n.js
+          node --check web/aux-navigation.js
           node --check web/alpha-center.js
           node --check web/workspace-centers.js
-          node --check web/storage-visualization-v23.js
+          node --check web/storage-visualization.js
           node --check web/system-console.js
           node --check web/system-console-links.js
           node --check web/system-console-domains.js
-          node --check web/system-console-investigation-v23.js
+          node --check web/system-console-investigation.js
           node --check web/terminal-guide.js
           node --check web/control-plane.js
-          node --check web/control-plane-aging-v23.js
+          node --check web/control-plane-aging.js
           node --check web/investigation.js
-          node --check web/investigation-stability-v23.js
+          node --check web/investigation-stability.js
           node --check web/investigation-session-note-guard.js
-          node --check web/investigation-export-v23.js
+          node --check web/investigation-export.js
           node --check web/launch-services.js
           node --check web/process-relations.js
           node --check web/process-relations-bridge.js
           node --check web/network-relations.js
           node --check web/intelligence-center.js
-          node --check web/intelligence-release-prep-v23.js
+          node --check web/intelligence-export.js
           node --check web/command-palette.js
-          node --check web/v23-navigation.js
           node --check web/vault-health.js
           node --check web/pre-regression.js
 
