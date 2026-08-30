@@ -38,7 +38,7 @@ func TestActionDockCoversEveryPrimaryLens(t *testing.T) {
 	}
 	for _, want := range []string{
 		"Easy Scan", "Full Scan", "Monitoring Snapshot", "Rebuild Cases", "Capture Evidence",
-		"Capture Checkpoint", "Capture & Compare", "Compare Now", "Capture History",
+		"Continue Investigation", "Capture Checkpoint", "Capture & Compare", "Compare Now", "Capture History",
 		"Reclaim Review", "Visibility", "Workbench",
 	} {
 		if !strings.Contains(s, want) { t.Fatalf("Action Dock missing operation %q", want) }
@@ -86,6 +86,19 @@ func TestActionDockStabilizesStatusPlacementAfterAsyncScanCenter(t *testing.T) {
 	}
 }
 
+func TestActionDockDoesNotSelfTriggerMutationObserver(t *testing.T) {
+	s := actionDockRead(t, "web/app/action-dock.js")
+	for _, want := range []string{
+		"let dockInstallQueued = false", "function queueDockInstall()", "new MutationObserver(queueDockInstall)",
+		"observer.observe(stage, {childList:true})", "control.textContent !== nextLabel", "control.getAttribute('aria-busy') !== busyValue",
+	} {
+		if !strings.Contains(s, want) { t.Fatalf("Action Dock loop guard missing %q", want) }
+	}
+	if strings.Contains(s, "observer.observe(stage, {childList:true, subtree:true})") {
+		t.Fatal("Action Dock must not observe its own button subtree; that can create a render feedback loop")
+	}
+}
+
 func TestActionDockSynchronizesFullScanControls(t *testing.T) {
 	s := actionDockRead(t, "web/app/action-dock.js")
 	for _, want := range []string{
@@ -103,6 +116,17 @@ func TestActionDockProvidesPostScanAnalysisActions(t *testing.T) {
 		"Open Cases", "Review Changes", "Inspect Storage", "Compare Reference", "lens:'reference'", "Workbench", "scanCancelled",
 	} {
 		if !strings.Contains(s, want) { t.Fatalf("post-scan analysis experience missing %q", want) }
+	}
+}
+
+func TestContinueInvestigationBridgeIsReachableFromCanonicalAudit(t *testing.T) {
+	dock := actionDockRead(t, "web/app/action-dock.js")
+	workspace := actionDockRead(t, "web/investigation.js")
+	for _, want := range []string{"Continue Investigation", "data-continue-investigation", "/investigation.html#", "token:S.token"} {
+		if !strings.Contains(dock, want) { t.Fatalf("canonical Continue Investigation bridge missing %q", want) }
+	}
+	for _, want := range []string{"/api/security/investigate", "branchTo(", "Continue from here", "Continue"} {
+		if !strings.Contains(workspace, want) { t.Fatalf("Investigation workspace continuation missing %q", want) }
 	}
 }
 
