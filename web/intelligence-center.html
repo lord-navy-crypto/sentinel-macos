@@ -6,11 +6,11 @@
   <title>Sentinel Intelligence Center</title>
   <link rel="stylesheet" href="/intelligence-center.css">
   <link rel="stylesheet" href="/command-palette.css">
-  <link rel="stylesheet" href="/v23-navigation.css">
+  <link rel="stylesheet" href="/aux-navigation.css">
 </head>
 <body>
 <main class="shell">
-  <header class="hero"><div><p class="eyebrow">Sentinel v2.3 · Unified Intelligence</p><h1>Intelligence Center</h1><p>One bounded workspace for relationships, incidents, time, object history, and visibility.</p></div><div class="hero-actions"><button id="cmdButton" type="button">⌘K Search</button><a id="backLink" href="/">Back to Sentinel</a></div></header>
+  <header class="hero"><div><p class="eyebrow">Sentinel 2.4 · AUX Intelligence</p><h1>Intelligence Center</h1><p>One bounded workspace for relationships, incidents, time, object history, and visibility.</p></div><div class="hero-actions"><button id="cmdButton" type="button">⌘K Search</button><a id="backLink" href="/">Back to Sentinel</a></div></header>
   <nav class="section-nav" aria-label="Intelligence Center sections"><button type="button" data-jump="graph">Evidence Graph 2.0</button><button type="button" data-jump="incidents">Incidents 2.0</button><button type="button" data-jump="timeline">Global Timeline</button><button type="button" data-jump="object">Object Story 2.0</button><button type="button" data-jump="visibility">Visibility</button></nav>
   <p id="notice" class="notice" role="status" aria-live="polite"></p>
   <section id="graph" class="panel" data-viz="relations"><div class="heading"><div><p class="eyebrow">Relationships</p><h2>Evidence Graph 2.0</h2></div><p>Typed nodes and edges across current evidence, incidents, and explicit network history.</p></div><form id="graphFilters" class="filters"><input name="q" placeholder="Filter label / ref"><select name="type"><option value="">All node types</option><option>file</option><option>process</option><option>startup</option><option>network</option><option>endpoint</option><option>incident</option><option value="network_snapshot">network snapshot</option></select><input name="source" placeholder="Source"><input name="since" type="datetime-local" aria-label="Graph observed since"><input name="until" type="datetime-local" aria-label="Graph observed until"><button>Apply</button></form><p class="muted">Time filtering applies only to nodes/edges with retained timestamps. Untimed current observations remain visible only when no time range is selected.</p><div id="graphMeta" class="metrics"></div><div id="graphNodes" class="cards"></div><details><summary>Relationships</summary><div id="graphEdges" class="rows"></div></details></section>
@@ -22,6 +22,6 @@
 <script src="/intelligence-center.js"></script>
 <script src="/command-palette.js"></script>
 <script src="/intelligence-release-prep-v23.js"></script>
-<script src="/v23-navigation.js"></script>
+<script src="/aux-navigation.js"></script>
 </body>
 </html>
