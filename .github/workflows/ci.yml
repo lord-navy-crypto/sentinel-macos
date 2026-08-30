@@ -56,6 +56,7 @@ jobs:
           test -x dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' dist/Sentinel.app/Contents/Info.plist)" = "$(tr -d '[:space:]' < VERSION)"
           test "$(/usr/libexec/PlistBuddy -c 'Print :SentinelDesktopUI' dist/Sentinel.app/Contents/Info.plist)" = "2.4 Native Frontend"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :SentinelScanCenter' dist/Sentinel.app/Contents/Info.plist)" = "Easy Scan + Full Scan + Capability Atlas"
           ARCHS="$(lipo -archs dist/Sentinel.app/Contents/MacOS/Sentinel)"
           echo "$ARCHS" | grep -q arm64
           echo "$ARCHS" | grep -q x86_64
@@ -73,6 +74,8 @@ jobs:
       - name: Sentinel application JavaScript syntax
         run: |
           test ! -e web/app/controller.js
+          test ! -e web/app/scan-center.js
+          test ! -e web/app/scan-center.css
           node --check web/app/core.js
           node --check web/app/lenses/orient-investigate.js
           node --check web/app/lenses/compare.js
@@ -82,14 +85,14 @@ jobs:
           node --check web/app/case-stories.js
           node --check web/app/system-evidence.js
           node --check web/app/workbench.js
-          node --check web/app/scan-center.js
+          node --check web/app/full-scan.js
           node --check web/app/runtime.js
           grep -Fq '/app/workbench.css' web/index.html
           grep -Fq '/app/workbench.js' web/index.html
-          grep -Fq '/app/scan-center.css' web/index.html
-          grep -Fq '/app/scan-center.js' web/index.html
-          test "$(grep -nF '<script src="/app/workbench.js"></script>' web/index.html | cut -d: -f1)" -lt "$(grep -nF '<script src="/app/scan-center.js"></script>' web/index.html | cut -d: -f1)"
-          test "$(grep -nF '<script src="/app/scan-center.js"></script>' web/index.html | cut -d: -f1)" -lt "$(grep -nF '<script src="/app/runtime.js"></script>' web/index.html | cut -d: -f1)"
+          grep -Fq '/app/full-scan.css' web/index.html
+          grep -Fq '/app/full-scan.js' web/index.html
+          test "$(grep -nF '<script src="/app/workbench.js"></script>' web/index.html | cut -d: -f1)" -lt "$(grep -nF '<script src="/app/full-scan.js"></script>' web/index.html | cut -d: -f1)"
+          test "$(grep -nF '<script src="/app/full-scan.js"></script>' web/index.html | cut -d: -f1)" -lt "$(grep -nF '<script src="/app/runtime.js"></script>' web/index.html | cut -d: -f1)"
 
       - name: Auxiliary workspace JavaScript syntax
         run: |
