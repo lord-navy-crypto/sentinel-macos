@@ -48,11 +48,11 @@ func TestAlphaCenterIsReadOnlyCapabilitySurface(t *testing.T) {
 	}
 }
 
-func TestSentinel24ReplacesEasyPortalWithBoundedSnapshot(t *testing.T) {
+func TestProductSnapshotReplacesRetiredEasyPortal(t *testing.T) {
 	html := readAlphaContractFile(t, "web/index.html")
-	js := readAlphaContractFile(t, "web/sentinel-24.js")
+	js := readAlphaContractFile(t, "web/app/controller.js")
 	for _, want := range []string{"Sentinel 2.4", "renderSnapshot", "/api/quick-check", "/api/review-queue", "Attention index", "Review queue"} {
-		if !strings.Contains(html+js, want) { t.Fatalf("Sentinel 2.4 bounded snapshot missing %q", want) }
+		if !strings.Contains(html+js, want) { t.Fatalf("bounded snapshot missing %q", want) }
 	}
 	if strings.Contains(html, "/easy.html") { t.Fatal("default product must not route through retired Easy portal") }
 	start := strings.Index(js, "async function renderSnapshot")
