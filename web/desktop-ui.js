@@ -1,10 +1,18 @@
 // SPDX-License-Identifier: MPL-2.0
 (() => {
-  // Desktop App View is a first-principles workbench layered over the same
-  // trusted feature IDs and app.js event handlers. We move existing nodes
-  // instead of cloning or replacing them, so every backend capability remains wired.
-  if (window.__sentinelDesktopUIInstalled) return;
-  window.__sentinelDesktopUIInstalled = true;
+  /*
+   * Desktop App View V3
+   *
+   * This is not a rearrangement of the browser dashboard. The browser DOM is
+   * retained only as a compatibility/event-binding layer for app.js. Desktop
+   * builds a new product shell from first principles and adopts only functional
+   * atoms (inputs, buttons, result containers, live status nodes) into it.
+   *
+   * Compatibility note: the old navigation label "More tools" remains in the
+   * hidden browser layer because tests and app.js may still inspect that tree.
+   */
+  if (window.__sentinelDesktopV3) return;
+  window.__sentinelDesktopV3 = true;
 
   const css = document.createElement('link');
   css.rel = 'stylesheet';
@@ -12,135 +20,469 @@
   css.id = 'sentinel-desktop-ui-css';
   document.head.appendChild(css);
 
+  const $ = (selector, root = document) => root.querySelector(selector);
+  const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+  const el = (tag, className = '', text = '') => {
+    const n = document.createElement(tag);
+    if (className) n.className = className;
+    if (text !== '') n.textContent = text;
+    return n;
+  };
+  const byId = id => document.getElementById(id);
+  const move = id => byId(id);
+  const moveSelector = selector => $(selector);
+
+  const legacyApp = $('.app');
+  if (!legacyApp) return;
+  legacyApp.classList.add('desktop-compat-layer');
   document.body.classList.remove('easy-mode');
-  const legacyGroup = document.querySelector('.nav-group-label.advanced-nav');
-  if (legacyGroup) { legacyGroup.textContent = 'More tools'; legacyGroup.hidden = true; }
 
-  const IA = {
-    overview:{group:'NOW',nav:'Command',title:'Command',sub:'Current state, evidence quality, and the shortest useful next step.',stage:'Orient',question:'What deserves attention now?'},
-    quickcheck:{group:'NOW',nav:'Snapshot',title:'Snapshot',sub:'One bounded read-only observation, converted into a review queue.',stage:'Observe',question:'What is worth inspecting next?'},
-    incidents:{group:'INVESTIGATE',nav:'Cases',title:'Cases',sub:'Correlated observations assembled into investigation stories.',stage:'Correlate',question:'Which observations belong to the same story?'},
-    weakness:{group:'INVESTIGATE',nav:'Investigate',title:'Investigate',sub:'Start with a concrete target, search the evidence, then check visibility limits.',stage:'Query',question:'What exactly am I trying to understand?'},
-    intelligence:{group:'INVESTIGATE',nav:'Evidence',title:'Evidence',sub:'Relationships, time, and object context in one investigation surface.',stage:'Connect',question:'How are these objects related, and in what order?'},
-    behavior:{group:'INVESTIGATE',nav:'Behavior',title:'Behavior',sub:'Compare bounded captures to separate stable state from meaningful change.',stage:'Compare',question:'What changed since the previous observation?'},
-    trust:{group:'INVESTIGATE',nav:'Reference',title:'Reference',sub:'Compare the current state with a reference you explicitly approved.',stage:'Compare',question:'What differs from my approved reference?'},
-    hardware:{group:'SYSTEM',nav:'Machine',title:'Machine',sub:'Hardware and runtime context for this investigation.',stage:'Context',question:'What machine and runtime am I observing?'},
-    processes:{group:'SYSTEM',nav:'Processes',title:'Processes',sub:'Running software connected to executable, signature, and network context.',stage:'Inspect',question:'What is running, and what is it connected to?'},
-    startup:{group:'SYSTEM',nav:'Startup',title:'Startup',sub:'Declarations that cause software to launch automatically.',stage:'Inspect',question:'What is configured to start automatically?'},
-    persistence:{group:'SYSTEM',nav:'Persistence',title:'Persistence',sub:'Visible launch configuration compared with a session baseline.',stage:'Compare',question:'Did startup configuration change?'},
-    background:{group:'SYSTEM',nav:'Background',title:'Background',sub:'Modern macOS background registrations beyond classic launch items.',stage:'Inspect',question:'What background registrations exist?'},
-    network:{group:'SYSTEM',nav:'Network',title:'Network',sub:'A bounded TCP snapshot connected back to local processes.',stage:'Inspect',question:'Which processes currently have TCP activity?'},
-    storage:{group:'SYSTEM',nav:'Storage',title:'Storage',sub:'Measured space use, exact duplicates, and clearly labeled heuristics.',stage:'Measure',question:'Where is storage pressure coming from?'},
-    security:{group:'VERIFY & RESOLVE',nav:'Audit',title:'Audit',sub:'Explainable review signals without converting a score into a verdict.',stage:'Assess',question:'Which evidence deserves review, and why?'},
-    integrity:{group:'VERIFY & RESOLVE',nav:'Verify File',title:'Verify File',sub:'One local object inspected with hashes and macOS trust context.',stage:'Verify',question:'What can I establish about this exact object?'},
-    actions:{group:'VERIFY & RESOLVE',nav:'Resolve',title:'Resolve',sub:'A reversible change only after evidence and impact review.',stage:'Resolve',question:'What is the safest reversible change?'},
-    cleanup:{group:'VERIFY & RESOLVE',nav:'Reclaim',title:'Reclaim',sub:'Reviewable storage candidates with no automatic deletion.',stage:'Review',question:'What space is worth reviewing?'},
-    guide:{group:'SUPPORT',nav:'Help & Access',title:'Help & Access',sub:'Visibility boundaries, evidence semantics, and safe operating paths.',stage:'Understand',question:'What can Sentinel see, and what do the results mean?'}
+  const legacyAdvanced = $('.nav-group-label.advanced-nav');
+  if (legacyAdvanced) {
+    legacyAdvanced.textContent = 'More tools';
+    legacyAdvanced.hidden = true;
+  }
+
+  const VIEWS = {
+    overview:    {space:'pulse', label:'Status',     title:'System status',        sub:'A decision surface for what matters now.'},
+    quickcheck:  {space:'pulse', label:'Snapshot',   title:'Evidence snapshot',    sub:'One bounded read-only observation, ranked for review.'},
+    incidents:   {space:'examine', label:'Cases',    title:'Cases',                sub:'Related observations grouped into investigation stories.'},
+    weakness:    {space:'examine', label:'Search',   title:'Search evidence',      sub:'Find an object first; expand scope only when current evidence is insufficient.'},
+    intelligence:{space:'examine', label:'Relations',title:'Relationship view',    sub:'Connect startup, files, processes, network, time, and object context.'},
+    security:    {space:'examine', label:'Audit',    title:'Evidence audit',       sub:'Review explainable signals without turning a score into a verdict.'},
+    integrity:   {space:'examine', label:'Object',   title:'Object verification',  sub:'Inspect one exact file or app with hashes and macOS trust context.'},
+    changes:     {space:'observe', label:'Changes',  title:'Change stream',        sub:'Watch a narrow scope and inspect only what actually changed.'},
+    behavior:    {space:'observe', label:'Behavior', title:'Behavior comparison',  sub:'Compare bounded observations across time.'},
+    trust:       {space:'observe', label:'Reference',title:'Reference comparison', sub:'Measure drift from a state you explicitly approved.'},
+    hardware:    {space:'system', label:'Machine',   title:'Machine',              sub:'Hardware and runtime context for this investigation.'},
+    processes:   {space:'system', label:'Running',   title:'Running software',     sub:'Processes as identities, executables, signatures, and connections.'},
+    startup:     {space:'system', label:'Auto-start',title:'Automatic launch',     sub:'What is configured to start without a manual launch.'},
+    persistence: {space:'system', label:'Persistence',title:'Persistence drift',   sub:'Session comparison of visible launch configuration.'},
+    background:  {space:'system', label:'Background',title:'Background items',     sub:'Modern macOS background registrations.'},
+    network:     {space:'system', label:'Network',   title:'Network activity',     sub:'Current TCP context connected back to local processes.'},
+    storage:     {space:'system', label:'Storage',   title:'Storage',              sub:'Measure first; distinguish exact duplicates from naming heuristics.'},
+    cleanup:     {space:'resolve', label:'Reclaim',  title:'Reclaim space',        sub:'Estimate reviewable storage without automatic deletion.'},
+    actions:     {space:'resolve', label:'Change',   title:'Reversible change',    sub:'Preview impact, confirm explicitly, preserve recovery.'},
+    guide:       {space:'guide', label:'Access',     title:'Access & interpretation',sub:'Visibility boundaries and the shortest safe operating path.'}
   };
 
-  const READING = {
-    overview:['Read current state and readiness.','Use it to choose the narrowest next investigation.','Do not treat an unreviewed status as proof of safety.'],
-    quickcheck:['Read attention state, then the review queue.','Use it to prioritize where to look next.','Attention Index is not malware probability.'],
-    incidents:['Read the timeline and connected evidence together.','Use confidence to judge relationship strength.','Confidence is not maliciousness.'],
-    weakness:['Start with one target or question.','Use coverage to judge how complete the answer can be.','Missing visibility is not evidence that nothing exists.'],
-    intelligence:['Read graph, timeline, then object narrative.','Use multiple evidence layers before forming a conclusion.','One edge or endpoint is never a verdict.'],
-    behavior:['Read what changed and how the trend moved.','Use repeated captures to separate stable from new state.','Change pressure is not danger.'],
-    trust:['Read drift from the approved reference.','Use reference matches as context.','Reference membership is not a security certificate.'],
-    hardware:['Read architecture and runtime before interpreting capability.','Use it to explain compatibility and visibility.','Hardware identity does not imply security state.'],
-    processes:['Read executable identity before network context.','Use process detail to connect path, signature, and endpoints.','High CPU or a public connection alone is not suspicious.'],
-    startup:['Read declaration, path, and manifest behavior together.','Use it to understand automatic launch behavior.','Persistence is common in legitimate software.'],
-    persistence:['Compare current launch configuration with the session baseline.','Use additions, removals, and content changes as review signals.','A changed plist is not automatically malicious.'],
-    background:['Read registration identity and source together.','Use it to complement classic startup evidence.','A background registration alone is not suspicious.'],
-    network:['Connect endpoints back to local processes.','Use network state as context for an object story.','A public endpoint is common and not suspicious by itself.'],
-    storage:['Measure first; compare candidates second.','Exact duplicates require hash agreement; version families are heuristic.','Large, old, or duplicated-looking does not mean disposable.'],
-    security:['Read the reasons behind the score.','Use severity to prioritize review.','The score is not malware probability.'],
-    integrity:['Read hash, signature, and Gatekeeper context together.','Use the result to establish identity and platform trust context.','Signed or accepted does not guarantee good intent.'],
-    actions:['Review evidence and dependency impact before confirmation.','Use only reversible actions when the expected benefit is clear.','Resolve does not prove the target is malware.'],
-    cleanup:['Measure reviewable space before selecting objects.','Use Resolve for eligible files after review.','Sentinel does not automatically delete candidates.'],
-    guide:['Read the visibility boundary before relying on a result.','Use the shortest workflow that answers the question.','Sentinel must degrade confidence rather than invent missing evidence.']
-  };
+  const SPACES = [
+    {id:'pulse',   label:'Pulse',   hint:'What matters now',          views:['overview','quickcheck']},
+    {id:'examine', label:'Examine', hint:'Build an explanation',      views:['incidents','weakness','intelligence','security','integrity']},
+    {id:'observe', label:'Observe', hint:'Compare across time',       views:['changes','behavior','trust']},
+    {id:'system',  label:'System',  hint:'Inspect the machine',       views:['hardware','processes','startup','persistence','background','network','storage']},
+    {id:'resolve', label:'Resolve', hint:'Make reversible changes',   views:['cleanup','actions']},
+    {id:'guide',   label:'Guide',   hint:'Limits and interpretation', views:['guide']}
+  ];
 
-  const GROUPS=[['NOW',['overview','quickcheck']],['INVESTIGATE',['incidents','weakness','intelligence','behavior','trust']],['SYSTEM',['hardware','processes','startup','persistence','background','network','storage']],['VERIFY & RESOLVE',['security','integrity','actions','cleanup']],['SUPPORT',['guide']]];
-  const q=(root,selector)=>(root||document).querySelector(selector);
-  const qa=(root,selector)=>[...(root||document).querySelectorAll(selector)];
-  const make=(tag,className,text)=>{const n=document.createElement(tag);if(className)n.className=className;if(text!==undefined)n.textContent=text;return n;};
-  const setText=(selector,text,root=document)=>{const n=q(root,selector);if(n&&typeof text==='string')n.textContent=text;return n;};
+  const shell = el('div','fp-shell');
+  const rail = el('aside','fp-rail');
+  const stage = el('section','fp-stage');
+  const railHead = el('div','fp-brand');
+  railHead.append(el('div','fp-brandmark','S'), (() => { const x=el('div'); x.append(el('b','','Sentinel'),el('span','','Local evidence system')); return x; })());
+  const railNav = el('nav','fp-space-nav');
+  const railFoot = el('div','fp-rail-foot');
+  rail.append(railHead, railNav, railFoot);
 
-  function relabelButtons(){
-    const labels={exportReport:'Export evidence report',pageHelpToggle:'Explain view',refresh:'Refresh view',runReadiness:'Verify Sentinel',exportDiagnostics:'Export diagnostics',loadCapabilities:'Refresh sources',loadSelfIntegrity:'Verify Sentinel binary',runQuickCheck:'Take snapshot',guidedSnapshot:'Capture full evidence',loadReviewQueue:'Refresh queue',loadSystemProfile:'Read machine',rebuildIncidents:'Rebuild cases',loadIncidentHistory:'Case history',closeIncidentDeepReview:'Close review',startChanges:'Start watch',stopChanges:'Stop watch',reviewChanges:'Review changed objects',reconcileChanges:'Reconcile',clearChanges:'Clear inbox',loadChangeHistory:'Watch history',refreshChanges:'Refresh inbox',startScan:'Measure storage',cancelScan:'Cancel',runAudit:'Run evidence audit',inspectIntegrity:'Verify object',captureEvidence:'Capture evidence',loadEvidence:'Refresh relationships',loadTimeline:'Refresh timeline',captureBehavior:'Capture & compare',loadBehavior:'Load comparison',loadBehaviorHistory:'Refresh trend',loadBehaviorHealth:'Verify history',compareTrust:'Compare to reference',captureTrust:'Set reference',loadTrustHealth:'Verify reference',exportTrust:'Export reference',restoreTrust:'Restore previous',loadTrustHistory:'Refresh comparisons',loadProcesses:'Refresh processes',closeProcessDetail:'Close detail',loadStartup:'Refresh startup',capturePersistence:'Capture / compare',loadPersistence:'Refresh state',loadBackground:'Refresh background',loadNetwork:'Refresh network',previewCleanup:'Analyze reclaimable space',loadActionHealth:'Verify recovery',previewAction:'Preview reversible action',revealActionPath:'Reveal target',executeAction:'Confirm reversible action',loadVault:'Refresh Vault',loadActionJournal:'Refresh journal',runDeepSearch:'Search filenames',runWeaknessAudit:'Audit visibility',loadCoverage:'Refresh coverage',loadAdvancedSensor:'Check sensor boundary'};
-    for(const [id,label] of Object.entries(labels))setText(`#${id}`,label);
-    qa(document,'[data-go="quickcheck"]').forEach(n=>n.textContent='Take snapshot');
-    qa(document,'[data-go="storage"]').forEach(n=>n.textContent='Measure storage');
-    qa(document,'[data-go="weakness"]').forEach(n=>n.textContent='Investigate evidence');
-    qa(document,'[data-go="changes"]').forEach(n=>n.textContent='Watch changes');
-    qa(document,'[data-go="processes"]').forEach(n=>n.textContent='Inspect processes');
-    qa(document,'[data-go="security"]').forEach(n=>n.textContent='Run audit');
-    qa(document,'[data-go="behavior"]').forEach(n=>n.textContent='Compare behavior');
-    qa(document,'[data-go="trust"]').forEach(n=>n.textContent='Open reference');
+  const top = el('header','fp-topbar');
+  const identity = el('div','fp-view-identity');
+  const spaceName = el('span','fp-breadcrumb');
+  const viewTitle = el('h1','fp-view-title');
+  const viewSub = el('p','fp-view-sub');
+  identity.append(spaceName,viewTitle,viewSub);
+
+  const searchHost = el('div','fp-search-host');
+  const oldSearchWrap = moveSelector('.global-search-wrap');
+  if (oldSearchWrap) {
+    oldSearchWrap.className = 'fp-global-search';
+    const input = byId('globalSearch');
+    if (input) input.placeholder = 'Search evidence: process, path, endpoint, severity…';
+    searchHost.appendChild(oldSearchWrap);
   }
 
-  function installNavigation(){
-    const nav=q(document,'.sidebar nav'); if(!nav||nav.dataset.desktopRebuilt==='1')return; nav.dataset.desktopRebuilt='1';
-    const old=q(nav,'.nav-group-label');if(old)old.hidden=true;
-    for(const [groupName,views] of GROUPS){const group=make('section','desktop-nav-group');group.appendChild(make('div','desktop-nav-label',groupName));for(const view of views){const button=q(nav,`.nav[data-view="${view}"]`);if(!button)continue;button.textContent=IA[view].nav;button.dataset.desktopGroup=groupName;group.appendChild(button);}nav.appendChild(group);}
+  const topActions = el('div','fp-top-actions');
+  topActions.append(el('span','fp-local-pill','LOCAL'));
+  const refresh = move('refresh');
+  const help = move('pageHelpToggle');
+  if (help) { help.textContent='Context'; help.className='fp-button quiet'; topActions.appendChild(help); }
+  if (refresh) { refresh.textContent='Refresh'; refresh.className='fp-button quiet'; topActions.appendChild(refresh); }
+  top.append(identity,searchHost,topActions);
+
+  const tabs = el('nav','fp-tabs');
+  const messages = el('div','fp-messages');
+  const pageHelp = move('pageHelp');
+  const notice = move('notice');
+  if (pageHelp) messages.appendChild(pageHelp);
+  if (notice) messages.appendChild(notice);
+  const screens = el('main','fp-screens');
+  stage.append(top,tabs,messages,screens);
+  shell.append(rail,stage);
+  document.body.appendChild(shell);
+
+  const exportReport = move('exportReport');
+  if (exportReport) {
+    exportReport.textContent='Export evidence';
+    exportReport.className='fp-button rail-action';
+    railFoot.appendChild(exportReport);
+  }
+  const localState = el('div','fp-local-state');
+  localState.append(el('i'),(() => {const x=el('span');x.append(el('b','','Loopback session'),el('small','','127.0.0.1 · reversible actions only'));return x;})());
+  railFoot.appendChild(localState);
+
+  function legacyButton(view){ return $(`.desktop-compat-layer .nav[data-view="${view}"]`); }
+  function currentLegacyView(){ return $('.desktop-compat-layer .view.active')?.id || 'overview'; }
+  function selectView(view){
+    const b=legacyButton(view);
+    if (b) b.click();
+    sync(view);
   }
 
-  function rewriteStaticCopy(){
-    setText('.brand small','Local evidence workbench');setText('.privacy b','Local session');setText('.privacy small','Loopback only · reversible changes');
-    const h2Copy={overview:['Start with the next decision','Sentinel readiness','Machine context','Operating boundaries','Evidence sources','Sentinel binary identity'],quickcheck:['Decision snapshot','Recommended paths','Review queue'],hardware:['Machine identity','Hardware','Runtime','Field notes','Privacy boundary'],incidents:['Build cases','Case queue','Deep review','Confidence model','Investigation path'],changes:['Watch control','Monitoring model','Targeted review','Change inbox'],storage:['Measure storage','Largest areas','File-type footprint','Exact duplicates','Version families','Largest objects'],security:['Audit summary'],integrity:['Verify one object'],intelligence:['Capture evidence','Relationship graph','Timeline','Object narrative'],behavior:['Behavior comparison','Evidence trend','Baseline health','Observed changes','Persistence boundary'],trust:['Reference comparison','Reference health','Reference controls','Comparison history','Drift evidence'],processes:['Running processes','Process detail'],startup:['Startup declarations'],persistence:['Persistence comparison'],background:['Background registrations','Interpretation'],network:['TCP snapshot'],cleanup:['Reclaim preview'],actions:['Resolve safely','Recovery health','Action semantics','Prepare action','Confirmation gate','Vault','Recovery journal'],weakness:['Evidence query','Visibility audit','Coverage map','Sensor boundary'],guide:['Operating path','Permissions','Interpretation','Design basis','Glossary']};
-    for(const [view,titles] of Object.entries(h2Copy)){const section=document.getElementById(view);if(!section)continue;qa(section,'h2').forEach((node,index)=>{if(titles[index])node.textContent=titles[index];});}
-    const descriptions={overview:'Read state and readiness, then choose the smallest investigation that can answer the question.',quickcheck:'Combine current local evidence into one read-only attention state. No baseline or file state changes.',hardware:'Read model, processor, architecture, memory, operating system, and runtime without collecting unique hardware identifiers.',incidents:'Group related observations so timing, identity, persistence, and reference drift can be reviewed together.',changes:'Choose a narrow scope, observe changes, then re-inspect only what moved.',storage:'Measure first. Exact duplicates are hash-backed; version families remain heuristics.',security:'Correlate location, persistence, signing, and current network evidence. Read the reasons, not just the score.',integrity:'Verify one exact path with a content fingerprint and macOS trust context.',intelligence:'Capture a bounded relationship snapshot and read graph, time, and object context together.',behavior:'Compare current bounded metadata with the previous capture. The result measures change, not danger.',trust:'Compare current state with a reference you explicitly approved. A match is context, not certification.',processes:'Start with what is running now, then connect executable identity, signature context, and TCP activity.',startup:'Read launch declarations together with executable path and manifest meaning.',persistence:'Compare visible launch configuration for additions, removals, and same-name content changes.',background:'Read modern macOS background registrations when the system exposes them.',network:'Read current TCP activity as process context, not as a verdict.',cleanup:'Estimate reviewable space without deleting anything. Send only reviewed eligible files to Resolve.',actions:'Resolve is the last step: evidence, impact preview, explicit confirmation, then a reversible change.',weakness:'Start from one concrete query. Search current evidence first; use bounded filename discovery only when needed.',guide:'Observe, investigate, verify, then resolve only when the evidence supports action.'};
-    for(const [view,text] of Object.entries(descriptions)){const section=document.getElementById(view);if(!section)continue;const p=q(section,'.section-head > div > p')||q(section,'article.card p');if(p)p.textContent=text;}
-    setText('.welcome-card > div > p',descriptions.overview,document.getElementById('overview'));setText('.action-warning > p',descriptions.actions,document.getElementById('actions'));
-    setText('.welcome-card .eyebrow','LOCAL EVIDENCE WORKBENCH',document.getElementById('overview'));setText('.quick-hero .eyebrow','READ-ONLY OBSERVATION',document.getElementById('quickcheck'));setText('.hardware-hero .eyebrow','LOCAL MACHINE CONTEXT',document.getElementById('hardware'));setText('#incidents .eyebrow','CORRELATED EVIDENCE');setText('.change-hero .eyebrow','BOUNDED CHANGE WATCH',document.getElementById('changes'));
-    const search=document.getElementById('globalSearch');if(search)search.placeholder='Search evidence… process, path, endpoint, severity';const deep=document.getElementById('deepSearchQ');if(deep)deep.placeholder='Filename or path fragment';const fileFilter=document.getElementById('fileFilter');if(fileFilter)fileFilter.placeholder='Filter measured objects';const processFilter=document.getElementById('processFilter');if(processFilter)processFilter.placeholder='Filter running processes';
+  for (const space of SPACES) {
+    const b=el('button','fp-space'); b.type='button'; b.dataset.space=space.id;
+    b.append(el('strong','',space.label),el('small','',space.hint));
+    b.addEventListener('click',()=>selectView(space.views[0]));
+    railNav.appendChild(b);
   }
 
-  function rewriteEmptyStates(){
-    const states={readinessBody:'Not checked yet. Verify Sentinel before relying on long monitoring or Resolve.',selfIntegrityBody:'Binary identity has not been verified in this session.',quickCheckStatus:'No snapshot yet. Take one bounded read-only observation to establish what deserves review.',quickRecommendations:'Take a snapshot first; recommended paths will appear here.',reviewQueue:'No review queue loaded. Refresh after a snapshot or whenever you want one prioritized list.',hardwareSummary:'Machine context has not been read yet.',incidentSummary:'No case model yet. Build cases after evidence capture or observed changes.',incidentList:'No cases loaded.',incidentDeepReviewBody:'Select a case and run Deep Review.',changeStatus:'Watch is idle. Choose a narrow scope before starting.',changeReview:'No targeted review yet.',changeEvents:'No observed change events in the current view.',deepSearchResults:'Use bounded filename search only when current evidence cannot locate the object.',weaknessAudit:'Visibility has not been audited yet.',coverageMap:'Coverage has not been read yet.',advancedSensorStatus:'Sensor boundary has not been checked yet.',integrityBody:'Enter one exact path to verify locally.',graphWrap:'No relationship snapshot yet. Capture evidence to build the graph.',timelineList:'No timeline loaded yet.',storyBody:'Select an object from the graph, a process, or a measured file.',behaviorBaseline:'No behavior comparison loaded yet.',behaviorTrend:'No trend loaded yet.',baselineHealth:'History integrity has not been verified yet.',behaviorChanges:'No observed behavior comparison yet.',trustStatus:'No approved reference status loaded yet.',trustHealth:'Reference integrity has not been verified yet.',trustHistoryList:'No reference comparisons loaded yet.',trustChanges:'No drift evidence loaded yet.',processTable:'Process snapshot has not been loaded yet.',startupTable:'Startup declarations have not been loaded yet.',persistenceChanges:'Capture once to establish the session comparison point.',backgroundTable:'Background registrations have not been loaded yet.',networkTable:'TCP snapshot has not been loaded yet.',cleanupList:'No reclaim analysis yet.',actionStatus:'Recovery state has not been verified yet.',vaultList:'Vault state has not been loaded yet.',actionJournal:'Recovery journal has not been loaded yet.',filesTable:'No storage measurement yet.'};
-    for(const [id,text] of Object.entries(states)){const host=document.getElementById(id);const empty=host&&q(host,'.empty');if(empty)empty.textContent=text;}
+  function atom(id, className=''){
+    const n=move(id); if(!n)return null;
+    if(className)n.className=className;
+    return n;
+  }
+  function selectorAtom(selector,className=''){
+    const n=moveSelector(selector); if(!n)return null;
+    if(className)n.className=className;
+    return n;
+  }
+  function append(parent,...nodes){ for(const n of nodes.flat()){ if(n) parent.appendChild(n); } return parent; }
+  function heading(kicker,title,body=''){
+    const h=el('div','fp-section-head');
+    if(kicker)h.append(el('span','fp-kicker',kicker));
+    h.append(el('h2','',title));
+    if(body)h.append(el('p','',body));
+    return h;
+  }
+  function panel(title,body='',nodes=[],className=''){
+    const p=el('section',`fp-panel ${className}`.trim());
+    p.appendChild(heading('',title,body)); append(p,nodes); return p;
+  }
+  function toolbar(nodes=[]){ const t=el('div','fp-toolbar'); append(t,nodes); return t; }
+  function screen(view, kicker, question, rule=''){
+    const s=el('section','fp-screen'); s.dataset.view=view;
+    const head=el('div','fp-screen-head');
+    head.append(el('span','fp-kicker',kicker),el('h2','fp-question',question));
+    if(rule)head.append(el('p','fp-rule',rule));
+    s.appendChild(head); screens.appendChild(s); return s;
+  }
+  function note(text,tone=''){ const n=el('div',`fp-note ${tone}`.trim(),text); return n; }
+  function two(left,right,cls=''){ const g=el('div',`fp-grid two ${cls}`.trim()); append(g,left,right); return g; }
+  function three(a,b,c,cls=''){ const g=el('div',`fp-grid three ${cls}`.trim()); append(g,a,b,c); return g; }
+  function retitle(id,text){ const n=byId(id); if(n)n.textContent=text; return n; }
+
+  function rebuildMetrics(){
+    const old=selectorAtom('.hero-grid'); if(!old)return null;
+    old.className='fp-vitals';
+    [...old.children].forEach((child,index)=>{
+      child.className='fp-vital'; child.dataset.index=String(index+1);
+      const action=$('.inline-action',child); if(action)action.className='fp-link';
+    });
+    return old;
+  }
+  function rebuildQuickMetrics(){ const n=atom('quickCheckMetrics','fp-snapshot-metrics hidden'); return n; }
+  function normalizeForm(id,extra=''){ const f=atom(id,`fp-form ${extra}`.trim()); return f; }
+
+  // PULSE — STATUS
+  {
+    const s=screen('overview','PULSE','What deserves attention now?','State first. Narrow the question before opening a deeper tool.');
+    const lead=el('section','fp-hero');
+    lead.append(heading('LOCAL EVIDENCE','Start with state, not alerts.','Sentinel is useful when it reduces uncertainty. Observe the machine, choose one question, then inspect the smallest evidence set that can answer it.'));
+    const welcome=selectorAtom('.welcome-actions','fp-hero-actions'); if(welcome)lead.appendChild(welcome);
+    const vitals=rebuildMetrics();
+    const context=panel('Machine context','A small current snapshot, not a diagnosis.',[atom('systemKV','fp-kv')]);
+    retitle('runReadiness','Verify Sentinel');
+    const readiness=panel('Sentinel readiness','Checks the tool that is producing the evidence, not the Mac for malware.',[toolbar([atom('runReadiness','fp-button')]),atom('readinessBody','fp-result')]);
+    retitle('loadCapabilities','Refresh sources'); retitle('exportDiagnostics','Export diagnostics');
+    const sources=panel('Evidence boundary','Which local tools and permissions are actually contributing evidence.',[toolbar([atom('loadCapabilities','fp-button quiet'),atom('exportDiagnostics','fp-button quiet')]),atom('capabilityGrid','fp-list')]);
+    retitle('loadSelfIntegrity','Verify engine');
+    const self=panel('Engine identity','The exact Sentinel binary serving this local session.',[toolbar([atom('loadSelfIntegrity','fp-button quiet')]),atom('selfIntegrityBody','fp-result')]);
+    append(s,lead,vitals,two(context,readiness),two(sources,self));
   }
 
-  function addWorkspaceIntro(section,meta){
-    if(!section||q(section,':scope > .workspace-intro'))return;
-    const intro=make('div','workspace-intro');
-    const top=make('div','workspace-intro-main');top.append(make('span','workspace-stage',meta.stage),make('h2','workspace-question',meta.question),make('p','workspace-intent',meta.sub));intro.appendChild(top);
-    const rules=READING[section.id]||[];if(rules.length){const rail=make('div','evidence-reading-contract');[['READ',rules[0]],['USE',rules[1]],['DO NOT INFER',rules[2]]].forEach(([label,text])=>{const item=make('div','evidence-reading-item');item.append(make('span','',label),make('p','',text));rail.appendChild(item);});intro.appendChild(rail);}
-    section.prepend(intro);
+  // PULSE — SNAPSHOT
+  {
+    const s=screen('quickcheck','OBSERVE','What should I review first?','One read-only capture. No baseline, reference, or file state is changed.');
+    retitle('runQuickCheck','Take snapshot'); retitle('guidedSnapshot','Capture full evidence');
+    const run=toolbar([atom('runQuickCheck','fp-button primary'),atom('guidedSnapshot','fp-button')]);
+    const status=panel('Attention state','A prioritization surface, not a probability of compromise.',[run,atom('quickCheckStatus','fp-result spotlight'),rebuildQuickMetrics()],'fp-attention');
+    retitle('loadReviewQueue','Refresh queue');
+    const queue=panel('Review queue','Evidence that deserves inspection, ordered for attention.',[toolbar([atom('loadReviewQueue','fp-button quiet')]),atom('reviewQueue','fp-feed')]);
+    const next=panel('Next paths','These routes only open evidence; they do not take action.',[atom('quickRecommendations','fp-feed')]);
+    append(s,status,two(queue,next));
   }
-  function zone(className,label){const outer=make('div',`workspace-zone ${className}`);if(label)outer.appendChild(make('div','workspace-zone-label',label));const body=make('div','workspace-zone-body');outer.appendChild(body);outer.body=body;return outer;}
 
-  function composeOverview(){const section=document.getElementById('overview');if(!section||section.dataset.desktopComposed)return;section.dataset.desktopComposed='1';const welcome=q(section,'.welcome-card'),ready=q(section,'.readiness-card'),metrics=q(section,'.hero-grid'),context=q(section,'.two-col'),cards=qa(section,':scope > article.card').filter(n=>n!==welcome&&n!==ready),evidenceSources=cards[0],selfIntegrity=cards[1],layout=make('div','command-workbench'),main=zone('command-primary','DECIDE'),side=zone('command-side','READINESS'),wide=zone('command-wide','EVIDENCE BOUNDARY');if(welcome)main.body.appendChild(welcome);if(metrics)main.body.appendChild(metrics);if(context)main.body.appendChild(context);if(ready)side.body.appendChild(ready);if(selfIntegrity)side.body.appendChild(selfIntegrity);if(evidenceSources)wide.body.appendChild(evidenceSources);layout.append(main,side,wide);section.appendChild(layout);}
-  function composeTwoLane(view,mainSelectors,sideSelectors,wideSelectors=[]){const section=document.getElementById(view);if(!section||section.dataset.desktopComposed)return;section.dataset.desktopComposed='1';const layout=make('div','two-lane-workbench'),main=zone('lane-main','PRIMARY'),side=zone('lane-side','CONTEXT'),wide=zone('lane-wide','DETAIL'),claim=(selector,target)=>qa(section,`:scope > ${selector}`).forEach(node=>target.body.appendChild(node));mainSelectors.forEach(s=>claim(s,main));sideSelectors.forEach(s=>claim(s,side));wideSelectors.forEach(s=>claim(s,wide));[...section.children].filter(node=>!node.classList.contains('workspace-intro')&&!node.classList.contains('two-lane-workbench')&&!node.classList.contains('workspace-zone')).forEach(node=>wide.body.appendChild(node));layout.append(main,side);if(wide.body.children.length)layout.appendChild(wide);section.appendChild(layout);}
-  function composeQuickCheck(){const section=document.getElementById('quickcheck');if(!section||section.dataset.desktopComposed)return;section.dataset.desktopComposed='1';const hero=q(section,'.quick-hero'),metrics=document.getElementById('quickCheckMetrics'),cards=qa(section,':scope > article.card').filter(n=>n!==hero),recommended=cards[0],queue=cards[1],layout=make('div','decision-workbench'),observe=zone('decision-observe','OBSERVE'),review=zone('decision-review','REVIEW'),next=zone('decision-next','NEXT');if(hero)observe.body.appendChild(hero);if(metrics)observe.body.appendChild(metrics);if(queue)review.body.appendChild(queue);if(recommended)next.body.appendChild(recommended);layout.append(observe,review,next);section.appendChild(layout);}
-  function composeIncidents(){const section=document.getElementById('incidents');if(!section||section.dataset.desktopComposed)return;section.dataset.desktopComposed='1';const articles=qa(section,':scope > article.card'),summary=articles[0],list=articles[1],deep=document.getElementById('incidentDeepReviewCard'),guide=q(section,':scope > .two-col'),layout=make('div','case-workbench'),queueZone=zone('case-queue','CASES'),detailZone=zone('case-detail','SELECTED CASE'),modelZone=zone('case-model','READING MODEL');if(summary)queueZone.body.appendChild(summary);if(list)queueZone.body.appendChild(list);if(deep)detailZone.body.appendChild(deep);if(guide)modelZone.body.appendChild(guide);layout.append(queueZone,detailZone,modelZone);section.appendChild(layout);}
-  function composeChanges(){const section=document.getElementById('changes');if(!section||section.dataset.desktopComposed)return;section.dataset.desktopComposed='1';const hero=q(section,'.change-hero'),pair=q(section,':scope > .two-col'),inbox=qa(section,':scope > article.card').find(n=>n!==hero),layout=make('div','watch-workbench'),control=zone('watch-control','WATCH'),events=zone('watch-events','INBOX'),review=zone('watch-review','REINSPECT'),model=zone('watch-model','CONFIDENCE');if(hero)control.body.appendChild(hero);if(inbox)events.body.appendChild(inbox);if(pair){const parts=[...pair.children];if(parts[1])review.body.appendChild(parts[1]);if(parts[0])model.body.appendChild(parts[0]);pair.remove();}layout.append(control,events,review,model);section.appendChild(layout);}
-  function composeWeakness(){const section=document.getElementById('weakness');if(!section||section.dataset.desktopComposed)return;section.dataset.desktopComposed='1';const queryCard=q(section,'.power-search-card'),pair=q(section,':scope > .two-col'),sensor=qa(section,':scope > article.card').find(n=>n!==queryCard),layout=make('div','investigate-workbench'),queryZone=zone('investigate-query','QUERY'),visibility=zone('investigate-visibility','VISIBILITY'),boundary=zone('investigate-boundary','SENSOR BOUNDARY');if(queryCard)queryZone.body.appendChild(queryCard);if(pair){[...pair.children].forEach(n=>visibility.body.appendChild(n));pair.remove();}if(sensor)boundary.body.appendChild(sensor);layout.append(queryZone,visibility,boundary);section.appendChild(layout);}
-  function composeStorage(){const section=document.getElementById('storage');if(!section||section.dataset.desktopComposed)return;section.dataset.desktopComposed='1';const scan=q(section,':scope > article.card'),insights=document.getElementById('storageInsights'),duplicates=document.getElementById('duplicatesPanel'),families=document.getElementById('familiesPanel'),files=qa(section,':scope > article.card').find(n=>n!==scan),layout=make('div','storage-workbench'),control=zone('storage-control','MEASURE'),footprint=zone('storage-footprint','FOOTPRINT'),objects=zone('storage-objects','OBJECTS'),candidates=zone('storage-candidates','COMPARE');if(scan)control.body.appendChild(scan);if(insights)footprint.body.appendChild(insights);if(files)objects.body.appendChild(files);if(duplicates)candidates.body.appendChild(duplicates);if(families)candidates.body.appendChild(families);layout.append(control,footprint,objects,candidates);section.appendChild(layout);}
-  function composeEvidence(){const section=document.getElementById('intelligence');if(!section||section.dataset.desktopComposed)return;section.dataset.desktopComposed='1';const hero=q(section,'.intelligence-hero'),graph=qa(section,':scope > article.card').find(n=>n!==hero),bottom=q(section,'.intelligence-bottom'),layout=make('div','evidence-workbench'),capture=zone('evidence-capture','CAPTURE'),graphZone=zone('evidence-graph-zone','RELATIONSHIPS'),time=zone('evidence-time','TIME'),object=zone('evidence-object','OBJECT');if(hero)capture.body.appendChild(hero);if(graph)graphZone.body.appendChild(graph);if(bottom){const parts=[...bottom.children];if(parts[0])time.body.appendChild(parts[0]);if(parts[1])object.body.appendChild(parts[1]);bottom.remove();}layout.append(capture,graphZone,time,object);section.appendChild(layout);}
-  function composeActions(){const section=document.getElementById('actions');if(!section||section.dataset.desktopComposed)return;section.dataset.desktopComposed='1';const warning=q(section,'.action-warning'),pair=q(section,':scope > .two-col'),formCard=qa(section,':scope > article.card').find(n=>q(n,'#actionForm')),preview=document.getElementById('actionPreviewCard'),vault=qa(section,':scope > article.card').find(n=>q(n,'#vaultList')),journal=qa(section,':scope > article.card').find(n=>q(n,'#actionJournal')),layout=make('div','resolve-workbench'),guard=zone('resolve-guard','SAFETY GATE'),act=zone('resolve-action','TARGET & IMPACT'),recover=zone('resolve-recover','RECOVERY');if(warning)guard.body.appendChild(warning);if(pair){[...pair.children].forEach(n=>guard.body.appendChild(n));pair.remove();}if(formCard)act.body.appendChild(formCard);if(preview)act.body.appendChild(preview);if(vault)recover.body.appendChild(vault);if(journal)recover.body.appendChild(journal);layout.append(guard,act,recover);section.appendChild(layout);}
-  function composeGenericViews(){composeTwoLane('hardware',['.hardware-hero','.two-col'],['.privacy-hardware'],['article.card:not(.hardware-hero):not(.privacy-hardware)']);composeTwoLane('security',['article.card'],['#findings']);composeTwoLane('integrity',['article.card'],[]);composeTwoLane('behavior',['.behavior-hero'],['.behavior-history-grid'],['article.card']);composeTwoLane('trust',['.trust-hero','article.card:last-of-type'],['.two-col'],['article.card']);composeTwoLane('processes',['article.card:first-of-type'],['#processDetail']);composeTwoLane('startup',['article.card'],[]);composeTwoLane('persistence',['article.card'],[]);composeTwoLane('background',['article.card:first-of-type'],['article.card:last-of-type']);composeTwoLane('network',['article.card'],[]);composeTwoLane('cleanup',['article.card'],[]);composeTwoLane('guide',['article.card:first-of-type'],['.two-col'],['article.card']);}
-  function composeAllViews(){for(const [view,meta] of Object.entries(IA))addWorkspaceIntro(document.getElementById(view),meta);composeOverview();composeQuickCheck();composeIncidents();composeChanges();composeWeakness();composeStorage();composeEvidence();composeActions();composeGenericViews();}
-  function applyDesktopNames(){for(const [view,meta] of Object.entries(IA)){const button=q(document,`.nav[data-view="${view}"]`);if(button&&button.textContent!==meta.nav)button.textContent=meta.nav;}const active=q(document,'.view.active')?.id||'overview',meta=IA[active];if(!meta)return;setText('#pageTitle',meta.title);setText('#pageSub',meta.sub);const section=document.getElementById(active),stage=q(section,':scope > .workspace-intro .workspace-stage'),question=q(section,':scope > .workspace-intro .workspace-question');if(stage)stage.textContent=meta.stage;if(question)question.textContent=meta.question;}
+  // EXAMINE — CASES
+  {
+    const s=screen('incidents','CORRELATE','Which observations belong to the same story?','Confidence means relationship strength between evidence, never malware probability.');
+    retitle('rebuildIncidents','Rebuild cases'); retitle('loadIncidentHistory','History');
+    const summary=panel('Case state','Correlate related filesystem, persistence, behavior, and reference observations.',[toolbar([atom('rebuildIncidents','fp-button primary'),atom('loadIncidentHistory','fp-button quiet')]),atom('incidentSummary','fp-result')]);
+    const list=panel('Case queue','Read the strongest connected story before opening individual objects.',[atom('incidentList','fp-feed')],'fp-case-list');
+    const deep=atom('incidentDeepReviewCard','fp-state-panel hidden');
+    if(deep){ const h=$('h2',deep); if(h)h.textContent='Selected case'; const p=$('.section-head p',deep); if(p)p.textContent='Reinspect the primary object with current evidence.'; retitle('closeIncidentDeepReview','Close'); }
+    const detail=panel('Case detail','A selected case can be re-inspected without changing files.',[deep || note('Choose a case to open its evidence.')]);
+    append(s,summary,two(list,detail,'fp-case-grid'),note('READ: timeline + object identity + persistence + drift together. DO NOT INFER: a high case severity is not proof of malicious intent.','boundary'));
+  }
 
-  installNavigation();rewriteStaticCopy();rewriteEmptyStates();relabelButtons();composeAllViews();applyDesktopNames();
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{installNavigation();rewriteStaticCopy();rewriteEmptyStates();relabelButtons();composeAllViews();applyDesktopNames();},{once:true});
-  const app=q(document,'.app');if(app){const observer=new MutationObserver(records=>{if(records.some(r=>r.type==='attributes'&&r.attributeName==='class'))queueMicrotask(applyDesktopNames);});observer.observe(app,{subtree:true,attributes:true,attributeFilter:['class']});}
+  // EXAMINE — SEARCH
+  {
+    const s=screen('weakness','QUERY','What exact object or blind spot am I trying to understand?','Search current evidence first. Broaden to filename discovery only when necessary.');
+    const deep=normalizeForm('deepSearchForm','fp-form-search');
+    retitle('runDeepSearch','Search filenames');
+    const query=panel('Target search','Filename discovery reads names and paths only; it does not index file contents.',[deep,atom('deepSearchMeta','fp-meta'),atom('deepSearchResults','fp-feed')]);
+    retitle('runWeaknessAudit','Audit visibility'); retitle('loadCoverage','Refresh coverage'); retitle('loadAdvancedSensor','Check boundary');
+    const coverage=panel('Can Sentinel answer this?','Visibility limits are part of the result. Missing evidence should lower confidence, not create guesses.',[toolbar([atom('runWeaknessAudit','fp-button'),atom('loadCoverage','fp-button quiet')]),atom('weaknessAudit','fp-result'),atom('coverageMap','fp-result')]);
+    const sensor=panel('Advanced sensor boundary','Endpoint Security requires Apple entitlement and a System Extension. Sentinel must not pretend it is active.',[toolbar([atom('loadAdvancedSensor','fp-button quiet')]),atom('advancedSensorStatus','fp-result')]);
+    append(s,two(query,coverage,'fp-search-grid'),sensor);
+  }
 
-  const endpointRules=[['/api/system-profile','hardware','Reading machine'],['/api/quick-check','quickcheck','Building snapshot'],['/api/review-queue','quickcheck','Building review queue'],['/api/guided-snapshot','quickcheck','Capturing evidence'],['/api/readiness','overview','Verifying Sentinel'],['/api/search/deep','weakness','Searching filenames'],['/api/weakness-audit','weakness','Auditing visibility'],['/api/coverage','weakness','Reading coverage'],['/api/advanced-sensor/status','weakness','Checking sensor boundary'],['/api/search','weakness','Searching evidence'],['/api/changes','changes','Updating watch'],['/api/incidents','incidents','Building cases'],['/api/storage','storage','Measuring storage'],['/api/security/audit','security','Running evidence audit'],['/api/self/integrity','overview','Verifying Sentinel binary'],['/api/integrity','integrity','Verifying object'],['/api/intelligence','intelligence','Building relationships'],['/api/object/story','intelligence','Building object narrative'],['/api/behavior','behavior','Comparing behavior'],['/api/trust','trust','Comparing reference'],['/api/process/detail','processes','Inspecting process'],['/api/processes','processes','Loading processes'],['/api/startup','startup','Loading startup'],['/api/persistence','persistence','Comparing persistence'],['/api/background','background','Loading background'],['/api/network','network','Loading network'],['/api/cleanup/preview','cleanup','Analyzing reclaimable space'],['/api/actions','actions','Preparing reversible action'],['/api/report/export','overview','Building evidence report'],['/api/diagnostics/export','overview','Building diagnostics'],['/api/capabilities','overview','Checking evidence sources'],['/api/overview','overview','Refreshing command view']];
-  const panelState=new WeakMap();
-  function stateFor(panel){let state=panelState.get(panel);if(!state){state={active:0,percent:0,timer:null};panelState.set(panel,state);}return state;}
-  function panelForView(viewId){const view=document.getElementById(viewId)||q(document,'.view.active');if(!view)return null;let panel=q(view,'.sentinel-task-progress');if(panel)return panel;const host=q(view,'.workspace-intro')||q(view,'.card')||view;panel=make('div','sentinel-task-progress');panel.dataset.state='idle';const head=make('div','sentinel-progress-head');head.append(make('b','','Ready'),make('strong','','0%'));const bar=document.createElement('progress');bar.className='sentinel-percent-bar';bar.max=100;bar.value=0;panel.append(head,bar,make('small','sentinel-progress-detail','Progress appears when a localhost evidence request starts.'));host.appendChild(panel);return panel;}
-  function setPanel(panel,percent,label,detail,stateName='running'){if(!panel)return;const value=Math.max(0,Math.min(100,Math.round(Number(percent)||0))),state=stateFor(panel);state.percent=value;panel.dataset.state=stateName;const head=q(panel,'.sentinel-progress-head'),b=q(head,'b'),strong=q(head,'strong'),bar=q(panel,'.sentinel-percent-bar'),small=q(panel,'.sentinel-progress-detail');if(b)b.textContent=label;if(strong)strong.textContent=`${value}%`;if(bar)bar.value=value;if(small)small.textContent=detail||'';}
-  function stopTimer(panel){const state=stateFor(panel);if(state.timer)clearInterval(state.timer);state.timer=null;}
-  function requestInfo(input){try{const raw=typeof input==='string'?input:(input?.url||''),url=new URL(raw,location.origin),match=endpointRules.find(([prefix])=>url.pathname.startsWith(prefix));return{path:url.pathname,view:match?.[1]||q(document,'.view.active')?.id||'overview',label:match?.[2]||'Working locally'};}catch{return{path:'',view:q(document,'.view.active')?.id||'overview',label:'Working locally'};}}
-  function beginRequest(info){const panel=panelForView(info.view);if(!panel)return null;const state=stateFor(panel);state.active+=1;if(state.active===1){const start=state.percent>=100?8:Math.max(8,state.percent||8);setPanel(panel,start,info.label,`${info.path} · local evidence request started.`,'running');state.timer=setInterval(()=>{const next=Math.min(92,state.percent+(state.percent<45?4:1));setPanel(panel,next,info.label,'Waiting for the local Sentinel engine.','running');},450);}return panel;}
+  // EXAMINE — RELATIONS
+  {
+    const s=screen('intelligence','CONNECT','How do objects relate, and in what order?','Relationship, time, and object context are read together.');
+    retitle('captureEvidence','Capture evidence'); retitle('loadEvidence','Refresh relations'); retitle('loadTimeline','Refresh timeline');
+    const topLine=panel('Capture',[].join(''),[toolbar([atom('captureEvidence','fp-button primary'),atom('loadEvidence','fp-button quiet')]),atom('evidenceSummary','fp-evidence-summary'),atom('evidenceNote','fp-meta')]);
+    const graph=panel('Relationship canvas','Startup → file → process → network. The graph is a map of observed relationships, not a threat diagram.',[atom('graphWrap','fp-graph'),atom('graphObjects','fp-object-index')],'fp-graph-panel');
+    const objectStory=atom('objectStory','fp-state-panel'); if(objectStory){ const h=$('h2',objectStory); if(h)h.textContent='Selected object'; }
+    const object=panel('Object inspector','All currently correlated evidence for one object.',[objectStory || atom('storyBody','fp-result')],'fp-inspector');
+    const timeline=panel('Time','Changes observed in Sentinel captures.',[toolbar([atom('loadTimeline','fp-button quiet')]),atom('timelineList','fp-feed')]);
+    append(s,topLine,two(graph,object,'fp-relation-grid'),timeline);
+  }
+
+  // EXAMINE — AUDIT
+  {
+    const s=screen('security','ASSESS','Which evidence deserves review, and why?','The score ranks attention. It is not a malware probability.');
+    retitle('runAudit','Run audit');
+    const summary=el('section','fp-audit-head');
+    summary.append(toolbar([atom('runAudit','fp-button primary')]));
+    const score=el('div','fp-score-pair');
+    score.append((()=>{const x=el('div');x.append(el('span','','Priority'),atom('riskScore','fp-score'));return x;})(),(()=>{const x=el('div');x.append(el('span','','Assessment'),atom('riskLevel','fp-score-label'));return x;})());
+    summary.append(score,atom('riskDisclaimer','fp-meta'));
+    const findings=panel('Evidence findings','Each item should explain what was observed and why it is worth review.',[atom('findings','fp-feed')]);
+    append(s,summary,findings,note('Signed code can still behave badly; unsigned code can still be legitimate. Treat signing, location, persistence, and network context as separate evidence.','boundary'));
+  }
+
+  // EXAMINE — OBJECT
+  {
+    const s=screen('integrity','VERIFY','What can I establish about this exact object?','Hash, signature, and Gatekeeper context identify and describe an object; they do not prove intent.');
+    const form=normalizeForm('integrityForm','fp-object-form'); retitle('inspectIntegrity','Verify object');
+    append(s,panel('Target','Inspect one path on demand.',[form]),panel('Verification result','Read identity evidence before interpretation.',[atom('integrityBody','fp-result detail')]));
+  }
+
+  // OBSERVE — CHANGES
+  {
+    const s=screen('changes','WATCH','What changed inside the scope I chose?','A narrow watch is more useful than pretending to monitor the whole system.');
+    const controls=selectorAtom('.change-controls','fp-watch-controls');
+    retitle('startChanges','Start'); retitle('stopChanges','Stop'); retitle('reviewChanges','Reinspect changed'); retitle('reconcileChanges','Reconcile'); retitle('clearChanges','Clear inbox'); retitle('loadChangeHistory','History'); retitle('refreshChanges','Refresh');
+    const watch=panel('Watch scope','Choose where to observe. Native FSEvents is used when available; bounded polling is the fallback.',[controls,atom('changeStatus','fp-result')]);
+    const inbox=panel('Change stream','Newest observations first.',[toolbar([atom('loadChangeHistory','fp-button quiet'),atom('refreshChanges','fp-button quiet')]),atom('changeEvents','fp-feed')],'fp-stream');
+    const review=panel('Reinspection','Re-check only changed startup configuration and a bounded set of changed regular files.',[atom('changeReview','fp-result')]);
+    append(s,two(watch,inbox,'fp-watch-grid'),review);
+  }
+
+  // OBSERVE — BEHAVIOR
+  {
+    const s=screen('behavior','COMPARE','What is different from the previous observation?','Change pressure measures difference, not danger.');
+    retitle('captureBehavior','Capture & compare'); retitle('loadBehavior','Load'); retitle('loadBehaviorHistory','Trend'); retitle('loadBehaviorHealth','Verify history');
+    const state=panel('Comparison state','Current bounded metadata against the previous capture.',[toolbar([atom('captureBehavior','fp-button primary'),atom('loadBehavior','fp-button quiet')]),atom('behaviorSummary','fp-compare-strip'),atom('behaviorBaseline','fp-meta')]);
+    const changes=panel('Observed differences','Review changes as evidence, not verdicts.',[atom('behaviorChanges','fp-feed')]);
+    const trend=panel('Change trend','A bounded history of evidence pressure.',[toolbar([atom('loadBehaviorHistory','fp-button quiet')]),atom('behaviorTrend','fp-result'),atom('behaviorHistoryList','fp-feed')]);
+    const health=panel('History integrity','Can the stored comparison history be read reliably?',[toolbar([atom('loadBehaviorHealth','fp-button quiet')]),atom('baselineHealth','fp-result')]);
+    append(s,state,two(changes,trend),health);
+  }
+
+  // OBSERVE — REFERENCE
+  {
+    const s=screen('trust','REFERENCE','What differs from the state I explicitly approved?','A reference is context, not a permanent safety certificate.');
+    retitle('compareTrust','Compare'); retitle('captureTrust','Set reference'); retitle('loadTrustHealth','Verify reference'); retitle('exportTrust','Export'); retitle('restoreTrust','Restore previous'); retitle('loadTrustHistory','History');
+    const state=panel('Reference state','Identity and bounded fingerprints compared with your chosen reference.',[toolbar([atom('compareTrust','fp-button primary'),atom('captureTrust','fp-button'),atom('exportTrust','fp-button quiet'),atom('restoreTrust','fp-button quiet')]),atom('trustSummary','fp-compare-strip'),atom('trustStatus','fp-meta')]);
+    const drift=panel('Drift evidence','Differences from the reference, prioritized for review.',[atom('trustChanges','fp-feed')]);
+    const history=panel('Comparison history','Recent comparisons against the reference active at that time.',[toolbar([atom('loadTrustHistory','fp-button quiet')]),atom('trustHistoryList','fp-feed')]);
+    const health=panel('Reference integrity','Verify the current and previous reference stores.',[toolbar([atom('loadTrustHealth','fp-button quiet')]),atom('trustHealth','fp-result')]);
+    append(s,state,two(drift,history),health);
+  }
+
+  // SYSTEM — MACHINE
+  {
+    const s=screen('hardware','CONTEXT','What machine is this evidence coming from?','Hardware explains capability and compatibility; unique device identifiers are unnecessary here.');
+    retitle('loadSystemProfile','Read machine');
+    const identityPanel=panel('Machine identity','Model, processor, architecture, and Sentinel engine context.',[toolbar([atom('loadSystemProfile','fp-button primary')]),atom('hardwareSummary','fp-result')]);
+    const hw=panel('Hardware','Physical resources reported by macOS.',[atom('hardwareGrid','fp-kv')]);
+    const sw=panel('Runtime','Operating system, kernel, architecture, and translation context.',[atom('softwareGrid','fp-kv')]);
+    append(s,identityPanel,two(hw,sw));
+  }
+
+  // SYSTEM — RUNNING
+  {
+    const s=screen('processes','LIVE','What is running right now?','Inspect a process as an identity with executable and network context.');
+    retitle('loadProcesses','Refresh');
+    const filter=atom('processFilter','fp-input'); if(filter)filter.placeholder='Filter processes';
+    const list=panel('Process list','Current snapshot, ordered by the underlying engine.',[toolbar([filter,atom('loadProcesses','fp-button quiet')]),atom('processTable','fp-table')]);
+    const detail=atom('processDetail','fp-state-panel hidden'); if(detail){const h=$('h2',detail);if(h)h.textContent='Selected process';retitle('closeProcessDetail','Close');}
+    append(s,two(list,panel('Process inspector','Select a process to correlate executable identity, signature, and TCP activity.',[detail || note('Select a process.')]),'fp-process-grid'));
+  }
+
+  // SYSTEM — AUTO-START
+  {
+    const s=screen('startup','DECLARE','What is configured to launch automatically?','Automatic launch is normal for many legitimate helpers; context matters.');
+    retitle('loadStartup','Refresh');
+    append(s,panel('Launch declarations','Review path, signature, and selected manifest behavior together.',[toolbar([atom('loadStartup','fp-button quiet')]),atom('startupTable','fp-table')]));
+  }
+
+  // SYSTEM — PERSISTENCE
+  {
+    const s=screen('persistence','COMPARE','Did launch configuration change during this session?','This is a session SHA-256 comparison of visible launch configuration, not continuous surveillance.');
+    retitle('capturePersistence','Capture / compare'); retitle('loadPersistence','Refresh');
+    append(s,panel('Persistence state','Additions, removals, and same-name content changes.',[toolbar([atom('capturePersistence','fp-button primary'),atom('loadPersistence','fp-button quiet')]),atom('persistenceSummary','fp-meta'),atom('persistenceChanges','fp-feed')]));
+  }
+
+  // SYSTEM — BACKGROUND
+  {
+    const s=screen('background','REGISTER','What background registrations exist beyond classic launch files?','Read-only view of macOS Background Task Management when available.');
+    retitle('loadBackground','Refresh');
+    append(s,panel('Background registrations','Modern registrations complement, rather than replace, classic startup evidence.',[toolbar([atom('loadBackground','fp-button quiet')]),atom('backgroundNote','fp-meta'),atom('backgroundTable','fp-table')]));
+  }
+
+  // SYSTEM — NETWORK
+  {
+    const s=screen('network','LIVE','Which local processes currently have TCP activity?','A connection is context. Public endpoints are common and are not suspicious by themselves.');
+    retitle('loadNetwork','Refresh');
+    append(s,panel('TCP snapshot','Read endpoints together with the local process that owns them.',[toolbar([atom('loadNetwork','fp-button quiet')]),atom('networkTable','fp-table')]));
+  }
+
+  // SYSTEM — STORAGE
+  {
+    const s=screen('storage','MEASURE','Where is storage pressure coming from?','Measure first. Exact duplicates and filename-version heuristics are different kinds of evidence.');
+    const presets=selectorAtom('.preset-row','fp-presets');
+    const form=normalizeForm('scanForm','fp-storage-form'); retitle('startScan','Measure'); retitle('cancelScan','Cancel');
+    const control=panel('Measurement','Choose scope, minimum size, and result budget.',[presets,form,atom('scanProgress','fp-result hidden'),atom('scanSummary','fp-meta')]);
+    const areas=panel('Largest areas','Measured categories in this scan.',[atom('categoryBars','fp-bars')]);
+    const types=panel('File types','Measured footprint by type.',[atom('typeBars','fp-bars')]);
+    const files=panel('Largest objects','Objects that crossed the selected threshold.',[atom('fileFilter','fp-input'),atom('filesTable','fp-table')]);
+    const dup=panel('Exact duplicates','Size match followed by local SHA-256 comparison.',[atom('hashAmount','fp-chip'),atom('duplicates','fp-feed')]);
+    const fam=panel('Possible versions','Filename-family heuristic only; not proof that an object is disposable.',[atom('families','fp-feed')]);
+    append(s,control,two(areas,types),files,two(dup,fam));
+  }
+
+  // RESOLVE — RECLAIM
+  {
+    const s=screen('cleanup','REVIEW','What storage can be reviewed without deleting anything automatically?','Reclaim is an estimate and review surface. Eligible objects move to the reversible change workflow.');
+    retitle('previewCleanup','Analyze');
+    append(s,panel('Reclaimable estimate','Measure common reviewable storage categories first.',[toolbar([atom('previewCleanup','fp-button primary')]),atom('cleanupTotal','fp-result hidden'),atom('cleanupList','fp-feed')]));
+  }
+
+  // RESOLVE — CHANGE
+  {
+    const s=screen('actions','RESOLVE','What is the smallest reversible change supported by the evidence?','Changing the system is the last step. Preview impact, confirm explicitly, and preserve a recovery path.');
+    retitle('loadActionHealth','Verify recovery'); retitle('previewAction','Preview impact'); retitle('revealActionPath','Reveal target'); retitle('executeAction','Confirm change'); retitle('loadVault','Refresh Vault'); retitle('loadActionJournal','Refresh journal');
+    const safety=panel('1 · Recovery readiness','Before changing anything, verify the Vault, journal, and recovery state.',[toolbar([atom('loadActionHealth','fp-button quiet')]),atom('actionStatus','fp-result'),note('No permanent delete · no overwrite · regular user-home files only.','warning')]);
+    const form=normalizeForm('actionForm','fp-action-form');
+    const preview=atom('actionPreviewCard','fp-state-panel hidden'); if(preview){const h=$('h2',preview);if(h)h.textContent='Impact confirmation';}
+    const target=panel('2 · Target and impact','Choose one object, then build a fresh dependency-aware preview.',[form,preview]);
+    const vault=panel('3 · Recovery','Vaulted items remain locally recoverable. Restore refuses to overwrite an occupied original path.',[toolbar([atom('loadVault','fp-button quiet')]),atom('vaultList','fp-feed')]);
+    const journal=panel('Operation history','Bounded local record of reversible changes and immediate post-action observations.',[toolbar([atom('loadActionJournal','fp-button quiet')]),atom('actionJournal','fp-feed')]);
+    append(s,two(safety,target,'fp-resolve-grid'),two(vault,journal));
+  }
+
+  // GUIDE — rebuilt from scratch, no old browser content reused.
+  {
+    const s=screen('guide','MODEL','How should I use and interpret Sentinel?','Use the shortest path that can answer the question. Missing visibility is uncertainty, not evidence.');
+    const path=el('div','fp-path');
+    [['1','Observe','Start with Status or Snapshot.'],['2','Examine','Search, correlate, audit, or verify only as needed.'],['3','Compare','Use change, behavior, or reference views when time matters.'],['4','Resolve','Only after evidence review, use a reversible action.']].forEach(([n,t,d])=>{const x=el('div','fp-path-step');x.append(el('span','',n),el('b','',t),el('small','',d));path.appendChild(x);});
+    const permissions=panel('Visibility','Normal access provides substantial local evidence. Full Disk Access can expand protected-path visibility. Endpoint Security requires Apple entitlement and a System Extension.',[note('Sentinel cannot grant itself macOS permissions and should never invent conclusions for evidence it cannot read.','boundary')]);
+    const semantics=panel('Evidence semantics','Keep these concepts separate.',[]);
+    const defs=el('dl','fp-defs');
+    [['Priority','What deserves review first.'],['Confidence','How strongly observations belong together.'],['Signature','Whether signed code validates.'],['Gatekeeper','macOS distribution/trust context.'],['Reference match','Whether current identity matches a user-approved reference.'],['Change','A difference between bounded observations.']].forEach(([k,v])=>{defs.append(el('dt','',k),el('dd','',v));});
+    semantics.appendChild(defs); append(s,path,two(permissions,semantics));
+  }
+
+  // Remove presentation semantics from the adopted browser atoms. Their IDs and
+  // attached listeners stay intact; only the new shell defines visual structure.
+  $$('.fp-shell .card').forEach(n=>n.classList.remove('card'));
+  $$('.fp-shell .two-col').forEach(n=>n.classList.remove('two-col'));
+  $$('.fp-shell .section-head').forEach(n=>n.classList.add('fp-legacy-head'));
+
+  function renderTabs(spaceId, activeView){
+    tabs.replaceChildren();
+    const space=SPACES.find(x=>x.id===spaceId); if(!space)return;
+    for(const view of space.views){
+      const m=VIEWS[view],b=el('button',view===activeView?'active':'',m.label); b.type='button'; b.dataset.view=view;
+      b.addEventListener('click',()=>selectView(view)); tabs.appendChild(b);
+    }
+  }
+  function sync(view=currentLegacyView()){
+    const meta=VIEWS[view]||VIEWS.overview;
+    const space=SPACES.find(x=>x.id===meta.space)||SPACES[0];
+    $$('.fp-screen').forEach(n=>n.classList.toggle('active',n.dataset.view===view));
+    $$('.fp-space').forEach(n=>n.classList.toggle('active',n.dataset.space===space.id));
+    spaceName.textContent=space.label.toUpperCase(); viewTitle.textContent=meta.title; viewSub.textContent=meta.sub;
+    renderTabs(space.id,view);
+  }
+  sync();
+
+  // Follow navigation triggered by original app.js handlers (data-go buttons,
+  // recommendation buttons, object-story links, etc.) without intercepting them.
+  const legacyViews=$$('.desktop-compat-layer .view');
+  const navObserver=new MutationObserver(()=>queueMicrotask(()=>sync(currentLegacyView())));
+  legacyViews.forEach(v=>navObserver.observe(v,{attributes:true,attributeFilter:['class']}));
+
+  // Per-request progress. Required desktop contract is preserved, but the panel
+  // now lives in the new screen header rather than the browser dashboard.
+  const endpointRules=[
+    ['/api/system-profile','hardware','Reading machine'],['/api/quick-check','quickcheck','Building snapshot'],['/api/review-queue','quickcheck','Building queue'],['/api/guided-snapshot','quickcheck','Capturing evidence'],['/api/readiness','overview','Verifying Sentinel'],['/api/search/deep','weakness','Searching filenames'],['/api/weakness-audit','weakness','Auditing visibility'],['/api/coverage','weakness','Reading coverage'],['/api/advanced-sensor/status','weakness','Checking sensor boundary'],['/api/search','weakness','Searching evidence'],['/api/changes','changes','Updating watch'],['/api/incidents','incidents','Building cases'],['/api/storage','storage','Measuring storage'],['/api/security/audit','security','Running audit'],['/api/self/integrity','overview','Verifying engine'],['/api/integrity','integrity','Verifying object'],['/api/intelligence','intelligence','Building relations'],['/api/object/story','intelligence','Building object story'],['/api/behavior','behavior','Comparing behavior'],['/api/trust','trust','Comparing reference'],['/api/process/detail','processes','Inspecting process'],['/api/processes','processes','Loading processes'],['/api/startup','startup','Loading startup'],['/api/persistence','persistence','Comparing persistence'],['/api/background','background','Loading background'],['/api/network','network','Loading network'],['/api/cleanup/preview','cleanup','Analyzing space'],['/api/actions','actions','Preparing change'],['/api/report/export','overview','Building report'],['/api/diagnostics/export','overview','Building diagnostics'],['/api/capabilities','overview','Checking sources'],['/api/overview','overview','Refreshing status']
+  ];
+  const progressState=new WeakMap();
+  function screenFor(view){ return $(`.fp-screen[data-view="${view}"]`) || $('.fp-screen.active'); }
+  function progressPanel(view){
+    const host=screenFor(view); if(!host)return null;
+    let p=$('.sentinel-task-progress',host); if(p)return p;
+    p=el('div','sentinel-task-progress'); p.dataset.state='idle';
+    const head=el('div','sentinel-progress-head'); head.append(el('b','','Ready'),el('strong','','0%'));
+    const bar=document.createElement('progress'); bar.className='sentinel-percent-bar'; bar.max=100; bar.value=0;
+    p.append(head,bar,el('small','sentinel-progress-detail','Progress appears only after a real localhost request starts.'));
+    $('.fp-screen-head',host)?.appendChild(p); return p;
+  }
+  function pstate(panel){let s=progressState.get(panel);if(!s){s={active:0,percent:0,timer:null};progressState.set(panel,s);}return s;}
+  function setProgress(panel,percent,label,detail,state='running'){
+    if(!panel)return;const value=Math.max(0,Math.min(100,Math.round(Number(percent)||0))),s=pstate(panel);s.percent=value;panel.dataset.state=state;
+    const b=$('.sentinel-progress-head b',panel),strong=$('.sentinel-progress-head strong',panel),bar=$('.sentinel-percent-bar',panel),small=$('.sentinel-progress-detail',panel);
+    if(b)b.textContent=label;if(strong)strong.textContent=`${value}%`;if(bar)bar.value=value;if(small)small.textContent=detail||'';
+  }
+  function stopProgressTimer(panel){const s=pstate(panel);if(s.timer)clearInterval(s.timer);s.timer=null;}
+  function requestInfo(input){
+    try{const raw=typeof input==='string'?input:(input?.url||''),url=new URL(raw,location.origin),match=endpointRules.find(([prefix])=>url.pathname.startsWith(prefix));return{path:url.pathname,view:match?.[1]||currentLegacyView(),label:match?.[2]||'Working locally'};}catch{return{path:'',view:currentLegacyView(),label:'Working locally'};}
+  }
+  function beginRequest(info){
+    const panel=progressPanel(info.view);if(!panel)return null;const s=pstate(panel);s.active+=1;
+    if(s.active===1){setProgress(panel,Math.max(8,s.percent>=100?8:s.percent||8),info.label,`${info.path} · localhost request started.`,'running');s.timer=setInterval(()=>setProgress(panel,Math.min(92,s.percent+(s.percent<45?4:1)),info.label,'Waiting for the local Sentinel engine.','running'),450);}return panel;
+  }
   const storagePhaseLabel=phase=>({walking:'Scanning files',grouping:'Preparing duplicate candidates',hashing:'Hashing duplicate candidates',finalizing:'Building storage report',complete:'Storage scan complete',cancelled:'Storage scan cancelled',failed:'Storage scan failed'}[phase]||'Scanning storage');
-  const formatBytes=value=>{let n=Math.max(0,Number(value)||0);const units=['B','KB','MB','GB','TB'];let i=0;while(n>=1024&&i<units.length-1){n/=1024;i+=1;}return`${n.toFixed(i===0||n>=10?1:2)} ${units[i]}`;};
-  function handleStorageJob(job){if(!job||typeof job!=='object')return;const panel=panelForView('storage');if(!panel)return;const phase=String(job.phase||job.status||'walking'),percent=Number(job.phase_percent||(job.status==='complete'?100:12)),files=Number(job.files_visited||0),dirs=Number(job.dirs_visited||0),slow=Number(job.slow_paths_skipped||0),hashFilesDone=Number(job.hash_files_done||0),hashFilesTotal=Number(job.hash_files_total||0),hashBytesDone=Number(job.hash_bytes_done||0),hashBytesTotal=Number(job.hash_bytes_total||0),currentHashPath=String(job.current_hash_path||''),bits=[`${files.toLocaleString()} files`,`${dirs.toLocaleString()} folders`,`${slow.toLocaleString()} slow paths skipped`];if(phase==='hashing'||hashFilesTotal>0||hashBytesTotal>0){bits.push(`${hashFilesDone.toLocaleString()}/${hashFilesTotal.toLocaleString()} hash files`);bits.push(`${formatBytes(hashBytesDone)} / ${formatBytes(hashBytesTotal)} hashed`);if(currentHashPath)bits.push(currentHashPath);}const stateName=job.status==='failed'?'error':job.status==='complete'?'complete':'running';setPanel(panel,percent,storagePhaseLabel(phase),bits.join(' · '),stateName);}
+  const formatBytes=value=>{let n=Math.max(0,Number(value)||0);const units=['B','KB','MB','GB','TB'];let i=0;while(n>=1024&&i<units.length-1){n/=1024;i++;}return`${n.toFixed(i===0||n>=10?1:2)} ${units[i]}`;};
+  function handleStorageJob(job){
+    if(!job||typeof job!=='object')return;const panel=progressPanel('storage');if(!panel)return;
+    const phase=String(job.phase||job.status||'walking'),percent=Number(job.phase_percent||(job.status==='complete'?100:12)),files=Number(job.files_visited||0),dirs=Number(job.dirs_visited||0),slow=Number(job.slow_paths_skipped||0),hashFilesDone=Number(job.hash_files_done||0),hashFilesTotal=Number(job.hash_files_total||0),hashBytesDone=Number(job.hash_bytes_done||0),hashBytesTotal=Number(job.hash_bytes_total||0),currentHashPath=String(job.current_hash_path||''),bits=[`${files.toLocaleString()} files`,`${dirs.toLocaleString()} folders`,`${slow.toLocaleString()} slow paths skipped`];
+    if(phase==='hashing'||hashFilesTotal>0||hashBytesTotal>0){bits.push(`${hashFilesDone.toLocaleString()}/${hashFilesTotal.toLocaleString()} hash files`);bits.push(`${formatBytes(hashBytesDone)} / ${formatBytes(hashBytesTotal)} hashed`);if(currentHashPath)bits.push(currentHashPath);}
+    setProgress(panel,percent,storagePhaseLabel(phase),bits.join(' · '),job.status==='failed'?'error':job.status==='complete'?'complete':'running');
+  }
 
   const nativeFetch=window.fetch.bind(window);
-  window.fetch = async (...args)=>{const info=requestInfo(args[0]),panel=beginRequest(info);try{const response=await nativeFetch(...args);let payload=null;try{const type=response.headers.get('content-type')||'';if(type.includes('application/json'))payload=await response.clone().json();}catch{payload=null;}if(payload&&info.path.startsWith('/api/storage'))handleStorageJob(payload);if(panel){const state=stateFor(panel);state.active=Math.max(0,state.active-1);if(state.active===0){stopTimer(panel);if(!payload||!info.path.startsWith('/api/storage')||payload.status!=='running'){setPanel(panel,100,response.ok?`${info.label} complete`:`${info.label} failed`,response.ok?'Evidence updated from the local engine.':`Local request failed: HTTP ${response.status}`,response.ok?'complete':'error');}}}return response;}catch(error){if(panel){stopTimer(panel);const state=stateFor(panel);state.active=0;setPanel(panel,100,`${info.label} failed`,`Local request failed: ${error?.message||error}`,'error');}throw error;}};
-  window.addEventListener('error',event=>{const panel=panelForView(q(document,'.view.active')?.id||'overview');if(panel)setPanel(panel,100,'Interface error',`Interface error: ${event.message||'Unknown desktop UI error'}`,'error');});
-  window.addEventListener('unhandledrejection',event=>{const panel=panelForView(q(document,'.view.active')?.id||'overview'),detail=event.reason?.message||String(event.reason||'Unknown rejection');if(panel)setPanel(panel,100,'Interface error',`Interface error: ${detail}`,'error');});
+  window.fetch = async (...args)=>{
+    const info=requestInfo(args[0]),panel=beginRequest(info);
+    try{
+      const response=await nativeFetch(...args);let payload=null;
+      try{if((response.headers.get('content-type')||'').includes('application/json'))payload=await response.clone().json();}catch{payload=null;}
+      if(payload&&info.path.startsWith('/api/storage'))handleStorageJob(payload);
+      if(panel){const s=pstate(panel);s.active=Math.max(0,s.active-1);if(s.active===0){stopProgressTimer(panel);if(!payload||!info.path.startsWith('/api/storage')||payload.status!=='running')setProgress(panel,100,response.ok?`${info.label} complete`:`${info.label} failed`,response.ok?'Local engine returned successfully.':`Local request failed: HTTP ${response.status}`,response.ok?'complete':'error');}}
+      return response;
+    }catch(error){if(panel){stopProgressTimer(panel);const s=pstate(panel);s.active=0;setProgress(panel,100,`${info.label} failed`,`Local request failed: ${error?.message||error}`,'error');}throw error;}
+  };
+  window.addEventListener('error',event=>{const panel=progressPanel(currentLegacyView());if(panel)setProgress(panel,100,'Interface error',`Interface error: ${event.message||'Unknown desktop UI error'}`,'error');});
+  window.addEventListener('unhandledrejection',event=>{const panel=progressPanel(currentLegacyView()),detail=event.reason?.message||String(event.reason||'Unknown rejection');if(panel)setProgress(panel,100,'Interface error',`Interface error: ${detail}`,'error');});
 })();
