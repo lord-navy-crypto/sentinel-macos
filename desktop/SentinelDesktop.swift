@@ -19,7 +19,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
     private var stdoutBuffer = Data()
     private var stderrBuffer = Data()
     private var isQuitting = false
-    private var dashboardURL: URL?
+    private var productURL: URL?
 
     private var statusLabel: NSTextField!
     private var detailLabel: NSTextField!
@@ -48,12 +48,12 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
 
     private func buildWindow() {
         window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 640, height: 330),
+            contentRect: NSRect(x: 0, y: 0, width: 650, height: 330),
             styleMask: [.titled, .closable, .miniaturizable],
             backing: .buffered,
             defer: false
         )
-        window.title = "Sentinel Mac"
+        window.title = "Sentinel Mac 2.4"
         window.center()
         window.delegate = self
 
@@ -73,19 +73,19 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         let title = NSTextField(labelWithString: "Sentinel Mac")
         title.font = .systemFont(ofSize: 24, weight: .semibold)
 
-        let subtitle = NSTextField(labelWithString: "Local Mac System Intelligence")
+        let subtitle = NSTextField(labelWithString: "Local Evidence · Native Frontend")
         subtitle.font = .systemFont(ofSize: 13, weight: .regular)
         subtitle.textColor = .secondaryLabelColor
 
         statusLabel = NSTextField(labelWithString: "Starting local engine…")
         statusLabel.font = .systemFont(ofSize: 14, weight: .medium)
 
-        detailLabel = NSTextField(wrappingLabelWithString: "Sentinel starts one loopback-only engine. When it is ready, choose the full browser dashboard or the native App View. Both use the same localhost data and session.")
+        detailLabel = NSTextField(wrappingLabelWithString: "Sentinel starts one loopback-only engine and one Sentinel 2.4 product interface. Open it in your browser or inside the native App View; both containers use the same local source, session, and evidence.")
         detailLabel.font = .systemFont(ofSize: 12)
         detailLabel.textColor = .secondaryLabelColor
         detailLabel.maximumNumberOfLines = 4
 
-        browserButton = NSButton(title: "Open in Browser", target: self, action: #selector(openBrowserDashboard))
+        browserButton = NSButton(title: "Open in Browser", target: self, action: #selector(openBrowserProduct))
         browserButton.bezelStyle = .rounded
         browserButton.keyEquivalent = "\r"
         browserButton.isEnabled = false
@@ -102,7 +102,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         buttonRow.alignment = .centerY
         buttonRow.spacing = 10
 
-        let hint = NSTextField(labelWithString: "Browser is the compatibility-first view. App View is the native-window evidence workbench.")
+        let hint = NSTextField(labelWithString: "Browser and App View render the same Sentinel 2.4 Native Frontend; only the window container differs.")
         hint.font = .systemFont(ofSize: 11)
         hint.textColor = .tertiaryLabelColor
 
@@ -126,7 +126,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
             textStack.topAnchor.constraint(equalTo: root.topAnchor, constant: 28),
             textStack.bottomAnchor.constraint(lessThanOrEqualTo: root.bottomAnchor, constant: -28),
 
-            detailLabel.widthAnchor.constraint(lessThanOrEqualToConstant: 455)
+            detailLabel.widthAnchor.constraint(lessThanOrEqualToConstant: 465)
         ])
 
         window.makeKeyAndOrderFront(nil)
@@ -140,7 +140,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         let appMenu = NSMenu()
         appMenu.addItem(withTitle: "About Sentinel Mac", action: #selector(showAbout), keyEquivalent: "")
         appMenu.addItem(NSMenuItem.separator())
-        appMenu.addItem(withTitle: "Open in Browser", action: #selector(openBrowserDashboard), keyEquivalent: "o")
+        appMenu.addItem(withTitle: "Open in Browser", action: #selector(openBrowserProduct), keyEquivalent: "o")
         appMenu.addItem(withTitle: "Open App View", action: #selector(openAppView), keyEquivalent: "a")
         appMenu.addItem(NSMenuItem.separator())
         appMenu.addItem(withTitle: "Quit Sentinel Mac", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
@@ -150,30 +150,31 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
 
     @objc private func showAbout() {
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
+        let ui = Bundle.main.object(forInfoDictionaryKey: "SentinelDesktopUI") as? String ?? "2.4 Native Frontend"
         let alert = NSAlert()
         alert.messageText = "Sentinel Mac"
-        alert.informativeText = "Local Mac System Intelligence\nVersion \(version)\n\nSentinel runs one loopback-only local engine. You can use the full dashboard in your default browser or open the same localhost session inside the native App View."
+        alert.informativeText = "Local Evidence\nVersion \(version)\n\(ui)\n\nSentinel runs one architecture-matched, loopback-only local engine. Browser and native App View render the same token-authenticated Sentinel product source."
         alert.addButton(withTitle: "OK")
         alert.runModal()
     }
 
-    @objc private func openBrowserDashboard() {
-        guard let dashboardURL else {
+    @objc private func openBrowserProduct() {
+        guard let productURL else {
             NSSound.beep()
             return
         }
-        NSWorkspace.shared.open(dashboardURL)
+        NSWorkspace.shared.open(productURL)
     }
 
     @objc private func openAppView() {
-        guard let dashboardURL else {
+        guard let productURL else {
             NSSound.beep()
             return
         }
 
         if let appViewWindow, let webView {
-            if webView.url != dashboardURL {
-                webView.load(URLRequest(url: dashboardURL, cachePolicy: .useProtocolCachePolicy, timeoutInterval: 30))
+            if webView.url != productURL {
+                webView.load(URLRequest(url: productURL, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 30))
             }
             appViewWindow.makeKeyAndOrderFront(nil)
             NSApplication.shared.activate(ignoringOtherApps: true)
@@ -190,13 +191,13 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         view.navigationDelegate = self
 
         let appWindow = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 1420, height: 880),
+            contentRect: NSRect(x: 0, y: 0, width: 1440, height: 900),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
         )
-        appWindow.title = "Sentinel Mac · Evidence Workbench"
-        appWindow.minSize = NSSize(width: 1120, height: 700)
+        appWindow.title = "Sentinel 2.4 · Local Evidence"
+        appWindow.minSize = NSSize(width: 1080, height: 700)
         appWindow.isReleasedWhenClosed = false
         appWindow.contentView = view
         appWindow.center()
@@ -204,17 +205,17 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         self.webView = view
         self.appViewWindow = appWindow
 
-        view.load(URLRequest(url: dashboardURL, cachePolicy: .useProtocolCachePolicy, timeoutInterval: 30))
+        view.load(URLRequest(url: productURL, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 30))
         appWindow.makeKeyAndOrderFront(nil)
         NSApplication.shared.activate(ignoringOtherApps: true)
     }
 
-    private func isAllowedAppViewURL(_ url: URL?) -> Bool {
+    private func isAllowedProductURL(_ url: URL?) -> Bool {
         guard let url else { return false }
         if url.scheme == "about" || url.scheme == "blob" { return true }
         guard url.scheme == "http", url.host == "127.0.0.1" else { return false }
-        guard let dashboardURL else { return true }
-        return url.port == dashboardURL.port
+        guard let productURL else { return true }
+        return url.port == productURL.port
     }
 
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
@@ -222,7 +223,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
             decisionHandler(.cancel)
             return
         }
-        if isAllowedAppViewURL(url) {
+        if isAllowedProductURL(url) {
             decisionHandler(.allow)
         } else {
             NSWorkspace.shared.open(url)
@@ -232,8 +233,8 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
 
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
         if let url = navigationAction.request.url {
-            if isAllowedAppViewURL(url) {
-                webView.load(URLRequest(url: url))
+            if isAllowedProductURL(url) {
+                webView.load(URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 30))
             } else {
                 NSWorkspace.shared.open(url)
             }
@@ -360,16 +361,16 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
             }
 
             components.path = "/"
-            components.queryItems = [URLQueryItem(name: "desktop", value: "1")]
+            components.query = nil
             components.fragment = "token=\(payload.token)"
             guard let url = components.url else { continue }
 
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
-                self.dashboardURL = url
+                self.productURL = url
                 self.window.title = "Sentinel Mac \(payload.version)"
-                self.statusLabel.stringValue = "Local engine ready"
-                self.detailLabel.stringValue = "Dashboard: \(payload.origin)\nChoose Browser for compatibility or App View for the three-zone evidence workbench. Both use this same local session."
+                self.statusLabel.stringValue = "Local engine ready · Sentinel \(payload.version)"
+                self.detailLabel.stringValue = "Product source: \(payload.origin)\nBrowser and App View both open the same Sentinel 2.4 Native Frontend and the same token-authenticated local evidence session."
                 self.browserButton.isEnabled = true
                 self.appViewButton.isEnabled = true
             }
