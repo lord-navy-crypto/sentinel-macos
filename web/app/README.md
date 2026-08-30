@@ -37,6 +37,6 @@ The startup order is deliberate:
 
 `workbench.css` adds matrix, heatmap, flow, completeness, onboarding, investigation, and selection visualizations. `full-scan.css` adds the side-by-side scan choice, real Full Scan progress stages, retained-source freshness strip, and responsive Capability Atlas. Neither creates a second dashboard.
 
-For the user-facing functional map and Full Scan pipeline, see `../docs/CAPABILITY_ATLAS.md` from the repository root (`docs/CAPABILITY_ATLAS.md`).
+For the user-facing functional map and Full Scan pipeline, see [`docs/CAPABILITY_ATLAS.md`](../../docs/CAPABILITY_ATLAS.md).
 
 There is no monolithic controller or retired dashboard compatibility runtime in the default startup path. Historical `scan-center.js/css` names remain retired; the current Scan Center is implemented by `full-scan.js/css`. Standalone workspaces outside this directory are auxiliary surfaces and must not be required for startup.
