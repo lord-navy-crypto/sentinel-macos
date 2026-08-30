@@ -178,7 +178,6 @@
     s.appendChild(m); screens.appendChild(s); return s;
   }
   function split(...nodes){ const g=el('div','v4-split'); add(g,nodes); return g; }
-  function well(node,className=''){ if(!node)return null; const w=el('div',`v4-well ${className}`.trim()); w.appendChild(node); return w; }
   function info(text,tone=''){ return el('div',`v4-info ${tone}`.trim(),text); }
   function form(id,className=''){ return atom(id,`v4-form ${className}`.trim()); }
 
@@ -242,7 +241,7 @@
   {
     const s=mast('intelligence'); rename('captureEvidence','Capture evidence'); rename('loadEvidence','Refresh relations'); rename('loadTimeline','Refresh timeline');
     add(s,
-      band('01','Capture',[].join(''),'',[toolbar([atom('captureEvidence','v4-control primary'),atom('loadEvidence','v4-control')]),atom('evidenceSummary','v4-mini-signals'),atom('evidenceNote','v4-meta')],'primary'),
+      band('01','Capture','Take a bounded relationship snapshot before interpreting the graph.',[toolbar([atom('captureEvidence','v4-control primary'),atom('loadEvidence','v4-control')]),atom('evidenceSummary','v4-mini-signals'),atom('evidenceNote','v4-meta')],'primary'),
       band('02','Relationship canvas','Startup → file → process → endpoint. Edges show observed relationships, not threat causality.',[atom('graphWrap','v4-graph'),atom('graphObjects','v4-object-index')],'graph'),
       band('03','Time','Order captured changes without turning sequence into causality.',[toolbar([atom('loadTimeline','v4-control')]),atom('timelineList','v4-feed timeline')])
     );
