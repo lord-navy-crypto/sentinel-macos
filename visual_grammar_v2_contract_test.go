@@ -40,7 +40,7 @@ func TestVisualGrammarV2MappingsLiveInOneProductController(t *testing.T) {
 		"renderStatus", "renderSnapshot", "renderCases", "renderSearch", "renderRelations", "renderAudit", "renderObject",
 		"renderChanges", "renderBehavior", "renderReference", "renderMachine", "renderProcesses", "renderStartup",
 		"renderStorage", "renderReclaim", "renderSafeChange", "renderVisibility", "renderGuide",
-		"Relationship canvas", "Change stream", "Measured footprint", "Safety gate", "Investigation model",
+		"Relationship field", "Observed evidence relationships", "Observed changes", "Measured footprint", "Safety gate", "Investigation model",
 	}
 	for _, want := range checks {
 		if !strings.Contains(js, want) { t.Fatalf("Sentinel 2.4 product controller missing visual/evidence mapping %q", want) }
