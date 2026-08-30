@@ -22,36 +22,34 @@ func requireInvestigationSourceContains(t *testing.T, path string, needles ...st
 	return source
 }
 
-func TestContinueInvestigationRoutesAndBridgeAreWired(t *testing.T) {
-	requireInvestigationSourceContains(t, "main.go",
+func TestContinueInvestigationRoutesAndSentinel24EntryAreWired(t *testing.T) {
+	mainSource := requireInvestigationSourceContains(t, "main.go",
 		`/api/security/investigate`,
 		`continue-investigation`,
 		`/api/security/context`,
 		`investigation-runtime-context`,
 		`/api/launch-services`,
 		`/api/launch-services/detail`,
-		`/investigation-bridge.js`,
+	)
+	if strings.Contains(mainSource, `/investigation-bridge.js`) {
+		t.Fatal("Sentinel 2.4 default server must not inject the retired investigation bridge")
+	}
+	requireInvestigationSourceContains(t, "web/sentinel-24.js",
+		`/api/incidents`,
+		`/api/intelligence/graph`,
+		`/api/intelligence/timeline`,
+		`/api/object/story`,
+		`Which observations belong together?`,
+		`How are the objects connected?`,
 	)
 	requireInvestigationSourceContains(t, "deep_investigation.go",
 		`mode`,
 		`sessions`,
 		`handleInvestigationSessions`,
 	)
-	requireInvestigationSourceContains(t, "web/investigation-bridge.js",
-		`/api/security/audit`,
-		`/api/incidents`,
-		`Continue Investigation`,
-		`/investigation.html#`,
-		`findingStartingPath`,
-		`incidentStartingPath`,
-		`incidentEvidencePaths`,
-		`paths.length >= 6`,
-		`explicit local evidence node`,
-		`attachIncidentButtons`,
-	)
 }
 
-func TestContinueInvestigationWorkspaceSupportsBranchingAndCorrelation(t *testing.T) {
+func TestHistoricalContinueInvestigationWorkspaceSupportsBranchingAndCorrelation(t *testing.T) {
 	requireInvestigationSourceContains(t, "web/investigation.html",
 		`Continue Investigation`,
 		`A report is a node, not the end.`,
@@ -88,7 +86,7 @@ func TestContinueInvestigationWorkspaceSupportsBranchingAndCorrelation(t *testin
 }
 
 func TestContinueInvestigationWebSurfaceAvoidsDynamicCodeExecution(t *testing.T) {
-	for _, path := range []string{"web/investigation.js", "web/investigation-bridge.js"} {
+	for _, path := range []string{"web/sentinel-24.js", "web/investigation.js", "web/investigation-bridge.js"} {
 		source := requireInvestigationSourceContains(t, path)
 		for _, forbidden := range []string{"eval(", "new Function(", "document.write("} {
 			if strings.Contains(source, forbidden) {
