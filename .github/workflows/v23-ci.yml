@@ -52,14 +52,12 @@ jobs:
       - name: Sentinel 2.4 JavaScript syntax
         run: node --check web/sentinel-24.js
 
-      - name: Historical tool JavaScript syntax
+      - name: Retained specialist workspace JavaScript syntax
         run: |
           node --check web/app.js
           node --check web/core-compat.js
           node --check web/desktop-ui.js
           node --check web/i18n.js
-          node --check web/easy.js
-          node --check web/scan-center.js
           node --check web/compare-center.js
           node --check web/alpha-center.js
           node --check web/workspace-centers.js
