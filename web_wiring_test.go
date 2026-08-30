@@ -13,15 +13,16 @@ func readUIFile(t *testing.T, path string) string { t.Helper(); b, err := os.Rea
 
 func TestSentinelApplicationIsTheDefaultProductSource(t *testing.T) {
 	html := readUIFile(t, "web/index.html")
-	for _, want := range []string{`data-sentinel-generation="2.4-native"`,`href="/app/shell.css"`,`href="/app/advanced.css"`,`src="/app/core.js"`,`src="/app/lenses/orient-investigate.js"`,`src="/app/lenses/compare.js"`,`src="/app/lenses/system.js"`,`src="/app/lenses/act-limits.js"`,`src="/app/advanced.js"`,`src="/app/runtime.js"`,`id="missionRibbon"`,`id="lensRail"`,`id="evidenceStage"`,`id="contextTray"`,`id="activityBar"`} { if !strings.Contains(html, want) { t.Fatalf("Sentinel application shell missing %q", want) } }
+	for _, want := range []string{`data-sentinel-generation="2.4-native"`,`href="/app/shell.css"`,`href="/app/advanced.css"`,`href="/app/workbench.css"`,`src="/app/core.js"`,`src="/app/lenses/orient-investigate.js"`,`src="/app/lenses/compare.js"`,`src="/app/lenses/system.js"`,`src="/app/lenses/act-limits.js"`,`src="/app/advanced.js"`,`src="/app/case-stories.js"`,`src="/app/system-evidence.js"`,`src="/app/workbench.js"`,`src="/app/runtime.js"`,`id="missionRibbon"`,`id="lensRail"`,`id="evidenceStage"`,`id="contextTray"`,`id="activityBar"`} { if !strings.Contains(html, want) { t.Fatalf("Sentinel application shell missing %q", want) } }
 	for _, retired := range []string{`/app/controller.js`,`src="/app.js"`,`href="/style.css"`,`desktop-ui.js`,`class="sidebar"`,`id="easyMode"`,`Sentinel 2.2`,`Desktop Conversion`,`/sentinel-24.js`,`/sentinel-24.css`} { if strings.Contains(html, retired) { t.Fatalf("default product source still contains retired marker %q", retired) } }
 	if _, err := os.Stat("web/app/controller.js"); !os.IsNotExist(err) { t.Fatal("retired monolithic controller must not exist") }
 }
 
 func TestSentinelApplicationOwnsNavigationAndState(t *testing.T) {
-	core := requireProductScript(t, "web/app/core.js"); runtime := requireProductScript(t, "web/app/runtime.js")
+	core := requireProductScript(t, "web/app/core.js"); runtime := requireProductScript(t, "web/app/runtime.js"); workbench := requireProductScript(t, "web/app/workbench.js")
 	for _, want := range []string{"Sentinel 2.4 Native Frontend","const MISSIONS","const LENSES","missionRibbon","lensRail","window.SentinelApp","ORIENT","CORRELATE","CONNECT","COMPARE","RESOLVE","BOUND"} { if !strings.Contains(core, want) { t.Fatalf("application core missing %q", want) } }
 	for _, want := range []string{"window.__SENTINEL_24__","architecture:'modular-app'","document.addEventListener('click'","document.addEventListener('submit'"} { if !strings.Contains(runtime, want) { t.Fatalf("application runtime missing %q", want) } }
+	for _, want := range []string{"Sentinel 2.4 Investigation Workbench","Workspace Persistence","Cross-Lens Selection","Natural-language Command Bar"} { if !strings.Contains(workbench, want) { t.Fatalf("application workbench missing %q", want) } }
 }
 
 func TestSentinelApplicationAPIReferencesHaveRegisteredRoutes(t *testing.T) {
@@ -34,7 +35,7 @@ func TestSentinelApplicationAPIReferencesHaveRegisteredRoutes(t *testing.T) {
 
 func TestSentinelApplicationPreservesEvidenceAndSafetyWorkflows(t *testing.T) {
 	js := readProductScripts(t)
-	for _, want := range []string{"/api/quick-check","/api/review-queue","/api/incidents","/api/search/deep","/api/intelligence/graph","/api/intelligence/graph/v2","/api/intelligence/timeline/grouped","/api/object/story/v2","/api/security/audit","/api/integrity/inspect","/api/processes","/api/startup","/api/persistence","/api/background","/api/network","/api/changes/start","/api/behavior","/api/trust/capture","/api/storage/jobs","/api/storage/cancel","/api/storage/aging","/api/cleanup/preview","/api/actions/preview","/api/actions/execute","system-snapshot-capture","system-snapshot-diff","storage-history","recovery","confirm_phrase","confirm_code","acknowledge:true","state.actionPreview","Nothing is deleted automatically"} { if !strings.Contains(js, want) { t.Fatalf("application workflow missing %q", want) } }
+	for _, want := range []string{"/api/quick-check","/api/review-queue","/api/incidents","/api/search/deep","/api/intelligence/graph","/api/intelligence/graph/v2","/api/intelligence/timeline/grouped","/api/object/story/v2","/api/security/audit","/api/integrity/inspect","/api/processes","/api/startup","/api/persistence","/api/background","/api/network","/api/network/history","/api/changes/start","/api/behavior","/api/trust/capture","/api/trust/history","/api/storage/jobs","/api/storage/cancel","/api/storage/aging","/api/cleanup/preview","/api/actions/preview","/api/actions/execute","system-snapshot-capture","system-snapshot-diff","storage-history","recovery","confirm_phrase","confirm_code","acknowledge:true","state.actionPreview","Nothing is deleted automatically","Simulation stops at preview","Evidence Bundle"} { if !strings.Contains(js, want) { t.Fatalf("application workflow missing %q", want) } }
 }
 
 func TestSentinelApplicationUsesAuthenticatedLocalRequests(t *testing.T) {
