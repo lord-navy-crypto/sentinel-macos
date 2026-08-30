@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   core:
-    name: Go core and web contracts
+    name: Go core and product contracts
     runs-on: macos-latest
     timeout-minutes: 24
     steps:
@@ -40,6 +40,8 @@ jobs:
           CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o /tmp/sentinel-amd64 .
           test -s /tmp/sentinel-arm64
           test -s /tmp/sentinel-amd64
+          LC_ALL=C grep -aFq 'Sentinel 2.4 Native Frontend' /tmp/sentinel-arm64
+          LC_ALL=C grep -aFq 'Sentinel 2.4 Native Frontend' /tmp/sentinel-amd64
 
       - name: Go race tests
         run: go test -race ./...
@@ -47,7 +49,10 @@ jobs:
       - name: Go vet
         run: go vet ./...
 
-      - name: JavaScript syntax
+      - name: Sentinel 2.4 JavaScript syntax
+        run: node --check web/sentinel-24.js
+
+      - name: Historical tool JavaScript syntax
         run: |
           node --check web/app.js
           node --check web/core-compat.js
