@@ -2,7 +2,7 @@
 
 Sentinel is a local-first macOS evidence and system-intelligence application. It observes current system state, correlates related evidence, compares change over time, verifies individual objects, measures storage pressure, and exposes a deliberately bounded reversible-response path.
 
-The 2.4 product has one frontend architecture:
+The current product has one frontend architecture:
 
 ```text
 Sentinel.app
@@ -10,20 +10,22 @@ Sentinel.app
       └─ architecture-matched Go engine
           ├─ binds 127.0.0.1 on a random port
           ├─ issues an in-memory session token
-          ├─ serves the Sentinel 2.4 Native Frontend
+          ├─ serves the Sentinel application frontend
           └─ exposes authenticated local APIs
 
-Sentinel 2.4 Native Frontend
+Sentinel application frontend
   ├─ web/index.html
-  ├─ web/sentinel-24.css
-  └─ web/sentinel-24.js
+  └─ web/app/
+      ├─ shell.css
+      ├─ controller.js
+      └─ README.md
 ```
 
-The same product source can be opened in the default browser or inside Sentinel's native WKWebView App View. There is no separate legacy dashboard in the normal startup path and no desktop-only DOM rewrite layer.
+The same product source opens in the default browser or inside Sentinel's native WKWebView App View. There is no separate legacy dashboard in the normal startup path and no desktop-only DOM rewrite layer.
 
 ## Product model
 
-Sentinel 2.4 organizes work by intent rather than by a wall of diagnostic modules:
+Sentinel organizes work by intent rather than by a wall of diagnostic modules:
 
 - **Orient** — current state and a bounded review snapshot.
 - **Investigate** — cases, search, relationships, audit, and exact-object verification.
@@ -36,7 +38,7 @@ A result is evidence, not a verdict. Priority and attention scores rank review w
 
 ## Core capabilities
 
-Sentinel retains the hardened Go evidence engine while replacing the old product UI. Current capabilities include:
+Sentinel retains the hardened Go evidence engine while using a single current product UI. Current capabilities include:
 
 - system overview and readiness checks;
 - Quick Check and unified review queue;
@@ -79,7 +81,7 @@ For a clean reinstall into `/Applications` while preserving Sentinel user state:
 ./reinstall-macos.sh
 ```
 
-The desktop build produces a Universal launcher and embeds separate Go engines for Apple Silicon and Intel. The build verifies that the Sentinel 2.4 frontend marker is present in both engine binaries.
+The desktop build produces a Universal launcher and embeds separate Go engines for Apple Silicon and Intel. The build verifies that the Sentinel frontend marker is present in both engine binaries.
 
 ## Development engine
 
@@ -107,7 +109,7 @@ go test ./...
 bash SMOKE_TEST_LOCALHOST.command
 ```
 
-CI additionally checks Go race behavior, `go vet`, JavaScript syntax, shell syntax, macOS architecture build smoke tests, and product contracts that prevent the retired dashboard injection path from returning to the default frontend.
+CI additionally checks Go race behavior, `go vet`, JavaScript syntax, shell syntax, macOS architecture build smoke tests, and product contracts that prevent retired dashboard paths from returning to the default frontend.
 
 ## Distribution
 
@@ -130,17 +132,33 @@ A future production distribution can use Developer ID signing, Hardened Runtime,
 
 ## Repository layout
 
-Important current product files:
+Current structure:
 
-- `main.go` — localhost server, API routing, authentication, and direct 2.4 product serving.
-- `web/index.html` — minimal 2.4 application document.
-- `web/sentinel-24.css` — current product visual system.
-- `web/sentinel-24.js` — current product controller and direct API client.
+```text
+web/index.html              product document
+web/app/                    default Sentinel application runtime
+web/aux-*                   shared auxiliary-workspace foundation
+web/*-center.html           retained deep workspaces while unique capabilities migrate
+
+desktop/                    native AppKit/WKWebView launcher
+endpointsecurity/            optional advanced-sensor source scaffold
+
+docs/history/               retired architecture/planning documents
+docs/releases/              historical release notes
+.github/workflows/ci.yml    current validation pipeline
+```
+
+Important runtime files:
+
+- `main.go` — localhost server, API routing, authentication, and direct product serving.
+- `web/index.html` — minimal application document.
+- `web/app/shell.css` — current product visual system.
+- `web/app/controller.js` — current product controller while lens code is split into domain modules.
 - `desktop/SentinelDesktop.swift` — native launcher and WKWebView container.
 - `build-desktop-macos.sh` — Universal macOS app build.
 - `reinstall-macos.sh` — local clean rebuild/reinstall helper.
 
-The repository still contains some historical or specialized standalone web workspaces from earlier releases. They are not the default Sentinel 2.4 product runtime. Their remaining dependencies are being reduced rather than silently reintroduced into `index.html`.
+Standalone deep workspaces are auxiliary surfaces, not a second product architecture. Their unique capabilities should migrate inward; duplicated shells should be deleted rather than reintroduced into the main document.
 
 ## License
 
