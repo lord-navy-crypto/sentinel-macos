@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Sentinel Process Relationship Explorer</title>
   <link rel="stylesheet" href="/process-relations.css">
-  <link rel="stylesheet" href="/v23-navigation.css">
+  <link rel="stylesheet" href="/aux-navigation.css">
 </head>
 <body>
   <main class="shell">
     <header class="hero">
-      <div><p class="eyebrow">Sentinel v2.3 · Runtime relationships</p><h1>Process Relationship Explorer</h1><p>Follow one PID across parent/child processes, executable identity, open files and loaded objects, TCP evidence, persistence references, and Object Story context.</p></div>
+      <div><p class="eyebrow">Sentinel 2.4 · AUX Runtime</p><h1>Process Relationship Explorer</h1><p>Follow one PID across parent/child processes, executable identity, open files and loaded objects, TCP evidence, persistence references, and Object Story context.</p></div>
       <a id="backLink" class="back-link" href="/">Back to Sentinel</a>
     </header>
     <section class="principles"><article><b>Process</b><span>Start from one PID.</span></article><article><b>Lineage</b><span>See parents and visible children.</span></article><article><b>Resources</b><span>Correlate open objects and sockets.</span></article><article><b>Persistence</b><span>Connect runtime state to launch configuration.</span></article></section>
@@ -24,6 +24,6 @@
     <section id="limitationsPanel" class="panel hidden" data-viz="visibility"><div class="section-head"><div><p class="eyebrow">Visibility</p><h2>Limits & Unknowns</h2></div></div><div id="limitationsList" class="limitations"></div></section>
   </main>
   <script src="/process-relations.js"></script>
-  <script src="/v23-navigation.js"></script>
+  <script src="/aux-navigation.js"></script>
 </body>
 </html>
