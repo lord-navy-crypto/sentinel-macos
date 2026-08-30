@@ -18,7 +18,7 @@ var canonicalProductScripts = []string{
 	"web/app/case-stories.js",
 	"web/app/system-evidence.js",
 	"web/app/workbench.js",
-	"web/app/scan-center.js",
+	"web/app/full-scan.js",
 	"web/app/runtime.js",
 }
 
@@ -54,7 +54,7 @@ func TestApplicationRegistersEveryDeclaredLens(t *testing.T) {
 		if !strings.Contains(all, needle) { t.Fatalf("canonical modular application does not register lens %q", lens) }
 	}
 
-	// Advanced product modules, the Investigation Workbench, and Scan Center may
+	// Advanced product modules, the Investigation Workbench, and Full Scan may
 	// intentionally replace a renderer for an existing lens. Protect the complete
 	// declared lens set rather than freezing implementation to one registration.
 	re := regexp.MustCompile(`registerLens\('([^']+)'`)
@@ -62,7 +62,7 @@ func TestApplicationRegistersEveryDeclaredLens(t *testing.T) {
 	for _, match := range re.FindAllStringSubmatch(all, -1) {
 		if len(match) == 2 { unique[match[1]] = true }
 	}
-	if len(unique) != len(declared) { t.Fatalf("expected %d distinct canonical lenses, got %d: %#v", len(declared), len(unique), unique) }
+	if len(unique) != len(declared) { t.Fatalf("expected %d distinct canonical lenses, got %d: %#v", len(declared), len(unique)) }
 	for _, lens := range declared { if !unique[lens] { t.Fatalf("declared lens %q is not registered", lens) } }
 	if _, err := os.Stat("web/app/controller.js"); !os.IsNotExist(err) { t.Fatal("retired monolithic controller returned") }
 }
