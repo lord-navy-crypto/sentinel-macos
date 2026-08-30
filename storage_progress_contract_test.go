@@ -12,7 +12,7 @@ func TestStorageProgressContract(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	jsBytes, err := os.ReadFile("web/desktop-ui.js")
+	jsBytes, err := os.ReadFile("web/sentinel-24.js")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,18 +36,18 @@ func TestStorageProgressContract(t *testing.T) {
 	}
 
 	for _, field := range []string{
-		"job.phase",
-		"job.phase_percent",
-		"job.hash_files_done",
-		"job.hash_files_total",
-		"job.hash_bytes_done",
-		"job.hash_bytes_total",
-		"job.current_hash_path",
-		"Hashing duplicate candidates",
+		"j.phase",
+		"j.phase_percent",
+		"j.hash_files_done",
+		"j.hash_files_total",
+		"j.hash_bytes_done",
+		"j.hash_bytes_total",
+		"j.current_hash_path",
+		"Hash candidates",
 		"Building storage report",
 	} {
 		if !strings.Contains(js, field) {
-			t.Fatalf("desktop storage progress UI missing %q", field)
+			t.Fatalf("Sentinel 2.4 storage progress UI missing %q", field)
 		}
 	}
 }
