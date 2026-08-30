@@ -157,10 +157,17 @@
 
   function installDock() {
     const stage = $('#evidenceStage');
-    if (!stage || stage.querySelector('.s24-action-dock')) return;
+    if (!stage) return;
     const question = stage.querySelector('.s24-question');
     if (!question) return;
-    question.insertAdjacentHTML('afterend', dockHTML(state.lens));
+    const anchor = state.lens === 'status' ? (stage.querySelector('#scanCenterBand') || question) : question;
+    let dock = stage.querySelector('.s24-action-dock');
+    if (!dock) {
+      anchor.insertAdjacentHTML('afterend', dockHTML(state.lens));
+      dock = stage.querySelector('.s24-action-dock');
+    } else if (dock.previousElementSibling !== anchor) {
+      anchor.insertAdjacentElement('afterend', dock);
+    }
   }
 
   function installHeaderButtons() {
