@@ -74,9 +74,9 @@ func main() {
 	}
 	defer instanceLock.release()
 
-	// Existing local state is migrated before managers read it. The 2.4 product
-	// rewrite changes presentation/runtime wiring, not the evidence/state format.
-	runV23StateMigrations(*ephemeral)
+	// Existing local state is migrated before managers read it. Historical
+	// schema identifiers remain only where they describe persisted formats.
+	runStateMigrations(*ephemeral)
 
 	token := randomToken(24)
 	intel := newIntelligenceManager()
@@ -125,11 +125,11 @@ func main() {
 	mux.HandleFunc("/api/storage/scan", a.auth(a.handleStorageScan))
 	mux.HandleFunc("/api/storage/jobs", a.auth(a.handleStorageJobs))
 	mux.HandleFunc("/api/storage/cancel", a.auth(a.handleStorageCancel))
-	mux.HandleFunc("/api/storage/aging", a.auth(a.handleStorageAgingV23))
+	mux.HandleFunc("/api/storage/aging", a.auth(a.handleStorageAging))
 	mux.HandleFunc("/api/security/audit", a.auth(a.work.wrap("security-audit", a.handleSecurityAudit)))
 	mux.HandleFunc("/api/security/investigate", a.auth(a.work.wrap("continue-investigation", a.handleContinueInvestigation)))
 	mux.HandleFunc("/api/security/context", a.auth(a.work.wrap("investigation-runtime-context", a.handleInvestigationRuntimeContext)))
-	mux.HandleFunc("/api/security/investigation/export", a.auth(a.work.wrap("investigation-bundle-export", a.handleInvestigationBundleExportV23)))
+	mux.HandleFunc("/api/security/investigation/export", a.auth(a.work.wrap("investigation-bundle-export", a.handleInvestigationBundleExport)))
 	mux.HandleFunc("/api/process/detail", a.auth(a.handleProcessDetail))
 	mux.HandleFunc("/api/report/export", a.auth(a.work.wrap("report-export", a.handleReportExport)))
 	mux.HandleFunc("/api/cleanup/preview", a.auth(a.handleCleanupPreview))
@@ -156,7 +156,7 @@ func main() {
 	// Diagnostics, integrity, persistence, reversible actions, and changes.
 	mux.HandleFunc("/api/doctor", a.auth(a.handleDoctor))
 	mux.HandleFunc("/api/diagnostics/export", a.auth(a.work.wrap("diagnostics-export", a.handleDiagnosticsExport)))
-	mux.HandleFunc("/api/integrity/inspect", a.auth(a.work.wrap("integrity-inspect", a.handleIntegrityInspectV24)))
+	mux.HandleFunc("/api/integrity/inspect", a.auth(a.work.wrap("integrity-inspect", a.handleIntegrityInspectAPI)))
 	mux.HandleFunc("/api/self/integrity", a.auth(a.work.wrap("self-integrity", a.handleSelfIntegrity)))
 	mux.HandleFunc("/api/persistence", a.auth(a.handlePersistence))
 	mux.HandleFunc("/api/actions/status", a.auth(a.handleActionStatus))
@@ -178,10 +178,10 @@ func main() {
 	mux.HandleFunc("/api/incidents", a.auth(a.handleIncidents))
 	mux.HandleFunc("/api/incidents/v2", a.auth(a.handleIncidentIntelligenceV2))
 	mux.HandleFunc("/api/incidents/detail", a.auth(a.work.wrap("incident-deep-review", a.handleIncidentDetail)))
-	mux.HandleFunc("/api/incidents/export", a.auth(a.work.wrap("incident-export", a.handleIncidentExportV23)))
+	mux.HandleFunc("/api/incidents/export", a.auth(a.work.wrap("incident-export", a.handleIncidentExport)))
 	mux.HandleFunc("/api/advanced-sensor/status", a.auth(a.handleAdvancedSensorStatus))
 	mux.HandleFunc("/api/readiness", a.auth(a.work.wrap("readiness", a.handleReadiness)))
-	mux.HandleFunc("/api/pre-regression", a.auth(a.handlePreRegressionV23))
+	mux.HandleFunc("/api/pre-regression", a.auth(a.handleRegressionGate))
 
 	// Sentinel 2.4 serves the product source directly. There is no runtime DOM
 	// rewrite, legacy dashboard injection, or desktop-only enhancement layer.
