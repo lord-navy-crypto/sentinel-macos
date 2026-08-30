@@ -67,7 +67,6 @@ jobs:
           node --check web/control-plane-aging-v23.js
           node --check web/investigation.js
           node --check web/investigation-stability-v23.js
-          node --check web/investigation-bridge.js
           node --check web/investigation-session-note-guard.js
           node --check web/investigation-export-v23.js
           node --check web/launch-services.js
