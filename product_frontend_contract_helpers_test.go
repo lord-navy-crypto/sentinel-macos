@@ -16,6 +16,7 @@ var canonicalProductScripts = []string{
 	"web/app/lenses/act-limits.js",
 	"web/app/advanced.js",
 	"web/app/case-stories.js",
+	"web/app/system-evidence.js",
 	"web/app/runtime.js",
 }
 
