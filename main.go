@@ -52,6 +52,7 @@ func main() {
 	doctor := flag.Bool("doctor", false, "print a local capability/privacy self-check and exit")
 	desktopMode := flag.Bool("desktop", false, "run as an embedded desktop-app engine and emit a machine-readable bootstrap line on stdout")
 	flag.Parse()
+
 	if *showVersion {
 		fmt.Printf("Sentinel macOS v%s\n", sentinelVersion)
 		return
@@ -73,10 +74,8 @@ func main() {
 	}
 	defer instanceLock.release()
 
-	// Normalize legacy Sentinel-owned metadata before any manager reads it.
-	// Migration strictly decodes the primary store first, uses the atomic
-	// state writer for changed files, and therefore preserves .bak rollback
-	// copies. In --ephemeral mode this is a no-write compatibility check.
+	// Existing local state is migrated before managers read it. The 2.4 product
+	// rewrite changes presentation/runtime wiring, not the evidence/state format.
 	runV23StateMigrations(*ephemeral)
 
 	token := randomToken(24)
@@ -97,6 +96,7 @@ func main() {
 	}
 	fileServer := http.FileServer(http.FS(staticFS))
 
+	// Core state and system evidence.
 	mux.HandleFunc("/api/overview", a.auth(a.handleOverview))
 	mux.HandleFunc("/api/system-profile", a.auth(a.handleSystemProfile))
 	mux.HandleFunc("/api/system/console", a.auth(a.handleSystemConsole))
@@ -120,6 +120,8 @@ func main() {
 	mux.HandleFunc("/api/network", a.auth(a.handleNetwork))
 	mux.HandleFunc("/api/network/history", a.auth(a.handleNetworkHistory))
 	mux.HandleFunc("/api/background", a.auth(a.handleBackgroundItems))
+
+	// Storage and security evidence.
 	mux.HandleFunc("/api/storage/scan", a.auth(a.handleStorageScan))
 	mux.HandleFunc("/api/storage/jobs", a.auth(a.handleStorageJobs))
 	mux.HandleFunc("/api/storage/cancel", a.auth(a.handleStorageCancel))
@@ -131,6 +133,8 @@ func main() {
 	mux.HandleFunc("/api/process/detail", a.auth(a.handleProcessDetail))
 	mux.HandleFunc("/api/report/export", a.auth(a.work.wrap("report-export", a.handleReportExport)))
 	mux.HandleFunc("/api/cleanup/preview", a.auth(a.handleCleanupPreview))
+
+	// Relationship, timeline, behavior, and reference evidence.
 	mux.HandleFunc("/api/intelligence/graph", a.auth(a.handleIntelligenceGraph))
 	mux.HandleFunc("/api/intelligence/graph/v2", a.auth(a.work.wrap("evidence-graph-v2", a.handleEvidenceGraphV2)))
 	mux.HandleFunc("/api/intelligence/timeline", a.auth(a.handleTimeline))
@@ -148,6 +152,8 @@ func main() {
 	mux.HandleFunc("/api/trust/history", a.auth(a.handleTrustHistory))
 	mux.HandleFunc("/api/trust/restore", a.auth(a.handleTrustRestore))
 	mux.HandleFunc("/api/trust/export", a.auth(a.handleTrustExport))
+
+	// Diagnostics, integrity, persistence, reversible actions, and changes.
 	mux.HandleFunc("/api/doctor", a.auth(a.handleDoctor))
 	mux.HandleFunc("/api/diagnostics/export", a.auth(a.work.wrap("diagnostics-export", a.handleDiagnosticsExport)))
 	mux.HandleFunc("/api/integrity/inspect", a.auth(a.work.wrap("integrity-inspect", a.handleIntegrityInspect)))
@@ -176,29 +182,19 @@ func main() {
 	mux.HandleFunc("/api/advanced-sensor/status", a.auth(a.handleAdvancedSensorStatus))
 	mux.HandleFunc("/api/readiness", a.auth(a.work.wrap("readiness", a.handleReadiness)))
 	mux.HandleFunc("/api/pre-regression", a.auth(a.handlePreRegressionV23))
+
+	// Sentinel 2.4 serves the product source directly. There is no runtime DOM
+	// rewrite, legacy dashboard injection, or desktop-only enhancement layer.
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" || r.URL.Path == "/index.html" {
 			page, readErr := fs.ReadFile(staticFS, "index.html")
 			if readErr != nil {
-				http.Error(w, "Sentinel dashboard unavailable", http.StatusInternalServerError)
+				http.Error(w, "Sentinel interface unavailable", http.StatusInternalServerError)
 				return
 			}
-			html := strings.Replace(
-				string(page),
-				"<script src=\"/app.js\"></script>",
-				"<script src=\"/core-compat.js\"></script>\n<script src=\"/app.js\"></script>\n<script src=\"/investigation-bridge.js\"></script>\n<script src=\"/command-palette.js\"></script>",
-				1,
-			)
-			// V5 is the product UI for every normal entry point. The legacy DOM is
-			// retained only as an explicit diagnostic/compatibility escape hatch.
-			if r.URL.Query().Get("legacy") != "1" {
-				html = strings.Replace(html, "</body>", "<script src=\"/desktop-ui.js\"></script>\n</body>", 1)
-				w.Header().Set("X-Sentinel-UI", "v5-evidence-notebook")
-			} else {
-				w.Header().Set("X-Sentinel-UI", "legacy-diagnostic")
-			}
+			w.Header().Set("X-Sentinel-UI", "2.4-native")
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			_, _ = w.Write([]byte(html))
+			_, _ = w.Write(page)
 			return
 		}
 		fileServer.ServeHTTP(w, r)
@@ -219,6 +215,7 @@ func main() {
 	}
 	fmt.Printf("Sentinel macOS v%s\n", sentinelVersion)
 	fmt.Println("Local-only system & security auditor")
+	fmt.Println("UI generation: 2.4 Native Frontend")
 	fmt.Println("Listening only on 127.0.0.1")
 	fmt.Println("Open:", url)
 	if *ephemeral {
