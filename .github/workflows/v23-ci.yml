@@ -1,4 +1,4 @@
-name: Sentinel v2.3 branch validation
+name: Sentinel branch validation
 
 on:
   push:
@@ -30,16 +30,16 @@ jobs:
       - name: Go tests
         run: go test ./...
 
-      - name: v2.3 pre-regression contracts
+      - name: Pre-regression contracts
         run: |
           go test ./... -run 'Migration|IncidentStory|Timeline|Export|StorageAging|ReasonCodeRegistry|RuleRegistry|VaultHealth|Navigation|PreRegression|SessionNote|Alpha|I18n|ScanCenter|ContinueInvestigation|TerminalGuide|VisualGrammarV2'
 
       - name: Darwin architecture build smoke
         run: |
-          CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o /tmp/sentinel-v23-arm64 .
-          CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o /tmp/sentinel-v23-amd64 .
-          test -s /tmp/sentinel-v23-arm64
-          test -s /tmp/sentinel-v23-amd64
+          CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o /tmp/sentinel-arm64 .
+          CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o /tmp/sentinel-amd64 .
+          test -s /tmp/sentinel-arm64
+          test -s /tmp/sentinel-amd64
 
       - name: Go race tests
         run: go test -race ./...
@@ -89,3 +89,5 @@ jobs:
           bash -n package-dev-dmg-macos.sh
           bash -n release-direct-macos.sh
           bash -n verify-release-macos.sh
+          bash -n run-fresh-desktop.sh
+          bash -n reinstall-macos.sh
