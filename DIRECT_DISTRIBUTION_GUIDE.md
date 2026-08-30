@@ -1,4 +1,4 @@
-# Sentinel 2.3 — macOS Distribution Plan
+# Sentinel 2.4 — macOS Distribution Plan
 
 ## Current priority: public Beta first
 
@@ -18,11 +18,11 @@ Normal users/testers download one DMG and drag `Sentinel.app` to `Applications`.
 
 When Sentinel starts, it launches one architecture-matched, loopback-only Go engine and shows a small native control window with three choices:
 
-- **Open in Browser** — opens the full localhost dashboard in the user's default browser. This is the compatibility-first interface.
-- **Open App View** — opens the same localhost session inside a native AppKit/WebKit window. This is the native-window Beta interface.
+- **Open in Browser** — opens the V5 Evidence Notebook in the user's default browser.
+- **Open App View** — opens the same V5 Evidence Notebook inside a native AppKit/WebKit window.
 - **Quit Sentinel** — stops the local engine and exits.
 
-Both UI modes share the same `127.0.0.1` engine, random port, session token, APIs, evidence, and safety boundaries. App View is not a second backend.
+Both UI modes share the same `127.0.0.1` engine, random port, session token, APIs, evidence, and safety boundaries. App View is not a second backend. The previous dashboard is retained only as the explicit `?legacy=1` diagnostic escape hatch.
 
 ## Why DMG instead of PKG
 
@@ -35,6 +35,12 @@ On a real Mac with current Xcode command-line tools:
 ```bash
 ./build-desktop-macos.sh
 open dist/Sentinel.app
+```
+
+For a full local reinstall into `/Applications` while preserving Sentinel user state:
+
+```bash
+./reinstall-macos.sh
 ```
 
 Run the full automated suite before packaging:
@@ -57,11 +63,11 @@ For the current public-testing Beta DMG:
 SENTINEL_RELEASE_CHANNEL=beta ./package-dev-dmg-macos.sh
 ```
 
-With the current `VERSION` value `2.3.0`, this produces:
+With the current `VERSION` value `2.4.0`, this produces:
 
 ```text
-dist/Sentinel-2.3.0-beta.dmg
-dist/Sentinel-2.3.0-beta.dmg.sha256
+dist/Sentinel-2.4.0-beta.dmg
+dist/Sentinel-2.4.0-beta.dmg.sha256
 ```
 
 Artifact filenames are derived from the repository `VERSION` file. If `VERSION` changes, use the filename printed by the packaging script rather than hard-coding an older version string.
@@ -70,17 +76,17 @@ Artifact filenames are derived from the repository `VERSION` file. If `VERSION` 
 
 Until Developer ID/notarization is enabled, use explicit Beta naming so testers do not confuse the build with the future production-signed release.
 
-Recommended Beta assets for version 2.3.0:
+Recommended Beta assets for version 2.4.0:
 
 ```text
-Sentinel-2.3.0-beta.dmg
-Sentinel-2.3.0-beta.dmg.sha256
+Sentinel-2.4.0-beta.dmg
+Sentinel-2.4.0-beta.dmg.sha256
 ```
 
 The GitHub Release title should also make the status explicit, for example:
 
 ```text
-Sentinel 2.3 Beta
+Sentinel 2.4 Beta
 ```
 
 The release notes should state that the Beta may not yet be Developer ID signed/notarized and therefore macOS Gatekeeper may treat it differently from a future production build.
@@ -148,10 +154,10 @@ export SENTINEL_BUNDLE_ID='io.github.lord-navy-crypto.sentinel'
 ./release-direct-macos.sh
 ```
 
-With the current `VERSION` value `2.3.0`, the production artifact is:
+With the current `VERSION` value `2.4.0`, the production artifact is:
 
 ```text
-dist/Sentinel-2.3.0.dmg
+dist/Sentinel-2.4.0.dmg
 ```
 
 The production pipeline:
