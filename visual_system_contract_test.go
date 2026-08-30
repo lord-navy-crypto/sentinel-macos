@@ -52,8 +52,8 @@ func TestVisualRedesignUsesDifferentEncodingsForDifferentEvidence(t *testing.T) 
 	}
 	js := visualSource(t, "web/sentinel-24.js")
 	for _, want := range []string{
-		"Current instruments", "Review queue", "Relationship canvas", "Change stream", "Measured footprint",
-		"Safety gate", "Coverage", "Investigation model",
+		"Current instruments", "Review queue", "Relationship field", "Observed evidence relationships", "Observed changes",
+		"Measured footprint", "Safety gate", "Coverage", "Investigation model",
 	} {
 		if !strings.Contains(js, want) { t.Fatalf("Sentinel 2.4 controller missing evidence surface %q", want) }
 	}
