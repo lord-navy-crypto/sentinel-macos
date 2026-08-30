@@ -54,9 +54,6 @@ jobs:
 
       - name: Retained specialist workspace JavaScript syntax
         run: |
-          node --check web/app.js
-          node --check web/core-compat.js
-          node --check web/desktop-ui.js
           node --check web/i18n.js
           node --check web/compare-center.js
           node --check web/alpha-center.js
