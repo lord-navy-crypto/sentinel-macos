@@ -1,46 +1,64 @@
 // SPDX-License-Identifier: MPL-2.0
 package main
 
-import(
- "os"
- "strings"
- "testing"
+import (
+	"os"
+	"strings"
+	"testing"
 )
 
-func TestV23NavigationLoadedAcrossCoreWorkspaces(t *testing.T){
- pages:=[]string{
-  "web/easy.html","web/scan-center.html","web/compare-center.html","web/security-center.html","web/system-center.html","web/storage-center.html",
-  "web/intelligence-center.html","web/investigation.html","web/control-plane.html","web/system-console.html",
-  "web/process-relations.html","web/network-relations.html","web/launch-services.html","web/vault-health.html",
- }
- for _,p:=range pages{raw,err:=os.ReadFile(p);if err!=nil{t.Fatal(err)};s:=string(raw);if !strings.Contains(s,"/v23-navigation.css")||!strings.Contains(s,"/v23-navigation.js"){t.Fatalf("%s missing normalized navigation assets",p)}}
+func navContractRead(t *testing.T, path string) string {
+	t.Helper()
+	raw, err := os.ReadFile(path)
+	if err != nil { t.Fatal(err) }
+	return string(raw)
 }
-func TestV23NavigationPreservesTokenAndFocusedWorkspaces(t *testing.T){
- raw,err:=os.ReadFile("web/v23-navigation.js");if err!=nil{t.Fatal(err)};s:=string(raw)
- for _,want:=range []string{"Easy","Scan","Compare","Security","Investigate","System","Processes","Network","Startup","Storage","Advanced","Recover","Terminal","Alpha","token","easy.html","scan-center.html","compare-center.html","security-center.html","system-center.html","storage-center.html","intelligence-center.html","vault-health.html"}{if !strings.Contains(s,want){t.Fatalf("navigation missing %q",want)}}
- if strings.Contains(s,"['Easy', `/${hash}`"){t.Fatalf("Easy must not route back to the legacy root dashboard")}
- for _,bad:=range []string{"innerHTML","eval(","new Function","document.write"}{if strings.Contains(s,bad){t.Fatalf("unsafe navigation pattern %q",bad)}}
+
+func TestNavigationUsesSentinel24IntentAndLensModel(t *testing.T) {
+	html := navContractRead(t, "web/index.html")
+	js := navContractRead(t, "web/sentinel-24.js")
+	for _, want := range []string{"missionRibbon", "lensRail", `aria-label="Investigation intent"`, `aria-label="Evidence lens"`} {
+		if !strings.Contains(html, want) { t.Fatalf("Sentinel 2.4 navigation HTML missing %q", want) }
+	}
+	for _, want := range []string{
+		"const MISSIONS", "Orient", "Investigate", "Compare", "System", "Act", "Limits",
+		"status", "snapshot", "cases", "search", "relations", "audit", "object",
+		"changes", "behavior", "reference", "machine", "processes", "startup", "persistence",
+		"background", "network", "storage", "reclaim", "change", "visibility", "guide",
+	} {
+		if !strings.Contains(js, want) { t.Fatalf("Sentinel 2.4 intent/lens model missing %q", want) }
+	}
 }
-func TestNavigationSeparatesWorkspacesFromTools(t *testing.T){
- raw,err:=os.ReadFile("web/v23-navigation.js");if err!=nil{t.Fatal(err)};s:=string(raw)
- for _,want:=range []string{"const primaryItems", "const toolItems", "sentinel-v23-primary", "sentinel-tool-shelf", "Sentinel primary workspaces", "Sentinel tools"}{if !strings.Contains(s,want){t.Fatalf("two-level navigation missing %q",want)}}
- primaryStart:=strings.Index(s,"const primaryItems")
- toolStart:=strings.Index(s,"const toolItems")
- if primaryStart<0||toolStart<0||toolStart<=primaryStart{t.Fatal("primary/tool arrays must be explicit and ordered")}
- primary:=s[primaryStart:toolStart]
- tools:=s[toolStart:strings.Index(s,"function ensureI18n")]
- for _,want:=range []string{"Easy","Investigate","System","Advanced","Recover","Alpha"}{if !strings.Contains(primary,want){t.Fatalf("primary workspace missing %q",want)}}
- for _,bad:=range []string{"Scan","Compare","Security","Processes","Network","Startup","Storage","Terminal"}{if strings.Contains(primary,bad){t.Fatalf("tool %q must not be promoted into primary workspace row",bad)}}
- for _,want:=range []string{"Scan","Compare","Security","Processes","Network","Startup","Storage","Terminal"}{if !strings.Contains(tools,want){t.Fatalf("tool shelf missing %q",want)}}
+
+func TestNavigationPreservesSessionTokenWithoutLegacyDesktopMode(t *testing.T) {
+	js := navContractRead(t, "web/sentinel-24.js")
+	for _, want := range []string{
+		"new URLSearchParams(location.hash.slice(1))", "get('token')", "X-Sentinel-Token", "history.replaceState",
+	} {
+		if !strings.Contains(js, want) { t.Fatalf("Sentinel 2.4 navigation/session handling missing %q", want) }
+	}
+	for _, bad := range []string{"/easy.html", "/scan-center.html", "legacy=1", "desktop=1"} {
+		if strings.Contains(navContractRead(t, "web/index.html"), bad) {
+			t.Fatalf("default product HTML must not route through retired navigation path %q", bad)
+		}
+	}
 }
-func TestFocusedWorkspacePagesStaySmallAndSafe(t *testing.T){
- pages:=[]string{"web/easy.html","web/scan-center.html","web/compare-center.html","web/security-center.html","web/system-center.html","web/storage-center.html"}
- for _,p:=range pages{raw,err:=os.ReadFile(p);if err!=nil{t.Fatal(err)};s:=string(raw);for _,bad:=range []string{"<aside class=\"sidebar\"","Sentinel 2.2 · Desktop Conversion","innerHTML","eval(","new Function","document.write"}{if strings.Contains(s,bad){t.Fatalf("%s contains legacy/unsafe pattern %q",p,bad)}}}
- scripts:=[]string{"web/easy.js","web/scan-center.js","web/compare-center.js","web/workspace-centers.js"}
- for _,p:=range scripts{raw,err:=os.ReadFile(p);if err!=nil{t.Fatal(err)};s:=string(raw);for _,bad:=range []string{"innerHTML","eval(","new Function","document.write"}{if strings.Contains(s,bad){t.Fatalf("%s contains unsafe pattern %q",p,bad)}}}
+
+func TestNavigationIsProductOwnedNotCSSInjected(t *testing.T) {
+	js := navContractRead(t, "web/sentinel-24.js")
+	css := navContractRead(t, "web/sentinel-24.css")
+	if !strings.Contains(js, "renderNavigation") || !strings.Contains(js, "data-mission") || !strings.Contains(js, "data-lens") {
+		t.Fatal("Sentinel 2.4 navigation must be rendered by the product controller")
+	}
+	for _, bad := range []string{"javascript:", "expression("} {
+		if strings.Contains(strings.ToLower(css), bad) { t.Fatalf("product CSS contains unsafe navigation/content behavior %q", bad) }
+	}
 }
-func TestNormalRootExperienceRedirectsToNewEasy(t *testing.T){
- raw,err:=os.ReadFile("web/core-compat.js");if err!=nil{t.Fatal(err)};s:=string(raw)
- for _,want:=range []string{"location.pathname === '/'","/easy.html","legacy","location.replace"}{if !strings.Contains(s,want){t.Fatalf("root compatibility bridge missing %q",want)}}
- if !strings.Contains(s,"params.get('legacy') !== '1'"){t.Fatalf("legacy dashboard must require explicit legacy=1 opt-in")}
+
+func TestNavigationDoesNotRecreateRetiredSidebarDashboard(t *testing.T) {
+	html := navContractRead(t, "web/index.html")
+	css := navContractRead(t, "web/sentinel-24.css")
+	for _, bad := range []string{`<aside class="sidebar"`, "Sentinel 2.2 · Desktop Conversion", "mode-switch", "grid-template-columns:244px minmax(0,1fr)"} {
+		if strings.Contains(html, bad) || strings.Contains(css, bad) { t.Fatalf("Sentinel 2.4 returned to retired dashboard pattern %q", bad) }
+	}
 }
