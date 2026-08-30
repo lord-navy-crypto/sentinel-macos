@@ -1,100 +1,147 @@
-# Sentinel macOS v2.2 — Desktop Conversion
+# Sentinel 2.4 — Local macOS System Intelligence
 
-> Normal-user target: **download one `Sentinel-2.2.dmg`, drag `Sentinel.app` to Applications, double-click.**
+Sentinel is a local-first macOS evidence and system-intelligence application. It observes current system state, correlates related evidence, compares change over time, verifies individual objects, measures storage pressure, and exposes a deliberately bounded reversible-response path.
 
-V2.2 preserves the V2.1 local intelligence engine and converts the product into a native-window macOS architecture: an AppKit/WKWebView shell automatically owns the lifecycle of the loopback-only Go engine. Normal users should not run `.command` files, choose CPU architecture, or see a localhost URL.
+The 2.4 product has one frontend architecture:
 
-Developer ID direct distribution files:
+```text
+Sentinel.app
+  └─ AppKit launcher
+      └─ architecture-matched Go engine
+          ├─ binds 127.0.0.1 on a random port
+          ├─ issues an in-memory session token
+          ├─ serves the Sentinel 2.4 Native Frontend
+          └─ exposes authenticated local APIs
 
-- `desktop/SentinelDesktop.swift` — native AppKit/WKWebView shell.
-- `build-desktop-macos.sh` — builds `Sentinel.app` on a real Mac.
-- `package-dev-dmg-macos.sh` — unsigned local-test DMG.
-- `release-direct-macos.sh` — Developer ID + Hardened Runtime + notarization + stapled DMG.
-- `DIRECT_DISTRIBUTION_GUIDE.md` — exact release procedure.
+Sentinel 2.4 Native Frontend
+  ├─ web/index.html
+  ├─ web/sentinel-24.css
+  └─ web/sentinel-24.js
+```
 
----
+The same product source can be opened in the default browser or inside Sentinel's native WKWebView App View. There is no separate legacy dashboard in the normal startup path and no desktop-only DOM rewrite layer.
 
-# Sentinel macOS — V2.2 Desktop Conversion
+## Product model
 
-> A local-first macOS system-intelligence, change-correlation, integrity, storage, and reversible-response platform.
+Sentinel 2.4 organizes work by intent rather than by a wall of diagnostic modules:
 
-**The browser is the interface; your Mac is the server.**
+- **Orient** — current state and a bounded review snapshot.
+- **Investigate** — cases, search, relationships, audit, and exact-object verification.
+- **Compare** — change stream, behavior differences, and approved-reference drift.
+- **System** — machine, processes, auto-start, persistence, background registrations, network, and storage.
+- **Act** — reclaim review and reversible Safe Change.
+- **Limits** — visibility boundaries and evidence semantics.
 
-## Reliability inherited from V2.1
+A result is evidence, not a verdict. Priority and attention scores rank review work; they are not malware probabilities. A signature, Gatekeeper result, relationship edge, network endpoint, reference match, or observed change must be interpreted in context.
 
-V2.1 keeps the V2.0 Incident Intelligence architecture and focuses on production-style hardening rather than feature sprawl:
+## Core capabilities
 
-- **Final Readiness**: one self-check for runtime coordination, state recovery, Vault health, change continuity, binary fingerprinting, and evidence visibility.
-- **Single persistent writer**: normal mode refuses a second persistent Sentinel instance to protect local state. `--ephemeral` remains available for an isolated read-only second session.
-- **Graceful shutdown**: SIGINT/SIGTERM cancels storage work, stops Change Monitor, persists the latest checkpoint, and shuts down localhost cleanly.
-- **Durable private state**: Sentinel-owned JSON/gzip state now uses same-directory atomic replacement, file/directory sync, `0600`/`0700` permissions, and one last-known-good `.bak` recovery copy where possible.
-- **Visible recovery semantics**: if a primary state file cannot be decoded and a `.bak` copy is used, Final Readiness reports it instead of silently showing green.
-- **Strict API JSON**: unknown fields, oversized request bodies, trailing data, and multiple JSON values are rejected.
-- **Heavy-work concurrency gate**: expensive local analysis is bounded so repeated clicks/scripts do not launch unlimited parallel scans.
-- **Incident lifecycle hardening**: evidence is split by a 15-minute correlation window; repeated rebuilds merge the same story instead of growing duplicate history records.
-- **Incident Deep Review**: one click re-inspects the incident primary object with current Integrity + Object Story evidence.
-- **Vault capacity advisory**: Sentinel reports Vault footprint and item-count advisories without auto-deleting anything.
-- **Versioned exports**: full reports and low-sensitivity diagnostics carry explicit `schema_version` and `report_kind` fields.
-- **Dynamic app-bundle versioning**: `build-app-macos.sh` reads `VERSION` instead of hardcoding the app version.
+Sentinel retains the hardened Go evidence engine while replacing the old product UI. Current capabilities include:
 
-All existing capabilities remain: Incident Intelligence, Change Monitor, FSEvents source path/polling fallback, Power Search, Weakness Audit, Behavior/Trust history, Integrity Lab, Storage Intelligence, Evidence Graph, Object Story, and reversible Safe Actions.
+- system overview and readiness checks;
+- Quick Check and unified review queue;
+- Incident / Case correlation;
+- evidence search and bounded deep filename search;
+- Evidence Graph and Object Story correlation;
+- security audit and exact-path integrity inspection;
+- current process, startup, persistence, background, and TCP evidence;
+- Change Monitor with native FSEvents where available and a polling fallback;
+- Behavior history and Trusted Profile comparison;
+- Storage Intelligence with cancellable traversal, large-file measurement, SHA-256 exact-duplicate confirmation, and separate filename-family heuristics;
+- Cleanup Preview without automatic deletion;
+- reversible Safe Actions with preview, typed confirmation, one-time code, server-side revalidation, Vault recovery metadata, and an action journal;
+- visibility/capability reporting so missing evidence is explicit rather than guessed.
 
-## Start
+## Safety boundaries
+
+Sentinel deliberately separates observation from mutation.
+
+- The HTTP service binds to `127.0.0.1` only.
+- API requests require the current session token and retain Host / Origin / Fetch-Metadata protections.
+- Sentinel has no permanent-delete API.
+- Safe Actions are limited to explicitly supported reversible operations and do not overwrite an existing destination.
+- Mutating Safe Actions are disabled in `--ephemeral` mode.
+- Vaulting a file does not claim that software is malicious or that an already-running process has stopped.
+- Optional advanced/Endpoint Security visibility remains entitlement- and permission-dependent; unavailable visibility is reported as unavailable.
+
+## Build the macOS app
+
+On a Mac with current Xcode command-line tools:
+
+```bash
+./build-desktop-macos.sh
+open dist/Sentinel.app
+```
+
+For a clean reinstall into `/Applications` while preserving Sentinel user state:
+
+```bash
+./reinstall-macos.sh
+```
+
+The desktop build produces a Universal launcher and embeds separate Go engines for Apple Silicon and Intel. The build verifies that the Sentinel 2.4 frontend marker is present in both engine binaries.
+
+## Development engine
+
+You can also run the local engine directly during development:
 
 ```bash
 ./RUN_SENTINEL.command
 ```
 
-or:
-
-```bash
-./dist/sentinel-macos-arm64
-```
-
-For an isolated no-persistent-state session:
+For an isolated read-only/no-persistent-state session:
 
 ```bash
 ./dist/sentinel-macos-arm64 --ephemeral
 ```
 
-## Recommended first run
+Use the architecture-appropriate binary on Intel Macs.
 
-1. **Final Readiness** — verify Sentinel itself.
-2. **Quick Check** — read-only system snapshot.
-3. **Monitoring Snapshot** — only if you want Behavior/Persistence history.
-4. **Change Monitor** — watch a focused area when needed.
-5. **Incidents** — correlate related evidence into fewer stories.
-6. **Safe Actions** — Reveal/Rename/Vault/Restore only; no permanent delete exists.
+## Validation
 
-## Build modes
+Run the repository test suite before packaging:
 
-`build-macos.sh` attempts native CGO builds per architecture on a real Mac. A successful native build contains CoreServices FSEvents and Security.framework validation. If native compilation is unavailable, Sentinel creates an explicitly labeled polling/CLI fallback binary instead of claiming native capability.
+```bash
+go clean -testcache
+go test ./...
+bash SMOKE_TEST_LOCALHOST.command
+```
 
-See `dist/BUILD_FEATURES.txt` after building.
+CI additionally checks Go race behavior, `go vet`, JavaScript syntax, shell syntax, macOS architecture build smoke tests, and product contracts that prevent the retired dashboard injection path from returning to the default frontend.
 
-## Safety model
+## Distribution
 
-Sentinel has no permanent-delete API. User-file mutations are limited to explicit reversible Safe Actions and are disabled under `--ephemeral`. The optional Endpoint Security source remains entitlement-gated and is not automatically installed or enabled.
+For the current Beta flow, see `DIRECT_DISTRIBUTION_GUIDE.md` and `DESKTOP_ARCHITECTURE.md`.
 
-## Guides
+Typical unsigned/unnotarized Beta packaging:
 
-- `QUICK_START.md`
-- `GUIDE.md`
-- `FINAL_HARDENING_GUIDE.md`
-- `INCIDENT_GUIDE.md`
-- `CHANGE_MONITOR_GUIDE.md`
-- `POWER_SEARCH_GUIDE.md`
-- `WEAKNESS_AUDIT_GUIDE.md`
-- `SAFE_ACTIONS.md`
-- `ADVANCED_SENSOR_GUIDE.md`
-- `DISTRIBUTION.md`
-- `SECURITY.md`
-- `TESTING.md`
+```bash
+SENTINEL_RELEASE_CHANNEL=beta ./package-dev-dmg-macos.sh
+```
 
-## V2.2 System Profile
+With `VERSION=2.4.0`, the expected Beta artifacts are:
 
-Easy Mode now includes a privacy-conscious **System Profile** page for users who do not know how to inspect Mac hardware themselves. It explains the Mac model, model identifier, Apple Silicon/Intel family, chip/processor, architecture, CPU core counts, memory, macOS version/build, Darwin kernel, storage capacity, Rosetta translation state, and which Sentinel engine architecture should run. Sentinel deliberately omits the full serial number and Hardware UUID.
+```text
+dist/Sentinel-2.4.0-beta.dmg
+dist/Sentinel-2.4.0-beta.dmg.sha256
+```
 
-## Open-source licensing before first public release
+A future production distribution can use Developer ID signing, Hardened Runtime, Apple notarization, and a stapled DMG through `release-direct-macos.sh`.
 
-Sentinel source code is licensed under the **Mozilla Public License 2.0 (MPL-2.0)**. See `LICENSE` and `OPEN_SOURCE_LICENSE_GUIDE.md`. Project-owned source files include an `SPDX-License-Identifier: MPL-2.0` notice.
+## Repository layout
+
+Important current product files:
+
+- `main.go` — localhost server, API routing, authentication, and direct 2.4 product serving.
+- `web/index.html` — minimal 2.4 application document.
+- `web/sentinel-24.css` — current product visual system.
+- `web/sentinel-24.js` — current product controller and direct API client.
+- `desktop/SentinelDesktop.swift` — native launcher and WKWebView container.
+- `build-desktop-macos.sh` — Universal macOS app build.
+- `reinstall-macos.sh` — local clean rebuild/reinstall helper.
+
+The repository still contains some historical or specialized standalone web workspaces from earlier releases. They are not the default Sentinel 2.4 product runtime. Their remaining dependencies are being reduced rather than silently reintroduced into `index.html`.
+
+## License
+
+Sentinel source code is licensed under the **Mozilla Public License 2.0 (MPL-2.0)**. See `LICENSE` and `OPEN_SOURCE_LICENSE_GUIDE.md`. Project-owned source files use `SPDX-License-Identifier: MPL-2.0` notices where applicable.
