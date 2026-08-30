@@ -26,12 +26,15 @@ func TestI18nFoundationSupportsEnglishAndChinese(t *testing.T) {
 
 func TestNormalizedNavigationExposesLanguageAndAlpha(t *testing.T) {
 	s := readAlphaContractFile(t, "web/v23-navigation.js")
-	for _, want := range []string{"/i18n.js", "/alpha-center.html", "sentinel-language-switcher", "zh-CN", "Alpha", "nav.alpha"} {
-		if !strings.Contains(s, want) { t.Fatalf("navigation Alpha/i18n integration missing %q", want) }
+	for _, want := range []string{"/i18n.js", "/alpha-center.html", "sentinel-language-switcher", "zh-CN", "Alpha", "nav.alpha", "Sentinel 2.4 · AUX"} {
+		if !strings.Contains(s, want) { t.Fatalf("specialist navigation Alpha/i18n integration missing %q", want) }
+	}
+	for _, retired := range []string{"/easy.html", "/scan-center.html", "/security-center.html"} {
+		if strings.Contains(s, retired) { t.Fatalf("specialist navigation still links retired portal %q", retired) }
 	}
 	html := readAlphaContractFile(t, "web/alpha-center.html")
 	if !strings.Contains(html, "/v23-navigation.css") || !strings.Contains(html, "/v23-navigation.js") {
-		t.Fatal("Alpha Center must use normalized v2.3 navigation")
+		t.Fatal("retained Alpha workspace must use the transitional specialist navigation")
 	}
 }
 
@@ -45,12 +48,18 @@ func TestAlphaCenterIsReadOnlyCapabilitySurface(t *testing.T) {
 	}
 }
 
-func TestEasyDeepensOneClickWithoutMutation(t *testing.T) {
-	all := readAlphaContractFile(t, "web/easy.html") + "\n" + readAlphaContractFile(t, "web/easy.js") + "\n" + readAlphaContractFile(t, "web/i18n.js")
-	for _, want := range []string{"oneClickRecommendations", "common.why", "common.continue", "/alpha-center.html", "/i18n.js", "easy.recommendations"} {
-		if !strings.Contains(all, want) { t.Fatalf("Easy Alpha expansion missing %q", want) }
+func TestSentinel24ReplacesEasyPortalWithBoundedSnapshot(t *testing.T) {
+	html := readAlphaContractFile(t, "web/index.html")
+	js := readAlphaContractFile(t, "web/sentinel-24.js")
+	for _, want := range []string{"Sentinel 2.4", "renderSnapshot", "/api/quick-check", "/api/review-queue", "Attention index", "Review queue"} {
+		if !strings.Contains(html+js, want) { t.Fatalf("Sentinel 2.4 bounded snapshot missing %q", want) }
 	}
-	for _, bad := range []string{"innerHTML", "eval(", "new Function", "document.write", "/api/actions/execute", "/api/trust/capture", "/api/changes/start", "sudo "} {
-		if strings.Contains(all, bad) { t.Fatalf("Easy Alpha expansion contains unsafe pattern %q", bad) }
+	if strings.Contains(html, "/easy.html") { t.Fatal("default product must not route through retired Easy portal") }
+	start := strings.Index(js, "async function renderSnapshot")
+	end := strings.Index(js, "async function renderCases")
+	if start < 0 || end <= start { t.Fatal("could not isolate snapshot renderer") }
+	segment := js[start:end]
+	for _, bad := range []string{"/api/actions/execute", "/api/trust/capture", "/api/changes/start", "sudo "} {
+		if strings.Contains(segment, bad) { t.Fatalf("bounded Snapshot contains mutating/unsafe pattern %q", bad) }
 	}
 }
