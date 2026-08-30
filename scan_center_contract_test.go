@@ -45,7 +45,7 @@ func TestFullScanCenterPreservesSafetyAndFreshnessBoundaries(t *testing.T) {
 	if err != nil { t.Fatal(err) }
 	s := string(raw)
 	for _, want := range []string{
-		"does not modify user files", "retained baseline is not continuous surveillance", "permanent safety certificate",
+		"does not modify user files", "Full Scan never starts automatically", "explicit user action",
 		"Re-run only when you want newer evidence", "slow path(s) skipped", "Full Scan cancelled",
 	} {
 		if !strings.Contains(s, want) { t.Fatalf("Full Scan safety/freshness boundary missing %q", want) }
@@ -54,6 +54,19 @@ func TestFullScanCenterPreservesSafetyAndFreshnessBoundaries(t *testing.T) {
 		if strings.Contains(strings.ToLower(s), strings.ToLower(forbidden)) {
 			t.Fatalf("Full Scan must not contain unsafe mutation/verdict contract %q", forbidden)
 		}
+	}
+}
+
+func TestFullScanStartupIsLightweightAndNonBlocking(t *testing.T) {
+	raw, err := os.ReadFile("web/app/full-scan.js")
+	if err != nil { t.Fatal(err) }
+	s := string(raw)
+	for _, want := range []string{
+		"readBaselineState(includeAnalysis = true)", "readBaselineState(false)",
+		"if (includeAnalysis)", "setTimeout(() => { injectScanCenter().catch(() => {}); }, 0)",
+		"Never block first paint", "never start Full Scan here", "await new Promise(resolve => setTimeout(resolve, 0))",
+	} {
+		if !strings.Contains(s, want) { t.Fatalf("lightweight Full Scan startup guard missing %q", want) }
 	}
 }
 
@@ -70,11 +83,14 @@ func TestCapabilityAtlasCoversAllPrimaryLenses(t *testing.T) {
 	}
 }
 
-func TestScanCenterVisualSystemIsResponsive(t *testing.T) {
+func TestScanCenterVisualSystemIsResponsiveAndWide(t *testing.T) {
 	raw, err := os.ReadFile("web/app/full-scan.css")
 	if err != nil { t.Fatal(err) }
 	s := string(raw)
-	for _, want := range []string{".scan-center-grid", ".scan-card", ".full-scan-progress", ".full-scan-stage", ".capability-atlas", ".capability-group", ".capability-tile", "@media (max-width:820px)"} {
+	for _, want := range []string{
+		".scan-center-grid", ".scan-card", ".full-scan-progress", ".full-scan-stage",
+		".capability-atlas", ".capability-group", ".capability-tile", "margin-left:-18px", "@media (max-width:820px)",
+	} {
 		if !strings.Contains(s, want) { t.Fatalf("Scan Center visual system missing %q", want) }
 	}
 }
