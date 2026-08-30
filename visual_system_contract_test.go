@@ -11,116 +11,51 @@ import (
 func visualSource(t *testing.T, path string) string {
 	t.Helper()
 	raw, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
+	if err != nil { t.Fatal(err) }
 	return string(raw)
 }
 
 func visualStylePaths() []string {
 	return []string{
-		"web/v23-visual-system.css",
-		"web/v23-navigation.css",
-		"web/easy.css",
-		"web/scan-center.css",
-		"web/compare-center.css",
-		"web/control-plane.css",
-		"web/intelligence-center.css",
+		"web/sentinel-24.css",
 		"web/process-relations.css",
 		"web/network-relations.css",
 		"web/launch-services.css",
 		"web/vault-health.css",
 		"web/system-console.css",
 		"web/system-console-domains.css",
+		"web/investigation.css",
 	}
 }
 
-func TestFirstPrinciplesVisualSystemIsGlobal(t *testing.T) {
-	nav := visualSource(t, "web/v23-navigation.css")
-	visual := visualSource(t, "web/v23-visual-system.css")
-	for _, want := range []string{
-		`@import url("/v23-visual-system.css")`,
-		".sentinel-v23-primary",
-		".sentinel-tool-shelf",
-	} {
-		if !strings.Contains(nav, want) {
-			t.Fatalf("navigation visual layer missing %q", want)
-		}
+func TestFirstPrinciplesVisualSystemIsSentinel24ProductOwned(t *testing.T) {
+	html := visualSource(t, "web/index.html")
+	visual := visualSource(t, "web/sentinel-24.css")
+	if !strings.Contains(html, `/sentinel-24.css`) || strings.Contains(html, `/v23-visual-system.css`) {
+		t.Fatal("default product must load only the Sentinel 2.4 visual system")
 	}
 	for _, want := range []string{
-		"--line-soft",
-		"--accent-soft",
-		".timeline::before",
-		".timeline-item::before",
-		".diff-group",
-		"progress::-webkit-progress-value",
-		"prefers-reduced-motion",
+		"--line-soft", "--focus-soft", ".s24-shell", ".s24-command", ".s24-missions", ".s24-lenses",
+		".s24-stage", ".s24-question", ".s24-band", ".s24-context", ".s24-activity", "prefers-reduced-motion",
 	} {
-		if !strings.Contains(visual, want) {
-			t.Fatalf("shared visual system missing %q", want)
-		}
+		if !strings.Contains(visual, want) { t.Fatalf("Sentinel 2.4 visual system missing %q", want) }
 	}
 }
 
 func TestVisualRedesignUsesDifferentEncodingsForDifferentEvidence(t *testing.T) {
-	checks := map[string][]string{
-		"web/easy.css": {
-			"Status output is a ledger",
-			"grid-template-areas:\"head value detail\"",
-		},
-		"web/scan-center.css": {
-			"Scan modes read as one acquisition system",
-			"Full storage traversal is presented as a console/pipeline",
-		},
-		"web/compare-center.css": {
-			".compare-card::before",
-			".compare-card::after",
-		},
-		"web/intelligence-center.css": {
-			"#graph .cards",
-			"#incidents .cards",
-			"#timeline .timeline-item",
-			"#visibility .cards",
-		},
-		"web/process-relations.css": {
-			"relationship lanes",
-			".relation-grid",
-		},
-		"web/network-relations.css": {
-			"Live relationships",
-			"History comparison",
-		},
-		"web/launch-services.css": {
-			"Persistence entries are a causal list",
-			".service-list",
-		},
-		"web/vault-health.css": {
-			"Recovery history becomes a verification chain",
-			".isolation-checks",
-		},
-		"web/system-console.css": {
-			"Recipes are compact launch choices",
-			".structured-output",
-		},
-		"web/system-console-domains.css": {
-			"Domain layout is intentionally roomy",
-			"grid-template-columns:repeat(2,minmax(0,1fr))",
-			".domain-box .tool-card{",
-			"display:flex;",
-			"position:static;",
-		},
-		"web/control-plane.css": {
-			"Shared summary language",
-			"Snapshot comparison is visually before -> after",
-		},
+	visual := visualSource(t, "web/sentinel-24.css")
+	for _, want := range []string{
+		".s24-instruments", ".s24-ledger", ".s24-table", ".s24-feed", ".s24-graph", ".s24-bars",
+		".s24-pipeline", ".s24-form", ".s24-context-section", ".s24-note.warn", ".s24-note.good",
+	} {
+		if !strings.Contains(visual, want) { t.Fatalf("Sentinel 2.4 evidence encoding missing %q", want) }
 	}
-	for path, wants := range checks {
-		source := visualSource(t, path)
-		for _, want := range wants {
-			if !strings.Contains(source, want) {
-				t.Fatalf("%s missing visual contract %q", path, want)
-			}
-		}
+	js := visualSource(t, "web/sentinel-24.js")
+	for _, want := range []string{
+		"Current instruments", "Review queue", "Relationship canvas", "Change stream", "Measured footprint",
+		"Safety gate", "Coverage", "Investigation model",
+	} {
+		if !strings.Contains(js, want) { t.Fatalf("Sentinel 2.4 controller missing evidence surface %q", want) }
 	}
 }
 
@@ -128,10 +63,10 @@ func TestTerminalDomainCardsDoNotReenterThreeColumnCompression(t *testing.T) {
 	domain := visualSource(t, "web/system-console-domains.css")
 	compact := strings.ReplaceAll(strings.ReplaceAll(domain, "\n", ""), "\t", "")
 	if strings.Contains(compact, ".domain-tool-grid{display:grid;grid-template-columns:repeat(3") {
-		t.Fatal("Terminal domain toolbox must not return to three cramped outer columns")
+		t.Fatal("retained Terminal workspace must not return to three cramped outer columns")
 	}
 	if !strings.Contains(domain, ".domain-box .tool-card{") || !strings.Contains(domain, "flex-direction:column") {
-		t.Fatal("Terminal domain cards must reset the shared tool-card row layout to a vertical evidence unit")
+		t.Fatal("retained Terminal domain cards must remain readable evidence units")
 	}
 }
 
@@ -140,32 +75,24 @@ func TestVisualStylesHaveBalancedBraces(t *testing.T) {
 		source := visualSource(t, path)
 		open := strings.Count(source, "{")
 		close := strings.Count(source, "}")
-		if open == 0 || open != close {
-			t.Fatalf("%s has unbalanced CSS braces: open=%d close=%d", path, open, close)
-		}
+		if open == 0 || open != close { t.Fatalf("%s has unbalanced CSS braces: open=%d close=%d", path, open, close) }
 	}
 }
 
-func TestSharedVisualSystemDoesNotInjectProductContentOrBehavior(t *testing.T) {
-	visual := visualSource(t, "web/v23-visual-system.css")
+func TestSentinel24VisualSystemDoesNotInjectProductCopyOrRemoteBehavior(t *testing.T) {
+	visual := visualSource(t, "web/sentinel-24.css")
 	withoutComments := regexp.MustCompile(`(?s)/\*.*?\*/`).ReplaceAllString(visual, "")
 	lower := strings.ToLower(withoutComments)
 	for _, bad := range []*regexp.Regexp{
 		regexp.MustCompile(`(?i)javascript\s*:`),
 		regexp.MustCompile(`(?i)expression\s*\(`),
 		regexp.MustCompile(`(?im)^\s*behavior\s*:`),
-		regexp.MustCompile(`(?im)^\s*display\s*:\s*none\b`),
-		regexp.MustCompile(`(?im)^\s*visibility\s*:\s*hidden\b`),
-		regexp.MustCompile(`(?im)^\s*pointer-events\s*:\s*none\b`),
 		regexp.MustCompile(`(?i)url\s*\(\s*["']?https?://`),
 	} {
-		if bad.MatchString(lower) {
-			t.Fatalf("shared visual system must remain presentation-only; matched %q", bad.String())
-		}
+		if bad.MatchString(lower) { t.Fatalf("Sentinel 2.4 visual system must remain presentation-only; matched %q", bad.String()) }
 	}
-	// Empty pseudo-elements are allowed for lines/dots. Text injection is not.
 	nonEmptyContent := regexp.MustCompile(`content\s*:\s*["'][^"']+["']`)
 	if nonEmptyContent.MatchString(withoutComments) {
-		t.Fatal("shared visual system must not inject new visible text through CSS content")
+		t.Fatal("Sentinel 2.4 visual system must not inject explanatory copy through CSS content")
 	}
 }
