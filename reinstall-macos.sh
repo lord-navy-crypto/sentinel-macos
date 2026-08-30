@@ -14,10 +14,12 @@ VERSION="$(tr -d '[:space:]' < VERSION)"
 BUNDLE_ID="io.github.lord-navy-crypto.sentinel"
 BUILT_APP="$HERE/dist/Sentinel.app"
 TARGET_APP="${SENTINEL_INSTALL_APP:-/Applications/Sentinel.app}"
+EXPECTED_UI="2.4 Native Frontend"
 
 printf '%s\n' \
   "===== SENTINEL CLEAN REINSTALL =====" \
   "Target version: $VERSION" \
+  "Target UI: $EXPECTED_UI" \
   "Source: $HERE" \
   "Install target: $TARGET_APP" \
   "User history/baselines/recovery data: preserved"
@@ -49,8 +51,8 @@ if [[ "$PACKAGED_VERSION" != "$VERSION" ]]; then
   echo "Version mismatch: VERSION=$VERSION but package=$PACKAGED_VERSION" >&2
   exit 2
 fi
-if [[ "$PACKAGED_UI" != "V5 Evidence Notebook" ]]; then
-  echo "Unexpected packaged UI: $PACKAGED_UI" >&2
+if [[ "$PACKAGED_UI" != "$EXPECTED_UI" ]]; then
+  echo "Unexpected packaged UI: $PACKAGED_UI (expected $EXPECTED_UI)" >&2
   exit 2
 fi
 
@@ -76,6 +78,13 @@ fi
 INSTALLED_VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$TARGET_APP/Contents/Info.plist")"
 INSTALLED_UI="$(/usr/libexec/PlistBuddy -c 'Print :SentinelDesktopUI' "$TARGET_APP/Contents/Info.plist")"
 INSTALLED_SHA="$(/usr/libexec/PlistBuddy -c 'Print :SentinelSourceCommit' "$TARGET_APP/Contents/Info.plist")"
+
+if [[ "$INSTALLED_VERSION" != "$VERSION" || "$INSTALLED_UI" != "$EXPECTED_UI" ]]; then
+  echo "Installed application identity verification failed." >&2
+  echo "Version: $INSTALLED_VERSION (expected $VERSION)" >&2
+  echo "UI: $INSTALLED_UI (expected $EXPECTED_UI)" >&2
+  exit 2
+fi
 
 cat <<EOF
 
