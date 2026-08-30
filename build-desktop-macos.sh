@@ -18,8 +18,33 @@ APP="$HERE/dist/Sentinel.app"
 BUILD_DIR="$HERE/dist/desktop-build"
 SWIFT_SRC="$HERE/desktop/SentinelDesktop.swift"
 ICON_SRC="$HERE/desktop/GenerateAppIcon.swift"
+UI_MARKER="Sentinel Desktop App View V5"
+BUILD_SHA="$(git rev-parse HEAD 2>/dev/null || printf 'unknown')"
+
+if ! grep -Fq "$UI_MARKER" "$HERE/web/desktop-ui.js"; then
+  echo "Desktop UI source marker missing: $UI_MARKER" >&2
+  echo "Refusing to build an ambiguous or stale desktop source tree." >&2
+  exit 2
+fi
+
+echo "===== SENTINEL SOURCE IDENTITY ====="
+echo "Source commit: $BUILD_SHA"
+echo "Desktop UI: V5 Evidence Notebook"
+echo "UI source marker: verified"
+echo
 
 ./build-macos.sh
+
+# The Go executable embeds web/* at compile time. Verify the new UI marker is
+# physically present in both architecture-specific engines before packaging.
+for engine in "$HERE/dist/sentinel-macos-arm64" "$HERE/dist/sentinel-macos-x86_64"; do
+  if ! LC_ALL=C grep -aFq "$UI_MARKER" "$engine"; then
+    echo "Embedded V5 UI marker missing from $engine" >&2
+    echo "The Go binary does not contain the current web/desktop-ui.js. Aborting." >&2
+    exit 2
+  fi
+done
+echo "Embedded V5 UI marker: verified in arm64 + x86_64 engines"
 
 # Build the native launcher completely before replacing the app bundle. If Swift
 # or lipo fails, no partial Sentinel.app is left behind.
@@ -89,6 +114,8 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>LSMinimumSystemVersion</key><string>13.0</string>
   <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
   <key>NSHighResolutionCapable</key><true/>
+  <key>SentinelSourceCommit</key><string>${BUILD_SHA}</string>
+  <key>SentinelDesktopUI</key><string>V5 Evidence Notebook</string>
   <key>NSAppTransportSecurity</key>
   <dict>
     <key>NSAllowsLocalNetworking</key><true/>
@@ -102,8 +129,11 @@ printf '%s\n' \
   "Display name: Sentinel Mac" \
   "Bundle ID: $BUNDLE_ID" \
   "Version: $VERSION" \
+  "Source commit: $BUILD_SHA" \
+  "Desktop UI: V5 Evidence Notebook" \
+  "Embedded UI: verified in arm64 + x86_64" \
   "Universal launcher: $(lipo -archs "$APP/Contents/MacOS/Sentinel")" \
   "App icon: $APP/Contents/Resources/AppIcon.icns" \
-  "UI modes: default browser + native WebKit App View, both loopback-only" \
+  "UI modes: browser + native WebKit App View, same V5 desktop session URL" \
   "ATS: local networking only; no arbitrary-load exception" \
   "This build is not signed/notarized unless you run release-direct-macos.sh."
