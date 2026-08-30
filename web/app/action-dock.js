@@ -9,6 +9,7 @@
 
   let scanRunning = false;
   let scanCancelled = false;
+  let dockInstallQueued = false;
 
   const ACTIONS = {
     status: [
@@ -169,10 +170,12 @@
   function syncFullScanButtons() {
     document.querySelectorAll('[data-scan-center="full"]').forEach(control => {
       if (!control.dataset.actionDockIdleLabel) control.dataset.actionDockIdleLabel = control.textContent.trim() || 'Full Scan';
-      control.disabled = scanRunning;
-      control.setAttribute('aria-busy', scanRunning ? 'true' : 'false');
+      if (control.disabled !== scanRunning) control.disabled = scanRunning;
+      const busyValue = scanRunning ? 'true' : 'false';
+      if (control.getAttribute('aria-busy') !== busyValue) control.setAttribute('aria-busy', busyValue);
       if (control.id === 'fullScanHeader' || control.closest('.s24-action-dock')) {
-        control.textContent = scanRunning ? 'Scanning…' : control.dataset.actionDockIdleLabel;
+        const nextLabel = scanRunning ? 'Scanning…' : control.dataset.actionDockIdleLabel;
+        if (control.textContent !== nextLabel) control.textContent = nextLabel;
       }
     });
   }
@@ -191,6 +194,15 @@
       anchor.insertAdjacentElement('afterend', dock);
     }
     syncFullScanButtons();
+  }
+
+  function queueDockInstall() {
+    if (dockInstallQueued) return;
+    dockInstallQueued = true;
+    queueMicrotask(() => {
+      dockInstallQueued = false;
+      installDock();
+    });
   }
 
   function installHeaderButtons() {
@@ -270,9 +282,6 @@
     catch (error) { notice(error?.message || String(error)); }
   }
 
-  // Capture Full Scan controls before the original Full Scan bubble listener so
-  // one click has exactly one orchestrator. Easy Scan and Workbench still flow
-  // through their original handlers unchanged.
   document.addEventListener('click', event => {
     const control = event.target.closest('[data-scan-center]');
     if (!control) return;
@@ -306,14 +315,13 @@
 
   const stage = $('#evidenceStage');
   if (stage) {
-    const observer = new MutationObserver(() => queueMicrotask(() => {
-      installDock();
-      syncFullScanButtons();
-    }));
-    observer.observe(stage, {childList:true, subtree:true});
+    const observer = new MutationObserver(queueDockInstall);
+    // Only direct stage children are relevant. Watching the entire subtree made
+    // button-label updates observable and could create a self-triggering loop.
+    observer.observe(stage, {childList:true});
   }
   installHeaderButtons();
-  queueMicrotask(installDock);
+  queueDockInstall();
 
   S.actionDock = {
     marker:ACTION_DOCK_MARKER,
