@@ -10,11 +10,12 @@ import (
 func TestDesktopDistributionAssets(t *testing.T) {
 	checks := map[string][]string{
 		"desktop/SentinelDesktop.swift": {"NSWorkspace.shared.open", "WKWebView", "Open in Browser", "Open App View", "Quit Sentinel", "Process()", "--desktop", "SENTINEL_DESKTOP_BOOTSTRAP", "desktop", "value: \"1\""},
-		"build-desktop-macos.sh":        {"swiftc", "lipo -create", "-framework WebKit", "NSAllowsLocalNetworking", "Sentinel.app", "native WebKit App View"},
+		"build-desktop-macos.sh":        {"swiftc", "lipo -create", "-framework WebKit", "NSAllowsLocalNetworking", "Sentinel.app", "native WebKit App View", "V5 Evidence Notebook", "Embedded V5 UI marker", "SentinelSourceCommit", "SentinelDesktopUI"},
+		"run-fresh-desktop.sh":         {"pkill -x Sentinel", "open -n", "SentinelSourceCommit", "SentinelDesktopUI"},
 		"release-direct-macos.sh":       {"Developer ID", "--options runtime", "notarytool submit", "stapler staple", "hdiutil create"},
 		"DIRECT_DISTRIBUTION_GUIDE.md":  {"Developer ID", "notarytool"},
-		"web/desktop-ui.js":             {"desktop-ui.css", "More tools", "window.fetch = async", "sentinel-task-progress", "job.phase_percent", "job.hash_bytes_done", "Hashing duplicate candidates", "Progress appears only after a real localhost request starts.", "Local request failed:", "Interface error:"},
-		"web/desktop-ui.css":            {".mode-switch{display:none!important}", "grid-template-columns:244px", "overflow-y:scroll!important", ".sentinel-task-progress", ".sentinel-percent-bar"},
+		"web/desktop-ui.js":             {"desktop-ui.css", "More tools", "window.fetch = async", "sentinel-task-progress", "job.phase_percent", "job.hash_bytes_done", "Hashing duplicate candidates", "Progress appears only after a real localhost request starts.", "Local request failed:", "Interface error:", "Sentinel Desktop App View V5"},
+		"web/desktop-ui.css":            {".mode-switch{display:none!important}", "grid-template-columns:244px", "overflow-y:scroll!important", ".sentinel-task-progress", ".sentinel-percent-bar", ".v5-shell", ".v5-notebook", ".v5-drawer"},
 	}
 	for path, needles := range checks {
 		b, err := os.ReadFile(path)
@@ -75,8 +76,19 @@ func TestDesktopSupportsBrowserAndNativeAppView(t *testing.T) {
 		t.Fatal(err)
 	}
 	mainSource := string(mainBytes)
-	if !strings.Contains(mainSource, "r.URL.Query().Get(\"desktop\") == \"1\"") || !strings.Contains(mainSource, "/desktop-ui.js") {
-		t.Fatalf("server must inject the desktop enhancement script only for desktop=1")
+	for _, needle := range []string{
+		"r.URL.Query().Get(\"legacy\") != \"1\"",
+		"/desktop-ui.js",
+		"X-Sentinel-UI",
+		"v5-evidence-notebook",
+		"legacy-diagnostic",
+	} {
+		if !strings.Contains(mainSource, needle) {
+			t.Fatalf("server must make V5 the default UI; missing %q", needle)
+		}
+	}
+	if strings.Contains(mainSource, "r.URL.Query().Get(\"desktop\") == \"1\"") {
+		t.Fatalf("V5 must not depend on desktop=1; normal browser and App View should receive the same product UI")
 	}
 	if !strings.Contains(mainSource, "X-Frame-Options\", \"DENY") || !strings.Contains(mainSource, "frame-ancestors 'none'") {
 		t.Fatalf("desktop mode must preserve anti-framing security headers")
