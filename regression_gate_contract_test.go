@@ -6,10 +6,11 @@ import(
  "strings"
  "testing"
 )
-func TestMigrationRunsBeforeStateManagersAndPrepRoutesAreRegistered(t *testing.T){
+func TestMigrationRunsBeforeStateManagersAndRegressionRoutesAreRegistered(t *testing.T){
  raw,err:=os.ReadFile("main.go");if err!=nil{t.Fatal(err)};s:=string(raw)
- mig:=strings.Index(s,"runV23StateMigrations(*ephemeral)");mgr:=strings.Index(s,"newBehaviorManager(*ephemeral)");if mig<0||mgr<0||mig>mgr{t.Fatalf("migration must run before legacy state managers: migration=%d manager=%d",mig,mgr)}
- for _,route:=range []string{"/api/storage/aging","/api/security/investigation/export","/api/intelligence/timeline/grouped","/api/incidents/export","/api/pre-regression"}{if !strings.Contains(s,route){t.Fatalf("main missing regression-prep route %q",route)}}
+ mig:=strings.Index(s,"runStateMigrations(*ephemeral)");mgr:=strings.Index(s,"newBehaviorManager(*ephemeral)");if mig<0||mgr<0||mig>mgr{t.Fatalf("migration must run before state managers: migration=%d manager=%d",mig,mgr)}
+ for _,route:=range []string{"/api/storage/aging","/api/security/investigation/export","/api/intelligence/timeline/grouped","/api/incidents/export","/api/pre-regression"}{if !strings.Contains(s,route){t.Fatalf("main missing regression route %q",route)}}
+ for _,retired:=range []string{"runV23StateMigrations","handleStorageAgingV23","handleInvestigationBundleExportV23","handleIncidentExportV23","handleIntegrityInspectV24","handlePreRegressionV23"}{if strings.Contains(s,retired){t.Fatalf("main still contains version-coupled runtime symbol %q",retired)}}
 }
 func TestRegressionPageIsReadOnlyGate(t *testing.T){
  html,err:=os.ReadFile("web/pre-regression.html");if err!=nil{t.Fatal(err)};js,err:=os.ReadFile("web/pre-regression.js");if err!=nil{t.Fatal(err)};s:=string(html)+string(js)
