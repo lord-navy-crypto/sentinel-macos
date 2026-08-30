@@ -16,12 +16,18 @@ Sentinel.app
 Sentinel application frontend
   ├─ web/index.html
   └─ web/app/
+      ├─ core.js
+      ├─ lenses/
+      │   ├─ orient-investigate.js
+      │   ├─ compare.js
+      │   ├─ system.js
+      │   └─ act-limits.js
+      ├─ runtime.js
       ├─ shell.css
-      ├─ controller.js
       └─ README.md
 ```
 
-The same product source opens in the default browser or inside Sentinel's native WKWebView App View. There is no separate legacy dashboard in the normal startup path and no desktop-only DOM rewrite layer.
+The same product source opens in the default browser or inside Sentinel's native WKWebView App View. There is no separate legacy dashboard, desktop-only DOM rewrite layer, or monolithic frontend controller in the normal startup path.
 
 ## Product model
 
@@ -85,8 +91,6 @@ The desktop build produces a Universal launcher and embeds separate Go engines f
 
 ## Development engine
 
-You can also run the local engine directly during development:
-
 ```bash
 ./RUN_SENTINEL.command
 ```
@@ -101,47 +105,41 @@ Use the architecture-appropriate binary on Intel Macs.
 
 ## Validation
 
-Run the repository test suite before packaging:
-
 ```bash
 go clean -testcache
 go test ./...
 bash SMOKE_TEST_LOCALHOST.command
 ```
 
-CI additionally checks Go race behavior, `go vet`, JavaScript syntax, shell syntax, macOS architecture build smoke tests, and product contracts that prevent retired dashboard paths from returning to the default frontend.
+CI additionally checks Go race behavior, `go vet`, every canonical application JavaScript module, auxiliary JavaScript, shell syntax, macOS architecture build smoke tests, and product contracts that prevent retired dashboard paths or the removed monolithic controller from returning.
 
 ## Distribution
 
 For the current Beta flow, see `DIRECT_DISTRIBUTION_GUIDE.md` and `DESKTOP_ARCHITECTURE.md`.
 
-Typical unsigned/unnotarized Beta packaging:
-
 ```bash
 SENTINEL_RELEASE_CHANNEL=beta ./package-dev-dmg-macos.sh
 ```
 
-With `VERSION=2.4.0`, the expected Beta artifacts are:
+With `VERSION=2.4.0`, expected Beta artifacts are:
 
 ```text
 dist/Sentinel-2.4.0-beta.dmg
 dist/Sentinel-2.4.0-beta.dmg.sha256
 ```
 
-A future production distribution can use Developer ID signing, Hardened Runtime, Apple notarization, and a stapled DMG through `release-direct-macos.sh`.
+A production distribution can use Developer ID signing, Hardened Runtime, Apple notarization, and a stapled DMG through `release-direct-macos.sh`.
 
 ## Repository layout
 
-Current structure:
-
 ```text
-web/index.html              product document
-web/app/                    default Sentinel application runtime
+web/index.html              canonical product document
+web/app/                    modular default Sentinel application
 web/aux-*                   shared auxiliary-workspace foundation
-web/*-center.html           retained deep workspaces while unique capabilities migrate
+web/*-center.html           retained deep workspaces with unique capabilities
 
 desktop/                    native AppKit/WKWebView launcher
-endpointsecurity/            optional advanced-sensor source scaffold
+endpointsecurity/           optional advanced-sensor source scaffold
 
 docs/history/               retired architecture/planning documents
 docs/releases/              historical release notes
@@ -151,14 +149,18 @@ docs/releases/              historical release notes
 Important runtime files:
 
 - `main.go` — localhost server, API routing, authentication, and direct product serving.
-- `web/index.html` — minimal application document.
-- `web/app/shell.css` — current product visual system.
-- `web/app/controller.js` — current product controller while lens code is split into domain modules.
+- `web/app/core.js` — authenticated local API client, state, intent/lens model, and shared evidence primitives.
+- `web/app/lenses/orient-investigate.js` — current state, snapshot, case, search, relation, audit, and object evidence.
+- `web/app/lenses/compare.js` — change, behavior, and reference comparison.
+- `web/app/lenses/system.js` — machine, process, startup, persistence, background, network, and storage evidence.
+- `web/app/lenses/act-limits.js` — reclaim review, reversible Safe Change, visibility, and evidence-model guidance.
+- `web/app/runtime.js` — navigation, event delegation, global search/export, and bootstrap.
+- `web/app/shell.css` — current visual system.
 - `desktop/SentinelDesktop.swift` — native launcher and WKWebView container.
 - `build-desktop-macos.sh` — Universal macOS app build.
-- `reinstall-macos.sh` — local clean rebuild/reinstall helper.
+- `reinstall-macos.sh` — clean rebuild/reinstall helper.
 
-Standalone deep workspaces are auxiliary surfaces, not a second product architecture. Their unique capabilities should migrate inward; duplicated shells should be deleted rather than reintroduced into the main document.
+Standalone deep workspaces are auxiliary surfaces, not a second product architecture. Historical release/schema names are preserved only where they describe actual backward-compatibility data formats.
 
 ## License
 
