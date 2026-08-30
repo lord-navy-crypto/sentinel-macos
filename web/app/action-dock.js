@@ -123,7 +123,7 @@
       {label:'Refresh', refresh:true},
       {label:'Storage', lens:'storage'},
       {label:'Changes', lens:'changes'},
-      {label:'Recovery / Workbench', workbench:true, primary:true},
+      {label:'Workbench', workbench:true, primary:true},
     ],
     visibility: [
       {label:'Refresh', refresh:true},
@@ -143,7 +143,7 @@
     {label:'Open Cases', lens:'cases', primary:true},
     {label:'Review Changes', lens:'changes'},
     {label:'Inspect Storage', lens:'storage'},
-    {label:'Compare Reference', do:'compare-reference'},
+    {label:'Compare Reference', lens:'reference'},
     {label:'Workbench', workbench:true},
   ];
 
