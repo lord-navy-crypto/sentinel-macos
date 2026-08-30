@@ -31,7 +31,7 @@ jobs:
 
       - name: Product contracts
         run: |
-          go test ./... -run 'Migration|IncidentStory|Timeline|Export|StorageAging|ReasonCodeRegistry|RuleRegistry|VaultHealth|Navigation|PreRegression|SessionNote|Alpha|I18n|ScanCenter|ContinueInvestigation|TerminalGuide|VisualGrammarV2'
+          go test ./... -run 'Migration|IncidentStory|Timeline|Export|StorageAging|ReasonCodeRegistry|RuleRegistry|VaultHealth|Navigation|Regression|SessionNote|Alpha|I18n|Observation|ContinueInvestigation|TerminalGuide|VisualGrammar'
 
       - name: Darwin architecture build smoke
         run: |
@@ -48,8 +48,8 @@ jobs:
       - name: Go vet
         run: go vet ./...
 
-      - name: Sentinel 2.4 JavaScript syntax
-        run: node --check web/sentinel-24.js
+      - name: Sentinel application JavaScript syntax
+        run: node --check web/app/controller.js
 
       - name: Auxiliary workspace JavaScript syntax
         run: |
