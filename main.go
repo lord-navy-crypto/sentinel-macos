@@ -156,7 +156,7 @@ func main() {
 	// Diagnostics, integrity, persistence, reversible actions, and changes.
 	mux.HandleFunc("/api/doctor", a.auth(a.handleDoctor))
 	mux.HandleFunc("/api/diagnostics/export", a.auth(a.work.wrap("diagnostics-export", a.handleDiagnosticsExport)))
-	mux.HandleFunc("/api/integrity/inspect", a.auth(a.work.wrap("integrity-inspect", a.handleIntegrityInspect)))
+	mux.HandleFunc("/api/integrity/inspect", a.auth(a.work.wrap("integrity-inspect", a.handleIntegrityInspectV24)))
 	mux.HandleFunc("/api/self/integrity", a.auth(a.work.wrap("self-integrity", a.handleSelfIntegrity)))
 	mux.HandleFunc("/api/persistence", a.auth(a.handlePersistence))
 	mux.HandleFunc("/api/actions/status", a.auth(a.handleActionStatus))
