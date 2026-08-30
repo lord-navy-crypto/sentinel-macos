@@ -70,7 +70,7 @@ func TestCommandPaletteRoutesTypedObjectsWithoutShell(t *testing.T) {
 	}
 }
 
-func TestUnifiedIntelligenceRoutesAndNoShellContract(t *testing.T) {
+func TestUnifiedIntelligenceRoutesAndSentinel24EntryContract(t *testing.T) {
 	checks := map[string][]string{
 		"main.go": {
 			"/api/intelligence/graph/v2",
@@ -79,7 +79,14 @@ func TestUnifiedIntelligenceRoutesAndNoShellContract(t *testing.T) {
 			"/api/object/story/v2",
 			"/api/visibility",
 			"/api/search/command",
-			"/command-palette.js",
+		},
+		"web/sentinel-24.js": {
+			"/api/search",
+			"/api/intelligence/graph",
+			"/api/intelligence/timeline",
+			"/api/incidents",
+			"/api/object/story",
+			"How are the objects connected?",
 		},
 		"unified_intelligence_v23.go": {
 			"Evidence Graph 2.0",
@@ -96,5 +103,10 @@ func TestUnifiedIntelligenceRoutesAndNoShellContract(t *testing.T) {
 		for _, needle := range needles {
 			if !strings.Contains(string(raw), needle) { t.Fatalf("%s missing %q", path, needle) }
 		}
+	}
+	mainRaw, err := os.ReadFile("main.go")
+	if err != nil { t.Fatal(err) }
+	if strings.Contains(string(mainRaw), "/command-palette.js") {
+		t.Fatal("Sentinel 2.4 root server must not inject the retired command palette runtime")
 	}
 }
