@@ -55,7 +55,7 @@ func TestInvestigationWorkbenchUsesExistingEvidenceAndSafetyBoundaries(t *testin
 		"/api/intelligence/graph/v2", "/api/intelligence/timeline/global", "/api/process/detail", "/api/network/history",
 		"/api/launch-services", "system-snapshots", "storage-history", "/api/incidents/v2?history=1", "/api/object/story/v2",
 		"/api/visibility", "/api/trust/history", "/api/trust/restore", "/api/actions/preview", "/api/actions/health",
-		"Simulation stops at preview", "not a malware verdict", "does not infer intent", "No cloud model is used",
+		"Simulation stops at preview", "does not convert evidence into a malware verdict", "does not infer intent", "No cloud model is used",
 	} {
 		if !strings.Contains(s, want) {
 			t.Fatalf("workbench missing evidence/safety contract %q", want)
