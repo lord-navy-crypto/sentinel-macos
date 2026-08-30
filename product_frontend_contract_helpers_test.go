@@ -62,7 +62,7 @@ func TestApplicationRegistersEveryDeclaredLens(t *testing.T) {
 	for _, match := range re.FindAllStringSubmatch(all, -1) {
 		if len(match) == 2 { unique[match[1]] = true }
 	}
-	if len(unique) != len(declared) { t.Fatalf("expected %d distinct canonical lenses, got %d: %#v", len(declared), len(unique)) }
+	if len(unique) != len(declared) { t.Fatalf("expected %d distinct canonical lenses, got %d: %#v", len(declared), len(unique), unique) }
 	for _, lens := range declared { if !unique[lens] { t.Fatalf("declared lens %q is not registered", lens) } }
 	if _, err := os.Stat("web/app/controller.js"); !os.IsNotExist(err) { t.Fatal("retired monolithic controller returned") }
 }
