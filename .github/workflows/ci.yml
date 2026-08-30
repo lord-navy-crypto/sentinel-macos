@@ -31,7 +31,7 @@ jobs:
 
       - name: Product contracts
         run: |
-          go test ./... -run 'Migration|IncidentStory|Timeline|Export|StorageAging|ReasonCodeRegistry|RuleRegistry|VaultHealth|Navigation|Regression|SessionNote|Alpha|I18n|Observation|Snapshot|ContinueInvestigation|TerminalGuide|VisualGrammar|Application|Advanced|Workbench|FullScan|CapabilityAtlas|ScanCenter'
+          go test ./... -run 'Migration|IncidentStory|Timeline|Export|StorageAging|ReasonCodeRegistry|RuleRegistry|VaultHealth|Navigation|Regression|SessionNote|Alpha|I18n|Observation|Snapshot|ContinueInvestigation|TerminalGuide|VisualGrammar|Application|Advanced|Workbench|FullScan|CapabilityAtlas|ScanCenter|ActionDock'
 
       - name: Darwin architecture build smoke
         run: |
@@ -45,6 +45,8 @@ jobs:
           LC_ALL=C grep -aFq 'Sentinel 2.4 Investigation Workbench' /tmp/sentinel-amd64
           LC_ALL=C grep -aFq 'Sentinel 2.4 Full Scan Center' /tmp/sentinel-arm64
           LC_ALL=C grep -aFq 'Sentinel 2.4 Full Scan Center' /tmp/sentinel-amd64
+          LC_ALL=C grep -aFq 'Sentinel 2.4 Contextual Action Dock' /tmp/sentinel-arm64
+          LC_ALL=C grep -aFq 'Sentinel 2.4 Contextual Action Dock' /tmp/sentinel-amd64
 
       - name: Desktop application packaging smoke
         run: |
@@ -57,6 +59,7 @@ jobs:
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' dist/Sentinel.app/Contents/Info.plist)" = "$(tr -d '[:space:]' < VERSION)"
           test "$(/usr/libexec/PlistBuddy -c 'Print :SentinelDesktopUI' dist/Sentinel.app/Contents/Info.plist)" = "2.4 Native Frontend"
           test "$(/usr/libexec/PlistBuddy -c 'Print :SentinelScanCenter' dist/Sentinel.app/Contents/Info.plist)" = "Easy Scan + Full Scan + Capability Atlas"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :SentinelActionDock' dist/Sentinel.app/Contents/Info.plist)" = "Contextual Quick Actions"
           ARCHS="$(lipo -archs dist/Sentinel.app/Contents/MacOS/Sentinel)"
           echo "$ARCHS" | grep -q arm64
           echo "$ARCHS" | grep -q x86_64
@@ -64,6 +67,8 @@ jobs:
           LC_ALL=C grep -aFq 'Sentinel 2.4 Investigation Workbench' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64
           LC_ALL=C grep -aFq 'Sentinel 2.4 Full Scan Center' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-arm64
           LC_ALL=C grep -aFq 'Sentinel 2.4 Full Scan Center' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64
+          LC_ALL=C grep -aFq 'Sentinel 2.4 Contextual Action Dock' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-arm64
+          LC_ALL=C grep -aFq 'Sentinel 2.4 Contextual Action Dock' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64
 
       - name: Go race tests
         run: go test -race ./...
@@ -86,13 +91,17 @@ jobs:
           node --check web/app/system-evidence.js
           node --check web/app/workbench.js
           node --check web/app/full-scan.js
+          node --check web/app/action-dock.js
           node --check web/app/runtime.js
           grep -Fq '/app/workbench.css' web/index.html
           grep -Fq '/app/workbench.js' web/index.html
           grep -Fq '/app/full-scan.css' web/index.html
           grep -Fq '/app/full-scan.js' web/index.html
+          grep -Fq '/app/action-dock.css' web/index.html
+          grep -Fq '/app/action-dock.js' web/index.html
           test "$(grep -nF '<script src="/app/workbench.js"></script>' web/index.html | cut -d: -f1)" -lt "$(grep -nF '<script src="/app/full-scan.js"></script>' web/index.html | cut -d: -f1)"
-          test "$(grep -nF '<script src="/app/full-scan.js"></script>' web/index.html | cut -d: -f1)" -lt "$(grep -nF '<script src="/app/runtime.js"></script>' web/index.html | cut -d: -f1)"
+          test "$(grep -nF '<script src="/app/full-scan.js"></script>' web/index.html | cut -d: -f1)" -lt "$(grep -nF '<script src="/app/action-dock.js"></script>' web/index.html | cut -d: -f1)"
+          test "$(grep -nF '<script src="/app/action-dock.js"></script>' web/index.html | cut -d: -f1)" -lt "$(grep -nF '<script src="/app/runtime.js"></script>' web/index.html | cut -d: -f1)"
 
       - name: Auxiliary workspace JavaScript syntax
         run: |
