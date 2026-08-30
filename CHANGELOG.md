@@ -1,3 +1,13 @@
+# V2.4
+
+- Rebuilt the visible Sentinel interface around the V5 Evidence Notebook model instead of the legacy dashboard/card hierarchy.
+- Made the V5 UI the default for normal Browser and native App View entry points; the old dashboard is now only an explicit `?legacy=1` diagnostic fallback.
+- Added build-time verification that both arm64 and x86_64 engines physically embed the V5 desktop UI resources.
+- Added source commit and UI-generation metadata to the packaged macOS app for reproducible local builds.
+- Added deterministic fresh-launch and clean reinstall workflows to prevent macOS from reusing an older Sentinel instance or app bundle.
+- Unified product versioning so the root `VERSION` file is the single source of truth for the Go engine and macOS bundle.
+- Bumped the product version to 2.4.0.
+
 # V2.1
 
 - Final Readiness self-check.
@@ -27,7 +37,6 @@
 - Removed CSP inline-style exception by using native progress elements.
 - Unified remaining inspection command timeouts.
 - Added report/diagnostics visibility posture summaries.
-- Added Power Search and Weakness Audit guides.
 
 # Changelog
 
