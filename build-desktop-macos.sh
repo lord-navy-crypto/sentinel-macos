@@ -22,7 +22,7 @@ UI_INDEX="$HERE/web/index.html"
 UI_CORE="$HERE/web/app/core.js"
 UI_STYLE="$HERE/web/app/shell.css"
 UI_WORKBENCH="$HERE/web/app/workbench.js"
-UI_SCAN_CENTER="$HERE/web/app/scan-center.js"
+UI_SCAN_CENTER="$HERE/web/app/full-scan.js"
 UI_MARKER="Sentinel 2.4 Native Frontend"
 WORKBENCH_MARKER="Sentinel 2.4 Investigation Workbench"
 SCAN_CENTER_MARKER="Sentinel 2.4 Full Scan Center"
@@ -41,12 +41,12 @@ REQUIRED_UI_FILES=(
   "web/app/case-stories.js"
   "web/app/system-evidence.js"
   "web/app/workbench.js"
-  "web/app/scan-center.js"
+  "web/app/full-scan.js"
   "web/app/runtime.js"
   "web/app/shell.css"
   "web/app/advanced.css"
   "web/app/workbench.css"
-  "web/app/scan-center.css"
+  "web/app/full-scan.css"
 )
 REQUIRED_UI_SCRIPTS=(
   "/app/core.js"
@@ -58,14 +58,14 @@ REQUIRED_UI_SCRIPTS=(
   "/app/case-stories.js"
   "/app/system-evidence.js"
   "/app/workbench.js"
-  "/app/scan-center.js"
+  "/app/full-scan.js"
   "/app/runtime.js"
 )
 REQUIRED_UI_STYLES=(
   "/app/shell.css"
   "/app/advanced.css"
   "/app/workbench.css"
-  "/app/scan-center.css"
+  "/app/full-scan.css"
 )
 
 for rel in "${REQUIRED_UI_FILES[@]}"; do
@@ -76,6 +76,10 @@ for rel in "${REQUIRED_UI_FILES[@]}"; do
   fi
 done
 
+if [[ -e "$HERE/web/app/scan-center.js" || -e "$HERE/web/app/scan-center.css" ]]; then
+  echo "Retired Scan Center asset name returned under web/app; use full-scan.js/css for the current product." >&2
+  exit 2
+fi
 if ! grep -Fq "$UI_MARKER" "$UI_CORE"; then
   echo "Sentinel 2.4 product marker missing from $UI_CORE: $UI_MARKER" >&2
   echo "Refusing to build an ambiguous or stale product source tree." >&2
@@ -97,8 +101,8 @@ if ! grep -Fq ".wb-matrix" "$HERE/web/app/workbench.css"; then
   echo "Investigation Workbench visual-system marker missing from workbench.css" >&2
   exit 2
 fi
-if ! grep -Fq ".capability-atlas" "$HERE/web/app/scan-center.css"; then
-  echo "Full Scan Center visual-system marker missing from scan-center.css" >&2
+if ! grep -Fq ".capability-atlas" "$HERE/web/app/full-scan.css"; then
+  echo "Full Scan Center visual-system marker missing from full-scan.css" >&2
   exit 2
 fi
 
@@ -122,7 +126,7 @@ for href in "${REQUIRED_UI_STYLES[@]}"; do
   fi
 done
 
-for retired in '/sentinel-24.js' '/sentinel-24.css' '/app.js' '/style.css' '/desktop-ui.js'; do
+for retired in '/sentinel-24.js' '/sentinel-24.css' '/app.js' '/style.css' '/desktop-ui.js' '/app/scan-center.js' '/app/scan-center.css'; do
   if grep -Fq "$retired" "$UI_INDEX"; then
     echo "Default index.html still references retired frontend asset: $retired" >&2
     exit 2
