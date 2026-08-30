@@ -6,10 +6,10 @@ import (
 	"strings"
 )
 
-// handleIntegrityInspectV24 keeps the established POST contract while also
-// exposing a read-only GET form for the Sentinel 2.4 native evidence frontend.
+// handleIntegrityInspectAPI preserves the established POST contract while also
+// exposing a read-only GET form for the current Sentinel evidence frontend.
 // Both forms are protected by the same localhost/session-token middleware.
-func (a *app) handleIntegrityInspectV24(w http.ResponseWriter, r *http.Request) {
+func (a *app) handleIntegrityInspectAPI(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
 		path := strings.TrimSpace(r.URL.Query().Get("path"))
