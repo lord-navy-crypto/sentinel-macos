@@ -102,7 +102,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         buttonRow.alignment = .centerY
         buttonRow.spacing = 10
 
-        let hint = NSTextField(labelWithString: "Browser is the compatibility-first view. App View is the native-window beta view.")
+        let hint = NSTextField(labelWithString: "Browser is the compatibility-first view. App View is the native-window evidence workbench.")
         hint.font = .systemFont(ofSize: 11)
         hint.textColor = .tertiaryLabelColor
 
@@ -190,13 +190,13 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         view.navigationDelegate = self
 
         let appWindow = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 1180, height: 780),
+            contentRect: NSRect(x: 0, y: 0, width: 1420, height: 880),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
         )
-        appWindow.title = "Sentinel Mac · App View"
-        appWindow.minSize = NSSize(width: 900, height: 620)
+        appWindow.title = "Sentinel Mac · Evidence Workbench"
+        appWindow.minSize = NSSize(width: 1120, height: 700)
         appWindow.isReleasedWhenClosed = false
         appWindow.contentView = view
         appWindow.center()
@@ -250,7 +250,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         completionHandler()
     }
 
-    func webView(_ webView: WKWebView, runJavaScriptConfirmPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping (Bool) -> Void) {
+    func webView(_ webView: WKWebView, runJavaScriptConfirmPanelWithMessage message: String, initiatedByFrame frame, completionHandler: @escaping (Bool) -> Void) {
         let alert = NSAlert()
         alert.messageText = "Sentinel Mac"
         alert.informativeText = message
@@ -369,7 +369,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
                 self.dashboardURL = url
                 self.window.title = "Sentinel Mac \(payload.version)"
                 self.statusLabel.stringValue = "Local engine ready"
-                self.detailLabel.stringValue = "Dashboard: \(payload.origin)\nChoose Browser for maximum compatibility or App View for the native-window beta. Both use this same local session."
+                self.detailLabel.stringValue = "Dashboard: \(payload.origin)\nChoose Browser for compatibility or App View for the three-zone evidence workbench. Both use this same local session."
                 self.browserButton.isEnabled = true
                 self.appViewButton.isEnabled = true
             }
