@@ -14,9 +14,12 @@ import (
 	"time"
 )
 
-const v23MigrationMarkerVersion = 1
+// This marker version describes the persisted v2.3 migration marker format.
+// The runtime symbols are intentionally version-neutral; the historical schema
+// identifiers remain because existing user state may contain them.
+const migrationMarkerVersion = 1
 
-type V23MigrationStore struct {
+type MigrationStore struct {
 	ID       string `json:"id"`
 	Filename string `json:"filename"`
 	Format   string `json:"format"`
@@ -24,7 +27,7 @@ type V23MigrationStore struct {
 	To       string `json:"to"`
 }
 
-type V23MigrationResult struct {
+type MigrationResult struct {
 	ID      string `json:"id"`
 	Path    string `json:"path,omitempty"`
 	Status  string `json:"status"`
@@ -32,22 +35,22 @@ type V23MigrationResult struct {
 	Detail  string `json:"detail"`
 }
 
-type V23MigrationReport struct {
-	GeneratedAt string               `json:"generated_at"`
-	Schema      int                  `json:"schema"`
-	Applied     bool                 `json:"applied"`
-	Healthy     bool                 `json:"healthy"`
-	Results     []V23MigrationResult `json:"results"`
-	Note        string               `json:"note"`
+type MigrationReport struct {
+	GeneratedAt string            `json:"generated_at"`
+	Schema      int               `json:"schema"`
+	Applied     bool              `json:"applied"`
+	Healthy     bool              `json:"healthy"`
+	Results     []MigrationResult `json:"results"`
+	Note        string            `json:"note"`
 }
 
-var v23MigrationState = struct {
+var migrationState = struct {
 	sync.RWMutex
-	report V23MigrationReport
+	report MigrationReport
 }{}
 
-func V23MigrationRegistry() []V23MigrationStore {
-	return []V23MigrationStore{
+func MigrationRegistry() []MigrationStore {
+	return []MigrationStore{
 		{ID:"behavior-baseline", Filename:"behavior-baseline.json", Format:"json", From:"v2.2 behavior snapshot fields", To:"v2.3-compatible normalized behavior snapshot"},
 		{ID:"behavior-history", Filename:"behavior-history.json", Format:"json", From:"v2.2 behavior history entries", To:"stable IDs and normalized risk bands"},
 		{ID:"trust-profile", Filename:"trust-profile.json", Format:"json", From:"v2.2 trusted profile fields", To:"v2.3-compatible profile metadata"},
@@ -74,11 +77,11 @@ func strictReadGzipJSON(path string, dst any) error {
 	return json.NewDecoder(io.LimitReader(gz, 16<<20)).Decode(dst)
 }
 
-func migrationResult(id, path, status string, changed bool, detail string) V23MigrationResult {
-	return V23MigrationResult{ID:id, Path:path, Status:status, Changed:changed, Detail:detail}
+func migrationResult(id, path, status string, changed bool, detail string) MigrationResult {
+	return MigrationResult{ID:id, Path:path, Status:status, Changed:changed, Detail:detail}
 }
 
-func migrateBehaviorBaselineV23(path string) V23MigrationResult {
+func migrateBehaviorBaseline(path string) MigrationResult {
 	var s BehaviorSnapshot
 	if err := strictReadJSON(path,&s); err != nil { return migrationResult("behavior-baseline",path,"error",false,err.Error()) }
 	if s.CapturedAt == "" { return migrationResult("behavior-baseline",path,"error",false,"captured_at missing; refusing to rewrite") }
@@ -90,7 +93,7 @@ func migrateBehaviorBaselineV23(path string) V23MigrationResult {
 	return migrationResult("behavior-baseline",path,"ok",changed,"compatible behavior baseline")
 }
 
-func migrateBehaviorHistoryV23(path string) V23MigrationResult {
+func migrateBehaviorHistory(path string) MigrationResult {
 	var rows []BehaviorHistoryEntry
 	if err:=strictReadJSON(path,&rows);err!=nil{return migrationResult("behavior-history",path,"error",false,err.Error())}
 	if len(rows)>behaviorHistoryLimit { rows=rows[len(rows)-behaviorHistoryLimit:] }
@@ -107,7 +110,7 @@ func migrationTrustBand(score int) string {
 	switch { case score>=80:return "high"; case score>=55:return "elevated"; case score>=25:return "review"; case score>0:return "observe"; default:return "quiet" }
 }
 
-func migrateTrustProfileV23(path string) V23MigrationResult {
+func migrateTrustProfile(path string) MigrationResult {
 	var p TrustProfile
 	if err:=strictReadJSON(path,&p);err!=nil{return migrationResult("trust-profile",path,"error",false,err.Error())}
 	if p.CreatedAt=="" { return migrationResult("trust-profile",path,"error",false,"created_at missing; refusing to rewrite") }
@@ -121,7 +124,7 @@ func migrateTrustProfileV23(path string) V23MigrationResult {
 	return migrationResult("trust-profile",path,"ok",changed,"compatible Trusted Profile")
 }
 
-func migrateTrustHistoryV23(path string) V23MigrationResult {
+func migrateTrustHistory(path string) MigrationResult {
 	var rows []TrustHistoryEntry
 	if err:=strictReadJSON(path,&rows);err!=nil{return migrationResult("trust-history",path,"error",false,err.Error())}
 	if len(rows)>trustHistoryLimit { rows=rows[len(rows)-trustHistoryLimit:] }
@@ -134,7 +137,7 @@ func migrateTrustHistoryV23(path string) V23MigrationResult {
 	return migrationResult("trust-history",path,"ok",changed,fmt.Sprintf("%d bounded trust history entries",len(rows)))
 }
 
-func migrateChangeHistoryV23(path string) V23MigrationResult {
+func migrateChangeHistory(path string) MigrationResult {
 	var env struct{ Version int `json:"version"`; Events []ChangeEvent `json:"events"` }
 	if err:=strictReadGzipJSON(path,&env);err!=nil{return migrationResult("change-history",path,"error",false,err.Error())}
 	if env.Version==0 { env.Version=1 }
@@ -151,7 +154,7 @@ func migrateChangeHistoryV23(path string) V23MigrationResult {
 	return migrationResult("change-history",path,"ok",changed,fmt.Sprintf("%d bounded change events",len(env.Events)))
 }
 
-func migrateChangeCheckpointV23(path string) V23MigrationResult {
+func migrateChangeCheckpoint(path string) MigrationResult {
 	var c changeCheckpoint
 	if err:=strictReadGzipJSON(path,&c);err!=nil{return migrationResult("change-checkpoint",path,"error",false,err.Error())}
 	changed:=false
@@ -163,7 +166,7 @@ func migrateChangeCheckpointV23(path string) V23MigrationResult {
 	return migrationResult("change-checkpoint",path,"ok",changed,"compatible change checkpoint")
 }
 
-func migrateIncidentHistoryV23(path string) V23MigrationResult {
+func migrateIncidentHistory(path string) MigrationResult {
 	var env struct{ Version int `json:"version"`; Incidents []Incident `json:"incidents"` }
 	if err:=strictReadGzipJSON(path,&env);err!=nil{return migrationResult("incident-history",path,"error",false,err.Error())}
 	if env.Version!=1&&env.Version!=2&&env.Version!=incidentHistoryVersion{return migrationResult("incident-history",path,"error",false,fmt.Sprintf("unsupported incident history version %d",env.Version))}
@@ -179,23 +182,23 @@ func migrateIncidentHistoryV23(path string) V23MigrationResult {
 	return migrationResult("incident-history",path,"ok",changed,fmt.Sprintf("%d object-centered incident stories",len(out)))
 }
 
-func runV23StateMigrations(ephemeral bool) V23MigrationReport {
-	report:=V23MigrationReport{GeneratedAt:time.Now().UTC().Format(time.RFC3339),Schema:SentinelSchemaV23,Applied:!ephemeral,Healthy:true,Note:"Migration only rewrites Sentinel-owned metadata after strict primary-file decoding. Atomic writes keep a .bak rollback copy. Corrupt primary state is reported and never force-overwritten."}
-	if ephemeral { report.Results=[]V23MigrationResult{{ID:"all",Status:"skipped",Detail:"--ephemeral disables persistent state migration"}}; v23MigrationState.Lock();v23MigrationState.report=report;v23MigrationState.Unlock();return report }
-	base:=sentinelStateDir();if base==""{report.Healthy=false;report.Results=[]V23MigrationResult{{ID:"all",Status:"error",Detail:"Sentinel state directory unavailable"}};return report}
-	for _,store:=range V23MigrationRegistry(){
+func runStateMigrations(ephemeral bool) MigrationReport {
+	report:=MigrationReport{GeneratedAt:time.Now().UTC().Format(time.RFC3339),Schema:SentinelSchemaV23,Applied:!ephemeral,Healthy:true,Note:"Migration only rewrites Sentinel-owned metadata after strict primary-file decoding. Atomic writes keep a .bak rollback copy. Corrupt primary state is reported and never force-overwritten."}
+	if ephemeral { report.Results=[]MigrationResult{{ID:"all",Status:"skipped",Detail:"--ephemeral disables persistent state migration"}}; migrationState.Lock();migrationState.report=report;migrationState.Unlock();return report }
+	base:=sentinelStateDir();if base==""{report.Healthy=false;report.Results=[]MigrationResult{{ID:"all",Status:"error",Detail:"Sentinel state directory unavailable"}};return report}
+	for _,store:=range MigrationRegistry(){
 		path:=filepath.Join(base,store.Filename)
 		if _,err:=os.Stat(path);err!=nil { if os.IsNotExist(err){report.Results=append(report.Results,migrationResult(store.ID,path,"absent",false,"no legacy state present"));continue};report.Results=append(report.Results,migrationResult(store.ID,path,"error",false,err.Error()));report.Healthy=false;continue }
-		var r V23MigrationResult
-		switch store.ID { case "behavior-baseline":r=migrateBehaviorBaselineV23(path);case "behavior-history":r=migrateBehaviorHistoryV23(path);case "trust-profile":r=migrateTrustProfileV23(path);case "trust-history":r=migrateTrustHistoryV23(path);case "change-history":r=migrateChangeHistoryV23(path);case "change-checkpoint":r=migrateChangeCheckpointV23(path);case "incident-history":r=migrateIncidentHistoryV23(path);default:r=migrationResult(store.ID,path,"error",false,"migration function unavailable") }
-		if r.Status=="error"{report.Healthy=false};report.Results=append(report.Results,r)
+		var result MigrationResult
+		switch store.ID { case "behavior-baseline":result=migrateBehaviorBaseline(path);case "behavior-history":result=migrateBehaviorHistory(path);case "trust-profile":result=migrateTrustProfile(path);case "trust-history":result=migrateTrustHistory(path);case "change-history":result=migrateChangeHistory(path);case "change-checkpoint":result=migrateChangeCheckpoint(path);case "incident-history":result=migrateIncidentHistory(path);default:result=migrationResult(store.ID,path,"error",false,"migration function unavailable") }
+		if result.Status=="error"{report.Healthy=false};report.Results=append(report.Results,result)
 	}
-	if report.Healthy { marker:=filepath.Join(base,"migration-v23.json"); _=writePrivateJSON(marker,map[string]any{"version":v23MigrationMarkerVersion,"schema":SentinelSchemaV23,"completed_at":report.GeneratedAt,"stores":len(report.Results)}) }
-	v23MigrationState.Lock();v23MigrationState.report=report;v23MigrationState.Unlock();return report
+	if report.Healthy { marker:=filepath.Join(base,"migration-v23.json"); _=writePrivateJSON(marker,map[string]any{"version":migrationMarkerVersion,"schema":SentinelSchemaV23,"completed_at":report.GeneratedAt,"stores":len(report.Results)}) }
+	migrationState.Lock();migrationState.report=report;migrationState.Unlock();return report
 }
 
-func currentV23MigrationReport() V23MigrationReport { v23MigrationState.RLock();defer v23MigrationState.RUnlock();return v23MigrationState.report }
+func currentMigrationReport() MigrationReport { migrationState.RLock();defer migrationState.RUnlock();return migrationState.report }
 
-func migrationRegistryIDs() []string { rows:=V23MigrationRegistry();out:=make([]string,0,len(rows));for _,r:=range rows{out=append(out,r.ID)};sort.Strings(out);return out }
+func migrationRegistryIDs() []string { rows:=MigrationRegistry();out:=make([]string,0,len(rows));for _,row:=range rows{out=append(out,row.ID)};sort.Strings(out);return out }
 
-func migrationStoreByID(id string)(V23MigrationStore,bool){id=strings.TrimSpace(id);for _,s:=range V23MigrationRegistry(){if s.ID==id{return s,true}};return V23MigrationStore{},false}
+func migrationStoreByID(id string)(MigrationStore,bool){id=strings.TrimSpace(id);for _,store:=range MigrationRegistry(){if store.ID==id{return store,true}};return MigrationStore{},false}
