@@ -62,7 +62,9 @@
   $('#globalSearch').addEventListener('input',()=>{clearTimeout(state.searchTimer);state.searchTimer=setTimeout(async()=>{const q=$('#globalSearch').value.trim(),panel=$('#searchResults');if(q.length<2){panel.hidden=true;return;}try{const d=await api('/api/search?q='+encodeURIComponent(q)),rows=d.results||[];panel._rows=rows;panel.innerHTML=`<div class="s24-search-intro">Current bounded evidence · ${rows.length} result(s)</div>${rows.length?rows.slice(0,30).map((r,i)=>`<button class="s24-search-hit" type="button" data-search-index="${i}"><span>${esc(r.kind||'evidence')}</span><div><b>${esc(r.title||'Untitled')}</b><small>${esc(r.subtitle||r.why_matched||'')}</small></div></button>`).join(''):empty(`No current evidence matched “${q}”.`)}`;panel.hidden=false;}catch(e){notice(e.message);}},170);});
   document.addEventListener('keydown',event=>{if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==='k'){event.preventDefault();$('#globalSearch').focus();$('#globalSearch').select();}if(event.key==='Escape'){closeContext();$('#searchResults').hidden=true;}});
 
-  window.__SENTINEL_24__={marker:S.PRODUCT_MARKER,version:'2.4.0',architecture:'modular-app'};
+  const applicationIdentity={marker:S.PRODUCT_MARKER,version:'2.5.0',architecture:'modular-app'};
+  window.__SENTINEL_25__=applicationIdentity;
+  window.__SENTINEL_24__=applicationIdentity;
   S.navigate=navigate;
   const initial=new URLSearchParams(location.hash.slice(1)).get('lens');
   renderNavigation();navigate(LENSES[initial]?initial:'status',{push:false});
