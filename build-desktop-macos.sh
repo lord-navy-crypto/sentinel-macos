@@ -22,8 +22,10 @@ UI_INDEX="$HERE/web/index.html"
 UI_CORE="$HERE/web/app/core.js"
 UI_STYLE="$HERE/web/app/shell.css"
 UI_WORKBENCH="$HERE/web/app/workbench.js"
+UI_SCAN_CENTER="$HERE/web/app/scan-center.js"
 UI_MARKER="Sentinel 2.4 Native Frontend"
 WORKBENCH_MARKER="Sentinel 2.4 Investigation Workbench"
+SCAN_CENTER_MARKER="Sentinel 2.4 Full Scan Center"
 BUILD_SHA="$(git rev-parse HEAD 2>/dev/null || printf 'unknown')"
 
 # The canonical Sentinel 2.4 application is modular. These are product modules,
@@ -39,10 +41,12 @@ REQUIRED_UI_FILES=(
   "web/app/case-stories.js"
   "web/app/system-evidence.js"
   "web/app/workbench.js"
+  "web/app/scan-center.js"
   "web/app/runtime.js"
   "web/app/shell.css"
   "web/app/advanced.css"
   "web/app/workbench.css"
+  "web/app/scan-center.css"
 )
 REQUIRED_UI_SCRIPTS=(
   "/app/core.js"
@@ -54,12 +58,14 @@ REQUIRED_UI_SCRIPTS=(
   "/app/case-stories.js"
   "/app/system-evidence.js"
   "/app/workbench.js"
+  "/app/scan-center.js"
   "/app/runtime.js"
 )
 REQUIRED_UI_STYLES=(
   "/app/shell.css"
   "/app/advanced.css"
   "/app/workbench.css"
+  "/app/scan-center.css"
 )
 
 for rel in "${REQUIRED_UI_FILES[@]}"; do
@@ -79,12 +85,20 @@ if ! grep -Fq "$WORKBENCH_MARKER" "$UI_WORKBENCH"; then
   echo "Sentinel 2.4 Investigation Workbench marker missing from $UI_WORKBENCH" >&2
   exit 2
 fi
+if ! grep -Fq "$SCAN_CENTER_MARKER" "$UI_SCAN_CENTER"; then
+  echo "Sentinel 2.4 Full Scan Center marker missing from $UI_SCAN_CENTER" >&2
+  exit 2
+fi
 if ! grep -Fq ".s24-shell" "$UI_STYLE"; then
   echo "Sentinel 2.4 visual-system marker missing from $UI_STYLE" >&2
   exit 2
 fi
 if ! grep -Fq ".wb-matrix" "$HERE/web/app/workbench.css"; then
   echo "Investigation Workbench visual-system marker missing from workbench.css" >&2
+  exit 2
+fi
+if ! grep -Fq ".capability-atlas" "$HERE/web/app/scan-center.css"; then
+  echo "Full Scan Center visual-system marker missing from scan-center.css" >&2
   exit 2
 fi
 
@@ -134,6 +148,12 @@ for marker in 'Interactive Evidence Graph 3.0' 'Unified Investigation Workspace'
     exit 2
   fi
 done
+for marker in 'Easy Scan' 'Full Scan' 'Complete Capability Atlas' 'Deep home-storage traversal & hash analysis' 'System Checkpoint 2.0'; do
+  if ! grep -Fq "$marker" "$UI_SCAN_CENTER"; then
+    echo "Full Scan Center capability marker missing: $marker" >&2
+    exit 2
+  fi
+done
 
 echo "===== SENTINEL SOURCE IDENTITY ====="
 echo "Source commit: $BUILD_SHA"
@@ -143,14 +163,15 @@ echo "Canonical modules: ${#REQUIRED_UI_SCRIPTS[@]} scripts + ${#REQUIRED_UI_STY
 echo "Core UI marker: verified"
 echo "Advanced capabilities: verified"
 echo "Investigation Workbench: 30-function evolution verified"
+echo "Full Scan Center: Easy Scan + comprehensive retained baseline + Capability Atlas verified"
 echo
 
 ./build-macos.sh
 
 # The Go executable embeds web/* at compile time. Verify the actual canonical
-# product and Workbench markers are physically present in both architecture engines.
+# product, Workbench, and Scan Center markers are physically present in both engines.
 for engine in "$HERE/dist/sentinel-macos-arm64" "$HERE/dist/sentinel-macos-x86_64"; do
-  for marker in "$UI_MARKER" "$WORKBENCH_MARKER" '/api/intelligence/graph/v2' '/api/incidents/v2' '/api/network/history' 'Evidence Bundle'; do
+  for marker in "$UI_MARKER" "$WORKBENCH_MARKER" "$SCAN_CENTER_MARKER" '/api/intelligence/graph/v2' '/api/incidents/v2' '/api/network/history' 'Evidence Bundle' 'Deep home-storage traversal & hash analysis'; do
     if ! LC_ALL=C grep -aFq "$marker" "$engine"; then
       echo "Embedded Sentinel 2.4 marker missing from $engine: $marker" >&2
       echo "The Go binary does not contain the current modular web/app product. Aborting." >&2
@@ -158,7 +179,7 @@ for engine in "$HERE/dist/sentinel-macos-arm64" "$HERE/dist/sentinel-macos-x86_6
     fi
   done
 done
-echo "Embedded Sentinel 2.4 modular product + Investigation Workbench: verified in arm64 + x86_64 engines"
+echo "Embedded Sentinel 2.4 product + Workbench + Full Scan Center: verified in arm64 + x86_64 engines"
 
 # Build the native launcher completely before replacing the app bundle. If Swift
 # or lipo fails, no partial Sentinel.app is left behind.
@@ -231,6 +252,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>SentinelSourceCommit</key><string>${BUILD_SHA}</string>
   <key>SentinelDesktopUI</key><string>2.4 Native Frontend</string>
   <key>SentinelWorkbench</key><string>30-function Investigation Workbench</string>
+  <key>SentinelScanCenter</key><string>Easy Scan + Full Scan + Capability Atlas</string>
   <key>NSAppTransportSecurity</key>
   <dict>
     <key>NSAllowsLocalNetworking</key><true/>
@@ -247,6 +269,7 @@ printf '%s\n' \
   "Source commit: $BUILD_SHA" \
   "Desktop UI: 2.4 Native Frontend" \
   "Investigation Workbench: 30 integrated improvements" \
+  "Scan Center: Easy Scan + Full Scan + Capability Atlas" \
   "Embedded UI: canonical modular product verified in arm64 + x86_64" \
   "Universal launcher: $(lipo -archs "$APP/Contents/MacOS/Sentinel")" \
   "App icon: $APP/Contents/Resources/AppIcon.icns" \
