@@ -24,17 +24,17 @@ func TestI18nFoundationSupportsEnglishAndChinese(t *testing.T) {
 	}
 }
 
-func TestNormalizedNavigationExposesLanguageAndAlpha(t *testing.T) {
-	s := readAlphaContractFile(t, "web/v23-navigation.js")
+func TestAuxiliaryNavigationExposesLanguageAndAlpha(t *testing.T) {
+	s := readAlphaContractFile(t, "web/aux-navigation.js")
 	for _, want := range []string{"/i18n.js", "/alpha-center.html", "sentinel-language-switcher", "zh-CN", "Alpha", "nav.alpha", "Sentinel 2.4 · AUX"} {
-		if !strings.Contains(s, want) { t.Fatalf("specialist navigation Alpha/i18n integration missing %q", want) }
+		if !strings.Contains(s, want) { t.Fatalf("auxiliary navigation Alpha/i18n integration missing %q", want) }
 	}
 	for _, retired := range []string{"/easy.html", "/scan-center.html", "/security-center.html"} {
-		if strings.Contains(s, retired) { t.Fatalf("specialist navigation still links retired portal %q", retired) }
+		if strings.Contains(s, retired) { t.Fatalf("auxiliary navigation still links retired portal %q", retired) }
 	}
 	html := readAlphaContractFile(t, "web/alpha-center.html")
-	if !strings.Contains(html, "/v23-navigation.css") || !strings.Contains(html, "/v23-navigation.js") {
-		t.Fatal("retained Alpha workspace must use the transitional specialist navigation")
+	if !strings.Contains(html, "/aux-navigation.css") || !strings.Contains(html, "/aux-navigation.js") {
+		t.Fatal("retained Alpha workspace must use the Sentinel 2.4 auxiliary navigation")
 	}
 }
 
