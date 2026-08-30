@@ -45,6 +45,7 @@
     audit: [
       {label:'Refresh', refresh:true},
       {label:'Run Audit', do:'rerun-audit', primary:true},
+      {label:'Continue Investigation', continueInvestigation:true},
       {label:'Cases', lens:'cases'},
       {label:'Object Verify', lens:'object'},
     ],
@@ -157,6 +158,7 @@
     if (action.system) attrs.push(`data-system-action="${esc(action.system)}"`);
     if (action.advanced) attrs.push(`data-advanced="${esc(action.advanced)}"`);
     if (action.workbench) attrs.push('data-workbench="open"');
+    if (action.continueInvestigation) attrs.push('data-continue-investigation="1"');
     return `<button type="button" class="s24-action ${action.primary?'primary':''}" ${attrs.join(' ')}>${esc(action.label)}</button>`;
   }
 
@@ -300,6 +302,13 @@
   }, true);
 
   document.addEventListener('click', event => {
+    const continueInvestigation = event.target.closest('[data-continue-investigation]');
+    if (continueInvestigation) {
+      event.preventDefault();
+      const hash = new URLSearchParams({token:S.token || ''});
+      window.location.href = `/investigation.html#${hash.toString()}`;
+      return;
+    }
     const lens = event.target.closest('[data-action-dock-lens]');
     if (lens) {
       event.preventDefault();
