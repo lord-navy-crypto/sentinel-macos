@@ -172,7 +172,7 @@ for marker in 'Easy Scan' 'Full Scan' 'Complete Capability Atlas' 'Deep home-sto
     exit 2
   fi
 done
-for marker in 'Easy Scan' 'Full Scan' 'Capture Checkpoint' 'Capture History' 'Recovery / Workbench'; do
+for marker in 'Easy Scan' 'Full Scan' 'Capture Checkpoint' 'Capture History' 'Open Cases' 'Review Changes' 'Inspect Storage' 'Compare Reference'; do
   if ! grep -Fq "$marker" "$UI_ACTION_DOCK"; then
     echo "Action Dock capability marker missing: $marker" >&2
     exit 2
@@ -188,7 +188,7 @@ echo "Core UI marker: verified"
 echo "Advanced capabilities: verified"
 echo "Investigation Workbench: 30-function evolution verified"
 echo "Full Scan Center: Easy Scan + comprehensive retained baseline + Capability Atlas verified"
-echo "Contextual Action Dock: header scan controls + lens-specific quick actions verified"
+echo "Contextual Action Dock: header scan controls + lens-specific quick actions + post-scan routing verified"
 echo
 
 ./build-macos.sh
