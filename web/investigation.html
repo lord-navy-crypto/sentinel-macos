@@ -6,11 +6,11 @@
   <title>Sentinel Continue Investigation</title>
   <link rel="stylesheet" href="/investigation.css">
   <link rel="stylesheet" href="/investigation-stability-v23.css">
-  <link rel="stylesheet" href="/v23-navigation.css">
+  <link rel="stylesheet" href="/aux-navigation.css">
 </head>
 <body>
   <main class="investigation-shell">
-    <header class="hero"><div><p class="eyebrow">Sentinel v2.3 · Security-first investigation</p><h1>Continue Investigation</h1><p class="subtitle">A report is a node, not the end. Branch from any local object into deeper file, identity, runtime, persistence, network, and historical evidence.</p></div><a id="backToSentinel" class="secondary-link" href="/">Back to Sentinel</a></header>
+    <header class="hero"><div><p class="eyebrow">Sentinel 2.4 · AUX Investigation</p><h1>Continue Investigation</h1><p class="subtitle">A report is a node, not the end. Branch from any local object into deeper file, identity, runtime, persistence, network, and historical evidence.</p></div><a id="backToSentinel" class="secondary-link" href="/">Back to Sentinel</a></header>
     <section class="principles" aria-label="Investigation principles"><article><b>Branch</b><span>Continue from the exact object that raised a question.</span></article><article><b>Correlate</b><span>Combine file evidence with Object Story relationships.</span></article><article><b>Bound</b><span>Depth, candidate count, hashing, and traversal stay limited.</span></article><article><b>Preserve</b><span>Raw provenance and unknowns remain visible.</span></article></section>
     <p id="notice" class="notice" role="status" aria-live="polite"></p>
     <section class="control-card"><div class="section-head"><div><p class="eyebrow">Choose a branch root</p><h2>Investigate any absolute path</h2></div><p>For an app bundle, Sentinel descends into code-bearing contents. For a broad folder, nested bundles become explicit continuation targets instead of being exploded all at once.</p></div><form id="investigationForm" class="path-form"><input id="investigationPath" type="text" autocomplete="off" spellcheck="false" placeholder="/Applications/Example.app" required><button id="startInvestigation" type="submit">Investigate</button></form><div class="branch-controls"><button id="branchBack" type="button" disabled>← Previous branch</button><button id="branchForward" type="button" disabled>Next branch →</button><span id="branchPosition">No branch yet</span></div></section>
@@ -27,6 +27,6 @@
   <script src="/investigation-session-note-guard.js"></script>
   <script src="/investigation-export-v23.js"></script>
   <script src="/process-relations-bridge.js"></script>
-  <script src="/v23-navigation.js"></script>
+  <script src="/aux-navigation.js"></script>
 </body>
 </html>
