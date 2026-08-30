@@ -17,6 +17,7 @@ TARGET_APP="${SENTINEL_INSTALL_APP:-/Applications/Sentinel.app}"
 EXPECTED_UI="2.4 Native Frontend"
 EXPECTED_WORKBENCH="30-function Investigation Workbench"
 EXPECTED_SCAN_CENTER="Easy Scan + Full Scan + Capability Atlas"
+EXPECTED_ACTION_DOCK="Contextual Quick Actions"
 
 printf '%s\n' \
   "===== SENTINEL CLEAN REINSTALL =====" \
@@ -24,6 +25,7 @@ printf '%s\n' \
   "Target UI: $EXPECTED_UI" \
   "Target Workbench: $EXPECTED_WORKBENCH" \
   "Target Scan Center: $EXPECTED_SCAN_CENTER" \
+  "Target Action Dock: $EXPECTED_ACTION_DOCK" \
   "Source: $HERE" \
   "Install target: $TARGET_APP" \
   "User history/baselines/recovery data: preserved"
@@ -51,6 +53,7 @@ PACKAGED_VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionStrin
 PACKAGED_UI="$(/usr/libexec/PlistBuddy -c 'Print :SentinelDesktopUI' "$BUILT_APP/Contents/Info.plist")"
 PACKAGED_WORKBENCH="$(/usr/libexec/PlistBuddy -c 'Print :SentinelWorkbench' "$BUILT_APP/Contents/Info.plist")"
 PACKAGED_SCAN_CENTER="$(/usr/libexec/PlistBuddy -c 'Print :SentinelScanCenter' "$BUILT_APP/Contents/Info.plist")"
+PACKAGED_ACTION_DOCK="$(/usr/libexec/PlistBuddy -c 'Print :SentinelActionDock' "$BUILT_APP/Contents/Info.plist")"
 PACKAGED_SHA="$(/usr/libexec/PlistBuddy -c 'Print :SentinelSourceCommit' "$BUILT_APP/Contents/Info.plist")"
 
 if [[ "$PACKAGED_VERSION" != "$VERSION" ]]; then
@@ -67,6 +70,10 @@ if [[ "$PACKAGED_WORKBENCH" != "$EXPECTED_WORKBENCH" ]]; then
 fi
 if [[ "$PACKAGED_SCAN_CENTER" != "$EXPECTED_SCAN_CENTER" ]]; then
   echo "Unexpected packaged Scan Center: $PACKAGED_SCAN_CENTER (expected $EXPECTED_SCAN_CENTER)" >&2
+  exit 2
+fi
+if [[ "$PACKAGED_ACTION_DOCK" != "$EXPECTED_ACTION_DOCK" ]]; then
+  echo "Unexpected packaged Action Dock: $PACKAGED_ACTION_DOCK (expected $EXPECTED_ACTION_DOCK)" >&2
   exit 2
 fi
 
@@ -93,14 +100,16 @@ INSTALLED_VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionStri
 INSTALLED_UI="$(/usr/libexec/PlistBuddy -c 'Print :SentinelDesktopUI' "$TARGET_APP/Contents/Info.plist")"
 INSTALLED_WORKBENCH="$(/usr/libexec/PlistBuddy -c 'Print :SentinelWorkbench' "$TARGET_APP/Contents/Info.plist")"
 INSTALLED_SCAN_CENTER="$(/usr/libexec/PlistBuddy -c 'Print :SentinelScanCenter' "$TARGET_APP/Contents/Info.plist")"
+INSTALLED_ACTION_DOCK="$(/usr/libexec/PlistBuddy -c 'Print :SentinelActionDock' "$TARGET_APP/Contents/Info.plist")"
 INSTALLED_SHA="$(/usr/libexec/PlistBuddy -c 'Print :SentinelSourceCommit' "$TARGET_APP/Contents/Info.plist")"
 
-if [[ "$INSTALLED_VERSION" != "$VERSION" || "$INSTALLED_UI" != "$EXPECTED_UI" || "$INSTALLED_WORKBENCH" != "$EXPECTED_WORKBENCH" || "$INSTALLED_SCAN_CENTER" != "$EXPECTED_SCAN_CENTER" ]]; then
+if [[ "$INSTALLED_VERSION" != "$VERSION" || "$INSTALLED_UI" != "$EXPECTED_UI" || "$INSTALLED_WORKBENCH" != "$EXPECTED_WORKBENCH" || "$INSTALLED_SCAN_CENTER" != "$EXPECTED_SCAN_CENTER" || "$INSTALLED_ACTION_DOCK" != "$EXPECTED_ACTION_DOCK" ]]; then
   echo "Installed application identity verification failed." >&2
   echo "Version: $INSTALLED_VERSION (expected $VERSION)" >&2
   echo "UI: $INSTALLED_UI (expected $EXPECTED_UI)" >&2
   echo "Workbench: $INSTALLED_WORKBENCH (expected $EXPECTED_WORKBENCH)" >&2
   echo "Scan Center: $INSTALLED_SCAN_CENTER (expected $EXPECTED_SCAN_CENTER)" >&2
+  echo "Action Dock: $INSTALLED_ACTION_DOCK (expected $EXPECTED_ACTION_DOCK)" >&2
   exit 2
 fi
 
@@ -111,6 +120,7 @@ Version: $INSTALLED_VERSION
 Desktop UI: $INSTALLED_UI
 Investigation Workbench: $INSTALLED_WORKBENCH
 Scan Center: $INSTALLED_SCAN_CENTER
+Action Dock: $INSTALLED_ACTION_DOCK
 Source commit: $INSTALLED_SHA
 Path: $TARGET_APP
 
