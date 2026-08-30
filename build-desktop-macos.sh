@@ -18,33 +18,44 @@ APP="$HERE/dist/Sentinel.app"
 BUILD_DIR="$HERE/dist/desktop-build"
 SWIFT_SRC="$HERE/desktop/SentinelDesktop.swift"
 ICON_SRC="$HERE/desktop/GenerateAppIcon.swift"
-UI_MARKER="Sentinel Desktop App View V5"
+UI_SOURCE="$HERE/web/sentinel-24.js"
+UI_STYLE="$HERE/web/sentinel-24.css"
+UI_MARKER="Sentinel 2.4 Native Frontend"
 BUILD_SHA="$(git rev-parse HEAD 2>/dev/null || printf 'unknown')"
 
-if ! grep -Fq "$UI_MARKER" "$HERE/web/desktop-ui.js"; then
-  echo "Desktop UI source marker missing: $UI_MARKER" >&2
-  echo "Refusing to build an ambiguous or stale desktop source tree." >&2
+if ! grep -Fq "$UI_MARKER" "$UI_SOURCE"; then
+  echo "Sentinel 2.4 UI source marker missing: $UI_MARKER" >&2
+  echo "Refusing to build an ambiguous or stale product source tree." >&2
+  exit 2
+fi
+if ! grep -Fq ".s24-shell" "$UI_STYLE"; then
+  echo "Sentinel 2.4 visual system marker missing from $UI_STYLE" >&2
+  exit 2
+fi
+if grep -Fq 'src="/app.js"' "$HERE/web/index.html" || grep -Fq 'href="/style.css"' "$HERE/web/index.html"; then
+  echo "Default index.html still loads the retired dashboard runtime. Aborting." >&2
   exit 2
 fi
 
 echo "===== SENTINEL SOURCE IDENTITY ====="
 echo "Source commit: $BUILD_SHA"
-echo "Desktop UI: V5 Evidence Notebook"
+echo "Product version: $VERSION"
+echo "Desktop UI: 2.4 Native Frontend"
 echo "UI source marker: verified"
 echo
 
 ./build-macos.sh
 
-# The Go executable embeds web/* at compile time. Verify the new UI marker is
-# physically present in both architecture-specific engines before packaging.
+# The Go executable embeds web/* at compile time. Verify the actual 2.4 product
+# marker is physically present in both architecture-specific engines.
 for engine in "$HERE/dist/sentinel-macos-arm64" "$HERE/dist/sentinel-macos-x86_64"; do
   if ! LC_ALL=C grep -aFq "$UI_MARKER" "$engine"; then
-    echo "Embedded V5 UI marker missing from $engine" >&2
-    echo "The Go binary does not contain the current web/desktop-ui.js. Aborting." >&2
+    echo "Embedded Sentinel 2.4 UI marker missing from $engine" >&2
+    echo "The Go binary does not contain the current web/sentinel-24.js. Aborting." >&2
     exit 2
   fi
 done
-echo "Embedded V5 UI marker: verified in arm64 + x86_64 engines"
+echo "Embedded Sentinel 2.4 UI marker: verified in arm64 + x86_64 engines"
 
 # Build the native launcher completely before replacing the app bundle. If Swift
 # or lipo fails, no partial Sentinel.app is left behind.
@@ -92,7 +103,7 @@ ditto "$BUILD_DIR/Sentinel" "$APP/Contents/MacOS/Sentinel"
 chmod 755 "$APP/Contents/MacOS/Sentinel"
 
 # Keep the Go engines architecture-specific. The universal launcher chooses the
-# matching engine at runtime. Browser and App View both use this same process.
+# matching engine at runtime. Browser and App View use the same 2.4 product URL.
 ditto "$HERE/dist/sentinel-macos-arm64" "$APP/Contents/Resources/bin/sentinel-macos-arm64"
 ditto "$HERE/dist/sentinel-macos-x86_64" "$APP/Contents/Resources/bin/sentinel-macos-x86_64"
 chmod 755 "$APP/Contents/Resources/bin/"sentinel-macos-*
@@ -115,7 +126,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
   <key>NSHighResolutionCapable</key><true/>
   <key>SentinelSourceCommit</key><string>${BUILD_SHA}</string>
-  <key>SentinelDesktopUI</key><string>V5 Evidence Notebook</string>
+  <key>SentinelDesktopUI</key><string>2.4 Native Frontend</string>
   <key>NSAppTransportSecurity</key>
   <dict>
     <key>NSAllowsLocalNetworking</key><true/>
@@ -130,10 +141,10 @@ printf '%s\n' \
   "Bundle ID: $BUNDLE_ID" \
   "Version: $VERSION" \
   "Source commit: $BUILD_SHA" \
-  "Desktop UI: V5 Evidence Notebook" \
+  "Desktop UI: 2.4 Native Frontend" \
   "Embedded UI: verified in arm64 + x86_64" \
   "Universal launcher: $(lipo -archs "$APP/Contents/MacOS/Sentinel")" \
   "App icon: $APP/Contents/Resources/AppIcon.icns" \
-  "UI modes: browser + native WebKit App View, same V5 desktop session URL" \
+  "UI modes: browser + native WebKit App View, same Sentinel 2.4 product source" \
   "ATS: local networking only; no arbitrary-load exception" \
   "This build is not signed/notarized unless you run release-direct-macos.sh."
