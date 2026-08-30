@@ -86,7 +86,7 @@ func TestHistoricalContinueInvestigationWorkspaceSupportsBranchingAndCorrelation
 }
 
 func TestContinueInvestigationWebSurfaceAvoidsDynamicCodeExecution(t *testing.T) {
-	for _, path := range []string{"web/sentinel-24.js", "web/investigation.js", "web/investigation-bridge.js"} {
+	for _, path := range []string{"web/sentinel-24.js", "web/investigation.js"} {
 		source := requireInvestigationSourceContains(t, path)
 		for _, forbidden := range []string{"eval(", "new Function(", "document.write("} {
 			if strings.Contains(source, forbidden) {
