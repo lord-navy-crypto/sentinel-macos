@@ -42,6 +42,20 @@ jobs:
           LC_ALL=C grep -aFq 'Sentinel 2.4 Native Frontend' /tmp/sentinel-arm64
           LC_ALL=C grep -aFq 'Sentinel 2.4 Native Frontend' /tmp/sentinel-amd64
 
+      - name: Desktop application packaging smoke
+        run: |
+          chmod +x build-macos.sh build-desktop-macos.sh
+          ./build-desktop-macos.sh
+          test -d dist/Sentinel.app
+          test -x dist/Sentinel.app/Contents/MacOS/Sentinel
+          test -x dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-arm64
+          test -x dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' dist/Sentinel.app/Contents/Info.plist)" = "$(tr -d '[:space:]' < VERSION)"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :SentinelDesktopUI' dist/Sentinel.app/Contents/Info.plist)" = "2.4 Native Frontend"
+          ARCHS="$(lipo -archs dist/Sentinel.app/Contents/MacOS/Sentinel)"
+          echo "$ARCHS" | grep -q arm64
+          echo "$ARCHS" | grep -q x86_64
+
       - name: Go race tests
         run: go test -race ./...
 
