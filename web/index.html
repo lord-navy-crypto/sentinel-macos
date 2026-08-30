@@ -3,281 +3,60 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Sentinel macOS</title>
-  <link rel="stylesheet" href="/style.css">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <meta name="sentinel-generation" content="2.4-native">
+  <title>Sentinel 2.4 · Local Evidence</title>
+  <link rel="stylesheet" href="/sentinel-24.css">
 </head>
-<body>
-<div class="app">
-  <aside class="sidebar">
-    <div class="brand"><span class="brandmark">S</span><div><strong>Sentinel</strong><small>macOS · v2.2</small></div></div>
-    <div class="mode-switch" role="group" aria-label="Navigation mode"><button id="easyMode" class="mode active" type="button">Easy</button><button id="advancedMode" class="mode" type="button">Advanced</button></div>
-    <nav>
-      <button class="nav active" data-view="overview">Home</button>
-      <button class="nav" data-view="quickcheck">Quick Check</button>
-      <button class="nav" data-view="hardware">System Profile</button>
-      <button class="nav" data-view="weakness">Search & Weakness</button>
-      <button class="nav" data-view="changes">Change Monitor</button>
-      <button class="nav" data-view="incidents">Incidents</button>
-      <button class="nav" data-view="storage">Storage Intelligence</button>
-      <button class="nav" data-view="security">Security Audit</button>
-      <button class="nav" data-view="actions">Safe Actions</button>
-      <button class="nav" data-view="guide">Guide & Permissions</button>
-      <div class="advanced-nav nav-group-label">Advanced tools</div>
-      <button class="nav advanced-nav" data-view="integrity">Integrity Lab</button>
-      <button class="nav advanced-nav" data-view="intelligence">Intelligence</button>
-      <button class="nav advanced-nav" data-view="behavior">Behavior Diff</button>
-      <button class="nav advanced-nav" data-view="trust">Trust & Drift</button>
-      <button class="nav advanced-nav" data-view="processes">Processes</button>
-      <button class="nav advanced-nav" data-view="startup">Startup</button>
-      <button class="nav advanced-nav" data-view="persistence">Persistence Integrity</button>
-      <button class="nav advanced-nav" data-view="background">Login & Background</button>
-      <button class="nav advanced-nav" data-view="network">Network</button>
-      <button class="nav advanced-nav" data-view="cleanup">Cleanup Preview</button>
-    </nav>
-    <div class="sidebar-actions"><button id="exportReport" class="side-action">Export local report</button></div>
-    <div class="privacy"><span class="dot"></span><div><b>Local-only session</b><small>127.0.0.1 · reversible actions only</small></div></div>
-  </aside>
-
-  <main>
-    <header><div class="header-copy"><h1 id="pageTitle">Mac Health</h1><p id="pageSub">See what your Mac is storing, running, connecting to, and starting.</p></div><div class="global-search-wrap"><input id="globalSearch" type="search" autocomplete="off" placeholder="Search… try kind:process chrome or severity:review"><kbd>⌘K</kbd><div id="globalSearchPanel" class="search-panel hidden"></div></div><div class="header-actions"><span class="session-pill">LOCAL</span><button id="pageHelpToggle" class="secondary" type="button">What is this?</button><button id="refresh" class="secondary">Refresh</button></div></header>
-    <div id="pageHelp" class="page-help hidden"></div>
-    <div id="notice" class="notice hidden"></div>
-
-    <section id="overview" class="view active">
-      <article class="card welcome-card"><div><span class="eyebrow">Sentinel 2.2 · Desktop Conversion</span><h2>Start with one read-only check</h2><p>Quick Check summarizes current local evidence without creating a Trust Profile, changing a Behavior baseline, or modifying files.</p></div><div class="welcome-actions"><button class="primary" data-go="quickcheck">Run Quick Check</button><button class="secondary" data-go="storage">Analyze storage</button><button class="secondary" data-go="weakness">Search & weakness audit</button><button class="secondary" data-go="changes">Watch changes</button></div></article>
-      <article class="card readiness-card"><div class="section-head"><div><span class="eyebrow">Sentinel itself · not Mac malware status</span><h2>Final Readiness</h2><p>One self-check for runtime coordination, state recovery, Vault health, change continuity, binary fingerprinting, and evidence visibility.</p></div><button id="runReadiness" class="secondary" type="button">Check Sentinel readiness</button></div><div id="readinessBody"><div class="empty">Run this before long monitoring sessions or before relying on Safe Actions.</div></div></article>
-      <div class="hero-grid">
-        <article class="card metric"><span>Storage</span><strong id="diskPct">—</strong><progress class="metric-progress" id="diskBar" max="100" value="0"></progress><small id="diskText">Loading…</small><button class="inline-action" data-go="storage">Analyze storage →</button></article>
-        <article class="card metric"><span>Memory</span><strong id="memPct">—</strong><progress class="metric-progress" id="memBar" max="100" value="0"></progress><small id="memText">Loading…</small><button class="inline-action" data-go="processes">Inspect processes →</button></article>
-        <article class="card metric"><span>Security audit</span><strong id="securityLevel">Not scanned</strong><small id="securityHint">Run the audit to inspect explainable risk signals.</small><button class="inline-action" data-go="security">Run audit →</button></article>
-        <article class="card metric"><span>Behavior baseline</span><strong id="behaviorLevel">Not captured</strong><small id="behaviorHint">Compare this Mac against a compact local baseline across Sentinel sessions.</small><button class="inline-action" data-go="behavior">Compare behavior →</button></article>
-        <article class="card metric"><span>Trusted profile</span><strong id="trustLevel">Not established</strong><small id="trustHint">Create an explicit user-approved reference, then detect identity and fingerprint drift.</small><button class="inline-action" data-go="trust">Open Trust & Drift →</button></article>
+<body data-sentinel-generation="2.4-native">
+  <div id="sentinel24" class="s24-shell">
+    <header class="s24-command" aria-label="Sentinel command bar">
+      <div class="s24-brand" aria-label="Sentinel 2.4">
+        <span class="s24-mark" aria-hidden="true">S</span>
+        <div><strong>Sentinel</strong><small id="productVersion">2.4</small></div>
       </div>
-      <div class="two-col">
-        <article class="card"><h2>System snapshot</h2><div class="kv" id="systemKV"></div></article>
-        <article class="card"><h2>Sentinel principles</h2><div class="guarantees"><p><b>Local by construction</b><span>The server binds only to 127.0.0.1. No cloud service is required.</span></p><p><b>Explain before action</b><span>Security flags show evidence. File mutations require a fresh preview, dependency review, typed phrase, and one-time code.</span></p><p><b>One local program</b><span>The web interface is embedded inside the Sentinel binary.</span></p><p><b>Bounded scanning</b><span>Large scans and duplicate hashing have safety limits and can be cancelled.</span></p></div></article>
+      <div class="s24-search" role="search">
+        <label class="sr-only" for="globalSearch">Search local evidence</label>
+        <input id="globalSearch" type="search" autocomplete="off" spellcheck="false" placeholder="Search process, path, endpoint, case…">
+        <kbd>⌘K</kbd>
+        <div id="searchResults" class="s24-search-results" hidden></div>
       </div>
-      <article class="card"><div class="section-head"><div><h2>Terminal Evidence Sources</h2><p>Sentinel shows which built-in macOS/Unix tools are providing evidence on this machine.</p></div><div class="section-tools"><button id="exportDiagnostics" class="secondary">Export diagnostics</button><button id="loadCapabilities" class="secondary">Refresh sources</button></div></div><div id="capabilityGrid" class="capability-grid"><div class="empty">Loading local capabilities…</div></div></article>
-          <article class="card"><div class="section-head"><div><h2>Sentinel self-integrity</h2><p>Inspect the exact executable currently serving this localhost session: path, SHA-256, code signature, and Gatekeeper context.</p></div><button id="loadSelfIntegrity" class="secondary">Inspect Sentinel</button></div><div id="selfIntegrityBody"><div class="empty">Not inspected yet.</div></div></article>
-    </section>
-
-    <section id="quickcheck" class="view">
-      <article class="card quick-hero"><div class="section-head"><div><span class="eyebrow">Read-only · no baseline changes</span><h2>Quick Check</h2><p>One bounded snapshot that summarizes security findings, disk pressure, existing Behavior/Trust state, Persistence state, and Safe Actions recovery health.</p></div><div class="section-tools"><button id="runQuickCheck" class="primary">Run Quick Check</button><button id="guidedSnapshot" class="secondary">Capture monitoring snapshot</button></div></div><div id="quickCheckStatus" class="quick-status"><div class="empty">No Quick Check has run in this session.</div></div></article>
-      <div id="quickCheckMetrics" class="quick-metrics hidden"></div>
-      <article class="card"><div class="section-head"><div><h2>Recommended next steps</h2><p>Recommendations only navigate you to evidence. Sentinel will not create trust/baselines or modify files from Quick Check.</p></div></div><div id="quickRecommendations"><div class="empty">Run Quick Check to get prioritized next steps.</div></div></article>
-      <article class="card"><div class="section-head"><div><h2>Unified Review Queue</h2><p>Merges current Security, Behavior, Trust, Persistence, and Safe Actions self-health evidence into one prioritized list.</p></div><button id="loadReviewQueue" class="secondary">Refresh queue</button></div><div id="reviewQueue"><div class="empty">Load the queue after Quick Check or whenever you want one review list.</div></div></article>
-    </section>
-
-
-    <section id="hardware" class="view">
-      <article class="card hardware-hero"><div class="section-head"><div><span class="eyebrow">Local hardware inventory · privacy-conscious</span><h2>System Profile</h2><p>See the Mac model, chip/processor, architecture, CPU cores, memory, macOS build, kernel, and storage in one place. Sentinel intentionally omits the full serial number and Hardware UUID.</p></div><button id="loadSystemProfile" class="primary" type="button">Refresh hardware</button></div><div id="hardwareSummary"><div class="empty">Open this page to read the current Mac hardware profile.</div></div></article>
-      <div class="two-col">
-        <article class="card"><h2>Hardware</h2><div id="hardwareGrid" class="hardware-grid"><div class="empty">Loading hardware…</div></div></article>
-        <article class="card"><h2>Software & runtime</h2><div id="softwareGrid" class="hardware-grid"><div class="empty">Loading system software…</div></div></article>
+      <div class="s24-command-actions">
+        <span class="s24-local"><i></i>LOCAL</span>
+        <button id="refreshButton" class="s24-quiet" type="button">Refresh</button>
+        <button id="exportButton" class="s24-quiet" type="button">Export</button>
       </div>
-      <article class="card"><h2>What these fields mean</h2><div class="module-grid"><div><b>Model Identifier</b><span>Apple's technical model family identifier. It is useful when checking macOS and hardware compatibility.</span></div><div><b>Chip / Processor</b><span>The main CPU or Apple system-on-chip. Apple M-series chips are Apple Silicon; older Macs may use Intel processors.</span></div><div><b>Architecture</b><span><code>arm64</code> means Apple Silicon native code. <code>x86_64</code> means Intel code. Sentinel's Universal desktop app chooses the matching engine automatically.</span></div><div><b>Physical vs logical cores</b><span>Physical cores are actual CPU cores. Logical cores can include additional execution threads exposed by the processor.</span></div><div><b>Performance / efficiency cores</b><span>Some Apple Silicon chips mix high-performance and energy-efficient CPU cores. If macOS does not expose the split, Sentinel leaves it blank rather than guessing.</span></div><div><b>Memory</b><span>Total memory visible to macOS. On Apple Silicon this is unified memory shared efficiently by CPU and GPU workloads.</span></div><div><b>macOS build</b><span>The detailed Apple build identifier for the installed macOS version, useful when troubleshooting exact system revisions.</span></div><div><b>Rosetta translation</b><span>If enabled, an Intel executable is currently being translated on Apple Silicon. Native arm64 execution is preferable when available.</span></div></div></article>
-      <article class="card privacy-hardware"><h2>Hardware privacy</h2><p class="muted">System Profile is read-only and local. Sentinel does not need a serial number or Hardware UUID to explain compatibility, so those unique identifiers are deliberately excluded from this page and from low-sensitivity diagnostics.</p></article>
-    </section>
+    </header>
 
-    <section id="incidents" class="view">
-      <article class="card"><div class="section-head"><div><span class="eyebrow">Correlated evidence · not malware probability</span><h2>Incident Intelligence</h2><p>Compress related filesystem, persistence, behavior, and Trust evidence into fewer investigation stories. Evidence Confidence means “how strongly these observations belong together,” not “how likely this is malware.”</p></div><div class="section-tools"><button id="rebuildIncidents" class="primary">Rebuild incidents</button><button id="loadIncidentHistory" class="secondary">History</button></div></div><div id="incidentSummary"><div class="empty">Build incidents after a Monitoring Snapshot, Targeted Review, or observed changes.</div></div></article>
-      <article class="card"><div class="section-head"><div><h2>Incident stories</h2><p>High/Review stories also appear in the Unified Review Queue and Power Search.</p></div></div><div id="incidentList"><div class="empty">No incident stories loaded.</div></div></article>
-      <article id="incidentDeepReviewCard" class="card hidden"><div class="section-head"><div><span class="eyebrow">On-demand reinspection</span><h2>Incident Deep Review</h2><p>Re-check the incident primary object now, combining current Integrity and Object Story evidence without changing files.</p></div><button id="closeIncidentDeepReview" class="secondary" type="button">Close</button></div><div id="incidentDeepReviewBody"><div class="empty">Choose Deep Review on an incident.</div></div></article>
-      <div class="two-col"><article class="card"><h2>How to read confidence</h2><div class="guarantees"><p><b>Evidence Confidence</b><span>Relationship strength between observations from multiple Sentinel sources.</span></p><p><b>Severity</b><span>Review priority based on the strongest connected evidence.</span></p><p><b>Not a verdict</b><span>Neither value is a malware probability or proof of intent.</span></p></div></article><article class="card"><h2>Recommended workflow</h2><div class="guide-steps"><div><b>1. Read timeline</b><span>Understand what happened first and what followed.</span></div><div><b>2. Open Object Story</b><span>Inspect signature, startup, process, network, and Trust context.</span></div><div><b>3. Integrity</b><span>Use SHA-256, codesign/spctl, and native Security.framework validation when available.</span></div><div><b>4. Reversible action</b><span>If action is needed, prefer Reveal, Rename, or Vault.</span></div></div></article></div>
-    </section>
+    <nav id="missionRibbon" class="s24-missions" aria-label="Investigation intent"></nav>
+    <nav id="lensRail" class="s24-lenses" aria-label="Evidence lens"></nav>
 
-    <section id="changes" class="view">
-      <article class="card change-hero">
-        <div class="section-head"><div><span class="eyebrow">Targeted change intelligence · bounded local history</span><h2>Change Monitor</h2><p>Watch selected directory hierarchies, then re-inspect only what changed. Native macOS source builds use CoreServices FSEvents; cross-built binaries transparently use a bounded polling fallback.</p></div><span id="changeModeBadge" class="badge">Stopped</span></div>
-        <div class="change-controls"><label>Watch preset<select id="changePreset"><option value="persistence">Persistence · LaunchAgents/Daemons</option><option value="downloads">Downloads only</option><option value="workspace">Downloads + Desktop + Documents</option><option value="custom">Custom Home folders</option></select></label><label id="changeCustomLabel" class="hidden">Custom roots (one per line, max 5)<textarea id="changeRoots" rows="3" placeholder="~/Projects
-~/Downloads"></textarea></label><label>Fallback interval<select id="changeInterval"><option value="1500">1.5 seconds</option><option value="2500" selected>2.5 seconds</option><option value="5000">5 seconds</option></select></label><div class="change-buttons"><button id="startChanges" class="primary" type="button">Start watch</button><button id="stopChanges" class="danger-outline" type="button">Stop</button><button id="reviewChanges" class="secondary" type="button">Targeted review</button><button id="reconcileChanges" class="secondary" type="button">Reconcile hierarchy</button><button id="clearChanges" class="secondary" type="button">Clear events</button></div></div>
-        <div id="changeStatus"><div class="empty">Load this page to see monitoring capability and status.</div></div>
-      </article>
-      <div class="two-col"><article class="card"><h2>How it behaves</h2><div class="guarantees"><p><b>Native FSEvents</b><span>Apple directory-hierarchy notifications when the native bridge is compiled in.</span></p><p><b>Polling fallback</b><span>Bounded metadata comparison only. No symlink following or file-content indexing.</span></p><p><b>Rescan required</b><span>Dropped/root-changed signals or fallback budget limits reduce confidence and trigger reinspection guidance.</span></p><p><b>No daemon</b><span>Watching stops when Sentinel exits. V2.2 can retain a bounded compressed history and native FSEvents checkpoint for smart resume; --ephemeral keeps them memory-only.</span></p></div></article><article class="card"><div class="section-head"><div><h2>Targeted review result</h2><p>Re-check changed startup configuration and a bounded set of changed regular files instead of rescanning everything.</p></div></div><div id="changeReview"><div class="empty">Run Targeted review after changes appear.</div></div></article></div>
-      <article class="card"><div class="section-head"><div><h2>Change Inbox</h2><p>Newest first. High/Review changes also appear in the Unified Review Queue and session Timeline.</p></div><div class="section-tools"><button id="loadChangeHistory" class="secondary">History</button><button id="refreshChanges" class="secondary">Refresh</button></div></div><div id="changeEvents"><div class="empty">No change events loaded yet.</div></div></article>
-    </section>
+    <div id="systemNotice" class="s24-notice" role="status" aria-live="polite" hidden></div>
 
-    <section id="storage" class="view">
-      <article class="card">
-        <div class="section-head"><div><h2>Where did my space go?</h2><p>Scan locally, classify storage, find large files, version families, and exact duplicate candidates.</p></div></div>
-        <div class="preset-row"><button type="button" class="preset-scan" data-scope="downloads" data-min="250" data-limit="60">Quick Downloads</button><button type="button" class="preset-scan" data-scope="home" data-min="1024" data-limit="80">Home · files ≥ 1 GB</button><button type="button" class="preset-scan" data-scope="library" data-min="500" data-limit="80">Library review</button></div>
-        <form id="scanForm" class="controls">
-          <label>Scope<select id="scope"><option value="home">Home</option><option value="downloads">Downloads</option><option value="desktop">Desktop</option><option value="documents">Documents</option><option value="library">Library</option></select></label>
-          <label>Minimum file size<input id="minMB" type="number" min="1" max="1048576" value="250"><span>MB</span></label>
-          <label>Top files<input id="limit" type="number" min="10" max="250" value="80"></label>
-          <button id="startScan" class="primary" type="submit">Scan locally</button>
-          <button id="cancelScan" class="danger-outline hidden" type="button">Cancel scan</button>
-        </form>
-        <div id="scanProgress" class="progress-panel hidden"><div class="progress-line"><span class="spinner"></span><b id="scanState">Scanning…</b><span id="scanCounts"></span></div><div class="current-path mono" id="scanPath"></div></div>
-        <div id="scanSummary" class="scan-summary muted">No scan has run yet.</div>
-      </article>
-
-      <div id="storageInsights" class="two-col hidden">
-        <article class="card"><h2>Largest areas in this scan</h2><div id="categoryBars" class="category-bars"></div></article>
-        <article class="card"><h2>File-type footprint</h2><div id="typeBars" class="category-bars"></div></article>
+    <main id="evidenceStage" class="s24-stage" tabindex="-1" aria-live="polite">
+      <div class="s24-boot">
+        <span>LOCAL EVIDENCE WORKSPACE</span>
+        <h1>Reading this Mac…</h1>
+        <p>Sentinel is establishing the smallest useful current-state picture before asking you to interpret anything.</p>
       </div>
+    </main>
 
-      <div id="duplicatesPanel" class="card hidden"><div class="section-head"><div><h2>Exact duplicate candidates</h2><p>Files shown here matched by size and local SHA-256 hashing. Sentinel does not delete them.</p></div><span id="hashAmount" class="badge"></span></div><div id="duplicates"></div></div>
-      <div id="familiesPanel" class="card hidden"><h2>Possible version families</h2><p class="muted">Filename heuristic only — useful for finding old builds and archives, but not proof that a version is disposable.</p><div id="families"></div></div>
-      <article class="card"><div class="section-head"><div><h2>Largest files</h2><p>Top files that crossed the threshold.</p></div><input id="fileFilter" class="filter" placeholder="Filter path or filename"></div><div id="filesTable" class="table-wrap"><div class="empty">Run a scan to populate this table.</div></div></article>
-    </section>
-
-    <section id="security" class="view">
-      <article class="card">
-        <div class="section-head"><div><h2>Explainable Security Audit</h2><p>Correlates unusual executable locations, startup persistence, signing evidence, and active TCP activity.</p></div><button id="runAudit" class="primary">Run audit</button></div>
-        <div class="riskbox"><div><span>Highest observed risk</span><strong id="riskScore">—</strong></div><div><span>Assessment</span><strong id="riskLevel">Not scanned</strong></div></div>
-        <p class="muted" id="riskDisclaimer">Suspicious does not mean malicious.</p>
-      </article>
-      <div id="findings"></div>
-    </section>
-
-    <section id="integrity" class="view">
-      <article class="card"><div class="section-head"><div><h2>Code & File Integrity Lab</h2><p>Inspect one local path on demand. Sentinel uses bounded SHA-256 hashing plus macOS signing/Gatekeeper context when available.</p></div></div>
-        <form id="integrityForm" class="controls"><label class="wide-label">Path<input id="integrityPath" type="text" placeholder="/Applications/Example.app or ~/Downloads/tool"></label><button id="inspectIntegrity" class="primary" type="submit">Inspect path</button></form>
-        <div class="guidance-note"><b>What this tells you</b><span>A signature or Gatekeeper acceptance is useful evidence, not proof that software is harmless. SHA-256 is a content fingerprint, not a reputation score.</span></div>
-        <div id="integrityBody"><div class="empty">Enter a path to inspect it locally.</div></div>
-      </article>
-    </section>
-
-    <section id="intelligence" class="view">
-      <article class="card intelligence-hero">
-        <div class="section-head"><div><h2>Contextual System Intelligence</h2><p>Correlate startup configuration, files, processes, and TCP activity into one local evidence graph.</p></div><div class="section-tools"><button id="captureEvidence" class="primary">Capture snapshot</button><button id="loadEvidence" class="secondary">Refresh graph</button></div></div>
-        <div id="evidenceSummary" class="intel-summary"><div><span>Startup</span><b>—</b></div><div><span>Files</span><b>—</b></div><div><span>Processes</span><b>—</b></div><div><span>Network</span><b>—</b></div><div><span>Relations</span><b>—</b></div></div>
-        <p id="evidenceNote" class="muted">Capture a snapshot to establish the current-session baseline.</p>
-      </article>
-      <article class="card"><div class="section-head"><div><h2>Evidence Graph</h2><p>Startup → file → process → network. Selectable object stories appear below.</p></div></div><div id="graphWrap" class="graph-wrap"><div class="empty">Open Intelligence to build the graph.</div></div><div id="graphObjects" class="graph-objects"></div></article>
-      <div class="two-col intelligence-bottom">
-        <article class="card"><div class="section-head"><div><h2>Activity Timeline</h2><p>Changes observed between snapshots in this Sentinel session only.</p></div><button id="loadTimeline" class="secondary">Reload</button></div><div id="timelineList"><div class="empty">No timeline loaded yet.</div></div></article>
-        <article id="objectStory" class="card"><div class="section-head"><div><h2>Object Story</h2><p>One object, one explanation, all currently correlated evidence.</p></div></div><div id="storyBody"><div class="empty">Choose an Explain button from the graph, a process, or a scanned file.</div></div></article>
+    <aside id="contextTray" class="s24-context" aria-label="Selected evidence context" hidden>
+      <div class="s24-context-head">
+        <div><span>CONTEXT</span><strong id="contextTitle">Selected evidence</strong></div>
+        <button id="contextClose" class="s24-icon" type="button" aria-label="Close context">×</button>
       </div>
-    </section>
+      <div id="contextBody" class="s24-context-body"></div>
+    </aside>
 
+    <footer id="activityBar" class="s24-activity" aria-live="polite">
+      <span id="activityState">Ready</span>
+      <progress id="activityProgress" max="100" value="0"></progress>
+      <span id="activityDetail">Local engine · no cloud dependency</span>
+    </footer>
+  </div>
 
-    <section id="behavior" class="view">
-      <article class="card behavior-hero">
-        <div class="section-head"><div><h2>Behavior Diff Engine</h2><p>Compare the current Mac against the previous compact local baseline: identity, executable metadata, persistence, and public network changes.</p></div><div class="section-tools"><button id="captureBehavior" class="primary">Capture & compare</button><button id="loadBehavior" class="secondary">Load status</button></div></div>
-        <div id="behaviorSummary" class="behavior-summary behavior-summary-v06"><div><span>Evidence index</span><b>—</b></div><div><span>Trend</span><b>—</b></div><div><span>High</span><b>—</b></div><div><span>Review</span><b>—</b></div><div><span>Info</span><b>—</b></div><div><span>Identity</span><b>—</b></div><div><span>Persistence</span><b>—</b></div><div><span>Network</span><b>—</b></div></div>
-        <div id="behaviorBaseline" class="baseline-note"><div class="empty">No behavior status loaded yet.</div></div>
-      </article>
-      <div class="two-col behavior-history-grid">
-        <article class="card"><div class="section-head"><div><h2>Evidence Pressure Trend</h2><p>A bounded cross-session trend of change evidence. This is not a malware probability.</p></div><button id="loadBehaviorHistory" class="secondary">Refresh trend</button></div><div id="behaviorTrend"><div class="empty">No history loaded yet.</div></div><div id="behaviorHistoryList"></div></article>
-        <article class="card"><div class="section-head"><div><h2>Baseline Health</h2><p>Verify Sentinel's local history permissions and parse integrity.</p></div><button id="loadBehaviorHealth" class="secondary">Verify</button></div><div id="baselineHealth"><div class="empty">No health check loaded yet.</div></div></article>
-      </div>
-      <article class="card"><div class="section-head"><div><h2>Observed changes</h2><p>High and Review items are prioritized, but every result is evidence for review—not a malware verdict.</p></div></div><div id="behaviorChanges"><div class="empty">Capture a baseline or compare against the previous one.</div></div></article>
-      <article class="card"><h2>Persistent baseline privacy</h2><div class="guarantees"><p><b>Compact metadata only</b><span>No file contents and no complete process command lines are persisted.</span></p><p><b>User-only permissions</b><span>The baseline and bounded history files are written with 0600 permissions inside Sentinel's own Application Support directory.</span></p><p><b>No daemon</b><span>Sentinel still performs no continuous background monitoring. Changes are measured only when you run a capture.</span></p></div></article>
-    </section>
-
-
-    <section id="trust" class="view">
-      <article class="card trust-hero">
-        <div class="section-head"><div><h2>Trusted Profile & Drift</h2><p>Establish an explicit user-approved reference state, then compare identity, SHA-256 fingerprints, startup relationships, and execution context against it.</p></div><div class="section-tools"><button id="compareTrust" class="primary">Compare to profile</button><button id="captureTrust" class="secondary">Establish / refresh profile</button></div></div>
-        <div id="trustSummary" class="trust-summary"><div><span>Drift index</span><b>—</b></div><div><span>Coverage</span><b>—</b></div><div><span>High</span><b>—</b></div><div><span>Review</span><b>—</b></div><div><span>Novel</span><b>—</b></div><div><span>Fingerprint</span><b>—</b></div></div>
-        <div id="trustStatus" class="baseline-note"><div class="empty">No Trusted Profile status loaded yet.</div></div>
-      </article>
-      <div class="two-col">
-        <article class="card"><div class="section-head"><div><h2>Profile health</h2><p>Verify the profile and automatic previous-profile backup are readable and user-only.</p></div><button id="loadTrustHealth" class="secondary">Verify</button></div><div id="trustHealth"><div class="empty">No profile health check loaded yet.</div></div></article>
-        <article class="card"><div class="section-head"><div><h2>Profile controls</h2><p>The profile is app-owned metadata, not a security certificate. Refresh it only after you have reviewed the current machine state.</p></div><div class="section-tools"><button id="exportTrust" class="secondary">Export profile</button><button id="restoreTrust" class="secondary">Restore previous</button></div></div><div class="guarantees"><p><b>User-approved only</b><span>Sentinel never auto-promotes an object to “trusted”. The profile exists only after an explicit capture.</span></p><p><b>Bounded fingerprints</b><span>SHA-256 is computed only for a limited set of priority executable/script targets and never stores file contents.</span></p><p><b>Previous profile backup</b><span>When a persistent profile is refreshed, Sentinel keeps one user-only previous JSON copy for recovery/audit context.</span></p><p><b>Ephemeral compatible</b><span>With --ephemeral, the profile can exist in memory for the current session without writing profile files.</span></p></div></article>
-      </div>
-      <article class="card"><div class="section-head"><div><h2>Trust Drift history</h2><p>Up to 20 bounded comparisons against whichever user-approved profile was active at each comparison.</p></div><button id="loadTrustHistory" class="secondary">Refresh history</button></div><div id="trustHistoryList"><div class="empty">No profile comparisons loaded yet.</div></div></article>
-      <article class="card"><div class="section-head"><div><h2>Trust drift evidence</h2><p>High and Review items show deviations from your explicit reference. Profile membership is not proof that an object is safe.</p></div></div><div id="trustChanges"><div class="empty">Establish a Trusted Profile, then run a comparison.</div></div></article>
-    </section>
-
-    <section id="processes" class="view">
-      <article class="card"><div class="section-head"><div><h2>Processes</h2><p>Top processes by CPU. Inspect one to correlate its path, macOS signing status, and TCP activity.</p></div><div class="section-tools"><input id="processFilter" class="filter" placeholder="Filter processes"><button id="loadProcesses" class="secondary">Reload</button></div></div><div id="processTable" class="table-wrap"><div class="empty">Open this page to load processes.</div></div></article>
-      <article id="processDetail" class="card hidden"><div class="section-head"><div><h2>Process evidence</h2><p id="processDetailTitle" class="mono"></p></div><button id="closeProcessDetail" class="secondary">Close</button></div><div id="processDetailBody"></div></article>
-    </section>
-
-    <section id="startup" class="view"><article class="card"><div class="section-head"><div><h2>Startup items & manifest meaning</h2><p>LaunchAgents and LaunchDaemons visible to the current user. Sentinel also explains selected plist behaviors such as RunAtLoad and KeepAlive without exposing full command-line arguments.</p></div><button id="loadStartup" class="secondary">Reload</button></div><div class="guidance-note"><b>Why this matters</b><span>Persistence is normal for many legitimate helpers. Review the executable path, signature, and configuration together rather than treating any startup item as malware.</span></div><div id="startupTable" class="table-wrap"><div class="empty">Open this page to inspect startup items.</div></div></article></section>
-
-    <section id="persistence" class="view">
-      <article class="card"><div class="section-head"><div><h2>Persistence Configuration Integrity</h2><p>Session-only SHA-256 baseline for visible LaunchAgent and LaunchDaemon plist files. Detects additions, removals, and same-filename configuration changes.</p></div><div class="section-tools"><button id="capturePersistence" class="primary">Capture / compare</button><button id="loadPersistence" class="secondary">Refresh</button></div></div>
-        <div class="guidance-note"><b>Scope</b><span>This monitors startup configuration files only. It does not install a daemon, watch keystrokes, capture packets, or read user documents.</span></div>
-        <div id="persistenceSummary" class="scan-summary muted">No session baseline yet.</div><div id="persistenceChanges"><div class="empty">Capture once to establish the session baseline.</div></div>
-      </article>
-    </section>
-
-    <section id="background" class="view">
-      <article class="card"><div class="section-head"><div><h2>Login & Background Items</h2><p>Read-only view of macOS Background Task Management when <span class="mono">sfltool</span> is available.</p></div><button id="loadBackground" class="secondary">Reload</button></div><p id="backgroundNote" class="muted">Open this page to inspect modern background items.</p><div id="backgroundTable" class="table-wrap"><div class="empty">No snapshot loaded yet.</div></div></article>
-      <article class="card"><h2>Why this matters</h2><div class="guarantees"><p><b>LaunchAgents are not the whole story</b><span>Modern macOS also tracks login/background registrations through Background Task Management.</span></p><p><b>Registration view remains read-only</b><span>Safe Actions can rename or Vault eligible regular files, but Sentinel does not directly modify macOS background registration databases.</span></p></div></article>
-    </section>
-
-    <section id="network" class="view"><article class="card"><div class="section-head"><div><h2>TCP activity</h2><p>Local snapshot from macOS networking tools. A connection is not suspicious by itself.</p></div><button id="loadNetwork" class="secondary">Reload</button></div><div id="networkTable" class="table-wrap"><div class="empty">Open this page to inspect TCP activity.</div></div></article></section>
-
-    <section id="cleanup" class="view"><article class="card"><div class="section-head"><div><h2>Cleanup Preview</h2><p>Estimate common space consumers. Sentinel never permanently deletes. Reviewable files can be sent to the Safe Actions center for rename or reversible Vault handling.</p></div><button id="previewCleanup" class="primary">Analyze</button></div><div id="cleanupTotal" class="cleanup-total hidden"></div><div id="cleanupList"><div class="empty">Run the preview to estimate reviewable storage.</div></div></article></section>
-
-    <section id="actions" class="view">
-      <article class="card action-warning">
-        <div class="warning-kicker">PLEASE REVIEW · REVERSIBLE ACTIONS ONLY</div>
-        <h2>Safe Actions & Recovery</h2>
-        <p>Sentinel never permanently deletes files. Rename and Vault operations can still break software, so every mutation requires a fresh dependency preview, exact confirmation phrase, one-time code, and a recorded recovery trail.</p>
-        <div class="action-rules"><span>No permanent delete</span><span>No overwrite</span><span>No directories or symlinks</span><span>User-home files only</span><span>Ephemeral mode stays read-only</span></div>
-      </article>
-
-      <div class="two-col">
-        <article class="card"><div class="section-head"><div><h2>Action status</h2><p>Check whether recovery state, Vault permissions, and the local operation journal are healthy.</p></div><button id="loadActionHealth" class="secondary">Verify</button></div><div id="actionStatus"><div class="empty">Loading Safe Actions status…</div></div></article>
-        <article class="card"><h2>What these actions mean</h2><div class="guarantees"><p><b>Rename</b><span>Changes the filename in the same directory. It can break path-based references, but is not a security boundary and does not stop a running process.</span></p><p><b>Sentinel Vault</b><span>Moves an eligible file into a private Sentinel recovery directory, stores a manifest, and removes executable permission bits from the stored copy.</span></p><p><b>Restore</b><span>Returns a Vault item to its recorded original path and permissions only if that path is still empty.</span></p><p><b>Reveal in Finder</b><span>Lets you inspect the object yourself before deciding.</span></p></div></article>
-      </div>
-
-      <article class="card">
-        <div class="section-head"><div><h2>Create action preview</h2><p>Previewing does not modify the file. Sentinel will collect dependency evidence and create a five-minute confirmation token.</p></div></div>
-        <form id="actionForm" class="controls action-form">
-          <label class="wide-label">File path<input id="actionPath" type="text" placeholder="/Users/you/Downloads/example.bin"></label>
-          <label>Action<select id="actionType"><option value="vault">Move to Sentinel Vault</option><option value="rename">Rename in place</option></select></label>
-          <label id="renameLabel">New filename<input id="actionNewName" type="text" placeholder="example.sentinel-disabled"></label>
-          <button id="previewAction" class="primary" type="submit">Preview action</button>
-          <button id="revealActionPath" class="secondary" type="button">Reveal in Finder</button>
-        </form>
-      </article>
-
-      <article id="actionPreviewCard" class="card hidden">
-        <div class="section-head"><div><h2>Confirmation Gate</h2><p>Review the exact target and consequences. The confirmation code is valid only for this preview and expires after five minutes.</p></div><span id="actionExpiry" class="badge warn"></span></div>
-        <div id="actionPreviewBody"></div>
-        <div class="confirm-gate">
-          <label class="form-check"><input id="actionAcknowledge" type="checkbox"><span>I understand Sentinel has not proven this object is malware and this action may break software.</span></label>
-          <label>Type the exact confirmation phrase<input id="actionPhrase" autocomplete="off"></label>
-          <label>Type the one-time code<input id="actionCode" autocomplete="off"></label>
-          <button id="executeAction" class="danger-solid" type="button">Execute reversible action</button>
-        </div>
-        <div id="actionResult"></div>
-      </article>
-
-      <article class="card"><div class="section-head"><div><h2>Sentinel Vault</h2><p>Active locally stored items. Restore always refuses to overwrite an occupied original path.</p></div><button id="loadVault" class="secondary">Refresh Vault</button></div><div id="vaultList"><div class="empty">No Vault snapshot loaded yet.</div></div></article>
-
-      <article class="card"><div class="section-head"><div><h2>Operation Journal</h2><p>Bounded local history of reversible actions and their immediate post-action observations.</p></div><button id="loadActionJournal" class="secondary">Refresh journal</button></div><div id="actionJournal"><div class="empty">No action history loaded yet.</div></div></article>
-    </section>
-
-
-    <section id="weakness" class="view">
-      <article class="card power-search-card">
-        <div class="section-head"><div><span class="eyebrow">Ranked · bounded · local</span><h2>Power Search</h2><p>Use filters and fuzzy matching across current Sentinel evidence. Deep filename search is opt-in and reads names/paths only — never file contents.</p></div></div>
-        <div class="search-cheats"><code>kind:process chrome</code><code>kind:startup severity:review</code><code>pid:1234</code><code>endpoint:public safari</code><code>path:downloads zip</code><code>"Google Chrome"</code></div>
-        <form id="deepSearchForm" class="controls deep-search-controls">
-          <label>Filename / path<input id="deepSearchQ" type="search" minlength="2" placeholder="e.g. radia, project_final, .zip"></label>
-          <label>Explicit scope<select id="deepSearchScope"><option value="downloads">Downloads</option><option value="desktop">Desktop</option><option value="documents">Documents</option><option value="home">Home</option><option value="library">Library</option></select></label>
-          <label>Maximum results<input id="deepSearchLimit" type="number" min="10" max="200" value="80"></label>
-          <button id="runDeepSearch" class="primary" type="submit">Deep filename search</button>
-        </form>
-        <p class="muted">Safety budget: no symlink following, no content indexing, maximum 30,000 visited entries, about 3 seconds, maximum 200 returned results.</p>
-        <div id="deepSearchMeta" class="scan-summary muted">No deep filename search has run yet.</div>
-        <div id="deepSearchResults"><div class="empty">Use this only when the top search box cannot find a filename from current Sentinel evidence.</div></div>
-      </article>
-
-      <div class="two-col">
-        <article class="card"><div class="section-head"><div><h2>Weakness Audit</h2><p>Checks Sentinel's own visibility and defensive posture — not whether your Mac is infected.</p></div><button id="runWeaknessAudit" class="secondary">Run audit</button></div><div id="weaknessAudit"><div class="empty">Run the audit to identify blind spots and improvements.</div></div></article>
-        <article class="card"><div class="section-head"><div><h2>Visibility Coverage</h2><p>See which evidence layers are available, limited, unavailable, or require an advanced Apple security extension.</p></div><button id="loadCoverage" class="secondary">Refresh coverage</button></div><div id="coverageMap"><div class="empty">Coverage not loaded yet.</div></div></article>
-      </div>
-      <article class="card"><div class="section-head"><div><h2>Advanced Sensor boundary</h2><p>Endpoint Security is entitlement-gated. Sentinel shows the scaffold/install boundary instead of pretending an advanced sensor is active.</p></div><button id="loadAdvancedSensor" class="secondary">Check status</button></div><div id="advancedSensorStatus"><div class="empty">Status not checked yet.</div></div></article>
-    </section>
-
-    <section id="guide" class="view">
-      <article class="card"><h2>Quick Start</h2><div class="guide-steps"><div><b>1. Overview</b><span>Check whether required macOS evidence sources are available.</span></div><div><b>2. Storage</b><span>Find where space went; duplicate and version-family results are review aids, not deletion orders.</span></div><div><b>3. Security & Integrity</b><span>Use Security Audit for correlation; use Integrity Lab when you want deep evidence for one path.</span></div><div><b>4. Persistence</b><span>Review Startup/Login Items, then capture Persistence Integrity to notice configuration changes during this session.</span></div><div><b>5. Behavior & Trust</b><span>Behavior compares adjacent states. Trust compares against a profile you explicitly approved.</span></div><div><b>6. Safe Actions</b><span>For eligible user-home files, preview dependencies first; then use Rename or Sentinel Vault. Permanent deletion does not exist.</span></div></div></article>
-      <div class="two-col"><article class="card"><h2>Permissions</h2><div class="guarantees"><p><b>Normal access</b><span>Enough for many process, disk, signature, and startup checks.</span></p><p><b>Full Disk Access</b><span>Some protected locations require explicit user approval in System Settings. Sentinel should degrade visibility when access is denied.</span></p><p><b>Endpoint Security</b><span>True system-event streaming requires Apple’s Endpoint Security entitlement and a System Extension. V2.2 includes an entitlement-gated notification-sensor scaffold but does not claim it is installed or enabled.</span></p></div></article><article class="card"><h2>How to read results</h2><div class="guarantees"><p><b>Risk score</b><span>Heuristic review priority, not malware probability.</span></p><p><b>Verified signature</b><span>Shows signed code validates; it does not guarantee good intent.</span></p><p><b>Gatekeeper accepted</b><span>Useful macOS trust context, still not a malware verdict.</span></p><p><b>Trusted Profile match</b><span>Means “matches the reference you approved,” not “safe forever.”</span></p></div></article></div>
-      <article class="card"><h2>Authoritative design basis</h2><p class="muted">The V2.2 architecture is aligned to Apple documentation rather than treating all system evidence as equivalent.</p><div class="module-grid"><div><b>Code Signing Services</b><span>Signature and signed-code validation context.</span></div><div><b>Gatekeeper & Notarization</b><span>Distribution/trust context, not a malware probability.</span></div><div><b>ServiceManagement / SMAppService</b><span>Modern Login Item, LaunchAgent, and LaunchDaemon model.</span></div><div><b>Full Disk Access</b><span>User-controlled visibility boundary; Sentinel cannot grant it to itself.</span></div><div><b>FSEvents</b><span>V2.2 Change Monitor uses native CoreServices FSEvents when compiled on macOS, with checkpoint/resume and an explicitly labeled polling fallback otherwise.</span></div><div><b>Endpoint Security + System Extensions</b><span>Optional entitlement-gated notification sensor scaffold. The normal release does not claim an installed System Extension.</span></div></div></article>
-      <article class="card"><h2>Module glossary</h2><div class="module-grid"><div><b>System Profile</b><span>Explains the Mac model, chip, architecture, CPU, memory, macOS build, and storage without exposing unique hardware identifiers.</span></div><div><b>Storage Intelligence</b><span>Space classification, large files, exact duplicate candidates, version families.</span></div><div><b>Security Audit</b><span>Correlates location, persistence, signing, and TCP evidence.</span></div><div><b>Integrity Lab</b><span>Deep read-only inspection of one file/app path.</span></div><div><b>Evidence Graph</b><span>Relates startup → file → process → network.</span></div><div><b>Behavior Diff</b><span>What changed since the previous baseline.</span></div><div><b>Trust & Drift</b><span>What differs from your explicit known-good reference.</span></div><div><b>Persistence Integrity</b><span>Hashes startup plist configuration during this session.</span></div><div><b>Change Monitor</b><span>Focused directory change intelligence with bounded compressed local history, native checkpoint/resume when available, conservative rescan semantics, and targeted reinspection.</span></div><div><b>Incident Intelligence</b><span>Correlates filesystem, persistence, Behavior, and Trust evidence into fewer investigation stories.</span></div><div><b>Cleanup Preview</b><span>Measures common reviewable storage and can hand eligible paths to Safe Actions.</span></div><div><b>Safe Actions</b><span>Reversible Rename / Vault / Restore with no-overwrite guards, confirmation gates, and a local journal.</span></div></div></article>
-    </section>
-  </main>
-</div>
-<script src="/app.js"></script>
+  <script src="/sentinel-24.js"></script>
 </body>
 </html>
