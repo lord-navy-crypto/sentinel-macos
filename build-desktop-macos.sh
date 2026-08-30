@@ -18,22 +18,91 @@ APP="$HERE/dist/Sentinel.app"
 BUILD_DIR="$HERE/dist/desktop-build"
 SWIFT_SRC="$HERE/desktop/SentinelDesktop.swift"
 ICON_SRC="$HERE/desktop/GenerateAppIcon.swift"
-UI_SOURCE="$HERE/web/sentinel-24.js"
-UI_STYLE="$HERE/web/sentinel-24.css"
+UI_INDEX="$HERE/web/index.html"
+UI_CORE="$HERE/web/app/core.js"
+UI_STYLE="$HERE/web/app/shell.css"
 UI_MARKER="Sentinel 2.4 Native Frontend"
 BUILD_SHA="$(git rev-parse HEAD 2>/dev/null || printf 'unknown')"
 
-if ! grep -Fq "$UI_MARKER" "$UI_SOURCE"; then
-  echo "Sentinel 2.4 UI source marker missing: $UI_MARKER" >&2
+# The canonical Sentinel 2.4 application is modular. These are product modules,
+# not optional legacy workspaces. A clean build must refuse an incomplete source
+# tree rather than silently packaging a stale or partially migrated UI.
+REQUIRED_UI_FILES=(
+  "web/app/core.js"
+  "web/app/lenses/orient-investigate.js"
+  "web/app/lenses/compare.js"
+  "web/app/lenses/system.js"
+  "web/app/lenses/act-limits.js"
+  "web/app/advanced.js"
+  "web/app/case-stories.js"
+  "web/app/system-evidence.js"
+  "web/app/runtime.js"
+  "web/app/shell.css"
+  "web/app/advanced.css"
+)
+REQUIRED_UI_SCRIPTS=(
+  "/app/core.js"
+  "/app/lenses/orient-investigate.js"
+  "/app/lenses/compare.js"
+  "/app/lenses/system.js"
+  "/app/lenses/act-limits.js"
+  "/app/advanced.js"
+  "/app/case-stories.js"
+  "/app/system-evidence.js"
+  "/app/runtime.js"
+)
+
+for rel in "${REQUIRED_UI_FILES[@]}"; do
+  if [[ ! -f "$HERE/$rel" ]]; then
+    echo "Required Sentinel 2.4 product module is missing: $rel" >&2
+    echo "Refusing to package an incomplete product source tree." >&2
+    exit 2
+  fi
+done
+
+if ! grep -Fq "$UI_MARKER" "$UI_CORE"; then
+  echo "Sentinel 2.4 product marker missing from $UI_CORE: $UI_MARKER" >&2
   echo "Refusing to build an ambiguous or stale product source tree." >&2
   exit 2
 fi
 if ! grep -Fq ".s24-shell" "$UI_STYLE"; then
-  echo "Sentinel 2.4 visual system marker missing from $UI_STYLE" >&2
+  echo "Sentinel 2.4 visual-system marker missing from $UI_STYLE" >&2
   exit 2
 fi
-if grep -Fq 'src="/app.js"' "$HERE/web/index.html" || grep -Fq 'href="/style.css"' "$HERE/web/index.html"; then
-  echo "Default index.html still loads the retired dashboard runtime. Aborting." >&2
+
+previous_line=0
+for src in "${REQUIRED_UI_SCRIPTS[@]}"; do
+  line="$(grep -nF "<script src=\"$src\"></script>" "$UI_INDEX" | head -n1 | cut -d: -f1 || true)"
+  if [[ -z "$line" ]]; then
+    echo "Canonical index.html does not load required Sentinel 2.4 module: $src" >&2
+    exit 2
+  fi
+  if (( line <= previous_line )); then
+    echo "Sentinel 2.4 module load order is invalid near: $src" >&2
+    exit 2
+  fi
+  previous_line="$line"
+done
+
+for retired in '/sentinel-24.js' '/sentinel-24.css' '/app.js' '/style.css' '/desktop-ui.js'; do
+  if grep -Fq "$retired" "$UI_INDEX"; then
+    echo "Default index.html still references retired frontend asset: $retired" >&2
+    exit 2
+  fi
+done
+
+# Verify that the newest integrated product capabilities are present before the
+# Go embed step. These strings live in the canonical modules, not AUX pages.
+if ! grep -Fq '/api/intelligence/graph/v2' "$HERE/web/app/advanced.js"; then
+  echo "Advanced Evidence / Graph 2.0 capability is missing from canonical frontend." >&2
+  exit 2
+fi
+if ! grep -Fq '/api/incidents/v2' "$HERE/web/app/case-stories.js"; then
+  echo "Case Stories 2.0 capability is missing from canonical frontend." >&2
+  exit 2
+fi
+if ! grep -Fq '/api/network/history' "$HERE/web/app/system-evidence.js"; then
+  echo "Network History capability is missing from canonical frontend." >&2
   exit 2
 fi
 
@@ -41,21 +110,26 @@ echo "===== SENTINEL SOURCE IDENTITY ====="
 echo "Source commit: $BUILD_SHA"
 echo "Product version: $VERSION"
 echo "Desktop UI: 2.4 Native Frontend"
-echo "UI source marker: verified"
+echo "Canonical modules: ${#REQUIRED_UI_SCRIPTS[@]} scripts + 2 styles"
+echo "Core UI marker: verified"
+echo "Advanced capabilities: verified"
 echo
 
 ./build-macos.sh
 
-# The Go executable embeds web/* at compile time. Verify the actual 2.4 product
-# marker is physically present in both architecture-specific engines.
+# The Go executable embeds web/* at compile time. Verify the actual canonical
+# product marker and a few integrated-capability markers are physically present
+# in both architecture-specific engines.
 for engine in "$HERE/dist/sentinel-macos-arm64" "$HERE/dist/sentinel-macos-x86_64"; do
-  if ! LC_ALL=C grep -aFq "$UI_MARKER" "$engine"; then
-    echo "Embedded Sentinel 2.4 UI marker missing from $engine" >&2
-    echo "The Go binary does not contain the current web/sentinel-24.js. Aborting." >&2
-    exit 2
-  fi
+  for marker in "$UI_MARKER" '/api/intelligence/graph/v2' '/api/incidents/v2' '/api/network/history'; do
+    if ! LC_ALL=C grep -aFq "$marker" "$engine"; then
+      echo "Embedded Sentinel 2.4 marker missing from $engine: $marker" >&2
+      echo "The Go binary does not contain the current modular web/app product. Aborting." >&2
+      exit 2
+    fi
+  done
 done
-echo "Embedded Sentinel 2.4 UI marker: verified in arm64 + x86_64 engines"
+echo "Embedded Sentinel 2.4 modular product: verified in arm64 + x86_64 engines"
 
 # Build the native launcher completely before replacing the app bundle. If Swift
 # or lipo fails, no partial Sentinel.app is left behind.
@@ -142,7 +216,7 @@ printf '%s\n' \
   "Version: $VERSION" \
   "Source commit: $BUILD_SHA" \
   "Desktop UI: 2.4 Native Frontend" \
-  "Embedded UI: verified in arm64 + x86_64" \
+  "Embedded UI: canonical modular product verified in arm64 + x86_64" \
   "Universal launcher: $(lipo -archs "$APP/Contents/MacOS/Sentinel")" \
   "App icon: $APP/Contents/Resources/AppIcon.icns" \
   "UI modes: browser + native WebKit App View, same Sentinel 2.4 product source" \
