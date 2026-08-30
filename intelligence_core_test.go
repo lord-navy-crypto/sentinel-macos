@@ -88,7 +88,7 @@ func TestUnifiedIntelligenceRoutesAndSentinel24EntryContract(t *testing.T) {
 			"/api/object/story",
 			"How are the objects connected?",
 		},
-		"unified_intelligence_v23.go": {
+		"intelligence_core.go": {
 			"Evidence Graph 2.0",
 			"Incident Intelligence 2.0",
 			"Global Timeline",
