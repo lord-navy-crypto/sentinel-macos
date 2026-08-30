@@ -9,10 +9,10 @@ import (
 
 func TestControlPlaneUIContract(t *testing.T) {
 	checks := map[string][]string{
-		"web/control-plane.html": {"Security Posture","System Snapshot & Diff","Storage History","Recovery Center 2.0","Typed System Evidence","control-plane.js"},
+		"web/control-plane.html": {"Security Posture","System Snapshot & Diff","Storage History","Recovery Center 2.0","Typed System Evidence","control-plane.js","control-plane-aging.js","aux-navigation.js"},
 		"web/control-plane.js": {"security-posture","system-snapshot-capture","system-snapshot-diff","storage-snapshot-capture","storage-history","recovery","Continue Investigation","investigation.html","intelligence-center.html"},
-		"web/system-console-investigation-v23.js": {"continuation_targets","Continue Investigation","process-relations.html","investigation.html","Control Plane Center"},
-		"web/system-console.html": {"system-console-investigation-v23.js","controlPlaneRecipe","Start with a question, not a command","Raw evidence"},
+		"web/system-console-investigation.js": {"continuation_targets","Continue Investigation","process-relations.html","investigation.html","Control Plane Center"},
+		"web/system-console.html": {"system-console-investigation.js","controlPlaneRecipe","Start with a question, not a command","Raw evidence","aux-navigation.js"},
 	}
 	for path, required := range checks {
 		b, err := os.ReadFile(path); if err != nil { t.Fatal(err) }
