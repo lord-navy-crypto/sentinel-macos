@@ -3,6 +3,7 @@ package main
 
 import (
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -13,6 +14,7 @@ var canonicalProductScripts = []string{
 	"web/app/lenses/compare.js",
 	"web/app/lenses/system.js",
 	"web/app/lenses/act-limits.js",
+	"web/app/advanced.js",
 	"web/app/runtime.js",
 }
 
@@ -37,15 +39,26 @@ func requireProductScript(t *testing.T, path string) string {
 
 func TestApplicationRegistersEveryDeclaredLens(t *testing.T) {
 	all := readProductScripts(t)
-	for _, lens := range []string{
+	declared := []string{
 		"status","snapshot","cases","search","relations","audit","object",
 		"changes","behavior","reference",
 		"machine","processes","startup","persistence","background","network","storage",
 		"reclaim","change","visibility","guide",
-	} {
+	}
+	for _, lens := range declared {
 		needle := "registerLens('" + lens + "'"
 		if !strings.Contains(all, needle) { t.Fatalf("canonical modular application does not register lens %q", lens) }
 	}
-	if got := strings.Count(all, "registerLens('"); got != 21 { t.Fatalf("expected exactly 21 canonical lens registrations, got %d", got) }
+
+	// Advanced evidence modules may intentionally replace a renderer for an
+	// existing lens. Protect the complete declared lens set rather than freezing
+	// the implementation to exactly one registration statement per lens.
+	re := regexp.MustCompile(`registerLens\('([^']+)'`)
+	unique := map[string]bool{}
+	for _, match := range re.FindAllStringSubmatch(all, -1) {
+		if len(match) == 2 { unique[match[1]] = true }
+	}
+	if len(unique) != len(declared) { t.Fatalf("expected %d distinct canonical lenses, got %d: %#v", len(declared), len(unique), unique) }
+	for _, lens := range declared { if !unique[lens] { t.Fatalf("declared lens %q is not registered", lens) } }
 	if _, err := os.Stat("web/app/controller.js"); !os.IsNotExist(err) { t.Fatal("retired monolithic controller returned") }
 }
