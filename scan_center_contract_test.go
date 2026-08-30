@@ -11,16 +11,19 @@ func TestFullScanCenterIsCanonicalProductModule(t *testing.T) {
 	html, err := os.ReadFile("web/index.html")
 	if err != nil { t.Fatal(err) }
 	s := string(html)
-	for _, want := range []string{"/app/scan-center.css", "/app/scan-center.js", "/app/runtime.js"} {
+	for _, want := range []string{"/app/full-scan.css", "/app/full-scan.js", "/app/runtime.js"} {
 		if !strings.Contains(s, want) { t.Fatalf("canonical product missing %q", want) }
 	}
-	if strings.Index(s, "/app/scan-center.js") > strings.Index(s, "/app/runtime.js") {
+	if strings.Index(s, "/app/full-scan.js") > strings.Index(s, "/app/runtime.js") {
 		t.Fatal("Full Scan Center must register/enhance Status before runtime bootstrap")
+	}
+	for _, retired := range []string{"/app/scan-center.css", "/app/scan-center.js"} {
+		if strings.Contains(s, retired) { t.Fatalf("canonical product revived retired Scan Center asset %q", retired) }
 	}
 }
 
 func TestFullScanCenterUsesRealRetainedEvidenceChain(t *testing.T) {
-	raw, err := os.ReadFile("web/app/scan-center.js")
+	raw, err := os.ReadFile("web/app/full-scan.js")
 	if err != nil { t.Fatal(err) }
 	s := string(raw)
 	for _, want := range []string{
@@ -38,7 +41,7 @@ func TestFullScanCenterUsesRealRetainedEvidenceChain(t *testing.T) {
 }
 
 func TestFullScanCenterPreservesSafetyAndFreshnessBoundaries(t *testing.T) {
-	raw, err := os.ReadFile("web/app/scan-center.js")
+	raw, err := os.ReadFile("web/app/full-scan.js")
 	if err != nil { t.Fatal(err) }
 	s := string(raw)
 	for _, want := range []string{
@@ -55,7 +58,7 @@ func TestFullScanCenterPreservesSafetyAndFreshnessBoundaries(t *testing.T) {
 }
 
 func TestCapabilityAtlasCoversAllPrimaryLenses(t *testing.T) {
-	raw, err := os.ReadFile("web/app/scan-center.js")
+	raw, err := os.ReadFile("web/app/full-scan.js")
 	if err != nil { t.Fatal(err) }
 	s := string(raw)
 	for _, lens := range []string{
@@ -68,7 +71,7 @@ func TestCapabilityAtlasCoversAllPrimaryLenses(t *testing.T) {
 }
 
 func TestScanCenterVisualSystemIsResponsive(t *testing.T) {
-	raw, err := os.ReadFile("web/app/scan-center.css")
+	raw, err := os.ReadFile("web/app/full-scan.css")
 	if err != nil { t.Fatal(err) }
 	s := string(raw)
 	for _, want := range []string{".scan-center-grid", ".scan-card", ".full-scan-progress", ".full-scan-stage", ".capability-atlas", ".capability-group", ".capability-tile", "@media (max-width:820px)"} {
