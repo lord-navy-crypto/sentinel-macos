@@ -73,7 +73,7 @@ func BuildStorageAgingReport(result *AdvancedStorageResult, snapshots []StorageS
 	return out
 }
 
-func (a *app) storageAgingV23() StorageAgingReport {
+func (a *app) currentStorageAgingReport() StorageAgingReport {
 	var snapshots []StorageSnapshot
 	if cp:=controlPlaneFor(a!=nil&&a.ephemeral);cp!=nil&&cp.storageHistory!=nil{snapshots=cp.storageHistory.list()}
 	var result *AdvancedStorageResult
@@ -81,4 +81,4 @@ func (a *app) storageAgingV23() StorageAgingReport {
 	return BuildStorageAgingReport(result,snapshots,time.Now())
 }
 
-func (a *app) handleStorageAgingV23(w http.ResponseWriter,r *http.Request){if r.Method!=http.MethodGet{writeJSON(w,http.StatusMethodNotAllowed,map[string]any{"error":"GET required"});return};writeJSON(w,http.StatusOK,a.storageAgingV23())}
+func (a *app) handleStorageAging(w http.ResponseWriter,r *http.Request){if r.Method!=http.MethodGet{writeJSON(w,http.StatusMethodNotAllowed,map[string]any{"error":"GET required"});return};writeJSON(w,http.StatusOK,a.currentStorageAgingReport())}
