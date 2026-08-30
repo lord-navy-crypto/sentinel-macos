@@ -1,26 +1,33 @@
 // SPDX-License-Identifier: MPL-2.0
 (() => {
+  // Transitional navigation for retained specialist workspaces only.
+  // Sentinel 2.4 itself owns product navigation in sentinel-24.js.
   const token = new URLSearchParams(location.hash.slice(1)).get('token') || '';
-  const hash = token ? `#token=${encodeURIComponent(token)}` : '';
+  const specialistHash = token ? `#token=${encodeURIComponent(token)}` : '';
+  const productHref = lens => {
+    const params = new URLSearchParams();
+    if (token) params.set('token', token);
+    if (lens) params.set('lens', lens);
+    const hash = params.toString();
+    return `/${hash ? `#${hash}` : ''}`;
+  };
 
   const primaryItems = [
-    ['Easy','nav.easy', `/easy.html${hash}`, ['/easy.html']],
-    ['Investigate','nav.investigate', `/investigation.html${hash}`, ['/investigation.html']],
-    ['System','nav.system', `/system-center.html${hash}`, ['/system-center.html','/control-plane.html']],
-    ['Advanced','nav.advanced', `/intelligence-center.html${hash}`, ['/intelligence-center.html','/pre-regression.html']],
-    ['Recover','nav.recover', `/vault-health.html${hash}`, ['/vault-health.html']],
-    ['Alpha','nav.alpha', `/alpha-center.html${hash}`, ['/alpha-center.html']]
+    ['Sentinel 2.4','nav.easy', productHref('status'), ['/']],
+    ['Investigate','nav.investigate', `/investigation.html${specialistHash}`, ['/investigation.html']],
+    ['Recover','nav.recover', `/vault-health.html${specialistHash}`, ['/vault-health.html']],
+    ['Terminal','nav.terminal', `/system-console.html${specialistHash}`, ['/system-console.html','/terminal-guide.html']],
+    ['Alpha','nav.alpha', `/alpha-center.html${specialistHash}`, ['/alpha-center.html']]
   ];
 
   const toolItems = [
-    ['Scan','nav.scan', `/scan-center.html${hash}`, ['/scan-center.html']],
-    ['Compare','nav.compare', `/compare-center.html${hash}`, ['/compare-center.html']],
-    ['Security','nav.security', `/security-center.html${hash}`, ['/security-center.html']],
-    ['Processes','nav.processes', `/process-relations.html${hash}`, ['/process-relations.html']],
-    ['Network','nav.network', `/network-relations.html${hash}`, ['/network-relations.html']],
-    ['Startup','nav.startup', `/launch-services.html${hash}`, ['/launch-services.html']],
-    ['Storage','nav.storage', `/storage-center.html${hash}`, ['/storage-center.html']],
-    ['Terminal','nav.terminal', `/system-console.html${hash}`, ['/system-console.html']]
+    ['Snapshot','nav.scan', productHref('snapshot'), []],
+    ['Compare','nav.compare', productHref('behavior'), []],
+    ['Security','nav.security', productHref('audit'), []],
+    ['Processes','nav.processes', `/process-relations.html${specialistHash}`, ['/process-relations.html']],
+    ['Network','nav.network', `/network-relations.html${specialistHash}`, ['/network-relations.html']],
+    ['Startup','nav.startup', `/launch-services.html${specialistHash}`, ['/launch-services.html']],
+    ['Storage','nav.storage', productHref('storage'), []]
   ];
 
   function ensureI18n(done) {
@@ -37,7 +44,7 @@
   function makeLink(item, i18n) {
     const [fallback, key, href, paths] = item;
     const a = document.createElement('a');
-    a.textContent = i18n ? i18n.t(key) : fallback;
+    a.textContent = i18n ? translated(i18n, key, fallback) : fallback;
     a.dataset.navI18n = key;
     a.dataset.navFallback = fallback;
     a.href = href;
@@ -57,14 +64,15 @@
 
     const nav = document.createElement('div');
     nav.className = 'sentinel-v23-nav';
+    nav.dataset.role = 'specialist-workspace-navigation';
 
     const primary = document.createElement('nav');
     primary.className = 'sentinel-v23-primary';
-    primary.setAttribute('aria-label','Sentinel primary workspaces');
+    primary.setAttribute('aria-label','Sentinel specialist workspaces');
 
     const brand = document.createElement('span');
     brand.className = 'sentinel-v23-nav-brand';
-    brand.textContent = 'Sentinel v2.3';
+    brand.textContent = 'Sentinel 2.4 · AUX';
     primary.append(brand);
 
     const primaryLinks = document.createElement('div');
@@ -89,10 +97,10 @@
 
     const shelf = document.createElement('nav');
     shelf.className = 'sentinel-tool-shelf';
-    shelf.setAttribute('aria-label','Sentinel tools');
+    shelf.setAttribute('aria-label','Sentinel evidence shortcuts');
     const shelfLabel = document.createElement('span');
     shelfLabel.className = 'sentinel-tool-shelf-label';
-    shelfLabel.textContent = 'TOOLS';
+    shelfLabel.textContent = 'EVIDENCE';
     shelf.append(shelfLabel);
     const toolLinks = document.createElement('div');
     toolLinks.className = 'sentinel-tool-shelf-links';
@@ -104,7 +112,7 @@
 
     for (const id of ['backLink','backToSentinel']) {
       const a = document.getElementById(id);
-      if (a) a.href = `/easy.html${hash}`;
+      if (a) a.href = productHref('status');
     }
 
     document.addEventListener('sentinel:localechange', () => {
