@@ -27,11 +27,13 @@ Sentinel application frontend
       ├─ system-evidence.js
       ├─ workbench.js
       ├─ full-scan.js
+      ├─ action-dock.js
       ├─ runtime.js
       ├─ shell.css
       ├─ advanced.css
       ├─ workbench.css
-      └─ full-scan.css
+      ├─ full-scan.css
+      └─ action-dock.css
 ```
 
 The same product source opens in the default browser or Sentinel's native WKWebView App View. There is no separate legacy dashboard, desktop-only DOM rewrite layer, or monolithic frontend controller in the normal startup path.
@@ -51,9 +53,29 @@ Every Capability Atlas tile opens the corresponding canonical Lens or Workbench 
 
 A result is evidence, not a verdict. Priority and attention scores rank review work; they are not malware probabilities. A signature, Gatekeeper result, relationship edge, network endpoint, reference match, or observed change must be interpreted in context.
 
+## Contextual Action Dock
+
+Every primary Lens now receives a contextual **Quick Actions** row instead of relying only on global Refresh or hidden controls. The dock is an orchestration layer over existing product handlers; it does not create a parallel backend or a second Safe Action execution path.
+
+Examples include:
+
+- Status — Easy Scan, Full Scan, Cases, Visibility, Workbench.
+- Snapshot — Refresh, Monitoring Snapshot, Cases, Relations, Workbench.
+- Cases — Rebuild Cases, Relations, Search, Workbench.
+- Relations — Capture Evidence, Cases, Changes, Workbench.
+- Changes — Capture Checkpoint, Behavior, Reference, Workbench.
+- Behavior — Capture & Compare, Changes, Reference, Workbench.
+- Reference — Compare Now, Behavior, Changes, Workbench.
+- Processes — Network, Auto-start, Cases, Workbench.
+- Network — Refresh Current, Capture History, Relations, Processes, Workbench.
+- Storage — Reclaim Review, Changes, Safe Change, Workbench.
+- Visibility — Full Scan, Status, Model, Workbench.
+
+The command header also exposes persistent **Easy Scan** and **Full Scan** shortcuts on wider layouts. Full Scan controls synchronize their running state and become disabled while the comprehensive acquisition is already running.
+
 ## Scan Center — Easy Scan + Full Scan
 
-The Status view now presents two scan paths side by side.
+The Status view presents two scan paths side by side.
 
 ### Easy Scan
 
@@ -81,6 +103,8 @@ Visibility / capabilities
 The deep-storage stage uses the existing cancellable job pipeline and reports real files/folders visited, hash progress, skipped slow paths, and bounded errors. Full Scan does not call Safe Action execution and does not permanently delete user data.
 
 After Full Scan, normal Lenses can reuse retained System, Network, Storage, Behavior/Persistence, Case, and intelligence evidence. This reduces unnecessary repeated acquisition, but it does **not** mean one scan is eternally current. The Status Scan Center displays retained capture age/freshness; re-run when you want newer evidence, the Mac materially changes, or continuity reports that a rescan is required.
+
+A completed Full Scan now exposes an explicit next-analysis panel: **Open Cases, Review Changes, Inspect Storage, Compare Reference, or Workbench**. Cancelling the scan does not create this completion state. These controls reuse existing analysis handlers rather than reacquiring the same baseline.
 
 ## Investigation Workbench — 30 integrated improvements
 
@@ -123,7 +147,7 @@ The Local Evidence Assistant currently uses deterministic local evidence routing
 
 ## Core capabilities retained and upgraded
 
-The Workbench and Scan Center are additive. Existing hardened functionality remains available and is now easier to locate through the Capability Atlas:
+The Workbench, Scan Center, Capability Atlas, and Action Dock are additive. Existing hardened functionality remains available and is now easier to locate and operate:
 
 - system overview and readiness;
 - Quick Check / Easy Scan and unified review queue;
@@ -153,6 +177,7 @@ Sentinel deliberately separates observation from mutation.
 - API requests require the current session token and retain Host / Origin / Fetch-Metadata protections.
 - Sentinel has no permanent-delete API.
 - Full Scan acquires/retains evidence and comparison state; it does not execute Safe Actions.
+- Action Dock buttons reuse canonical handlers and do not add a direct mutation API path.
 - Safe Change Simulation stops at server preview and never submits the execution confirmation.
 - Safe Actions remain limited to explicitly supported operations and do not overwrite an existing destination.
 - Mutating Safe Actions are disabled in `--ephemeral` mode.
@@ -176,15 +201,16 @@ For a clean reinstall into `/Applications` while preserving Sentinel user state:
 ./reinstall-macos.sh
 ```
 
-The desktop builder validates the canonical **11-script / 4-style** application chain, Workbench and Full Scan capability markers, and embedded product evidence in both Apple Silicon and Intel Go engines. `Info.plist` records:
+The desktop builder validates the canonical **12-script / 5-style** application chain, Workbench, Full Scan, Capability Atlas, and Action Dock markers, plus embedded product evidence in both Apple Silicon and Intel Go engines. `Info.plist` records:
 
 ```text
 SentinelDesktopUI = 2.4 Native Frontend
 SentinelWorkbench = 30-function Investigation Workbench
 SentinelScanCenter = Easy Scan + Full Scan + Capability Atlas
+SentinelActionDock = Contextual Quick Actions
 ```
 
-The reinstall helper refuses a bundle that does not contain all three identities.
+The reinstall helper refuses a bundle that does not contain all four identities.
 
 ## Development engine
 
@@ -210,13 +236,13 @@ bash SMOKE_TEST_LOCALHOST.command
 
 CI additionally checks:
 
-- product, Workbench, Full Scan, Capability Atlas, and visual contracts;
+- product, Workbench, Full Scan, Capability Atlas, Action Dock, and visual contracts;
 - Darwin arm64 and x86_64 engine builds;
 - actual `Sentinel.app` desktop packaging;
-- Workbench and Full Scan markers embedded in both engines;
-- `SentinelScanCenter` package identity;
+- Workbench, Full Scan, and Action Dock markers embedded in both engines;
+- `SentinelScanCenter` and `SentinelActionDock` package identities;
 - Go race behavior and `go vet`;
-- every canonical product JavaScript module including `workbench.js` and `full-scan.js`;
+- every canonical product JavaScript module including `workbench.js`, `full-scan.js`, and `action-dock.js`;
 - old `scan-center.js/css` names remain physically absent from the current product;
 - auxiliary JavaScript and shell syntax;
 - retired dashboard/controller paths remain absent.
@@ -265,8 +291,9 @@ Important runtime files:
 - `web/app/system-evidence.js` — Network History and Launch relationship depth.
 - `web/app/workbench.js` — 30-function cross-lens investigation layer.
 - `web/app/full-scan.js` — Easy/Full Scan orchestration, retained freshness, and Capability Atlas.
+- `web/app/action-dock.js` — contextual Quick Actions, synchronized Full Scan controls, and post-scan analysis routing.
 - `web/app/runtime.js` — navigation, delegation, global search/export, and bootstrap.
-- `web/app/shell.css`, `advanced.css`, `workbench.css`, `full-scan.css` — canonical visual layers.
+- `web/app/shell.css`, `advanced.css`, `workbench.css`, `full-scan.css`, `action-dock.css` — canonical visual layers.
 - `desktop/SentinelDesktop.swift` — native launcher and WKWebView container.
 - `build-desktop-macos.sh` — Universal macOS app build and product identity validation.
 - `reinstall-macos.sh` — clean rebuild/reinstall and identity verification.
