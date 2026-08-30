@@ -1,0 +1,11 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+/* Sentinel 2.4 contextual Action Dock */
+.s24-action-dock{margin:-4px 0 18px;padding:10px 12px;border:1px solid var(--line,#e0e4ea);border-radius:12px;background:color-mix(in srgb,var(--panel,#fff) 94%,var(--focus,#315efb) 6%);display:flex;align-items:center;justify-content:space-between;gap:12px}
+.s24-action-dock>span{font:800 10px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.13em;color:var(--muted,#667085);white-space:nowrap}
+.s24-action-dock>div{display:flex;align-items:center;justify-content:flex-end;gap:7px;flex-wrap:wrap}
+.s24-action-dock .s24-action{min-height:32px}
+.s24-header-scan{white-space:nowrap}
+.s24-header-scan.full{border-color:color-mix(in srgb,var(--focus,#315efb) 45%,var(--line,#dfe3ea));background:color-mix(in srgb,var(--focus,#315efb) 7%,transparent)}
+.s24-header-scan.full:hover,.s24-header-scan.full:focus-visible{background:color-mix(in srgb,var(--focus,#315efb) 13%,transparent)}
+@media (max-width:980px){.s24-header-scan{display:none}.s24-action-dock{align-items:flex-start;flex-direction:column}.s24-action-dock>div{justify-content:flex-start}}
+@media (max-width:620px){.s24-action-dock .s24-action{flex:1 1 calc(50% - 7px)}.s24-action-dock>div{width:100%}}
