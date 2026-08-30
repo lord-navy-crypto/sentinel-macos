@@ -56,6 +56,15 @@ func TestActionDockReusesExistingSafeHandlers(t *testing.T) {
 	}
 }
 
+func TestActionDockStabilizesStatusPlacementAfterAsyncScanCenter(t *testing.T) {
+	raw, err := os.ReadFile("web/app/action-dock.js")
+	if err != nil { t.Fatal(err) }
+	s := string(raw)
+	for _, want := range []string{"state.lens === 'status'", "#scanCenterBand", "previousElementSibling", "insertAdjacentElement('afterend', dock)"} {
+		if !strings.Contains(s, want) { t.Fatalf("Action Dock async placement guard missing %q", want) }
+	}
+}
+
 func TestActionDockVisualLayerIsResponsive(t *testing.T) {
 	raw, err := os.ReadFile("web/app/action-dock.css")
 	if err != nil { t.Fatal(err) }
