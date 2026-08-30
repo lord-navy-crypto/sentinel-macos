@@ -11,110 +11,60 @@ import (
 func readVisualGrammarAsset(t *testing.T, path string) string {
 	t.Helper()
 	b, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
+	if err != nil { t.Fatal(err) }
 	return string(b)
 }
 
-func TestVisualGrammarV2SharedSystem(t *testing.T) {
-	nav := readVisualGrammarAsset(t, "web/v23-navigation.css")
-	grammar := readVisualGrammarAsset(t, "web/v23-visual-system.css")
-	quant := readVisualGrammarAsset(t, "web/v23-quantitative-viz.css")
-
-	for _, want := range []string{"/v23-visual-system.css", "/v23-quantitative-viz.css"} {
-		if !strings.Contains(nav, want) {
-			t.Fatalf("navigation must load shared visual grammar asset %q", want)
-		}
+func TestVisualGrammarV2SharedSystemIsNowSentinel24(t *testing.T) {
+	html := readVisualGrammarAsset(t, "web/index.html")
+	grammar := readVisualGrammarAsset(t, "web/sentinel-24.css")
+	if !strings.Contains(html, `/sentinel-24.css`) || !strings.Contains(html, `/sentinel-24.js`) {
+		t.Fatal("Sentinel 2.4 product assets are not wired into the default document")
 	}
 	for _, want := range []string{
-		".situation-board", ".status-ledger", ".timeline", ".compare-axis",
-		".relationship-lane", ".coverage-matrix", ".pipeline", ".scan-flow",
-		"[data-viz=\"timeline\"]", "prefers-reduced-motion:reduce",
+		".s24-instruments", ".s24-ledger", ".s24-feed", ".s24-table", ".s24-graph",
+		".s24-bars", ".s24-pipeline", ".s24-context", ".s24-activity", "prefers-reduced-motion:reduce",
 	} {
-		if !strings.Contains(grammar, want) {
-			t.Fatalf("Visual Grammar v2 missing %q", want)
-		}
+		if !strings.Contains(grammar, want) { t.Fatalf("Sentinel 2.4 visual grammar missing %q", want) }
 	}
-	for _, want := range []string{".quant-bar", ".quant-bar-fill", ".growth", ".reduction", ".age"} {
-		if !strings.Contains(quant, want) {
-			t.Fatalf("quantitative visual grammar missing %q", want)
-		}
+	for _, bad := range []string{"javascript:", "expression("} {
+		if strings.Contains(strings.ToLower(grammar), bad) { t.Fatalf("visual grammar contains unsafe behavior %q", bad) }
 	}
-
-	// Shared presentation must not hide product functionality or block interaction.
-	for _, bad := range []string{"display:none", "visibility:hidden", "pointer-events:none", "javascript:"} {
-		if strings.Contains(strings.ToLower(grammar), bad) || strings.Contains(strings.ToLower(quant), bad) {
-			t.Fatalf("visual grammar must not hide/disable functionality through %q", bad)
-		}
-	}
-	// Pseudo-elements in the grammar may draw geometry, but must not inject explanatory copy.
 	nonEmptyContent := regexp.MustCompile(`content\s*:\s*["'][^"']+`)
-	if nonEmptyContent.MatchString(grammar) {
-		t.Fatal("shared Visual Grammar v2 must not inject visible explanatory text from CSS")
-	}
+	if nonEmptyContent.MatchString(grammar) { t.Fatal("Sentinel 2.4 CSS must not inject explanatory copy") }
 }
 
-func TestVisualGrammarV2PageMappings(t *testing.T) {
-	checks := map[string][]string{
-		"web/easy.html": {
-			`class="situation-board"`, `id="situationBoardTitle"`, `class="easy-group easy-index"`,
-		},
-		"web/compare-center.html": {
-			`class="compare-workspace"`, `class="compare-axis"`, "Evidence A", "Typed change", "Evidence B",
-		},
-		"web/scan-center.html": {
-			`class="scan-flow"`, "Acquire", "Inspect", "Correlate", "Continue", `data-viz="pipeline"`,
-		},
-		"web/intelligence-center.html": {
-			`data-viz="relations"`, `data-viz="incidents"`, `data-viz="timeline"`, `data-viz="object"`, `data-viz="visibility"`,
-		},
-		"web/system-center.html": {
-			`data-viz="diff"`, `data-viz="evidence"`,
-		},
-		"web/process-relations.html": {
-			`data-viz="relations"`, `data-viz="object"`, `data-viz="visibility"`,
-		},
-		"web/network-relations.html": {
-			`data-viz="relations"`, `data-viz="diff"`, `data-viz="visibility"`,
-		},
-		"web/launch-services.html": {
-			`data-viz="relations"`, `data-viz="object"`, `data-viz="visibility"`,
-		},
-		"web/vault-health.html": {
-			`class="scan-flow recovery-flow"`, "Action", "Vault / Journal", "Verify", "Restore",
-		},
-		"web/system-console.html": {
-			`class="scan-flow terminal-evidence-flow"`, "Question", "Typed tool", "Evidence", "Continue",
-		},
+func TestVisualGrammarV2MappingsLiveInOneProductController(t *testing.T) {
+	js := readVisualGrammarAsset(t, "web/sentinel-24.js")
+	checks := []string{
+		"renderStatus", "renderSnapshot", "renderCases", "renderSearch", "renderRelations", "renderAudit", "renderObject",
+		"renderChanges", "renderBehavior", "renderReference", "renderMachine", "renderProcesses", "renderStartup",
+		"renderStorage", "renderReclaim", "renderSafeChange", "renderVisibility", "renderGuide",
+		"Relationship canvas", "Change stream", "Measured footprint", "Safety gate", "Investigation model",
 	}
-	for path, wants := range checks {
-		src := readVisualGrammarAsset(t, path)
-		for _, want := range wants {
-			if !strings.Contains(src, want) {
-				t.Fatalf("%s missing Visual Grammar v2 marker %q", path, want)
-			}
-		}
+	for _, want := range checks {
+		if !strings.Contains(js, want) { t.Fatalf("Sentinel 2.4 product controller missing visual/evidence mapping %q", want) }
 	}
 }
 
 func TestVisualGrammarV2StorageUsesObservedNumbers(t *testing.T) {
-	html := readVisualGrammarAsset(t, "web/storage-center.html")
-	js := readVisualGrammarAsset(t, "web/storage-visualization-v23.js")
-	if !strings.Contains(html, "/storage-visualization-v23.js") {
-		t.Fatal("Storage Center must load its quantitative visualization")
+	js := readVisualGrammarAsset(t, "web/sentinel-24.js")
+	for _, want := range []string{
+		"files_visited", "dirs_visited", "visible_bytes", "permission_errors", "duplicate_hash_bytes",
+		"large_files", "duplicates", "families", "hash_bytes_done", "hash_bytes_total", "phase_percent",
+	} {
+		if !strings.Contains(js, want) { t.Fatalf("Sentinel 2.4 storage visualization missing observed field %q", want) }
 	}
 	for _, want := range []string{
-		"parseBytes", "storageHistory", "storageAging", ".delta-positive, .delta-negative",
-		`retained large file\(s\)`, "Math.abs(value) / max * 100", "aria-label",
+		"exact duplicate group(s) use hash agreement", "possible version family/families are naming heuristics only",
 	} {
-		if !strings.Contains(js, want) {
-			t.Fatalf("Storage quantitative visualization missing %q", want)
-		}
+		if !strings.Contains(js, want) { t.Fatalf("Sentinel 2.4 storage semantics missing %q", want) }
 	}
-	for _, bad := range []string{"innerHTML", "eval(", "new Function", "document.write"} {
-		if strings.Contains(js, bad) {
-			t.Fatalf("Storage quantitative visualization contains unsafe pattern %q", bad)
-		}
+}
+
+func TestVisualGrammarV2DefaultProductDoesNotLoadRetiredGrammar(t *testing.T) {
+	html := readVisualGrammarAsset(t, "web/index.html")
+	for _, retired := range []string{"v23-navigation", "v23-visual-system", "v23-quantitative-viz", "easy.css", "scan-center.css", "style.css", "desktop-ui.css"} {
+		if strings.Contains(html, retired) { t.Fatalf("default Sentinel 2.4 product still loads retired grammar %q", retired) }
 	}
 }
