@@ -2,7 +2,7 @@
 
 ## Current priority: public Beta first
 
-Sentinel is still in active testing. The current release order is intentionally:
+Sentinel is still in active testing. The current release order is:
 
 1. **Local functional testing** on real Macs.
 2. **GitHub Release Beta** for testers.
@@ -12,17 +12,27 @@ Sentinel is still in active testing. The current release order is intentionally:
 
 The Mac App Store is not required for the current Beta phase.
 
-## Dual-interface Sentinel.app
+## One product frontend, two containers
 
 Normal users/testers download one DMG and drag `Sentinel.app` to `Applications`.
 
 When Sentinel starts, it launches one architecture-matched, loopback-only Go engine and shows a small native control window with three choices:
 
-- **Open in Browser** — opens the V5 Evidence Notebook in the user's default browser.
-- **Open App View** — opens the same V5 Evidence Notebook inside a native AppKit/WebKit window.
-- **Quit Sentinel** — stops the local engine and exits.
+- **Open in Browser** — opens the Sentinel 2.4 Native Frontend in the user's default browser.
+- **Open App View** — opens the same Sentinel 2.4 Native Frontend inside a native AppKit/WKWebView window.
+- **Quit Sentinel** — stops the owned local engine and exits.
 
-Both UI modes share the same `127.0.0.1` engine, random port, session token, APIs, evidence, and safety boundaries. App View is not a second backend. The previous dashboard is retained only as the explicit `?legacy=1` diagnostic escape hatch.
+Both containers use the same `127.0.0.1` engine, random port, in-memory session token, API surface, evidence, and safety boundaries. App View is not a second backend and Browser is not a compatibility mode. There is no normal `?legacy=1`, V5 Evidence Notebook, or desktop-only DOM-replacement startup path in Sentinel 2.4.
+
+Current product source:
+
+```text
+web/index.html
+web/sentinel-24.css
+web/sentinel-24.js
+```
+
+The server serves this product source directly.
 
 ## Why DMG instead of PKG
 
@@ -51,6 +61,8 @@ go test ./...
 bash SMOKE_TEST_LOCALHOST.command
 ```
 
+The repository CI also runs Go race tests, `go vet`, product JavaScript syntax, historical standalone-workspace JavaScript syntax, shell syntax, regression contracts, and Darwin architecture build smoke tests.
+
 For an unsigned/unnotarized local development DMG:
 
 ```bash
@@ -74,7 +86,7 @@ Artifact filenames are derived from the repository `VERSION` file. If `VERSION` 
 
 ## Beta artifact naming
 
-Until Developer ID/notarization is enabled, use explicit Beta naming so testers do not confuse the build with the future production-signed release.
+Until Developer ID/notarization is enabled, use explicit Beta naming so testers do not confuse the build with a future production-signed release.
 
 Recommended Beta assets for version 2.4.0:
 
@@ -97,13 +109,15 @@ For the current testing phase, GitHub Releases is the canonical binary distribut
 
 Recommended flow:
 
-1. Full tests pass.
-2. Build `Sentinel.app` on the real Mac.
-3. Build the Beta DMG with `SENTINEL_RELEASE_CHANNEL=beta`.
-4. Verify the DMG by mounting it and launching the copied app.
-5. Verify the generated SHA-256.
-6. Publish the DMG and checksum on a GitHub Beta/pre-release.
-7. Keep the source repository and release notes tied to the exact commit used for the DMG.
+1. Full tests pass on the exact release commit.
+2. Build `Sentinel.app` on a real Mac.
+3. Launch both Browser and App View and confirm both show the same Sentinel 2.4 product.
+4. Confirm the launcher and embedded engines report Apple Silicon + Intel support as expected.
+5. Build the Beta DMG with `SENTINEL_RELEASE_CHANNEL=beta`.
+6. Mount the DMG and launch the copied app.
+7. Verify the generated SHA-256.
+8. Publish the DMG and checksum on a GitHub Beta/pre-release.
+9. Keep release notes tied to the exact source commit used for the DMG.
 
 Do not label an unsigned/unnotarized Beta artifact as a production notarized release.
 
@@ -111,25 +125,25 @@ Do not label an unsigned/unnotarized Beta artifact as a production notarized rel
 
 The Sentinel website can present the Beta download after the GitHub Release exists.
 
-During Beta, the safest simple model is for the website download button to point to the canonical GitHub Release asset rather than maintaining two unrelated binaries. This reduces the chance that the website and GitHub serve different builds.
+During Beta, the simplest canonical model is for the website download button to point to the GitHub Release asset rather than maintaining two unrelated binaries. This reduces the chance that the website and GitHub serve different builds.
 
 Display at least:
 
-- Version / Beta label.
-- Supported macOS version.
-- Universal 2 (Apple Silicon + Intel) status.
-- SHA-256 checksum.
-- Link to release notes/source.
-- Clear note about current signing/notarization status.
+- version and Beta label;
+- supported macOS version;
+- Universal 2 / Apple Silicon + Intel status;
+- SHA-256 checksum;
+- release-notes/source link;
+- current signing/notarization status.
 
 ## Developer ID phase — later
 
-For a polished outside-the-Mac-App-Store release, the later production phase needs:
+For a polished release outside the Mac App Store, the later production phase needs:
 
-- Apple Developer Program membership.
-- A `Developer ID Application` certificate installed in Keychain.
-- Xcode / command-line tools.
-- A Notary Service credential profile stored in Keychain.
+- Apple Developer Program membership;
+- a `Developer ID Application` certificate installed in Keychain;
+- Xcode / command-line tools;
+- a Notary Service credential profile stored in Keychain.
 
 List available signing identities:
 
@@ -137,7 +151,7 @@ List available signing identities:
 security find-identity -v -p codesigning
 ```
 
-Store notarization credentials once (example profile name):
+Store notarization credentials once, for example:
 
 ```bash
 xcrun notarytool store-credentials "SentinelNotary"
@@ -162,24 +176,25 @@ dist/Sentinel-2.4.0.dmg
 
 The production pipeline:
 
-1. Builds the native AppKit/WebKit launcher for arm64 and x86_64.
-2. Combines it into a Universal 2 executable.
+1. Builds the AppKit/WebKit launcher for arm64 and x86_64.
+2. Combines the launcher into a Universal 2 executable.
 3. Embeds the matching Go engines.
-4. Signs nested executables with Developer ID + Hardened Runtime.
-5. Signs the outer app.
-6. Creates a read-only compressed DMG with an Applications shortcut.
-7. Signs the DMG.
-8. Submits the DMG with `notarytool`.
-9. Staples the ticket.
-10. Produces SHA-256.
+4. Verifies the Sentinel 2.4 frontend marker in both engines.
+5. Signs nested executables with Developer ID + Hardened Runtime.
+6. Signs the outer app.
+7. Creates a read-only compressed DMG with an Applications shortcut.
+8. Signs the DMG.
+9. Submits the DMG with `notarytool`.
+10. Staples the notarization ticket.
+11. Produces SHA-256.
 
 ## Mac App Store — optional later stage
 
 The Mac App Store is not a prerequisite for GitHub/website distribution. Evaluate it later after Sentinel's permissions, sandboxing expectations, update strategy, native features, and user experience are stable.
 
-## What this repository cannot do automatically here
+## What this repository cannot do automatically outside a real Mac
 
-A non-macOS environment cannot compile AppKit/WebKit against the macOS SDK, run `hdiutil`, exercise macOS-specific FSEvents/Security.framework behavior, access a Developer ID private key, or submit with an Apple account. Final Mac binary validation therefore stays on a real Mac.
+A non-macOS environment cannot compile AppKit/WebKit against the macOS SDK, run `hdiutil`, exercise real macOS FSEvents/Security.framework behavior, access a Developer ID private key, or submit with an Apple account. Final binary validation therefore remains a real-Mac step.
 
 ## Double-click developer helpers
 
