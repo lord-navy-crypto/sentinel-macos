@@ -55,3 +55,55 @@ func TestStatLinkCountDetectsAdditionalHardLink(t *testing.T) {
 		t.Fatalf("hard-link count = %d, want at least 2", links)
 	}
 }
+
+func TestVaultIsolationRejectsManifestPointingAtDifferentVaultID(t *testing.T) {
+	root := t.TempDir()
+	m := &actionManager{persistent: true, vaultDir: filepath.Join(root, "Vault")}
+	goodID := "v-good"
+	otherID := "v-other"
+	otherDir := filepath.Join(m.vaultDir, otherID)
+	if err := os.MkdirAll(otherDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	otherObject := filepath.Join(otherDir, "object")
+	if err := os.WriteFile(otherObject, []byte("other"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	manifest := VaultManifest{ID: goodID, OriginalName: "sample", OriginalPath: filepath.Join(root, "original"), VaultPath: otherObject}
+	status := m.vaultIsolationForManifest(manifest)
+	if status.State != vaultIsolationFailed {
+		t.Fatalf("cross-ID manifest isolation = %q, want %q", status.State, vaultIsolationFailed)
+	}
+	foundBindingFailure := false
+	for _, check := range status.Checks {
+		if check.ID == "manifest-binding" && check.Status == "fail" {
+			foundBindingFailure = true
+		}
+	}
+	if !foundBindingFailure {
+		t.Fatal("cross-ID Vault path must produce a manifest-binding failure")
+	}
+}
+
+func TestVaultIsolationRejectsSymlinkedManagedObject(t *testing.T) {
+	root := t.TempDir()
+	m := &actionManager{persistent: true, vaultDir: filepath.Join(root, "Vault")}
+	id := "v-link"
+	dir := filepath.Join(m.vaultDir, id)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(root, "outside")
+	if err := os.WriteFile(target, []byte("outside"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	object := filepath.Join(dir, "object")
+	if err := os.Symlink(target, object); err != nil {
+		t.Fatal(err)
+	}
+	manifest := VaultManifest{ID: id, OriginalName: "sample", OriginalPath: filepath.Join(root, "original"), VaultPath: object}
+	status := m.vaultIsolationForManifest(manifest)
+	if status.State != vaultIsolationFailed {
+		t.Fatalf("symlinked Vault object isolation = %q, want %q", status.State, vaultIsolationFailed)
+	}
+}
