@@ -24,10 +24,16 @@ UI_STYLE="$HERE/web/app/shell.css"
 UI_WORKBENCH="$HERE/web/app/workbench.js"
 UI_SCAN_CENTER="$HERE/web/app/full-scan.js"
 UI_ACTION_DOCK="$HERE/web/app/action-dock.js"
+UI_AI="$HERE/web/app/ai.js"
+UI_AI_RELIABILITY="$HERE/web/app/ai-reliability.js"
+UI_MANUAL="$HERE/web/app/manual.js"
 UI_MARKER="Sentinel 2.6 Native Frontend"
 WORKBENCH_MARKER="Sentinel 2.6 Investigation Workbench"
 SCAN_CENTER_MARKER="Sentinel 2.6 Full Scan Center"
 ACTION_DOCK_MARKER="Sentinel 2.6 Contextual Action Dock"
+AI_MARKER="Sentinel 2.6 WebLLM Local AI"
+AI_RELIABILITY_MARKER="Sentinel 2.6 Local AI Reliability"
+MANUAL_MARKER="Sentinel 2.6 Comprehensive User Manual"
 BUILD_SHA="$(git rev-parse HEAD 2>/dev/null || printf 'unknown')"
 
 # The canonical Sentinel 2.6 application is modular. These are product modules,
@@ -45,15 +51,22 @@ REQUIRED_UI_FILES=(
   "web/app/workbench.js"
   "web/app/full-scan.js"
   "web/app/action-dock.js"
+  "web/app/ai.js"
+  "web/app/ai-reliability.js"
+  "web/app/ai-worker.js"
+  "web/app/manual.js"
+  "web/app/manual-entry.js"
+  "web/app/runtime.js"
   "web/vendor/webllm-0.2.82.mjs"
   "web/vendor/WEBLLM-LICENSE.txt"
   "web/vendor/README.md"
-  "web/app/runtime.js"
   "web/app/shell.css"
   "web/app/advanced.css"
   "web/app/workbench.css"
   "web/app/full-scan.css"
   "web/app/action-dock.css"
+  "web/app/ai.css"
+  "web/app/manual.css"
 )
 REQUIRED_UI_SCRIPTS=(
   "/app/core.js"
@@ -67,6 +80,10 @@ REQUIRED_UI_SCRIPTS=(
   "/app/workbench.js"
   "/app/full-scan.js"
   "/app/action-dock.js"
+  "/app/ai.js"
+  "/app/ai-reliability.js"
+  "/app/manual.js"
+  "/app/manual-entry.js"
   "/app/runtime.js"
 )
 REQUIRED_UI_STYLES=(
@@ -75,6 +92,8 @@ REQUIRED_UI_STYLES=(
   "/app/workbench.css"
   "/app/full-scan.css"
   "/app/action-dock.css"
+  "/app/ai.css"
+  "/app/manual.css"
 )
 
 for rel in "${REQUIRED_UI_FILES[@]}"; do
@@ -116,6 +135,18 @@ if ! grep -Fq "$ACTION_DOCK_MARKER" "$UI_ACTION_DOCK"; then
   echo "Sentinel 2.6 Action Dock marker missing from $UI_ACTION_DOCK" >&2
   exit 2
 fi
+if ! grep -Fq "$AI_MARKER" "$UI_AI"; then
+  echo "Sentinel 2.6 Local AI marker missing from $UI_AI" >&2
+  exit 2
+fi
+if ! grep -Fq "$AI_RELIABILITY_MARKER" "$UI_AI_RELIABILITY"; then
+  echo "Sentinel 2.6 Local AI reliability marker missing from $UI_AI_RELIABILITY" >&2
+  exit 2
+fi
+if ! grep -Fq "$MANUAL_MARKER" "$UI_MANUAL"; then
+  echo "Sentinel 2.6 Manual marker missing from $UI_MANUAL" >&2
+  exit 2
+fi
 if ! grep -Fq ".s24-shell" "$UI_STYLE"; then
   echo "Sentinel 2.6 visual-system marker missing from $UI_STYLE" >&2
   exit 2
@@ -130,6 +161,14 @@ if ! grep -Fq ".capability-atlas" "$HERE/web/app/full-scan.css"; then
 fi
 if ! grep -Fq ".s24-action-dock" "$HERE/web/app/action-dock.css"; then
   echo "Action Dock visual-system marker missing from action-dock.css" >&2
+  exit 2
+fi
+if ! grep -Fq ".ai-model-library" "$HERE/web/app/ai.css"; then
+  echo "Local AI visual-system marker missing from ai.css" >&2
+  exit 2
+fi
+if ! grep -Fq ".manual-shell" "$HERE/web/app/manual.css"; then
+  echo "Manual visual-system marker missing from manual.css" >&2
   exit 2
 fi
 
@@ -152,6 +191,16 @@ for href in "${REQUIRED_UI_STYLES[@]}"; do
     exit 2
   fi
 done
+
+script_count="$(grep -c '<script src=' "$UI_INDEX" || true)"
+if [[ "$script_count" -ne "${#REQUIRED_UI_SCRIPTS[@]}" ]]; then
+  echo "Canonical index.html script count mismatch: expected ${#REQUIRED_UI_SCRIPTS[@]}, found $script_count" >&2
+  exit 2
+fi
+if grep -Fq '<script>' "$UI_INDEX"; then
+  echo "Canonical index.html contains an inline executable script that strict CSP would block." >&2
+  exit 2
+fi
 
 for retired in '/sentinel-24.js' '/sentinel-24.css' '/app.js' '/style.css' '/desktop-ui.js' '/app/scan-center.js' '/app/scan-center.css'; do
   if grep -Fq "$retired" "$UI_INDEX"; then
@@ -191,6 +240,18 @@ for marker in 'Easy Scan' 'Full Scan' 'Capture Checkpoint' 'Capture History' 'Op
     exit 2
   fi
 done
+for marker in 'Model Library' 'useIndexedDBCache:true' 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC' 'Sentinel 2.6 Integrated Local AI'; do
+  if ! grep -Fq "$marker" "$UI_AI"; then
+    echo "Local AI capability marker missing: $marker" >&2
+    exit 2
+  fi
+done
+for marker in 'STALL_MS=90000' 'ABSOLUTE_MS=600000' 'AI.evidenceFallback=fallback' 'Local AI diagnostics'; do
+  if ! grep -Fq "$marker" "$UI_AI_RELIABILITY"; then
+    echo "Local AI reliability capability marker missing: $marker" >&2
+    exit 2
+  fi
+done
 
 echo "===== SENTINEL SOURCE IDENTITY ====="
 echo "Source commit: $BUILD_SHA"
@@ -202,14 +263,17 @@ echo "Advanced capabilities: verified"
 echo "Investigation Workbench: 30-function evolution verified"
 echo "Full Scan Center: Easy Scan + comprehensive retained baseline + Capability Atlas verified"
 echo "Contextual Action Dock: header scan controls + lens-specific quick actions + post-scan routing verified"
+echo "Local AI: WebLLM + CSP-safe reliability watchdog + evidence fallback verified"
+echo "User Manual: canonical module verified"
 echo
 
 ./build-macos.sh
 
 # The Go executable embeds web/* at compile time. Verify the actual canonical
-# product, Workbench, Scan Center, and Action Dock markers in both engines.
+# product, Workbench, Scan Center, Action Dock, Local AI reliability, and Manual
+# markers in both architecture-specific engines.
 for engine in "$HERE/dist/sentinel-macos-arm64" "$HERE/dist/sentinel-macos-x86_64"; do
-  for marker in "$UI_MARKER" "$WORKBENCH_MARKER" "$SCAN_CENTER_MARKER" "$ACTION_DOCK_MARKER" '/api/intelligence/graph/v2' '/api/incidents/v2' '/api/network/history' 'Evidence Bundle' 'Deep home-storage traversal & hash analysis'; do
+  for marker in "$UI_MARKER" "$WORKBENCH_MARKER" "$SCAN_CENTER_MARKER" "$ACTION_DOCK_MARKER" "$AI_MARKER" "$AI_RELIABILITY_MARKER" "$MANUAL_MARKER" '/api/intelligence/graph/v2' '/api/incidents/v2' '/api/network/history' 'Evidence Bundle' 'Deep home-storage traversal & hash analysis' 'Local AI initialization stalled'; do
     if ! LC_ALL=C grep -aFq "$marker" "$engine"; then
       echo "Embedded Sentinel 2.6 marker missing from $engine: $marker" >&2
       echo "The Go binary does not contain the current modular web/app product. Aborting." >&2
@@ -217,7 +281,7 @@ for engine in "$HERE/dist/sentinel-macos-arm64" "$HERE/dist/sentinel-macos-x86_6
     fi
   done
 done
-echo "Embedded Sentinel 2.6 product + Workbench + Full Scan Center + Action Dock: verified in arm64 + x86_64 engines"
+echo "Embedded Sentinel 2.6 product + Workbench + Full Scan Center + Action Dock + Local AI + Manual: verified in arm64 + x86_64 engines"
 
 # Build the native launcher completely before replacing the app bundle. If Swift
 # or lipo fails, no partial Sentinel.app is left behind.
@@ -309,6 +373,8 @@ printf '%s\n' \
   "Investigation Workbench: 30 integrated improvements" \
   "Scan Center: Easy Scan + Full Scan + Capability Atlas" \
   "Action Dock: contextual quick actions" \
+  "Local AI: WebLLM + reliability watchdog + evidence fallback" \
+  "Manual: comprehensive in-app guidance" \
   "Embedded UI: canonical modular product verified in arm64 + x86_64" \
   "Universal launcher: $(lipo -archs "$APP/Contents/MacOS/Sentinel")" \
   "App icon: $APP/Contents/Resources/AppIcon.icns" \
