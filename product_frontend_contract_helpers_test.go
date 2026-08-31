@@ -20,6 +20,8 @@ var canonicalProductScripts = []string{
 	"web/app/workbench.js",
 	"web/app/full-scan.js",
 	"web/app/action-dock.js",
+	"web/app/manual.js",
+	"web/app/manual-entry.js",
 	"web/app/runtime.js",
 }
 
@@ -48,15 +50,16 @@ func TestApplicationRegistersEveryDeclaredLens(t *testing.T) {
 		"status","snapshot","cases","search","relations","audit","object",
 		"changes","behavior","reference",
 		"machine","processes","startup","persistence","background","network","storage",
-		"reclaim","change","visibility","guide",
+		"reclaim","change","visibility","guide","manual",
 	}
 	for _, lens := range declared {
 		needle := "registerLens('" + lens + "'"
 		if !strings.Contains(all, needle) { t.Fatalf("canonical modular application does not register lens %q", lens) }
 	}
 
-	// Advanced product modules, the Investigation Workbench, Full Scan, and the
-	// Action Dock may enhance existing lenses without registering new lens IDs.
+	// Advanced product modules, the Investigation Workbench, Full Scan, Action
+	// Dock, and Manual navigation may enhance existing lenses without replacing
+	// the canonical lens registry model.
 	re := regexp.MustCompile(`registerLens\('([^']+)'`)
 	unique := map[string]bool{}
 	for _, match := range re.FindAllStringSubmatch(all, -1) {
