@@ -39,20 +39,20 @@ jobs:
           CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o /tmp/sentinel-amd64 .
           test -s /tmp/sentinel-arm64
           test -s /tmp/sentinel-amd64
-          LC_ALL=C grep -aFq 'Sentinel 2.4 Native Frontend' /tmp/sentinel-arm64
-          LC_ALL=C grep -aFq 'Sentinel 2.4 Native Frontend' /tmp/sentinel-amd64
-          LC_ALL=C grep -aFq 'Sentinel 2.4 Investigation Workbench' /tmp/sentinel-arm64
-          LC_ALL=C grep -aFq 'Sentinel 2.4 Investigation Workbench' /tmp/sentinel-amd64
-          LC_ALL=C grep -aFq 'Sentinel 2.4 Full Scan Center' /tmp/sentinel-arm64
-          LC_ALL=C grep -aFq 'Sentinel 2.4 Full Scan Center' /tmp/sentinel-amd64
-          LC_ALL=C grep -aFq 'Sentinel 2.4 Contextual Action Dock' /tmp/sentinel-arm64
-          LC_ALL=C grep -aFq 'Sentinel 2.4 Contextual Action Dock' /tmp/sentinel-amd64
-          LC_ALL=C grep -aFq 'Sentinel 2.5 Comprehensive User Manual' /tmp/sentinel-arm64
-          LC_ALL=C grep -aFq 'Sentinel 2.5 Comprehensive User Manual' /tmp/sentinel-amd64
-          LC_ALL=C grep -aFq 'Sentinel 2.5 WebLLM Local AI' /tmp/sentinel-arm64
-          LC_ALL=C grep -aFq 'Sentinel 2.5 WebLLM Local AI' /tmp/sentinel-amd64
-          LC_ALL=C grep -aFq 'Sentinel 2.5 Integrated Local AI' /tmp/sentinel-arm64
-          LC_ALL=C grep -aFq 'Sentinel 2.5 Integrated Local AI' /tmp/sentinel-amd64
+          LC_ALL=C grep -aFq 'Sentinel 2.6 Native Frontend' /tmp/sentinel-arm64
+          LC_ALL=C grep -aFq 'Sentinel 2.6 Native Frontend' /tmp/sentinel-amd64
+          LC_ALL=C grep -aFq 'Sentinel 2.6 Investigation Workbench' /tmp/sentinel-arm64
+          LC_ALL=C grep -aFq 'Sentinel 2.6 Investigation Workbench' /tmp/sentinel-amd64
+          LC_ALL=C grep -aFq 'Sentinel 2.6 Full Scan Center' /tmp/sentinel-arm64
+          LC_ALL=C grep -aFq 'Sentinel 2.6 Full Scan Center' /tmp/sentinel-amd64
+          LC_ALL=C grep -aFq 'Sentinel 2.6 Contextual Action Dock' /tmp/sentinel-arm64
+          LC_ALL=C grep -aFq 'Sentinel 2.6 Contextual Action Dock' /tmp/sentinel-amd64
+          LC_ALL=C grep -aFq 'Sentinel 2.6 Comprehensive User Manual' /tmp/sentinel-arm64
+          LC_ALL=C grep -aFq 'Sentinel 2.6 Comprehensive User Manual' /tmp/sentinel-amd64
+          LC_ALL=C grep -aFq 'Sentinel 2.6 WebLLM Local AI' /tmp/sentinel-arm64
+          LC_ALL=C grep -aFq 'Sentinel 2.6 WebLLM Local AI' /tmp/sentinel-amd64
+          LC_ALL=C grep -aFq 'Sentinel 2.6 Integrated Local AI' /tmp/sentinel-arm64
+          LC_ALL=C grep -aFq 'Sentinel 2.6 Integrated Local AI' /tmp/sentinel-amd64
           LC_ALL=C grep -aFq 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC' /tmp/sentinel-arm64
           LC_ALL=C grep -aFq 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC' /tmp/sentinel-amd64
           LC_ALL=C grep -aFq 'gemma-2-9b-it-q4f16_1-MLC' /tmp/sentinel-arm64
@@ -73,24 +73,24 @@ jobs:
           test -x dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-arm64
           test -x dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' dist/Sentinel.app/Contents/Info.plist)" = "$(tr -d '[:space:]' < VERSION)"
-          test "$(/usr/libexec/PlistBuddy -c 'Print :SentinelDesktopUI' dist/Sentinel.app/Contents/Info.plist)" = "2.4 Native Frontend"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :SentinelDesktopUI' dist/Sentinel.app/Contents/Info.plist)" = "2.6 Native Frontend"
           test "$(/usr/libexec/PlistBuddy -c 'Print :SentinelScanCenter' dist/Sentinel.app/Contents/Info.plist)" = "Easy Scan + Full Scan + Capability Atlas"
           test "$(/usr/libexec/PlistBuddy -c 'Print :SentinelActionDock' dist/Sentinel.app/Contents/Info.plist)" = "Contextual Quick Actions"
           ARCHS="$(lipo -archs dist/Sentinel.app/Contents/MacOS/Sentinel)"
           echo "$ARCHS" | grep -q arm64
           echo "$ARCHS" | grep -q x86_64
-          LC_ALL=C grep -aFq 'Sentinel 2.4 Investigation Workbench' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-arm64
-          LC_ALL=C grep -aFq 'Sentinel 2.4 Investigation Workbench' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64
-          LC_ALL=C grep -aFq 'Sentinel 2.4 Full Scan Center' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-arm64
-          LC_ALL=C grep -aFq 'Sentinel 2.4 Full Scan Center' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64
-          LC_ALL=C grep -aFq 'Sentinel 2.4 Contextual Action Dock' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-arm64
-          LC_ALL=C grep -aFq 'Sentinel 2.4 Contextual Action Dock' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64
-          LC_ALL=C grep -aFq 'Sentinel 2.5 Comprehensive User Manual' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-arm64
-          LC_ALL=C grep -aFq 'Sentinel 2.5 Comprehensive User Manual' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64
-          LC_ALL=C grep -aFq 'Sentinel 2.5 WebLLM Local AI' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-arm64
-          LC_ALL=C grep -aFq 'Sentinel 2.5 WebLLM Local AI' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64
-          LC_ALL=C grep -aFq 'Sentinel 2.5 Integrated Local AI' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-arm64
-          LC_ALL=C grep -aFq 'Sentinel 2.5 Integrated Local AI' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64
+          LC_ALL=C grep -aFq 'Sentinel 2.6 Investigation Workbench' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-arm64
+          LC_ALL=C grep -aFq 'Sentinel 2.6 Investigation Workbench' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64
+          LC_ALL=C grep -aFq 'Sentinel 2.6 Full Scan Center' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-arm64
+          LC_ALL=C grep -aFq 'Sentinel 2.6 Full Scan Center' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64
+          LC_ALL=C grep -aFq 'Sentinel 2.6 Contextual Action Dock' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-arm64
+          LC_ALL=C grep -aFq 'Sentinel 2.6 Contextual Action Dock' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64
+          LC_ALL=C grep -aFq 'Sentinel 2.6 Comprehensive User Manual' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-arm64
+          LC_ALL=C grep -aFq 'Sentinel 2.6 Comprehensive User Manual' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64
+          LC_ALL=C grep -aFq 'Sentinel 2.6 WebLLM Local AI' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-arm64
+          LC_ALL=C grep -aFq 'Sentinel 2.6 WebLLM Local AI' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64
+          LC_ALL=C grep -aFq 'Sentinel 2.6 Integrated Local AI' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-arm64
+          LC_ALL=C grep -aFq 'Sentinel 2.6 Integrated Local AI' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64
           LC_ALL=C grep -aFq 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-arm64
           LC_ALL=C grep -aFq 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64
           LC_ALL=C grep -aFq 'Model Library' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-arm64
@@ -146,7 +146,7 @@ jobs:
           grep -Fq "Model Library" web/app/ai.js
           grep -Fq "Qwen2.5-1.5B-Instruct-q4f16_1-MLC" web/app/ai.js
           grep -Fq "gemma-2-9b-it-q4f16_1-MLC" web/app/ai.js
-          grep -Fq "Sentinel 2.5 Integrated Local AI" web/app/ai.js
+          grep -Fq "Sentinel 2.6 Integrated Local AI" web/app/ai.js
           grep -Fq "contextBarSignature" web/app/ai.js
           grep -Fq "dataset.aiSignature" web/app/ai.js
           grep -Fq "dataset.aiQuery" web/app/ai.js
