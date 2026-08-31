@@ -9,86 +9,19 @@ permissions:
 
 jobs:
   finalize:
-    if: github.event.head_commit.message == 'Finalize vendored WebLLM runtime'
+    if: github.event.head_commit.message == 'Run WebLLM vendor finalizer'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Make WebLLM fully packaged and same-origin
+      - name: Apply vendor finalizer
+        run: python3 scripts/finalize_webllm_vendor.py
+      - name: Format and validate patch
         shell: bash
         run: |
           set -euo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-
-          main = Path('main.go')
-          s = main.read_text()
-          old = '\n\tmux.HandleFunc(webLLMRuntimePath, a.handleWebLLMRuntime)\n'
-          assert old in s, 'main.go bridge route not found'
-          main.write_text(s.replace(old, '\n', 1))
-
-          build = Path('build-desktop-macos.sh')
-          s = build.read_text()
-          needle = '  "web/app/action-dock.js"\n  "web/app/runtime.js"'
-          replacement = '  "web/app/action-dock.js"\n  "web/vendor/webllm-0.2.82.mjs"\n  "web/vendor/WEBLLM-LICENSE.txt"\n  "web/vendor/README.md"\n  "web/app/runtime.js"'
-          assert needle in s, 'build required-files insertion point not found'
-          s = s.replace(needle, replacement, 1)
-          needle2 = 'done\n\nif [[ -e "$HERE/web/app/scan-center.js"'
-          validation = '''done
-
-WEBLLM_RUNTIME="$HERE/web/vendor/webllm-0.2.82.mjs"
-WEBLLM_LICENSE="$HERE/web/vendor/WEBLLM-LICENSE.txt"
-WEBLLM_PROVENANCE="$HERE/web/vendor/README.md"
-if [[ "$(wc -c < "$WEBLLM_RUNTIME")" -le 100000 ]]; then
-  echo "Vendored WebLLM runtime is missing or unexpectedly small." >&2
-  exit 2
-fi
-grep -Fq 'Apache License' "$WEBLLM_LICENSE" || { echo "Vendored WebLLM license is missing Apache-2.0 text." >&2; exit 2; }
-grep -Fq '@mlc-ai/web-llm' "$WEBLLM_PROVENANCE" || { echo "Vendored WebLLM provenance is missing." >&2; exit 2; }
-
-if [[ -e "$HERE/web/app/scan-center.js"'''
-          assert needle2 in s, 'build validation insertion point not found'
-          s = s.replace(needle2, validation, 1)
-          build.write_text(s)
-
-          test = Path('local_ai_contract_test.go')
-          s = test.read_text()
-          s = s.replace('\tbridge := readLocalAIContractFile(t, "webllm_runtime.go")\n', '')
-          old_block = '''\tfor _, want := range []string{"webLLMRuntimePath = \\"/vendor/webllm-0.2.82.mjs\\"", "webLLMRuntimeURL  = \\"https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@0.2.82/lib/index.js\\"", "handleWebLLMRuntime", "WebLLM 0.2.82 same-origin bridge"} {
-\t\tif !strings.Contains(bridge, want) { t.Fatalf("same-origin WebLLM runtime bridge missing %q", want) }
-\t}
-'''
-          new_block = '''\tvendorInfo, err := os.Stat("web/vendor/webllm-0.2.82.mjs")
-\tif err != nil { t.Fatalf("vendored WebLLM runtime missing: %v", err) }
-\tif vendorInfo.Size() <= 100000 { t.Fatalf("vendored WebLLM runtime unexpectedly small: %d bytes", vendorInfo.Size()) }
-\tvendorReadme := readLocalAIContractFile(t, "web/vendor/README.md")
-\tvendorLicense := readLocalAIContractFile(t, "web/vendor/WEBLLM-LICENSE.txt")
-\tfor _, want := range []string{"@mlc-ai/web-llm", "0.2.82", "same loopback origin", "Model weights are not bundled"} {
-\t\tif !strings.Contains(vendorReadme, want) { t.Fatalf("vendored WebLLM provenance missing %q", want) }
-\t}
-\tif !strings.Contains(vendorLicense, "Apache License") { t.Fatal("vendored WebLLM Apache-2.0 license text is missing") }
-'''
-          assert old_block in s, 'first bridge contract block not found'
-          s = s.replace(old_block, new_block, 1)
-          s = s.replace('\n\t\t"mux.HandleFunc(webLLMRuntimePath, a.handleWebLLMRuntime)",', '')
-          old_bridge_check = '''\tif !strings.Contains(bridge, "webLLMRuntimeURL") || !strings.Contains(bridge, "https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@0.2.82/lib/index.js") {
-\t\tt.Fatal("Sentinel server must own the pinned upstream WebLLM fetch behind the same-origin bridge")
-\t}
-'''
-          new_bridge_check = '''\tif strings.Contains(server, "webLLMRuntimeURL") || strings.Contains(server, "handleWebLLMRuntime") || strings.Contains(server, "cdn.jsdelivr.net/npm/@mlc-ai/web-llm") {
-\t\tt.Fatal("Sentinel must serve the packaged WebLLM runtime directly; runtime CDN proxy code returned")
-\t}
-\tvendorInfo, err := os.Stat("web/vendor/webllm-0.2.82.mjs")
-\tif err != nil || vendorInfo.Size() <= 100000 { t.Fatal("packaged WebLLM runtime is missing or invalid") }
-'''
-          assert old_bridge_check in s, 'second bridge contract block not found'
-          s = s.replace(old_bridge_check, new_bridge_check, 1)
-          test.write_text(s)
-          PY
-
-          rm -f webllm_runtime.go
+          gofmt -w main.go local_ai_contract_test.go
           test -s web/vendor/webllm-0.2.82.mjs
           test "$(wc -c < web/vendor/webllm-0.2.82.mjs)" -gt 100000
           ! grep -R --line-number --fixed-strings 'https://esm.run/@mlc-ai/web-llm' web/app
@@ -97,7 +30,10 @@ if [[ -e "$HERE/web/app/scan-center.js"'''
           grep -Fq '/vendor/webllm-0.2.82.mjs' web/app/ai.js
           grep -Fq "import('/vendor/webllm-0.2.82.mjs')" web/app/ai-worker.js
           grep -Fq 'web/vendor/webllm-0.2.82.mjs' build-desktop-macos.sh
-          gofmt -w main.go local_ai_contract_test.go
+      - name: Commit product cleanup
+        shell: bash
+        run: |
+          set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A main.go webllm_runtime.go build-desktop-macos.sh local_ai_contract_test.go
