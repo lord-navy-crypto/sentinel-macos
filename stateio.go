@@ -11,7 +11,13 @@ import (
 	"path/filepath"
 	"sort"
 	"sync"
+	"syscall"
 	"time"
+)
+
+const (
+	maxPrivateJSONBytes       = int64(16 << 20)
+	maxPrivateCompressedBytes = int64(64 << 20)
 )
 
 type StateRecoveryStatus struct {
@@ -55,6 +61,72 @@ func syncDirectory(dir string) error {
 	return f.Sync()
 }
 
+func ensurePrivateDirectory(dir string) error {
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		return err
+	}
+	st, err := os.Lstat(dir)
+	if err != nil {
+		return err
+	}
+	if st.Mode()&os.ModeSymlink != 0 || !st.IsDir() {
+		return fmt.Errorf("Sentinel private state directory is not a real directory: %s", dir)
+	}
+	if err := os.Chmod(dir, 0700); err != nil {
+		return err
+	}
+	return nil
+}
+
+func openPrivateRegular(path string, maxBytes int64) (*os.File, error) {
+	if path == "" {
+		return nil, fmt.Errorf("state path unavailable")
+	}
+	st, err := os.Lstat(path)
+	if err != nil {
+		return nil, err
+	}
+	if st.Mode()&os.ModeSymlink != 0 || !st.Mode().IsRegular() {
+		return nil, fmt.Errorf("Sentinel state must be a regular non-symlink file: %s", filepath.Base(path))
+	}
+	if maxBytes > 0 && st.Size() > maxBytes {
+		return nil, fmt.Errorf("Sentinel state exceeds the bounded read limit: %s", filepath.Base(path))
+	}
+	// Lstat alone has a check/open race. O_NOFOLLOW makes the open itself reject
+	// a path swapped to a symbolic link between those operations.
+	f, err := os.OpenFile(path, os.O_RDONLY|syscall.O_NOFOLLOW, 0)
+	if err != nil {
+		return nil, err
+	}
+	fst, err := f.Stat()
+	if err != nil {
+		_ = f.Close()
+		return nil, err
+	}
+	if !fst.Mode().IsRegular() || (maxBytes > 0 && fst.Size() > maxBytes) {
+		_ = f.Close()
+		return nil, fmt.Errorf("Sentinel state changed before bounded read: %s", filepath.Base(path))
+	}
+	return f, nil
+}
+
+func readBoundedPrivateFile(path string, maxBytes int64) ([]byte, error) {
+	f, err := openPrivateRegular(path, maxBytes)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	limited := io.LimitReader(f, maxBytes+1)
+	raw, err := io.ReadAll(limited)
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(raw)) > maxBytes {
+		return nil, fmt.Errorf("Sentinel state exceeded bounded read limit during read: %s", filepath.Base(path))
+	}
+	return raw, nil
+}
+
 // atomicPrivateWrite performs a user-only, same-directory atomic replacement.
 // Before replacement it keeps one hard-linked last-known-good .bak copy when
 // possible. Sentinel state is metadata only; this is recovery hardening, not a
@@ -64,12 +136,20 @@ func atomicPrivateWrite(path string, data []byte) error {
 		return fmt.Errorf("state path unavailable")
 	}
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0700); err != nil {
+	if err := ensurePrivateDirectory(dir); err != nil {
 		return err
 	}
-	if err := os.Chmod(dir, 0700); err != nil {
+	if st, err := os.Lstat(path); err == nil {
+		if st.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("refusing to replace symlinked Sentinel state: %s", filepath.Base(path))
+		}
+		if !st.Mode().IsRegular() {
+			return fmt.Errorf("Sentinel state target is not a regular file: %s", filepath.Base(path))
+		}
+	} else if !os.IsNotExist(err) {
 		return err
 	}
+
 	tmp, err := os.CreateTemp(dir, ".sentinel-state-*")
 	if err != nil {
 		return err
@@ -95,7 +175,7 @@ func atomicPrivateWrite(path string, data []byte) error {
 
 	// Keep one previous inode as a backup without creating a window where the
 	// primary path is missing. Hard-link creation is same-volume and fails safe.
-	if st, err := os.Stat(path); err == nil && st.Mode().IsRegular() {
+	if st, err := os.Lstat(path); err == nil && st.Mode().IsRegular() && st.Mode()&os.ModeSymlink == 0 {
 		bakTmp := path + ".bak.new"
 		_ = os.Remove(bakTmp)
 		if err := os.Link(path, bakTmp); err == nil {
@@ -118,12 +198,15 @@ func writePrivateJSON(path string, v any) error {
 		return err
 	}
 	raw = append(raw, '\n')
+	if int64(len(raw)) > maxPrivateJSONBytes {
+		return fmt.Errorf("Sentinel JSON state exceeds write limit")
+	}
 	return atomicPrivateWrite(path, raw)
 }
 
 func readPrivateJSON(path string, dst any) error {
 	try := func(p string) error {
-		raw, err := os.ReadFile(p)
+		raw, err := readBoundedPrivateFile(p, maxPrivateJSONBytes)
 		if err != nil {
 			return err
 		}
@@ -152,12 +235,15 @@ func writePrivateGzipJSON(path string, v any) error {
 	if err := gz.Close(); err != nil {
 		return err
 	}
+	if int64(buf.Len()) > maxPrivateCompressedBytes {
+		return fmt.Errorf("Sentinel compressed history exceeds write limit")
+	}
 	return atomicPrivateWrite(path, buf.Bytes())
 }
 
 func readGzipJSON(path string, dst any) error {
 	try := func(p string) error {
-		f, err := os.Open(p)
+		f, err := openPrivateRegular(p, maxPrivateCompressedBytes)
 		if err != nil {
 			return err
 		}
@@ -167,7 +253,7 @@ func readGzipJSON(path string, dst any) error {
 			return err
 		}
 		defer gz.Close()
-		dec := json.NewDecoder(io.LimitReader(gz, 16<<20))
+		dec := json.NewDecoder(io.LimitReader(gz, maxPrivateJSONBytes))
 		return dec.Decode(dst)
 	}
 	if err := try(path); err == nil {
