@@ -29,8 +29,24 @@ BUNDLE_ID="${SENTINEL_BUNDLE_ID:-io.github.lord-navy-crypto.sentinel}"
 APP="$HERE/dist/Sentinel.app"
 DMG="$HERE/dist/Sentinel-${VERSION}.dmg"
 ROOT="$HERE/dist/release-dmg-root"
+FEATURES="$HERE/dist/BUILD_FEATURES.txt"
 
 ./build-desktop-macos.sh
+
+# Development builds may intentionally fall back to portable engines, but a
+# signed production release must not silently lose FSEvents or Security.framework
+# capabilities. Both architectures must be native-feature builds.
+[[ -f "$FEATURES" ]] || { echo "Refusing release: build feature manifest is missing." >&2; exit 2; }
+for required in \
+  'arm64: native-fsevents+security-framework' \
+  'amd64: native-fsevents+security-framework'; do
+  grep -Fxq "$required" "$FEATURES" || {
+    echo "Refusing production release: required native engine capability is missing: $required" >&2
+    echo "Build feature manifest:" >&2
+    cat "$FEATURES" >&2
+    exit 2
+  }
+done
 
 PACKAGED_SHA="$(/usr/libexec/PlistBuddy -c 'Print :SentinelSourceCommit' "$APP/Contents/Info.plist")"
 if [[ "$PACKAGED_SHA" != "$SOURCE_SHA" ]]; then
@@ -76,5 +92,6 @@ cat "$DMG.sha256"
 printf '%s\n' \
   "Release ready: $DMG" \
   "Source commit: $SOURCE_SHA" \
-  "Verification: clean source + provenance + signature + notarization + Gatekeeper + mounted app + universal engines PASS" \
+  "Engine features: native FSEvents + Security.framework on arm64 and x86_64" \
+  "Verification: clean source + provenance + native capabilities + signature + notarization + Gatekeeper + mounted app + universal engines PASS" \
   "Upload this single DMG and its .sha256 file to GitHub Releases / your download website."
