@@ -23,6 +23,7 @@ func TestLocalAIIsCanonicalAndExplicitlyOptIn(t *testing.T) {
 	}
 	for _, want := range []string{
 		"Sentinel 2.5 WebLLM Local AI",
+		"Sentinel 2.5 Integrated Local AI",
 		"registerLens('assistant'",
 		"navigator.gpu",
 		"CreateWebWorkerMLCEngine",
@@ -86,6 +87,75 @@ func TestLocalAIHasCuratedTieredModelLibrary(t *testing.T) {
 	}
 	for _, want := range []string{".ai-model-library",".ai-model-grid",".ai-model-card",".ai-model-card.selected",".ai-model-card.loaded"} {
 		if !strings.Contains(css, want) { t.Fatalf("model library visual layer missing %q", want) }
+	}
+}
+
+func TestLocalAIFusionTouchesCoreInvestigationWorkflows(t *testing.T) {
+	ai := readLocalAIContractFile(t, "web/app/ai.js")
+	css := readLocalAIContractFile(t, "web/app/ai.css")
+	manualEntry := readLocalAIContractFile(t, "web/app/manual-entry.js")
+	for _, want := range []string{
+		"S.Workbench?.store?.selected",
+		"Cross-Lens Selection",
+		"selectedEvidence",
+		"findManualTopics",
+		"manual_context",
+		"Sentinel User Manual",
+		"buildFullScanPacket",
+		"Full Scan AI Brief",
+		"prepareFullScanBrief",
+		"Guided Investigation",
+		"Unknown network activity",
+		"Strange startup item",
+		"Investigate an application",
+		"Storage suddenly increased",
+		"Terminal Copilot",
+		"Draft Investigation Notes",
+		"Compare A / B with AI",
+		"Beginner",
+		"Technical",
+		"Expert",
+		"installContextBar",
+		"installContextTrayBridge",
+		"installSearchBridge",
+		"data-ai-context",
+		"ASK LOCAL AI",
+		"AI Full Scan Brief",
+		"You have no unrestricted shell authority.",
+	} {
+		if !strings.Contains(ai, want) { t.Fatalf("deep Local AI fusion missing %q", want) }
+	}
+	for _, want := range []string{
+		".ai-context-bar",
+		".ai-context-tray-bridge",
+		".ai-workbench-bridge",
+		".ai-search-bridge",
+		".ai-tool-grid",
+		".ai-guide-grid",
+		".ai-terminal-form",
+		".ai-pending",
+	} {
+		if !strings.Contains(css, want) { t.Fatalf("deep Local AI visual surface missing %q", want) }
+	}
+	for _, want := range []string{
+		"本地 AI / LOCAL AI",
+		"ai-overview",
+		"ai-model-library",
+		"ai-context",
+		"ai-full-scan",
+		"ai-guided",
+		"ai-manual-rag",
+		"ai-terminal",
+		"ai-global-search",
+		"ai-levels",
+		"ai-boundaries",
+	} {
+		if !strings.Contains(manualEntry, want) { t.Fatalf("User Manual missing integrated AI topic %q", want) }
+	}
+	// AI may explain commands, draft text, and recommend navigation, but it must
+	// not acquire the Safe Change execute API or direct shell/process execution.
+	for _, forbidden := range []string{"/api/actions/execute", "exec.Command(", "child_process", "shell:true"} {
+		if strings.Contains(ai, forbidden) { t.Fatalf("Local AI fusion gained forbidden execution path %q", forbidden) }
 	}
 }
 
