@@ -4,7 +4,7 @@ set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"; cd "$HERE"
 
 [[ "$(uname -s)" == "Darwin" ]] || { echo "Developer ID release must run on macOS." >&2; exit 2; }
-for tool in xcrun codesign security hdiutil ditto plutil; do
+for tool in xcrun codesign security hdiutil ditto plutil spctl shasum; do
   command -v "$tool" >/dev/null 2>&1 || { echo "Missing required tool: $tool" >&2; exit 2; }
 done
 
@@ -28,16 +28,16 @@ for bin in \
 done
 codesign --force --timestamp --options runtime --sign "$DEVELOPER_ID_APP" "$APP"
 
+# A malformed signature is a hard release failure before notarization.
 codesign --verify --deep --strict --verbose=2 "$APP"
-spctl --assess --type execute --verbose=4 "$APP" || true
 
-rm -rf "$ROOT" "$DMG"
+rm -rf "$ROOT" "$DMG" "$DMG.sha256"
 mkdir -p "$ROOT"
 ditto "$APP" "$ROOT/Sentinel.app"
 ln -s /Applications "$ROOT/Applications"
 hdiutil create -volname "Sentinel ${VERSION}" -srcfolder "$ROOT" -ov -format UDZO "$DMG"
 
-# Apple documents Developer ID Application signing for DMGs used in direct distribution.
+# Apple supports Developer ID Application signing for direct-distribution DMGs.
 codesign --force --timestamp --sign "$DEVELOPER_ID_APP" -i "${BUNDLE_ID}.dmg" "$DMG"
 codesign --verify --verbose=2 "$DMG"
 
@@ -46,10 +46,13 @@ xcrun notarytool submit "$DMG" --keychain-profile "$NOTARY_PROFILE" --wait
 xcrun stapler staple "$DMG"
 xcrun stapler validate "$DMG"
 
-# Final offline-friendly artifact verification.
-codesign --verify --deep --strict --verbose=2 "$APP"
+# One fail-closed verifier checks the exact artifact users will receive,
+# including Gatekeeper, the mounted app, both engine binaries, and product identity.
+./verify-release-macos.sh "$DMG"
+
 shasum -a 256 "$DMG" > "$DMG.sha256"
 cat "$DMG.sha256"
 printf '%s\n' \
   "Release ready: $DMG" \
-  "Upload this single DMG to GitHub Releases / your download website."
+  "Verification: signature + notarization + Gatekeeper + mounted app + universal engines PASS" \
+  "Upload this single DMG and its .sha256 file to GitHub Releases / your download website."
