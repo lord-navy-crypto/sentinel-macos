@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 (() => {
   // Navigation shared only by retained deep workspaces.
-  // Sentinel 2.4 product navigation itself lives in sentinel-24.js.
+  // Sentinel 2.6 product navigation itself lives in the canonical modular app.
   const token = new URLSearchParams(location.hash.slice(1)).get('token') || '';
   const specialistHash = token ? `#token=${encodeURIComponent(token)}` : '';
   const productHref = lens => {
@@ -13,7 +13,7 @@
   };
 
   const primaryItems = [
-    ['Sentinel 2.4','nav.easy', productHref('status'), ['/']],
+    ['Sentinel 2.6','nav.easy', productHref('status'), ['/']],
     ['Investigate','nav.investigate', `/investigation.html${specialistHash}`, ['/investigation.html']],
     ['Recover','nav.recover', `/vault-health.html${specialistHash}`, ['/vault-health.html']],
     ['Terminal','nav.terminal', `/system-console.html${specialistHash}`, ['/system-console.html','/terminal-guide.html']],
@@ -71,7 +71,7 @@
 
     const brand = document.createElement('span');
     brand.className = 'sentinel-aux-nav-brand';
-    brand.textContent = 'Sentinel 2.4 · AUX';
+    brand.textContent = 'Sentinel 2.6 · AUX';
     primary.append(brand);
 
     const primaryLinks = document.createElement('div');
