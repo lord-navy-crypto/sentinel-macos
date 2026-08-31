@@ -2,26 +2,33 @@ name: One-time AI idempotency patch
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
 
 permissions:
   contents: write
 
 jobs:
   patch:
-    if: github.event.head_commit.message == 'Install one-time AI idempotency patch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Make Local AI surface injection idempotent
+      - name: Patch only on repair commit
+        shell: bash
         run: |
+          set -euo pipefail
+          MSG="$(git log -1 --pretty=%s)"
+          if [ "$MSG" != "Repair one-time AI idempotency patch workflow" ]; then
+            echo "No patch requested for commit: $MSG"
+            exit 0
+          fi
           python3 - <<'PY'
           from pathlib import Path
           p = Path('web/app/ai.js')
           s = p.read_text()
-          old = '''  function installContextBar(){
+          old = """  function installContextBar(){
     const stage=$('#evidenceStage');if(!stage)return;
     if(state.lens==='assistant'){stage.querySelector('#aiContextBar')?.remove();return;}
     const q=stage.querySelector('.s24-question');if(!q)return;
@@ -30,8 +37,8 @@ jobs:
     if(!bar){anchor.insertAdjacentHTML('afterend',contextBarHTML());bar=stage.querySelector('#aiContextBar');}
     else{const fresh=document.createElement('div');fresh.innerHTML=contextBarHTML();const replacement=fresh.firstElementChild;bar.replaceWith(replacement);bar=replacement;}
     if(bar.previousElementSibling!==anchor)anchor.insertAdjacentElement('afterend',bar);
-  }'''
-          new = '''  function contextBarSignature(){
+  }"""
+          new = """  function contextBarSignature(){
     const selected=selection(),guide=currentGuide();
     return [state.lens,isReady()?'ready':'opt-in',selected?.path||'',selected?.pid||'',selected?.label||'',guide?.id||'',ai.guided?.step??''].join('|');
   }
@@ -45,29 +52,29 @@ jobs:
     if(!bar){anchor.insertAdjacentHTML('afterend',contextBarHTML());bar=stage.querySelector('#aiContextBar');if(bar)bar.dataset.aiSignature=signature;}
     else if(bar.dataset.aiSignature!==signature){const fresh=document.createElement('div');fresh.innerHTML=contextBarHTML();const replacement=fresh.firstElementChild;replacement.dataset.aiSignature=signature;bar.replaceWith(replacement);bar=replacement;}
     if(bar&&bar.previousElementSibling!==anchor)anchor.insertAdjacentElement('afterend',bar);
-  }'''
+  }"""
           if old not in s:
               raise SystemExit('installContextBar target not found')
           s = s.replace(old, new, 1)
-          old2 = '''  function installSearchBridge(){
+          old2 = """  function installSearchBridge(){
     const panel=$('#searchResults'),input=$('#globalSearch');if(!panel||!input)return;
     const q=input.value.trim();panel.querySelector('.ai-search-bridge')?.remove();if(q.length<2||panel.hidden)return;
     const wrap=document.createElement('div');wrap.className='ai-search-bridge';const button=document.createElement('button');button.type='button';button.dataset.aiSearchQuery=q;button.innerHTML=`<span>ASK LOCAL AI</span><div><b>${esc(q)}</b><small>Pin current Lens + selected evidence + matching Manual sections</small></div>`;wrap.append(button);panel.prepend(wrap);
-  }'''
-          new2 = '''  function installSearchBridge(){
+  }"""
+          new2 = """  function installSearchBridge(){
     const panel=$('#searchResults'),input=$('#globalSearch');if(!panel||!input)return;
     const q=input.value.trim(),existing=panel.querySelector('.ai-search-bridge');
     if(q.length<2||panel.hidden){existing?.remove();return;}
     if(existing?.dataset.aiQuery===q)return;
     existing?.remove();
     const wrap=document.createElement('div');wrap.className='ai-search-bridge';wrap.dataset.aiQuery=q;const button=document.createElement('button');button.type='button';button.dataset.aiSearchQuery=q;button.innerHTML=`<span>ASK LOCAL AI</span><div><b>${esc(q)}</b><small>Pin current Lens + selected evidence + matching Manual sections</small></div>`;wrap.append(button);panel.prepend(wrap);
-  }'''
+  }"""
           if old2 not in s:
               raise SystemExit('installSearchBridge target not found')
           p.write_text(s.replace(old2, new2, 1))
           PY
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add web/app/ai.js
-          git commit -m 'Make Local AI surface injection idempotent'
-          git push
+          git commit -m "Make Local AI surface injection idempotent"
+          git push origin HEAD:main
