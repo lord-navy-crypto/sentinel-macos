@@ -45,6 +45,9 @@ REQUIRED_UI_FILES=(
   "web/app/workbench.js"
   "web/app/full-scan.js"
   "web/app/action-dock.js"
+  "web/vendor/webllm-0.2.82.mjs"
+  "web/vendor/WEBLLM-LICENSE.txt"
+  "web/vendor/README.md"
   "web/app/runtime.js"
   "web/app/shell.css"
   "web/app/advanced.css"
@@ -81,6 +84,16 @@ for rel in "${REQUIRED_UI_FILES[@]}"; do
     exit 2
   fi
 done
+
+WEBLLM_RUNTIME="$HERE/web/vendor/webllm-0.2.82.mjs"
+WEBLLM_LICENSE="$HERE/web/vendor/WEBLLM-LICENSE.txt"
+WEBLLM_PROVENANCE="$HERE/web/vendor/README.md"
+if [[ "$(wc -c < "$WEBLLM_RUNTIME")" -le 100000 ]]; then
+  echo "Vendored WebLLM runtime is missing or unexpectedly small." >&2
+  exit 2
+fi
+grep -Fq 'Apache License' "$WEBLLM_LICENSE" || { echo "Vendored WebLLM license is missing Apache-2.0 text." >&2; exit 2; }
+grep -Fq '@mlc-ai/web-llm' "$WEBLLM_PROVENANCE" || { echo "Vendored WebLLM provenance is missing." >&2; exit 2; }
 
 if [[ -e "$HERE/web/app/scan-center.js" || -e "$HERE/web/app/scan-center.css" ]]; then
   echo "Retired Scan Center asset name returned under web/app; use full-scan.js/css for the current product." >&2
