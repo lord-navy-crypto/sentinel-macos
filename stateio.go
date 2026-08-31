@@ -252,9 +252,18 @@ func readGzipJSON(path string, dst any) error {
 		if err != nil {
 			return err
 		}
-		defer gz.Close()
-		dec := json.NewDecoder(io.LimitReader(gz, maxPrivateJSONBytes))
-		return dec.Decode(dst)
+		decompressed, readErr := io.ReadAll(io.LimitReader(gz, maxPrivateJSONBytes+1))
+		closeErr := gz.Close()
+		if readErr != nil {
+			return readErr
+		}
+		if closeErr != nil {
+			return closeErr
+		}
+		if int64(len(decompressed)) > maxPrivateJSONBytes {
+			return fmt.Errorf("Sentinel decompressed history exceeds bounded read limit: %s", filepath.Base(p))
+		}
+		return json.Unmarshal(decompressed, dst)
 	}
 	if err := try(path); err == nil {
 		return nil
