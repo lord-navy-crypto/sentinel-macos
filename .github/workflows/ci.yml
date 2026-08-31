@@ -51,8 +51,14 @@ jobs:
           LC_ALL=C grep -aFq 'Sentinel 2.5 Comprehensive User Manual' /tmp/sentinel-amd64
           LC_ALL=C grep -aFq 'Sentinel 2.5 WebLLM Local AI' /tmp/sentinel-arm64
           LC_ALL=C grep -aFq 'Sentinel 2.5 WebLLM Local AI' /tmp/sentinel-amd64
-          LC_ALL=C grep -aFq 'Qwen3-0.6B-q4f16_1-MLC' /tmp/sentinel-arm64
-          LC_ALL=C grep -aFq 'Qwen3-0.6B-q4f16_1-MLC' /tmp/sentinel-amd64
+          LC_ALL=C grep -aFq 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC' /tmp/sentinel-arm64
+          LC_ALL=C grep -aFq 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC' /tmp/sentinel-amd64
+          LC_ALL=C grep -aFq 'gemma-2-9b-it-q4f16_1-MLC' /tmp/sentinel-arm64
+          LC_ALL=C grep -aFq 'gemma-2-9b-it-q4f16_1-MLC' /tmp/sentinel-amd64
+          LC_ALL=C grep -aFq 'Model Library' /tmp/sentinel-arm64
+          LC_ALL=C grep -aFq 'Model Library' /tmp/sentinel-amd64
+          LC_ALL=C grep -aFq 'useIndexedDBCache:true' /tmp/sentinel-arm64
+          LC_ALL=C grep -aFq 'useIndexedDBCache:true' /tmp/sentinel-amd64
 
       - name: Desktop application packaging smoke
         run: |
@@ -79,6 +85,10 @@ jobs:
           LC_ALL=C grep -aFq 'Sentinel 2.5 Comprehensive User Manual' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64
           LC_ALL=C grep -aFq 'Sentinel 2.5 WebLLM Local AI' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-arm64
           LC_ALL=C grep -aFq 'Sentinel 2.5 WebLLM Local AI' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64
+          LC_ALL=C grep -aFq 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-arm64
+          LC_ALL=C grep -aFq 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64
+          LC_ALL=C grep -aFq 'Model Library' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-arm64
+          LC_ALL=C grep -aFq 'Model Library' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64
           grep -Fq 'config.websiteDataStore = .default()' desktop/SentinelDesktop.swift
           test -z "$(grep -F 'config.websiteDataStore = .nonPersistent()' desktop/SentinelDesktop.swift || true)"
 
@@ -124,7 +134,10 @@ jobs:
           grep -Fq "registerLens('assistant'" web/app/ai.js
           grep -Fq "registerLens('manual'" web/app/manual.js
           grep -Fq "limits.lenses.push('manual')" web/app/manual-entry.js
-          grep -Fq "cacheBackend:'indexeddb'" web/app/ai.js
+          grep -Fq "useIndexedDBCache:true" web/app/ai.js
+          grep -Fq "Model Library" web/app/ai.js
+          grep -Fq "Qwen2.5-1.5B-Instruct-q4f16_1-MLC" web/app/ai.js
+          grep -Fq "gemma-2-9b-it-q4f16_1-MLC" web/app/ai.js
           grep -Fq "navigator.gpu" web/app/ai.js
           grep -Fq "WebWorkerMLCEngineHandler" web/app/ai-worker.js
           test "$(grep -nF '<script src="/app/workbench.js"></script>' web/index.html | cut -d: -f1)" -lt "$(grep -nF '<script src="/app/full-scan.js"></script>' web/index.html | cut -d: -f1)"
