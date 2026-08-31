@@ -21,6 +21,7 @@ var canonicalProductScripts = []string{
 	"web/app/full-scan.js",
 	"web/app/action-dock.js",
 	"web/app/ai.js",
+	"web/app/ai-reliability.js",
 	"web/app/manual.js",
 	"web/app/manual-entry.js",
 	"web/app/runtime.js",
@@ -59,8 +60,8 @@ func TestApplicationRegistersEveryDeclaredLens(t *testing.T) {
 	}
 
 	// Advanced product modules, the Investigation Workbench, Full Scan, Action
-	// Dock, Local AI, and Manual navigation may enhance existing lenses without
-	// replacing the canonical lens registry model.
+	// Dock, Local AI, Local AI reliability, and Manual navigation may enhance
+	// existing lenses without replacing the canonical lens registry model.
 	re := regexp.MustCompile(`registerLens\('([^']+)'`)
 	unique := map[string]bool{}
 	for _, match := range re.FindAllStringSubmatch(all, -1) {
