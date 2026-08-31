@@ -1,0 +1,17 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+/* Sentinel 2.5 Local AI — WebLLM/WebGPU assistant. */
+.ai-shell{display:grid;grid-template-columns:minmax(260px,.34fr) minmax(0,1fr);gap:28px;align-items:start}
+.ai-panel{border:1px solid var(--line);border-radius:14px;background:var(--surface);overflow:hidden}
+.ai-panel>header{padding:16px 18px;border-bottom:1px solid var(--line-soft);background:var(--surface-2)}
+.ai-panel>header span{display:block;color:var(--focus);font-size:9px;font-weight:850;letter-spacing:.12em;text-transform:uppercase}
+.ai-panel>header h2{margin:5px 0 3px;font-size:17px;letter-spacing:-.02em}.ai-panel>header p{margin:0;color:var(--muted);font-size:11px;line-height:1.45}
+.ai-body{padding:16px 18px}.ai-status{display:grid;gap:9px}.ai-status-row{display:grid;grid-template-columns:120px 1fr;gap:12px;padding:9px 0;border-bottom:1px solid var(--line-soft)}.ai-status-row:last-child{border-bottom:0}.ai-status-row span{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.05em}.ai-status-row b{font-size:11px;overflow-wrap:anywhere}
+.ai-progress{display:grid;gap:8px;margin-top:14px}.ai-progress progress{width:100%;height:7px;accent-color:var(--focus)}.ai-progress small{color:var(--muted);font-size:10px;line-height:1.45}
+.ai-controls{display:flex;gap:7px;flex-wrap:wrap;margin-top:14px}.ai-model-select{width:100%;height:36px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);padding:0 9px}
+.ai-chat{display:grid;gap:12px}.ai-chat-log{min-height:280px;max-height:520px;overflow:auto;border:1px solid var(--line);border-radius:12px;background:var(--stage);padding:14px;scrollbar-gutter:stable}.ai-message{margin-bottom:14px}.ai-message:last-child{margin-bottom:0}.ai-message>span{display:block;margin-bottom:5px;color:var(--muted);font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}.ai-message pre{margin:0;white-space:pre-wrap;word-break:break-word;font:12px/1.62 var(--sans);color:var(--ink-2)}.ai-message.user pre{color:var(--ink)}
+.ai-compose{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}.ai-compose textarea{min-height:88px;max-height:220px;resize:vertical;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);padding:10px 11px;line-height:1.45}.ai-compose button{align-self:end;min-height:36px}
+.ai-suggestions{display:flex;gap:6px;flex-wrap:wrap}.ai-suggestions button{padding:6px 9px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink-2);font-size:10px;cursor:pointer}.ai-suggestions button:hover{background:var(--focus-soft);border-color:var(--focus)}
+.ai-boundary{margin-top:14px;padding:11px 12px;border-left:3px solid var(--good);background:var(--good-soft);font-size:10px;line-height:1.55;color:var(--ink-2)}
+.ai-evidence-preview{max-height:240px;overflow:auto;margin-top:10px;padding:10px;border:1px solid var(--line-soft);border-radius:8px;background:var(--surface-2);font:10px/1.5 var(--mono);white-space:pre-wrap;word-break:break-word;color:var(--muted)}
+.ai-unavailable{padding:16px;border:1px solid var(--warn);border-radius:10px;background:var(--warn-soft);color:var(--ink-2);font-size:11px;line-height:1.55}
+@media(max-width:980px){.ai-shell{grid-template-columns:1fr}.ai-chat-log{max-height:420px}}
