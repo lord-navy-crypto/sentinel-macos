@@ -159,6 +159,27 @@ func TestLocalAIFusionTouchesCoreInvestigationWorkflows(t *testing.T) {
 	}
 }
 
+func TestLocalAISurfaceInjectionIsIdempotent(t *testing.T) {
+	ai := readLocalAIContractFile(t, "web/app/ai.js")
+	for _, want := range []string{
+		"contextBarSignature",
+		"const signature=contextBarSignature()",
+		"bar.dataset.aiSignature!==signature",
+		"replacement.dataset.aiSignature=signature",
+		"existing?.dataset.aiQuery===q",
+		"wrap.dataset.aiQuery=q",
+		"new MutationObserver(queueSurfaces).observe(stage,{childList:true})",
+	} {
+		if !strings.Contains(ai, want) { t.Fatalf("Local AI idempotency guard missing %q", want) }
+	}
+	if strings.Contains(ai, "new MutationObserver(queueSurfaces).observe(stage,{childList:true,subtree:true") {
+		t.Fatal("Local AI must not observe the entire evidenceStage subtree; self-rendered controls could retrigger the observer loop")
+	}
+	if strings.Contains(ai, "const q=input.value.trim();panel.querySelector('.ai-search-bridge')?.remove()") {
+		t.Fatal("Local AI search bridge must not unconditionally remove/recreate itself on every mutation")
+	}
+}
+
 func TestLocalAIHasBoundedNetworkAndPersistentAppCache(t *testing.T) {
 	server := readLocalAIContractFile(t, "main.go")
 	desktop := readLocalAIContractFile(t, "desktop/SentinelDesktop.swift")
