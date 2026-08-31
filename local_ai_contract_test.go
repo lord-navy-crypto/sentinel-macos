@@ -18,6 +18,7 @@ func TestLocalAIIsCanonicalAndExplicitlyOptIn(t *testing.T) {
 	html := readLocalAIContractFile(t, "web/index.html")
 	ai := readLocalAIContractFile(t, "web/app/ai.js")
 	worker := readLocalAIContractFile(t, "web/app/ai-worker.js")
+	bridge := readLocalAIContractFile(t, "webllm_runtime.go")
 	for _, want := range []string{`href="/app/ai.css"`,`src="/app/ai.js"`} {
 		if !strings.Contains(html, want) { t.Fatalf("canonical UI missing Local AI asset %q", want) }
 	}
@@ -46,6 +47,7 @@ func TestLocalAIIsCanonicalAndExplicitlyOptIn(t *testing.T) {
 		"data-ai-model",
 		"Load / Download selected",
 		"Selected model is not present in WebLLM 0.2.82 prebuiltAppConfig.",
+		"/vendor/webllm-0.2.82.mjs",
 	} {
 		if !strings.Contains(ai, want) { t.Fatalf("Local AI integration missing %q", want) }
 	}
@@ -58,8 +60,14 @@ func TestLocalAIIsCanonicalAndExplicitlyOptIn(t *testing.T) {
 	if strings.Contains(ai, "installHeaderButton();\n  loadAI()") || strings.Contains(ai, "renderAI();\n  loadAI()") {
 		t.Fatal("Local AI must never load a model automatically during application startup")
 	}
-	for _, want := range []string{"WebWorkerMLCEngineHandler", "https://esm.run/@mlc-ai/web-llm@0.2.82"} {
+	for _, want := range []string{"WebWorkerMLCEngineHandler", "import('/vendor/webllm-0.2.82.mjs')"} {
 		if !strings.Contains(worker, want) { t.Fatalf("Local AI worker missing %q", want) }
+	}
+	for _, want := range []string{"webLLMRuntimePath = \"/vendor/webllm-0.2.82.mjs\"", "webLLMRuntimeURL  = \"https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@0.2.82/lib/index.js\"", "handleWebLLMRuntime", "WebLLM 0.2.82 same-origin bridge"} {
+		if !strings.Contains(bridge, want) { t.Fatalf("same-origin WebLLM runtime bridge missing %q", want) }
+	}
+	if strings.Contains(ai, "https://esm.run") || strings.Contains(worker, "https://esm.run") || strings.Contains(ai, "https://cdn.jsdelivr.net") || strings.Contains(worker, "https://cdn.jsdelivr.net") {
+		t.Fatal("browser-side Local AI runtime must not import WebLLM from a cross-origin CDN")
 	}
 }
 
@@ -182,17 +190,24 @@ func TestLocalAISurfaceInjectionIsIdempotent(t *testing.T) {
 
 func TestLocalAIHasBoundedNetworkAndPersistentAppCache(t *testing.T) {
 	server := readLocalAIContractFile(t, "main.go")
+	bridge := readLocalAIContractFile(t, "webllm_runtime.go")
 	desktop := readLocalAIContractFile(t, "desktop/SentinelDesktop.swift")
 	for _, want := range []string{
 		"'wasm-unsafe-eval'",
 		"worker-src 'self' blob:",
-		"https://esm.run",
 		"https://huggingface.co",
 		"https://*.hf.co",
 		"https://*.xethub.hf.co",
 		"https://raw.githubusercontent.com",
+		"mux.HandleFunc(webLLMRuntimePath, a.handleWebLLMRuntime)",
 	} {
-		if !strings.Contains(server, want) { t.Fatalf("Local AI CSP missing bounded source %q", want) }
+		if !strings.Contains(server, want) { t.Fatalf("Local AI CSP/runtime route missing bounded source %q", want) }
+	}
+	if strings.Contains(server, "script-src 'self' 'wasm-unsafe-eval' https://esm.run") || strings.Contains(server, "script-src 'self' 'wasm-unsafe-eval' https://cdn.jsdelivr.net") {
+		t.Fatal("browser CSP must keep Local AI scripts same-origin")
+	}
+	if !strings.Contains(bridge, "webLLMRuntimeURL") || !strings.Contains(bridge, "https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@0.2.82/lib/index.js") {
+		t.Fatal("Sentinel server must own the pinned upstream WebLLM fetch behind the same-origin bridge")
 	}
 	if !strings.Contains(desktop, "config.websiteDataStore = .default()") {
 		t.Fatal("Native App View must use persistent WebKit storage so the WebLLM IndexedDB model cache survives relaunch")
