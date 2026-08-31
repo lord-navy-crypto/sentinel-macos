@@ -17,7 +17,7 @@ func TestDesktopDistributionAssets(t *testing.T) {
 		"DIRECT_DISTRIBUTION_GUIDE.md":{"Developer ID","notarytool"},
 		"web/index.html":{"2.4-native","/app/shell.css","/app/core.js","/app/ai.js","/app/runtime.js","missionRibbon","evidenceStage","contextTray"},
 		"web/app/core.js":{"Sentinel 2.4 Native Frontend","X-Sentinel-Token","window.SentinelApp"},
-		"web/app/ai.js":{"Sentinel 2.5 WebLLM Local AI","CreateWebWorkerMLCEngine","cacheBackend:'indexeddb'"},
+		"web/app/ai.js":{"Sentinel 2.5 WebLLM Local AI","CreateWebWorkerMLCEngine","useIndexedDBCache:true","Model Library","Qwen2.5-1.5B-Instruct-q4f16_1-MLC","Load / Download selected"},
 		"web/app/lenses/orient-investigate.js":{"/api/quick-check"},
 		"web/app/lenses/act-limits.js":{"/api/actions/preview"},
 		"web/app/shell.css":{".s24-shell",".s24-missions",".s24-stage",".s24-context",".s24-activity"},
