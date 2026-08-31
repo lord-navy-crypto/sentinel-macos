@@ -16,16 +16,35 @@ func readReleaseContractFile(t *testing.T, path string) string {
 	return string(raw)
 }
 
+func requireSpctlFailClosed(t *testing.T, path, script string) {
+	t.Helper()
+	found := false
+	for _, line := range strings.Split(script, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if !strings.HasPrefix(trimmed, "spctl --assess") {
+			continue
+		}
+		found = true
+		if strings.Contains(trimmed, "|| true") || strings.HasSuffix(trimmed, "|| :") {
+			t.Fatalf("%s ignores Gatekeeper failure: %s", path, trimmed)
+		}
+	}
+	if !found {
+		t.Fatalf("%s does not perform a Gatekeeper assessment", path)
+	}
+}
+
 func TestProductionReleaseVerificationFailsClosed(t *testing.T) {
 	release := readReleaseContractFile(t, "release-direct-macos.sh")
 	verify := readReleaseContractFile(t, "verify-release-macos.sh")
 
-	if strings.Contains(release, "spctl --assess") && strings.Contains(release, "|| true") {
-		t.Fatal("production release must not ignore Gatekeeper assessment failures")
+	// release-direct delegates the final Gatekeeper decision to the mounted-artifact
+	// verifier. Any spctl command present in either script must itself be fail-closed.
+	if strings.Contains(release, "spctl --assess") {
+		requireSpctlFailClosed(t, "release-direct-macos.sh", release)
 	}
-	if strings.Contains(verify, "spctl --assess") && strings.Contains(verify, "|| true") {
-		t.Fatal("release verifier must not ignore Gatekeeper assessment failures")
-	}
+	requireSpctlFailClosed(t, "verify-release-macos.sh", verify)
+
 	for _, want := range []string{
 		`./verify-release-macos.sh "$DMG"`,
 		"xcrun notarytool submit",
