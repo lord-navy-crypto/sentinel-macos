@@ -1,0 +1,58 @@
+name: One-time vendor WebLLM 0.2.82
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  vendor:
+    if: github.event.head_commit.message == 'Install one-time WebLLM vendor workflow'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Vendor pinned WebLLM runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+          cd "$tmp"
+          npm pack @mlc-ai/web-llm@0.2.82 >/tmp/webllm-pack-name.txt
+          tgz="$(tail -n 1 /tmp/webllm-pack-name.txt)"
+          tar -xzf "$tgz"
+          test -s package/lib/index.js
+          mkdir -p "$GITHUB_WORKSPACE/web/vendor"
+          cp package/lib/index.js "$GITHUB_WORKSPACE/web/vendor/webllm-0.2.82.mjs"
+          if [[ -s package/LICENSE ]]; then
+            cp package/LICENSE "$GITHUB_WORKSPACE/web/vendor/WEBLLM-LICENSE.txt"
+          elif [[ -s package/LICENSE.txt ]]; then
+            cp package/LICENSE.txt "$GITHUB_WORKSPACE/web/vendor/WEBLLM-LICENSE.txt"
+          else
+            curl -fsSL https://raw.githubusercontent.com/mlc-ai/web-llm/v0.2.82/LICENSE -o "$GITHUB_WORKSPACE/web/vendor/WEBLLM-LICENSE.txt"
+          fi
+          cat > "$GITHUB_WORKSPACE/web/vendor/README.md" <<'EOF'
+          # Vendored WebLLM runtime
+
+          Sentinel 2.6 vendors `@mlc-ai/web-llm` version `0.2.82` from the official npm package.
+
+          - Runtime: `webllm-0.2.82.mjs` copied from npm package `lib/index.js`.
+          - License: Apache-2.0; see `WEBLLM-LICENSE.txt`.
+          - Purpose: serve the WebLLM JavaScript runtime from Sentinel's own loopback origin so Browser and WKWebView App View never cross-origin import executable AI runtime code.
+          - Model weights are not bundled; a model is downloaded only after the user explicitly selects and loads it, then WebLLM reuses its local cache.
+          EOF
+          cd "$GITHUB_WORKSPACE"
+          test "$(wc -c < web/vendor/webllm-0.2.82.mjs)" -gt 100000
+          test -s web/vendor/WEBLLM-LICENSE.txt
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add web/vendor/webllm-0.2.82.mjs web/vendor/WEBLLM-LICENSE.txt web/vendor/README.md
+          git commit -m 'Vendor WebLLM 0.2.82 runtime for same-origin Local AI'
+          git push origin HEAD:main
