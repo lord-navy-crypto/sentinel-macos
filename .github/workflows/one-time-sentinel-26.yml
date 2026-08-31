@@ -21,7 +21,7 @@ jobs:
         run: |
           set -euo pipefail
           printf '2.6.0\n' > VERSION
-          FILES=(web/index.html web/app/core.js web/app/runtime.js web/app/workbench.js web/app/full-scan.js web/app/action-dock.js web/app/ai.js web/app/manual.js web/app/manual-entry.js main.go build-desktop-macos.sh reinstall-macos.sh verify-release-macos.sh release-direct-macos.sh run-fresh-desktop.sh package-dev-dmg-macos.sh web_wiring_test.go local_ai_contract_test.go .github/workflows/ci.yml)
+          FILES=(web/index.html web/app/core.js web/app/runtime.js web/app/workbench.js web/app/full-scan.js web/app/action-dock.js web/app/ai.js web/app/manual.js web/app/manual-entry.js main.go build-desktop-macos.sh reinstall-macos.sh verify-release-macos.sh release-direct-macos.sh run-fresh-desktop.sh package-dev-dmg-macos.sh web_wiring_test.go local_ai_contract_test.go)
           EXISTING=()
           for f in "${FILES[@]}"; do
             [[ -f "$f" ]] && EXISTING+=("$f")
@@ -47,7 +47,7 @@ jobs:
           grep -Fq 'SentinelDesktopUI</key><string>2.6 Native Frontend' build-desktop-macos.sh
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add VERSION web/index.html web/app/core.js web/app/runtime.js web/app/workbench.js web/app/full-scan.js web/app/action-dock.js web/app/ai.js web/app/manual.js web/app/manual-entry.js main.go build-desktop-macos.sh web_wiring_test.go local_ai_contract_test.go .github/workflows/ci.yml
+          git add VERSION web/index.html web/app/core.js web/app/runtime.js web/app/workbench.js web/app/full-scan.js web/app/action-dock.js web/app/ai.js web/app/manual.js web/app/manual-entry.js main.go build-desktop-macos.sh web_wiring_test.go local_ai_contract_test.go
           for f in reinstall-macos.sh verify-release-macos.sh release-direct-macos.sh run-fresh-desktop.sh package-dev-dmg-macos.sh; do [[ -f "$f" ]] && git add "$f"; done
           git commit -m 'Migrate Sentinel product identity to 2.6'
           git push origin HEAD:main
