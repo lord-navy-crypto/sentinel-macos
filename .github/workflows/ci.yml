@@ -31,7 +31,7 @@ jobs:
 
       - name: Product contracts
         run: |
-          go test ./... -run 'Migration|IncidentStory|Timeline|Export|StorageAging|ReasonCodeRegistry|RuleRegistry|VaultHealth|Navigation|Regression|SessionNote|Alpha|I18n|Observation|Snapshot|ContinueInvestigation|TerminalGuide|VisualGrammar|Application|Advanced|Workbench|FullScan|CapabilityAtlas|ScanCenter|ActionDock|Manual'
+          go test ./... -run 'Migration|IncidentStory|Timeline|Export|StorageAging|ReasonCodeRegistry|RuleRegistry|VaultHealth|Navigation|Regression|SessionNote|Alpha|I18n|Observation|Snapshot|ContinueInvestigation|TerminalGuide|VisualGrammar|Application|Advanced|Workbench|FullScan|CapabilityAtlas|ScanCenter|ActionDock|Manual|LocalAI'
 
       - name: Darwin architecture build smoke
         run: |
@@ -49,6 +49,10 @@ jobs:
           LC_ALL=C grep -aFq 'Sentinel 2.4 Contextual Action Dock' /tmp/sentinel-amd64
           LC_ALL=C grep -aFq 'Sentinel 2.5 Comprehensive User Manual' /tmp/sentinel-arm64
           LC_ALL=C grep -aFq 'Sentinel 2.5 Comprehensive User Manual' /tmp/sentinel-amd64
+          LC_ALL=C grep -aFq 'Sentinel 2.5 WebLLM Local AI' /tmp/sentinel-arm64
+          LC_ALL=C grep -aFq 'Sentinel 2.5 WebLLM Local AI' /tmp/sentinel-amd64
+          LC_ALL=C grep -aFq 'Qwen3-0.6B-q4f16_1-MLC' /tmp/sentinel-arm64
+          LC_ALL=C grep -aFq 'Qwen3-0.6B-q4f16_1-MLC' /tmp/sentinel-amd64
 
       - name: Desktop application packaging smoke
         run: |
@@ -73,6 +77,10 @@ jobs:
           LC_ALL=C grep -aFq 'Sentinel 2.4 Contextual Action Dock' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64
           LC_ALL=C grep -aFq 'Sentinel 2.5 Comprehensive User Manual' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-arm64
           LC_ALL=C grep -aFq 'Sentinel 2.5 Comprehensive User Manual' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64
+          LC_ALL=C grep -aFq 'Sentinel 2.5 WebLLM Local AI' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-arm64
+          LC_ALL=C grep -aFq 'Sentinel 2.5 WebLLM Local AI' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64
+          grep -Fq 'config.websiteDataStore = .default()' desktop/SentinelDesktop.swift
+          test -z "$(grep -F 'config.websiteDataStore = .nonPersistent()' desktop/SentinelDesktop.swift || true)"
 
       - name: Go race tests
         run: go test -race ./...
@@ -96,6 +104,8 @@ jobs:
           node --check web/app/workbench.js
           node --check web/app/full-scan.js
           node --check web/app/action-dock.js
+          node --check web/app/ai.js
+          node --check web/app/ai-worker.js
           node --check web/app/manual.js
           node --check web/app/manual-entry.js
           node --check web/app/runtime.js
@@ -105,15 +115,22 @@ jobs:
           grep -Fq '/app/full-scan.js' web/index.html
           grep -Fq '/app/action-dock.css' web/index.html
           grep -Fq '/app/action-dock.js' web/index.html
+          grep -Fq '/app/ai.css' web/index.html
+          grep -Fq '/app/ai.js' web/index.html
           grep -Fq '/app/manual.css' web/index.html
           grep -Fq '/app/manual.js' web/index.html
           grep -Fq '/app/manual-entry.js' web/index.html
           grep -Fq 'id="manualButton"' web/index.html
+          grep -Fq "registerLens('assistant'" web/app/ai.js
           grep -Fq "registerLens('manual'" web/app/manual.js
           grep -Fq "limits.lenses.push('manual')" web/app/manual-entry.js
+          grep -Fq "cacheBackend:'indexeddb'" web/app/ai.js
+          grep -Fq "navigator.gpu" web/app/ai.js
+          grep -Fq "WebWorkerMLCEngineHandler" web/app/ai-worker.js
           test "$(grep -nF '<script src="/app/workbench.js"></script>' web/index.html | cut -d: -f1)" -lt "$(grep -nF '<script src="/app/full-scan.js"></script>' web/index.html | cut -d: -f1)"
           test "$(grep -nF '<script src="/app/full-scan.js"></script>' web/index.html | cut -d: -f1)" -lt "$(grep -nF '<script src="/app/action-dock.js"></script>' web/index.html | cut -d: -f1)"
-          test "$(grep -nF '<script src="/app/action-dock.js"></script>' web/index.html | cut -d: -f1)" -lt "$(grep -nF '<script src="/app/manual.js"></script>' web/index.html | cut -d: -f1)"
+          test "$(grep -nF '<script src="/app/action-dock.js"></script>' web/index.html | cut -d: -f1)" -lt "$(grep -nF '<script src="/app/ai.js"></script>' web/index.html | cut -d: -f1)"
+          test "$(grep -nF '<script src="/app/ai.js"></script>' web/index.html | cut -d: -f1)" -lt "$(grep -nF '<script src="/app/manual.js"></script>' web/index.html | cut -d: -f1)"
           test "$(grep -nF '<script src="/app/manual.js"></script>' web/index.html | cut -d: -f1)" -lt "$(grep -nF '<script src="/app/manual-entry.js"></script>' web/index.html | cut -d: -f1)"
           test "$(grep -nF '<script src="/app/manual-entry.js"></script>' web/index.html | cut -d: -f1)" -lt "$(grep -nF '<script src="/app/runtime.js"></script>' web/index.html | cut -d: -f1)"
 
