@@ -3,6 +3,7 @@ package main
 
 import (
 	"bytes"
+	"compress/gzip"
 	"os"
 	"path/filepath"
 	"testing"
@@ -60,5 +61,28 @@ func TestPrivateJSONReadIsBounded(t *testing.T) {
 	var got any
 	if err := readPrivateJSON(p, &got); err == nil {
 		t.Fatal("oversized private JSON state must be rejected")
+	}
+}
+
+func TestPrivateGzipJSONRejectsOversizedDecompressedPayload(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "oversized.json.gz")
+	var compressed bytes.Buffer
+	gz := gzip.NewWriter(&compressed)
+	// A highly compressible payload stays well below the compressed-file bound
+	// while expanding beyond the JSON-state bound. The reader must reject the
+	// decompressed size instead of turning the limit into an artificial EOF.
+	if _, err := gz.Write(bytes.Repeat([]byte("x"), int(maxPrivateJSONBytes)+1)); err != nil {
+		t.Fatal(err)
+	}
+	if err := gz.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(p, compressed.Bytes(), 0600); err != nil {
+		t.Fatal(err)
+	}
+	var got any
+	if err := readGzipJSON(p, &got); err == nil {
+		t.Fatal("oversized decompressed private state must be rejected")
 	}
 }
