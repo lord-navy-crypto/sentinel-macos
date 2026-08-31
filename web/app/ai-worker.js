@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MPL-2.0
-// Sentinel 2.5 Local AI worker. Heavy WebLLM/WebGPU work stays off the main UI thread.
+// Sentinel 2.6 Local AI worker. Heavy WebLLM/WebGPU work stays off the main UI thread.
 'use strict';
 
 const pending = [];
@@ -19,7 +19,7 @@ self.onmessage = event => {
   pending.push(event);
 };
 
-import('https://esm.run/@mlc-ai/web-llm@0.2.82')
+import('https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@0.2.82/lib/index.js')
   .then(webllm => {
     handler = new webllm.WebWorkerMLCEngineHandler();
     for (const event of pending.splice(0)) handler.onmessage(event);
