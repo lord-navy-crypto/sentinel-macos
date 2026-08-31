@@ -27,7 +27,7 @@ func TestFullScanCenterUsesRealRetainedEvidenceChain(t *testing.T) {
 	if err != nil { t.Fatal(err) }
 	s := string(raw)
 	for _, want := range []string{
-		"Sentinel 2.4 Full Scan Center", "Easy Scan", "Full Scan", "Complete Capability Atlas",
+		"Sentinel 2.6 Full Scan Center", "Easy Scan", "Full Scan", "Complete Capability Atlas",
 		"/api/visibility", "/api/coverage", "/api/capabilities", "/api/overview", "/api/system-profile",
 		"/api/processes", "/api/startup", "/api/background", "/api/network", "/api/launch-services",
 		"/api/security/audit", "/api/quick-check", "/api/guided-snapshot", "/api/intelligence/graph",

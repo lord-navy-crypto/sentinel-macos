@@ -22,7 +22,7 @@ func TestManualIsAFirstClassScrollableProductLens(t *testing.T) {
 	}
 
 	for _, want := range []string{
-		"Sentinel 2.5 Comprehensive User Manual",
+		"Sentinel 2.6 Comprehensive User Manual",
 		"registerLens('manual'",
 		"data-manual-target",
 		"data-manual-open-lens",

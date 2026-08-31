@@ -251,7 +251,7 @@ ditto "$BUILD_DIR/Sentinel" "$APP/Contents/MacOS/Sentinel"
 chmod 755 "$APP/Contents/MacOS/Sentinel"
 
 # Keep the Go engines architecture-specific. The universal launcher chooses the
-# matching engine at runtime. Browser and App View use the same 2.4 product URL.
+# matching engine at runtime. Browser and App View use the same 2.6 product URL.
 ditto "$HERE/dist/sentinel-macos-arm64" "$APP/Contents/Resources/bin/sentinel-macos-arm64"
 ditto "$HERE/dist/sentinel-macos-x86_64" "$APP/Contents/Resources/bin/sentinel-macos-x86_64"
 chmod 755 "$APP/Contents/Resources/bin/"sentinel-macos-*

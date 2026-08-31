@@ -9,15 +9,15 @@ import (
 
 func TestDesktopDistributionAssets(t *testing.T) {
 	checks := map[string][]string{
-		"desktop/SentinelDesktop.swift":{"NSWorkspace.shared.open","WKWebView","Open in Browser","Open App View","Quit Sentinel","Process()","--desktop","SENTINEL_DESKTOP_BOOTSTRAP","2.5 Native Frontend","config.websiteDataStore = .default()"},
-		"build-desktop-macos.sh":{"swiftc","lipo -create","-framework WebKit","NSAllowsLocalNetworking","Sentinel.app","SentinelSourceCommit","SentinelDesktopUI","2.4 Native Frontend"},
+		"desktop/SentinelDesktop.swift":{"NSWorkspace.shared.open","WKWebView","Open in Browser","Open App View","Quit Sentinel","Process()","--desktop","SENTINEL_DESKTOP_BOOTSTRAP","2.6 Native Frontend","config.websiteDataStore = .default()"},
+		"build-desktop-macos.sh":{"swiftc","lipo -create","-framework WebKit","NSAllowsLocalNetworking","Sentinel.app","SentinelSourceCommit","SentinelDesktopUI","2.6 Native Frontend"},
 		"run-fresh-desktop.sh":{"pkill -x Sentinel","open -n","SentinelSourceCommit","SentinelDesktopUI"},
-		"reinstall-macos.sh":{"/Applications/Sentinel.app","SentinelSourceCommit","SentinelDesktopUI","2.4 Native Frontend"},
+		"reinstall-macos.sh":{"/Applications/Sentinel.app","SentinelSourceCommit","SentinelDesktopUI","2.6 Native Frontend"},
 		"release-direct-macos.sh":{"Developer ID","--options runtime","notarytool submit","stapler staple","hdiutil create"},
 		"DIRECT_DISTRIBUTION_GUIDE.md":{"Developer ID","notarytool"},
-		"web/index.html":{"2.4-native","/app/shell.css","/app/core.js","/app/ai.js","/app/runtime.js","missionRibbon","evidenceStage","contextTray"},
-		"web/app/core.js":{"Sentinel 2.4 Native Frontend","X-Sentinel-Token","window.SentinelApp"},
-		"web/app/ai.js":{"Sentinel 2.5 WebLLM Local AI","CreateWebWorkerMLCEngine","useIndexedDBCache:true","Model Library","Qwen2.5-1.5B-Instruct-q4f16_1-MLC","Load / Download selected"},
+		"web/index.html":{"2.6-native","/app/shell.css","/app/core.js","/app/ai.js","/app/runtime.js","missionRibbon","evidenceStage","contextTray"},
+		"web/app/core.js":{"Sentinel 2.6 Native Frontend","X-Sentinel-Token","window.SentinelApp"},
+		"web/app/ai.js":{"Sentinel 2.6 WebLLM Local AI","CreateWebWorkerMLCEngine","useIndexedDBCache:true","Model Library","Qwen2.5-1.5B-Instruct-q4f16_1-MLC","Load / Download selected"},
 		"web/app/lenses/orient-investigate.js":{"/api/quick-check"},
 		"web/app/lenses/act-limits.js":{"/api/actions/preview"},
 		"web/app/shell.css":{".s24-shell",".s24-missions",".s24-stage",".s24-context",".s24-activity"},
@@ -28,9 +28,9 @@ func TestDesktopDistributionAssets(t *testing.T) {
 
 func TestBrowserAndNativeAppViewUseSameProduct(t *testing.T) {
 	swiftBytes,err:=os.ReadFile("desktop/SentinelDesktop.swift");if err!=nil{t.Fatal(err)};swift:=string(swiftBytes)
-	for _,needle:=range []string{"NSWorkspace.shared.open(productURL)","WKWebViewConfiguration()","websiteDataStore = .default()","runJavaScriptConfirmPanelWithMessage","url.host == \"127.0.0.1\"","components.path = \"/\"","same Sentinel 2.5 Native Frontend"}{if !strings.Contains(swift,needle){t.Fatalf("dual-view launcher missing %q",needle)}}
+	for _,needle:=range []string{"NSWorkspace.shared.open(productURL)","WKWebViewConfiguration()","websiteDataStore = .default()","runJavaScriptConfirmPanelWithMessage","url.host == \"127.0.0.1\"","components.path = \"/\"","same Sentinel 2.6 Native Frontend"}{if !strings.Contains(swift,needle){t.Fatalf("dual-view launcher missing %q",needle)}}
 	if strings.Contains(swift,"websiteDataStore = .nonPersistent()"){t.Fatal("native App View must retain the explicitly downloaded WebLLM IndexedDB model cache")}
-	mainBytes,err:=os.ReadFile("main.go");if err!=nil{t.Fatal(err)};mainSource:=string(mainBytes);for _,needle:=range []string{`X-Sentinel-UI", "2.4-native`,`fs.ReadFile(staticFS, "index.html")`,`_, _ = w.Write(page)`,`worker-src 'self' blob:`,`https://huggingface.co`}{if !strings.Contains(mainSource,needle){t.Fatalf("server missing %q",needle)}}
+	mainBytes,err:=os.ReadFile("main.go");if err!=nil{t.Fatal(err)};mainSource:=string(mainBytes);for _,needle:=range []string{`X-Sentinel-UI", "2.6-native`,`fs.ReadFile(staticFS, "index.html")`,`_, _ = w.Write(page)`,`worker-src 'self' blob:`,`https://huggingface.co`}{if !strings.Contains(mainSource,needle){t.Fatalf("server missing %q",needle)}}
 	for _,retired:=range []string{"desktop-ui.js","v5-evidence-notebook","legacy-diagnostic","core-compat.js"}{if strings.Contains(mainSource,retired){t.Fatalf("server contains retired runtime %q",retired)}}
 }
 
