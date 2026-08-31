@@ -1,0 +1,53 @@
+name: One-time Sentinel 2.6 identity migration
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    if: github.event.head_commit.message == 'Install one-time Sentinel 2.6 identity migration'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Migrate current product identity to 2.6
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '2.6.0\n' > VERSION
+          FILES=(web/index.html web/app/core.js web/app/runtime.js web/app/workbench.js web/app/full-scan.js web/app/action-dock.js web/app/ai.js web/app/manual.js web/app/manual-entry.js main.go build-desktop-macos.sh reinstall-macos.sh verify-release-macos.sh release-direct-macos.sh run-fresh-desktop.sh package-dev-dmg-macos.sh web_wiring_test.go local_ai_contract_test.go .github/workflows/ci.yml)
+          EXISTING=()
+          for f in "${FILES[@]}"; do
+            [[ -f "$f" ]] && EXISTING+=("$f")
+          done
+          perl -0pi -e 's/Sentinel 2\.4/Sentinel 2.6/g; s/Sentinel 2\.5/Sentinel 2.6/g; s/2\.4-native/2.6-native/g; s/2\.4 Native Frontend/2.6 Native Frontend/g' "${EXISTING[@]}"
+          perl -0pi -e "s/version:'2\.5\.0'/version:'2.6.0'/g; s/window\.__SENTINEL_25__=applicationIdentity;/window.__SENTINEL_26__=applicationIdentity;\n  window.__SENTINEL_25__=applicationIdentity;/g" web/app/runtime.js
+          perl -0pi -e 's/window\.__SENTINEL_24__/window.__SENTINEL_26__/g' web_wiring_test.go
+          perl -0pi -e 's/<small id="productVersion">2\.5<\/small>/<small id="productVersion">2.6<\/small>/g' web/index.html
+          grep -Fq '2.6.0' VERSION
+          grep -Fq 'data-sentinel-generation="2.6-native"' web/index.html
+          grep -Fq '<title>Sentinel 2.6 · Local Evidence</title>' web/index.html
+          grep -Fq '<small id="productVersion">2.6</small>' web/index.html
+          grep -Fq "window.__SENTINEL_26__=applicationIdentity" web/app/runtime.js
+          grep -Fq "version:'2.6.0'" web/app/runtime.js
+          grep -Fq 'Sentinel 2.6 Native Frontend' web/app/core.js
+          grep -Fq 'Sentinel 2.6 Investigation Workbench' web/app/workbench.js
+          grep -Fq 'Sentinel 2.6 Full Scan Center' web/app/full-scan.js
+          grep -Fq 'Sentinel 2.6 Contextual Action Dock' web/app/action-dock.js
+          grep -Fq 'Sentinel 2.6 Integrated Local AI' web/app/ai.js
+          grep -Fq 'Sentinel 2.6 Comprehensive User Manual' web/app/manual.js
+          grep -Fq 'X-Sentinel-UI", "2.6-native"' main.go
+          grep -Fq 'UI generation: 2.6 Native Frontend' main.go
+          grep -Fq 'SentinelDesktopUI</key><string>2.6 Native Frontend' build-desktop-macos.sh
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add VERSION web/index.html web/app/core.js web/app/runtime.js web/app/workbench.js web/app/full-scan.js web/app/action-dock.js web/app/ai.js web/app/manual.js web/app/manual-entry.js main.go build-desktop-macos.sh web_wiring_test.go local_ai_contract_test.go .github/workflows/ci.yml
+          for f in reinstall-macos.sh verify-release-macos.sh release-direct-macos.sh run-fresh-desktop.sh package-dev-dmg-macos.sh; do [[ -f "$f" ]] && git add "$f"; done
+          git commit -m 'Migrate Sentinel product identity to 2.6'
+          git push origin HEAD:main
