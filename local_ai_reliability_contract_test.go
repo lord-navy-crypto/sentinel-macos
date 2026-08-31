@@ -79,6 +79,9 @@ func TestLocalAIDiagnosticsExposePrerequisitesAndStages(t *testing.T) {
 		"Last error",
 		"Use Qwen 0.5B",
 		"Qwen2.5-0.5B-Instruct-q4f16_1-MLC",
+		"diagnosticSignature",
+		"data-ai-reliability-signature",
+		"panel.dataset.aiReliabilitySignature===signature",
 	} {
 		if !strings.Contains(html, want) {
 			t.Fatalf("Local AI diagnostics missing %q", want)
