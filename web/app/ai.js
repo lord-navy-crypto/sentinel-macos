@@ -354,15 +354,20 @@
     return `<section id="aiContextBar" class="ai-context-bar" aria-label="Local AI contextual tools"><div><span>LOCAL AI · ${isReady()?'READY':'OPT-IN'}</span><b>${esc(S.LENSES[lens]?.label||lens)} intelligence</b><small>${selected?`Cross-Lens Selection · ${esc(selectionLabel(selected))}`:`Current Lens context · ${esc(S.LENSES[lens]?.title||'')}`}${guide&&step?` · Guide: ${esc(guide.title)} (${Number(ai.guided.step||0)+1}/${guide.steps.length})`:''}</small></div><div><button type="button" class="s24-action primary" data-ai-context="explain-page">Explain with AI</button>${selected?'<button type="button" class="s24-action" data-ai-context="selection">Explain selection</button>':''}<button type="button" class="s24-action" data-ai-context="next-step">AI next step</button>${lens==='manual'?'<button type="button" class="s24-action" data-ai-context="manual">Ask Manual</button>':'<button type="button" class="s24-action" data-ai-context="ask">Ask AI</button>'}${guide&&step?'<button type="button" class="s24-action" data-ai-context="guide-explain">Explain guide step</button>':''}</div></section>`;
   }
   let surfaceQueued=false;
+  function contextBarSignature(){
+    const selected=selection(),guide=currentGuide();
+    return [state.lens,isReady()?'ready':'opt-in',selected?.path||'',selected?.pid||'',selected?.label||'',guide?.id||'',ai.guided?.step??''].join('|');
+  }
   function installContextBar(){
     const stage=$('#evidenceStage');if(!stage)return;
     if(state.lens==='assistant'){stage.querySelector('#aiContextBar')?.remove();return;}
     const q=stage.querySelector('.s24-question');if(!q)return;
     const anchor=stage.querySelector('.s24-action-dock')||q;
+    const signature=contextBarSignature();
     let bar=stage.querySelector('#aiContextBar');
-    if(!bar){anchor.insertAdjacentHTML('afterend',contextBarHTML());bar=stage.querySelector('#aiContextBar');}
-    else{const fresh=document.createElement('div');fresh.innerHTML=contextBarHTML();const replacement=fresh.firstElementChild;bar.replaceWith(replacement);bar=replacement;}
-    if(bar.previousElementSibling!==anchor)anchor.insertAdjacentElement('afterend',bar);
+    if(!bar){anchor.insertAdjacentHTML('afterend',contextBarHTML());bar=stage.querySelector('#aiContextBar');if(bar)bar.dataset.aiSignature=signature;}
+    else if(bar.dataset.aiSignature!==signature){const fresh=document.createElement('div');fresh.innerHTML=contextBarHTML();const replacement=fresh.firstElementChild;replacement.dataset.aiSignature=signature;bar.replaceWith(replacement);bar=replacement;}
+    if(bar&&bar.previousElementSibling!==anchor)anchor.insertAdjacentElement('afterend',bar);
   }
   function installScanAIBridge(){
     const panel=$('#scanFollowupPanel');if(panel&&!panel.querySelector('[data-ai-context="full-scan"]')){const button=document.createElement('button');button.type='button';button.className='s24-action primary ai-scan-brief';button.dataset.aiContext='full-scan';button.textContent='AI Full Scan Brief';button.title='Explain retained Full Scan evidence with the local model';panel.lastElementChild?.prepend(button);}
@@ -378,8 +383,11 @@
   }
   function installSearchBridge(){
     const panel=$('#searchResults'),input=$('#globalSearch');if(!panel||!input)return;
-    const q=input.value.trim();panel.querySelector('.ai-search-bridge')?.remove();if(q.length<2||panel.hidden)return;
-    const wrap=document.createElement('div');wrap.className='ai-search-bridge';const button=document.createElement('button');button.type='button';button.dataset.aiSearchQuery=q;button.innerHTML=`<span>ASK LOCAL AI</span><div><b>${esc(q)}</b><small>Pin current Lens + selected evidence + matching Manual sections</small></div>`;wrap.append(button);panel.prepend(wrap);
+    const q=input.value.trim(),existing=panel.querySelector('.ai-search-bridge');
+    if(q.length<2||panel.hidden){existing?.remove();return;}
+    if(existing?.dataset.aiQuery===q)return;
+    existing?.remove();
+    const wrap=document.createElement('div');wrap.className='ai-search-bridge';wrap.dataset.aiQuery=q;const button=document.createElement('button');button.type='button';button.dataset.aiSearchQuery=q;button.innerHTML=`<span>ASK LOCAL AI</span><div><b>${esc(q)}</b><small>Pin current Lens + selected evidence + matching Manual sections</small></div>`;wrap.append(button);panel.prepend(wrap);
   }
   function queueSurfaces(){if(surfaceQueued)return;surfaceQueued=true;queueMicrotask(()=>{surfaceQueued=false;installContextBar();installScanAIBridge();installContextTrayBridge();installWorkbenchBridge();installSearchBridge();});}
 
