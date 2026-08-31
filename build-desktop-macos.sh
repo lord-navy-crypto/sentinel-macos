@@ -167,7 +167,7 @@ if ! grep -Fq ".ai-model-library" "$HERE/web/app/ai.css"; then
   echo "Local AI visual-system marker missing from ai.css" >&2
   exit 2
 fi
-if ! grep -Fq ".manual-shell" "$HERE/web/app/manual.css"; then
+if ! grep -Fq ".manual-layout" "$HERE/web/app/manual.css"; then
   echo "Manual visual-system marker missing from manual.css" >&2
   exit 2
 fi
