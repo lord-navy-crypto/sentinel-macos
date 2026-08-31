@@ -8,7 +8,7 @@
 
   const AI_MARKER = 'Sentinel 2.6 WebLLM Local AI';
   const AI_FUSION_MARKER = 'Sentinel 2.6 Integrated Local AI';
-  const WEBLLM_URL = 'https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@0.2.82/lib/index.js';
+  const WEBLLM_URL = '/vendor/webllm-0.2.82.mjs';
   const DEFAULT_MODEL = 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC';
   const MODELS = [
     {id:'Qwen2.5-0.5B-Instruct-q4f16_1-MLC',name:'Qwen 2.5 0.5B',tier:'small',vramMB:944.62,memory:'8 GB+',focus:'Fast bilingual explanations',note:'Smallest general model in the library; best when responsiveness matters more than depth.'},

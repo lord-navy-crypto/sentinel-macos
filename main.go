@@ -183,6 +183,8 @@ func main() {
 	mux.HandleFunc("/api/readiness", a.auth(a.work.wrap("readiness", a.handleReadiness)))
 	mux.HandleFunc("/api/pre-regression", a.auth(a.handleRegressionGate))
 
+	mux.HandleFunc(webLLMRuntimePath, a.handleWebLLMRuntime)
+
 	// Sentinel 2.6 serves the product source directly. There is no runtime DOM
 	// rewrite, legacy dashboard injection, or desktop-only enhancement layer.
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -333,7 +335,7 @@ func securityHeaders(next http.Handler) http.Handler {
 		w.Header().Set("X-DNS-Prefetch-Control", "off")
 		w.Header().Set("X-Permitted-Cross-Domain-Policies", "none")
 		w.Header().Set("Cache-Control", "no-store")
-		w.Header().Set("Content-Security-Policy", "default-src 'self'; style-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; worker-src 'self' blob:; connect-src 'self' https://cdn.jsdelivr.net https://huggingface.co https://*.huggingface.co https://*.hf.co https://*.xethub.hf.co https://raw.githubusercontent.com; img-src 'self' data:; base-uri 'none'; form-action 'self'; object-src 'none'; frame-ancestors 'none'")
+		w.Header().Set("Content-Security-Policy", "default-src 'self'; style-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; connect-src 'self' https://huggingface.co https://*.huggingface.co https://*.hf.co https://*.xethub.hf.co https://raw.githubusercontent.com; img-src 'self' data:; base-uri 'none'; form-action 'self'; object-src 'none'; frame-ancestors 'none'")
 		next.ServeHTTP(w, r)
 	})
 }

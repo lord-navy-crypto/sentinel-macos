@@ -19,7 +19,7 @@ self.onmessage = event => {
   pending.push(event);
 };
 
-import('https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@0.2.82/lib/index.js')
+import('/vendor/webllm-0.2.82.mjs')
   .then(webllm => {
     handler = new webllm.WebWorkerMLCEngineHandler();
     for (const event of pending.splice(0)) handler.onmessage(event);
