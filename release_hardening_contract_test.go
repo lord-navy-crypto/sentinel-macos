@@ -55,6 +55,10 @@ func TestProductionReleaseVerificationFailsClosed(t *testing.T) {
 		"SOURCE_SHA=\"$(git rev-parse --verify HEAD)\"",
 		"SentinelSourceCommit",
 		"SENTINEL_EXPECTED_SOURCE_SHA=\"$SOURCE_SHA\"",
+		"BUILD_FEATURES.txt",
+		"arm64: native-fsevents+security-framework",
+		"amd64: native-fsevents+security-framework",
+		"Refusing production release: required native engine capability is missing",
 	} {
 		if !strings.Contains(release, want) {
 			t.Fatalf("production release pipeline missing %q", want)
