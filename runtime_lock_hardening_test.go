@@ -7,6 +7,7 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+	"time"
 )
 
 func TestRuntimeLockRejectsSymlinkTarget(t *testing.T) {
