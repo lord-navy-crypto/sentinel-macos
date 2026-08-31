@@ -57,12 +57,31 @@ func acquireRuntimeLock(enabled bool) (*runtimeLock, error) {
 	l.path = runtimeLockPath()
 
 	// O_NOFOLLOW prevents a same-user symlink planted at the predictable temp
-	// path from redirecting Sentinel's lock metadata write to another file.
-	f, err := os.OpenFile(l.path, os.O_RDWR|os.O_CREATE|syscall.O_NOFOLLOW, 0600)
+	// path from redirecting Sentinel's lock metadata write. O_NONBLOCK prevents
+	// a hostile/non-regular pre-created FIFO from stalling startup before we can
+	// inspect its type. Regular files ignore O_NONBLOCK semantics.
+	f, err := os.OpenFile(l.path, os.O_RDWR|os.O_CREATE|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0600)
 	if err != nil {
 		return nil, err
 	}
 	closeOnError := func() { _ = f.Close() }
+
+	// The lock path lives in a shared temporary namespace. Never chmod, truncate,
+	// lock, or write through an object that is not a regular file owned by this
+	// user, even if another account intentionally made that object writable.
+	fst, err := f.Stat()
+	if err != nil {
+		closeOnError()
+		return nil, err
+	}
+	if !fst.Mode().IsRegular() {
+		closeOnError()
+		return nil, fmt.Errorf("Sentinel runtime lock is not a regular file: %s", filepath.Base(l.path))
+	}
+	if sys, ok := fst.Sys().(*syscall.Stat_t); !ok || int(sys.Uid) != os.Getuid() {
+		closeOnError()
+		return nil, fmt.Errorf("Sentinel runtime lock is not owned by the current user: %s", filepath.Base(l.path))
+	}
 	if err := f.Chmod(0600); err != nil {
 		closeOnError()
 		return nil, err
