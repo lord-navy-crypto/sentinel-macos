@@ -12,9 +12,9 @@ self.onmessage = event => {
     return;
   }
   if (bootstrapError) {
-    // The WebLLM proxy will time out/fail cleanly on the caller side; keep the
-    // worker alive long enough for the UI to report that Local AI is unavailable.
-    return;
+    // Do not silently swallow requests after bootstrap failure. Surface the
+    // failure through the worker error channel so the parent can stop waiting.
+    throw bootstrapError;
   }
   pending.push(event);
 };
@@ -25,6 +25,10 @@ import('/vendor/webllm-0.2.82.mjs')
     for (const event of pending.splice(0)) handler.onmessage(event);
   })
   .catch(error => {
-    bootstrapError = error;
-    console.error('Sentinel Local AI worker failed to load WebLLM:', error);
+    bootstrapError = error instanceof Error ? error : new Error(String(error));
+    console.error('Sentinel Local AI worker failed to load WebLLM:', bootstrapError);
+    // Convert a previously silent dynamic-import failure into a real Worker
+    // error event. The Local AI reliability watchdog listens for this and can
+    // terminate/reset the stalled engine instead of leaving the UI spinning.
+    setTimeout(() => { throw bootstrapError; }, 0);
   });
