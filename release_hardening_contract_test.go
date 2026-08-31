@@ -50,6 +50,11 @@ func TestProductionReleaseVerificationFailsClosed(t *testing.T) {
 		"xcrun notarytool submit",
 		"xcrun stapler staple",
 		"shasum -a 256",
+		"git status --porcelain --untracked-files=normal",
+		"Refusing production release from a dirty working tree",
+		"SOURCE_SHA=\"$(git rev-parse --verify HEAD)\"",
+		"SentinelSourceCommit",
+		"SENTINEL_EXPECTED_SOURCE_SHA=\"$SOURCE_SHA\"",
 	} {
 		if !strings.Contains(release, want) {
 			t.Fatalf("production release pipeline missing %q", want)
@@ -66,6 +71,9 @@ func TestReleaseVerifierInspectsMountedShippedApp(t *testing.T) {
 		"spctl --assess --type execute",
 		"CFBundleShortVersionString",
 		"SentinelDesktopUI",
+		"SentinelSourceCommit",
+		"EXPECTED_SOURCE_SHA",
+		"source provenance mismatch",
 		"lipo -archs",
 		"sentinel-macos-arm64",
 		"sentinel-macos-x86_64",
