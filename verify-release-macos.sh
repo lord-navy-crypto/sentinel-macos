@@ -11,6 +11,17 @@ VERSION="$(tr -d '[:space:]' < VERSION)"
 DMG="${1:-$HERE/dist/Sentinel-${VERSION}.dmg}"
 [[ -f "$DMG" ]] || { echo "DMG not found: $DMG" >&2; exit 2; }
 
+# release-direct-macos.sh passes the exact clean commit explicitly. For a manual
+# verification run inside a Git checkout, use the current HEAD when available.
+EXPECTED_SOURCE_SHA="${SENTINEL_EXPECTED_SOURCE_SHA:-}"
+if [[ -z "$EXPECTED_SOURCE_SHA" ]] && command -v git >/dev/null 2>&1 && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  EXPECTED_SOURCE_SHA="$(git rev-parse --verify HEAD)"
+fi
+if [[ -n "$EXPECTED_SOURCE_SHA" && ! "$EXPECTED_SOURCE_SHA" =~ ^[0-9a-fA-F]{40}$ ]]; then
+  echo "Invalid expected source commit: $EXPECTED_SOURCE_SHA" >&2
+  exit 2
+fi
+
 MOUNT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/sentinel-release-verify.XXXXXX")"
 MOUNTED=0
 cleanup() {
@@ -38,8 +49,16 @@ PLIST="$APP/Contents/Info.plist"
 [[ -f "$PLIST" ]] || { echo "Sentinel.app is missing Info.plist" >&2; exit 2; }
 PACKAGED_VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$PLIST")"
 PACKAGED_UI="$(/usr/libexec/PlistBuddy -c 'Print :SentinelDesktopUI' "$PLIST")"
+PACKAGED_SOURCE_SHA="$(/usr/libexec/PlistBuddy -c 'Print :SentinelSourceCommit' "$PLIST")"
 [[ "$PACKAGED_VERSION" == "$VERSION" ]] || { echo "DMG app version mismatch: $PACKAGED_VERSION (expected $VERSION)" >&2; exit 2; }
 [[ "$PACKAGED_UI" == "2.6 Native Frontend" ]] || { echo "DMG app UI identity mismatch: $PACKAGED_UI" >&2; exit 2; }
+[[ "$PACKAGED_SOURCE_SHA" =~ ^[0-9a-fA-F]{40}$ ]] || { echo "DMG app has invalid SentinelSourceCommit: $PACKAGED_SOURCE_SHA" >&2; exit 2; }
+if [[ -n "$EXPECTED_SOURCE_SHA" && "$PACKAGED_SOURCE_SHA" != "$EXPECTED_SOURCE_SHA" ]]; then
+  echo "DMG app source provenance mismatch." >&2
+  echo "Package: $PACKAGED_SOURCE_SHA" >&2
+  echo "Expected: $EXPECTED_SOURCE_SHA" >&2
+  exit 2
+fi
 
 codesign --verify --deep --strict --verbose=2 "$APP"
 # Verify Gatekeeper evaluates the actual app users will drag into /Applications.
@@ -70,6 +89,7 @@ done
 
 printf '%s\n' \
   "Release verification passed: $DMG" \
+  "Source commit: $PACKAGED_SOURCE_SHA" \
   "DMG signature + notarization staple + Gatekeeper: PASS" \
-  "Mounted Sentinel.app signature + Gatekeeper + version/UI identity: PASS" \
+  "Mounted Sentinel.app signature + Gatekeeper + version/UI/provenance identity: PASS" \
   "Universal launcher and both embedded 2.6 engines: PASS"
