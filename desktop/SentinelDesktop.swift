@@ -148,8 +148,12 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         NSApplication.shared.mainMenu = main
     }
 
+    private func bundleVersion() -> String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
+    }
+
     @objc private func showAbout() {
-        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
+        let version = bundleVersion()
         let ui = Bundle.main.object(forInfoDictionaryKey: "SentinelDesktopUI") as? String ?? "2.6 Native Frontend"
         let alert = NSAlert()
         alert.messageText = "Sentinel Mac"
@@ -159,7 +163,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
     }
 
     @objc private func openBrowserProduct() {
-        guard let productURL else {
+        guard let productURL, isAllowedProductURL(productURL) else {
             NSSound.beep()
             return
         }
@@ -167,7 +171,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
     }
 
     @objc private func openAppView() {
-        guard let productURL else {
+        guard let productURL, isAllowedProductURL(productURL) else {
             NSSound.beep()
             return
         }
@@ -213,12 +217,41 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         NSApplication.shared.activate(ignoringOtherApps: true)
     }
 
+    private func productOrigin() -> String? {
+        guard let productURL,
+              productURL.scheme == "http",
+              productURL.host == "127.0.0.1",
+              let port = productURL.port else { return nil }
+        return "http://127.0.0.1:\(port)"
+    }
+
     private func isAllowedProductURL(_ url: URL?) -> Bool {
         guard let url else { return false }
-        if url.scheme == "about" || url.scheme == "blob" { return true }
-        guard url.scheme == "http", url.host == "127.0.0.1" else { return false }
-        guard let productURL else { return true }
-        return url.port == productURL.port
+        if url.scheme == "about" {
+            return url.absoluteString == "about:blank"
+        }
+        if url.scheme == "blob" {
+            guard let origin = productOrigin() else { return false }
+            return url.absoluteString.hasPrefix("blob:\(origin)/")
+        }
+        guard url.scheme == "http",
+              url.host == "127.0.0.1",
+              url.user == nil,
+              url.password == nil,
+              let port = url.port else { return false }
+        guard let productURL, let productPort = productURL.port else { return false }
+        return port == productPort
+    }
+
+    private func isSafeExternalURL(_ url: URL) -> Bool {
+        guard url.scheme?.lowercased() == "https" else { return false }
+        guard url.host != nil, url.user == nil, url.password == nil else { return false }
+        return true
+    }
+
+    private func openExternalIfUserActivated(_ url: URL, navigationAction: WKNavigationAction) {
+        guard navigationAction.navigationType == .linkActivated, isSafeExternalURL(url) else { return }
+        NSWorkspace.shared.open(url)
     }
 
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
@@ -229,7 +262,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         if isAllowedProductURL(url) {
             decisionHandler(.allow)
         } else {
-            NSWorkspace.shared.open(url)
+            openExternalIfUserActivated(url, navigationAction: navigationAction)
             decisionHandler(.cancel)
         }
     }
@@ -239,7 +272,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
             if isAllowedProductURL(url) {
                 webView.load(URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 30))
             } else {
-                NSWorkspace.shared.open(url)
+                openExternalIfUserActivated(url, navigationAction: navigationAction)
             }
         }
         return nil
@@ -347,6 +380,31 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         engine = nil
     }
 
+    private func validBootstrapToken(_ token: String) -> Bool {
+        guard token.count == 48 else { return false }
+        return token.unicodeScalars.allSatisfy { scalar in
+            (scalar.value >= 48 && scalar.value <= 57) || (scalar.value >= 97 && scalar.value <= 102)
+        }
+    }
+
+    private func validatedBootstrapURL(_ payload: Bootstrap) -> URL? {
+        guard payload.version == bundleVersion(), validBootstrapToken(payload.token) else { return nil }
+        guard var components = URLComponents(string: payload.origin),
+              components.scheme == "http",
+              components.host == "127.0.0.1",
+              let port = components.port,
+              port > 0 && port <= 65535,
+              components.user == nil,
+              components.password == nil,
+              components.query == nil,
+              components.fragment == nil,
+              components.path.isEmpty || components.path == "/" else { return nil }
+        components.path = "/"
+        components.query = nil
+        components.fragment = "token=\(payload.token)"
+        return components.url
+    }
+
     private func consumeStdout(_ data: Data) {
         stdoutBuffer.append(data)
         while let newline = stdoutBuffer.firstRange(of: Data([0x0a])) {
@@ -358,15 +416,10 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
             guard line.hasPrefix(prefix) else { continue }
             let jsonText = String(line.dropFirst(prefix.count))
             guard let payload = try? JSONDecoder().decode(Bootstrap.self, from: Data(jsonText.utf8)),
-                  var components = URLComponents(string: payload.origin) else {
-                DispatchQueue.main.async { [weak self] in self?.showFatal("Sentinel returned an invalid desktop bootstrap payload.") }
+                  let url = validatedBootstrapURL(payload) else {
+                DispatchQueue.main.async { [weak self] in self?.showFatal("Sentinel returned an invalid or mismatched desktop bootstrap payload.") }
                 continue
             }
-
-            components.path = "/"
-            components.query = nil
-            components.fragment = "token=\(payload.token)"
-            guard let url = components.url else { continue }
 
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
