@@ -2,7 +2,10 @@
 package main
 
 import (
+	"bytes"
+	"io"
 	"net/http"
+	"strings"
 	"sync/atomic"
 	"time"
 )
@@ -19,8 +22,32 @@ func newWorkGate(limit int) *workGate {
 	return &workGate{sem: make(chan struct{}, limit)}
 }
 
+func boundSystemConsoleBody(name string, w http.ResponseWriter, r *http.Request) bool {
+	if !strings.HasPrefix(name, "system-") || r.Body == nil {
+		return true
+	}
+	defer r.Body.Close()
+	raw, err := io.ReadAll(io.LimitReader(r.Body, systemConsoleRequestLimit+1))
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "could not read bounded System Console request"})
+		return false
+	}
+	if int64(len(raw)) > int64(systemConsoleRequestLimit) {
+		writeJSON(w, http.StatusRequestEntityTooLarge, map[string]any{"error": "System Console request exceeds the bounded request limit"})
+		return false
+	}
+	// The downstream strict decoder receives the complete body, not a truncated
+	// LimitReader view that could turn an oversized request into a false EOF.
+	r.Body = io.NopCloser(bytes.NewReader(raw))
+	r.ContentLength = int64(len(raw))
+	return true
+}
+
 func (g *workGate) wrap(name string, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if !boundSystemConsoleBody(name, w, r) {
+			return
+		}
 		timer := time.NewTimer(150 * time.Millisecond)
 		defer timer.Stop()
 		select {
