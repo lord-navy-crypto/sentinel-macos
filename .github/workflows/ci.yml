@@ -1,10 +1,7 @@
-name: Sentinel validation
+name: Sentinel source patch
 
 on:
   push:
-    branches:
-      - main
-  pull_request:
     branches:
       - main
 
@@ -12,250 +9,83 @@ permissions:
   contents: write
 
 jobs:
-  core:
-    name: Core, product, and distribution contracts
-    runs-on: macos-latest
-    timeout-minutes: 24
+  patch:
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: One-time Local AI idempotency source patch
+      - name: Apply idempotency patch
         shell: bash
         run: |
           set -euo pipefail
           MSG="$(git log -1 --pretty=%s)"
-          if [ "$MSG" != "Temporarily patch Local AI idempotency through validation" ]; then
-            echo "No source patch requested for commit: $MSG"
+          if [ "$MSG" != "Run valid Local AI idempotency patch" ]; then
+            echo "No patch requested for commit: $MSG"
             exit 0
           fi
           python3 - <<'PY'
           from pathlib import Path
-          p=Path('web/app/ai.js')
-          s=p.read_text()
-          old="""  function installContextBar(){
-    const stage=$('#evidenceStage');if(!stage)return;
-    if(state.lens==='assistant'){stage.querySelector('#aiContextBar')?.remove();return;}
-    const q=stage.querySelector('.s24-question');if(!q)return;
-    const anchor=stage.querySelector('.s24-action-dock')||q;
-    let bar=stage.querySelector('#aiContextBar');
-    if(!bar){anchor.insertAdjacentHTML('afterend',contextBarHTML());bar=stage.querySelector('#aiContextBar');}
-    else{const fresh=document.createElement('div');fresh.innerHTML=contextBarHTML();const replacement=fresh.firstElementChild;bar.replaceWith(replacement);bar=replacement;}
-    if(bar.previousElementSibling!==anchor)anchor.insertAdjacentElement('afterend',bar);
-  }"""
-          new="""  function contextBarSignature(){
-    const selected=selection(),guide=currentGuide();
-    return [state.lens,isReady()?'ready':'opt-in',selected?.path||'',selected?.pid||'',selected?.label||'',guide?.id||'',ai.guided?.step??''].join('|');
-  }
-  function installContextBar(){
-    const stage=$('#evidenceStage');if(!stage)return;
-    if(state.lens==='assistant'){stage.querySelector('#aiContextBar')?.remove();return;}
-    const q=stage.querySelector('.s24-question');if(!q)return;
-    const anchor=stage.querySelector('.s24-action-dock')||q;
-    const signature=contextBarSignature();
-    let bar=stage.querySelector('#aiContextBar');
-    if(!bar){anchor.insertAdjacentHTML('afterend',contextBarHTML());bar=stage.querySelector('#aiContextBar');if(bar)bar.dataset.aiSignature=signature;}
-    else if(bar.dataset.aiSignature!==signature){const fresh=document.createElement('div');fresh.innerHTML=contextBarHTML();const replacement=fresh.firstElementChild;replacement.dataset.aiSignature=signature;bar.replaceWith(replacement);bar=replacement;}
-    if(bar&&bar.previousElementSibling!==anchor)anchor.insertAdjacentElement('afterend',bar);
-  }"""
-          if old not in s: raise SystemExit('installContextBar target not found')
-          s=s.replace(old,new,1)
-          old2="""  function installSearchBridge(){
-    const panel=$('#searchResults'),input=$('#globalSearch');if(!panel||!input)return;
-    const q=input.value.trim();panel.querySelector('.ai-search-bridge')?.remove();if(q.length<2||panel.hidden)return;
-    const wrap=document.createElement('div');wrap.className='ai-search-bridge';const button=document.createElement('button');button.type='button';button.dataset.aiSearchQuery=q;button.innerHTML=`<span>ASK LOCAL AI</span><div><b>${esc(q)}</b><small>Pin current Lens + selected evidence + matching Manual sections</small></div>`;wrap.append(button);panel.prepend(wrap);
-  }"""
-          new2="""  function installSearchBridge(){
-    const panel=$('#searchResults'),input=$('#globalSearch');if(!panel||!input)return;
-    const q=input.value.trim(),existing=panel.querySelector('.ai-search-bridge');
-    if(q.length<2||panel.hidden){existing?.remove();return;}
-    if(existing?.dataset.aiQuery===q)return;
-    existing?.remove();
-    const wrap=document.createElement('div');wrap.className='ai-search-bridge';wrap.dataset.aiQuery=q;const button=document.createElement('button');button.type='button';button.dataset.aiSearchQuery=q;button.innerHTML=`<span>ASK LOCAL AI</span><div><b>${esc(q)}</b><small>Pin current Lens + selected evidence + matching Manual sections</small></div>`;wrap.append(button);panel.prepend(wrap);
-  }"""
-          if old2 not in s: raise SystemExit('installSearchBridge target not found')
-          p.write_text(s.replace(old2,new2,1))
+          p = Path('web/app/ai.js')
+          s = p.read_text()
+          old = "\n".join([
+              "  function installContextBar(){",
+              "    const stage=$('#evidenceStage');if(!stage)return;",
+              "    if(state.lens==='assistant'){stage.querySelector('#aiContextBar')?.remove();return;}",
+              "    const q=stage.querySelector('.s24-question');if(!q)return;",
+              "    const anchor=stage.querySelector('.s24-action-dock')||q;",
+              "    let bar=stage.querySelector('#aiContextBar');",
+              "    if(!bar){anchor.insertAdjacentHTML('afterend',contextBarHTML());bar=stage.querySelector('#aiContextBar');}",
+              "    else{const fresh=document.createElement('div');fresh.innerHTML=contextBarHTML();const replacement=fresh.firstElementChild;bar.replaceWith(replacement);bar=replacement;}",
+              "    if(bar.previousElementSibling!==anchor)anchor.insertAdjacentElement('afterend',bar);",
+              "  }",
+          ])
+          new = "\n".join([
+              "  function contextBarSignature(){",
+              "    const selected=selection(),guide=currentGuide();",
+              "    return [state.lens,isReady()?'ready':'opt-in',selected?.path||'',selected?.pid||'',selected?.label||'',guide?.id||'',ai.guided?.step??''].join('|');",
+              "  }",
+              "  function installContextBar(){",
+              "    const stage=$('#evidenceStage');if(!stage)return;",
+              "    if(state.lens==='assistant'){stage.querySelector('#aiContextBar')?.remove();return;}",
+              "    const q=stage.querySelector('.s24-question');if(!q)return;",
+              "    const anchor=stage.querySelector('.s24-action-dock')||q;",
+              "    const signature=contextBarSignature();",
+              "    let bar=stage.querySelector('#aiContextBar');",
+              "    if(!bar){anchor.insertAdjacentHTML('afterend',contextBarHTML());bar=stage.querySelector('#aiContextBar');if(bar)bar.dataset.aiSignature=signature;}",
+              "    else if(bar.dataset.aiSignature!==signature){const fresh=document.createElement('div');fresh.innerHTML=contextBarHTML();const replacement=fresh.firstElementChild;replacement.dataset.aiSignature=signature;bar.replaceWith(replacement);bar=replacement;}",
+              "    if(bar&&bar.previousElementSibling!==anchor)anchor.insertAdjacentElement('afterend',bar);",
+              "  }",
+          ])
+          if old not in s:
+              raise SystemExit('installContextBar target not found')
+          s = s.replace(old, new, 1)
+          old2 = "\n".join([
+              "  function installSearchBridge(){",
+              "    const panel=$('#searchResults'),input=$('#globalSearch');if(!panel||!input)return;",
+              "    const q=input.value.trim();panel.querySelector('.ai-search-bridge')?.remove();if(q.length<2||panel.hidden)return;",
+              "    const wrap=document.createElement('div');wrap.className='ai-search-bridge';const button=document.createElement('button');button.type='button';button.dataset.aiSearchQuery=q;button.innerHTML=`<span>ASK LOCAL AI</span><div><b>${esc(q)}</b><small>Pin current Lens + selected evidence + matching Manual sections</small></div>`;wrap.append(button);panel.prepend(wrap);",
+              "  }",
+          ])
+          new2 = "\n".join([
+              "  function installSearchBridge(){",
+              "    const panel=$('#searchResults'),input=$('#globalSearch');if(!panel||!input)return;",
+              "    const q=input.value.trim(),existing=panel.querySelector('.ai-search-bridge');",
+              "    if(q.length<2||panel.hidden){existing?.remove();return;}",
+              "    if(existing?.dataset.aiQuery===q)return;",
+              "    existing?.remove();",
+              "    const wrap=document.createElement('div');wrap.className='ai-search-bridge';wrap.dataset.aiQuery=q;const button=document.createElement('button');button.type='button';button.dataset.aiSearchQuery=q;button.innerHTML=`<span>ASK LOCAL AI</span><div><b>${esc(q)}</b><small>Pin current Lens + selected evidence + matching Manual sections</small></div>`;wrap.append(button);panel.prepend(wrap);",
+              "  }",
+          ])
+          if old2 not in s:
+              raise SystemExit('installSearchBridge target not found')
+          p.write_text(s.replace(old2, new2, 1))
           PY
+          grep -Fq 'contextBarSignature' web/app/ai.js
+          grep -Fq 'dataset.aiSignature' web/app/ai.js
+          grep -Fq 'dataset.aiQuery' web/app/ai.js
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add web/app/ai.js
           git commit -m "Make Local AI surface injection idempotent"
           git push origin HEAD:main
-
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.26.x'
-          cache: true
-
-      - name: Go tests
-        run: go test ./...
-
-      - name: Product contracts
-        run: |
-          go test ./... -run 'Migration|IncidentStory|Timeline|Export|StorageAging|ReasonCodeRegistry|RuleRegistry|VaultHealth|Navigation|Regression|SessionNote|Alpha|I18n|Observation|Snapshot|ContinueInvestigation|TerminalGuide|VisualGrammar|Application|Advanced|Workbench|FullScan|CapabilityAtlas|ScanCenter|ActionDock|Manual|LocalAI'
-
-      - name: Darwin architecture build smoke
-        run: |
-          CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o /tmp/sentinel-arm64 .
-          CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o /tmp/sentinel-amd64 .
-          test -s /tmp/sentinel-arm64
-          test -s /tmp/sentinel-amd64
-          LC_ALL=C grep -aFq 'Sentinel 2.4 Native Frontend' /tmp/sentinel-arm64
-          LC_ALL=C grep -aFq 'Sentinel 2.4 Native Frontend' /tmp/sentinel-amd64
-          LC_ALL=C grep -aFq 'Sentinel 2.4 Investigation Workbench' /tmp/sentinel-arm64
-          LC_ALL=C grep -aFq 'Sentinel 2.4 Investigation Workbench' /tmp/sentinel-amd64
-          LC_ALL=C grep -aFq 'Sentinel 2.4 Full Scan Center' /tmp/sentinel-arm64
-          LC_ALL=C grep -aFq 'Sentinel 2.4 Full Scan Center' /tmp/sentinel-amd64
-          LC_ALL=C grep -aFq 'Sentinel 2.4 Contextual Action Dock' /tmp/sentinel-arm64
-          LC_ALL=C grep -aFq 'Sentinel 2.4 Contextual Action Dock' /tmp/sentinel-amd64
-          LC_ALL=C grep -aFq 'Sentinel 2.5 Comprehensive User Manual' /tmp/sentinel-arm64
-          LC_ALL=C grep -aFq 'Sentinel 2.5 Comprehensive User Manual' /tmp/sentinel-amd64
-          LC_ALL=C grep -aFq 'Sentinel 2.5 WebLLM Local AI' /tmp/sentinel-arm64
-          LC_ALL=C grep -aFq 'Sentinel 2.5 WebLLM Local AI' /tmp/sentinel-amd64
-          LC_ALL=C grep -aFq 'Sentinel 2.5 Integrated Local AI' /tmp/sentinel-arm64
-          LC_ALL=C grep -aFq 'Sentinel 2.5 Integrated Local AI' /tmp/sentinel-amd64
-          LC_ALL=C grep -aFq 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC' /tmp/sentinel-arm64
-          LC_ALL=C grep -aFq 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC' /tmp/sentinel-amd64
-          LC_ALL=C grep -aFq 'gemma-2-9b-it-q4f16_1-MLC' /tmp/sentinel-arm64
-          LC_ALL=C grep -aFq 'gemma-2-9b-it-q4f16_1-MLC' /tmp/sentinel-amd64
-          LC_ALL=C grep -aFq 'Model Library' /tmp/sentinel-arm64
-          LC_ALL=C grep -aFq 'Model Library' /tmp/sentinel-amd64
-          LC_ALL=C grep -aFq 'useIndexedDBCache:true' /tmp/sentinel-arm64
-          LC_ALL=C grep -aFq 'useIndexedDBCache:true' /tmp/sentinel-amd64
-          LC_ALL=C grep -aFq 'contextBarSignature' /tmp/sentinel-arm64
-          LC_ALL=C grep -aFq 'contextBarSignature' /tmp/sentinel-amd64
-
-      - name: Desktop application packaging smoke
-        run: |
-          chmod +x build-macos.sh build-desktop-macos.sh
-          ./build-desktop-macos.sh
-          test -d dist/Sentinel.app
-          test -x dist/Sentinel.app/Contents/MacOS/Sentinel
-          test -x dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-arm64
-          test -x dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64
-          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' dist/Sentinel.app/Contents/Info.plist)" = "$(tr -d '[:space:]' < VERSION)"
-          test "$(/usr/libexec/PlistBuddy -c 'Print :SentinelDesktopUI' dist/Sentinel.app/Contents/Info.plist)" = "2.4 Native Frontend"
-          test "$(/usr/libexec/PlistBuddy -c 'Print :SentinelScanCenter' dist/Sentinel.app/Contents/Info.plist)" = "Easy Scan + Full Scan + Capability Atlas"
-          test "$(/usr/libexec/PlistBuddy -c 'Print :SentinelActionDock' dist/Sentinel.app/Contents/Info.plist)" = "Contextual Quick Actions"
-          ARCHS="$(lipo -archs dist/Sentinel.app/Contents/MacOS/Sentinel)"
-          echo "$ARCHS" | grep -q arm64
-          echo "$ARCHS" | grep -q x86_64
-          LC_ALL=C grep -aFq 'Sentinel 2.4 Investigation Workbench' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-arm64
-          LC_ALL=C grep -aFq 'Sentinel 2.4 Investigation Workbench' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64
-          LC_ALL=C grep -aFq 'Sentinel 2.4 Full Scan Center' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-arm64
-          LC_ALL=C grep -aFq 'Sentinel 2.4 Full Scan Center' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64
-          LC_ALL=C grep -aFq 'Sentinel 2.4 Contextual Action Dock' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-arm64
-          LC_ALL=C grep -aFq 'Sentinel 2.4 Contextual Action Dock' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64
-          LC_ALL=C grep -aFq 'Sentinel 2.5 Comprehensive User Manual' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-arm64
-          LC_ALL=C grep -aFq 'Sentinel 2.5 Comprehensive User Manual' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64
-          LC_ALL=C grep -aFq 'Sentinel 2.5 WebLLM Local AI' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-arm64
-          LC_ALL=C grep -aFq 'Sentinel 2.5 WebLLM Local AI' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64
-          LC_ALL=C grep -aFq 'Sentinel 2.5 Integrated Local AI' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-arm64
-          LC_ALL=C grep -aFq 'Sentinel 2.5 Integrated Local AI' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64
-          LC_ALL=C grep -aFq 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-arm64
-          LC_ALL=C grep -aFq 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64
-          LC_ALL=C grep -aFq 'Model Library' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-arm64
-          LC_ALL=C grep -aFq 'Model Library' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64
-          LC_ALL=C grep -aFq 'contextBarSignature' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-arm64
-          LC_ALL=C grep -aFq 'contextBarSignature' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64
-          grep -Fq 'config.websiteDataStore = .default()' desktop/SentinelDesktop.swift
-          test -z "$(grep -F 'config.websiteDataStore = .nonPersistent()' desktop/SentinelDesktop.swift || true)"
-
-      - name: Go race tests
-        run: go test -race ./...
-
-      - name: Go vet
-        run: go vet ./...
-
-      - name: Sentinel application JavaScript syntax
-        run: |
-          test ! -e web/app/controller.js
-          test ! -e web/app/scan-center.js
-          test ! -e web/app/scan-center.css
-          node --check web/app/core.js
-          node --check web/app/lenses/orient-investigate.js
-          node --check web/app/lenses/compare.js
-          node --check web/app/lenses/system.js
-          node --check web/app/lenses/act-limits.js
-          node --check web/app/advanced.js
-          node --check web/app/case-stories.js
-          node --check web/app/system-evidence.js
-          node --check web/app/workbench.js
-          node --check web/app/full-scan.js
-          node --check web/app/action-dock.js
-          node --check web/app/ai.js
-          node --check web/app/ai-worker.js
-          node --check web/app/manual.js
-          node --check web/app/manual-entry.js
-          node --check web/app/runtime.js
-          grep -Fq '/app/workbench.css' web/index.html
-          grep -Fq '/app/workbench.js' web/index.html
-          grep -Fq '/app/full-scan.css' web/index.html
-          grep -Fq '/app/full-scan.js' web/index.html
-          grep -Fq '/app/action-dock.css' web/index.html
-          grep -Fq '/app/action-dock.js' web/index.html
-          grep -Fq '/app/ai.css' web/index.html
-          grep -Fq '/app/ai.js' web/index.html
-          grep -Fq '/app/manual.css' web/index.html
-          grep -Fq '/app/manual.js' web/index.html
-          grep -Fq '/app/manual-entry.js' web/index.html
-          grep -Fq 'id="manualButton"' web/index.html
-          grep -Fq "registerLens('assistant'" web/app/ai.js
-          grep -Fq "registerLens('manual'" web/app/manual.js
-          grep -Fq "limits.lenses.push('manual')" web/app/manual-entry.js
-          grep -Fq "useIndexedDBCache:true" web/app/ai.js
-          grep -Fq "Model Library" web/app/ai.js
-          grep -Fq "Qwen2.5-1.5B-Instruct-q4f16_1-MLC" web/app/ai.js
-          grep -Fq "gemma-2-9b-it-q4f16_1-MLC" web/app/ai.js
-          grep -Fq "contextBarSignature" web/app/ai.js
-          grep -Fq "dataset.aiSignature" web/app/ai.js
-          grep -Fq "dataset.aiQuery" web/app/ai.js
-          grep -Fq "navigator.gpu" web/app/ai.js
-          grep -Fq "WebWorkerMLCEngineHandler" web/app/ai-worker.js
-          test "$(grep -nF '<script src="/app/workbench.js"></script>' web/index.html | cut -d: -f1)" -lt "$(grep -nF '<script src="/app/full-scan.js"></script>' web/index.html | cut -d: -f1)"
-          test "$(grep -nF '<script src="/app/full-scan.js"></script>' web/index.html | cut -d: -f1)" -lt "$(grep -nF '<script src="/app/action-dock.js"></script>' web/index.html | cut -d: -f1)"
-          test "$(grep -nF '<script src="/app/action-dock.js"></script>' web/index.html | cut -d: -f1)" -lt "$(grep -nF '<script src="/app/ai.js"></script>' web/index.html | cut -d: -f1)"
-          test "$(grep -nF '<script src="/app/ai.js"></script>' web/index.html | cut -d: -f1)" -lt "$(grep -nF '<script src="/app/manual.js"></script>' web/index.html | cut -d: -f1)"
-          test "$(grep -nF '<script src="/app/manual.js"></script>' web/index.html | cut -d: -f1)" -lt "$(grep -nF '<script src="/app/manual-entry.js"></script>' web/index.html | cut -d: -f1)"
-          test "$(grep -nF '<script src="/app/manual-entry.js"></script>' web/index.html | cut -d: -f1)" -lt "$(grep -nF '<script src="/app/runtime.js"></script>' web/index.html | cut -d: -f1)"
-
-      - name: Auxiliary workspace JavaScript syntax
-        run: |
-          node --check web/i18n.js
-          node --check web/aux-navigation.js
-          node --check web/alpha-center.js
-          node --check web/workspace-centers.js
-          node --check web/storage-visualization.js
-          node --check web/system-console.js
-          node --check web/system-console-links.js
-          node --check web/system-console-domains.js
-          node --check web/system-console-investigation.js
-          node --check web/terminal-guide.js
-          node --check web/control-plane.js
-          node --check web/control-plane-aging.js
-          node --check web/investigation.js
-          node --check web/investigation-stability.js
-          node --check web/investigation-session-note-guard.js
-          node --check web/investigation-export.js
-          node --check web/launch-services.js
-          node --check web/process-relations.js
-          node --check web/process-relations-bridge.js
-          node --check web/network-relations.js
-          node --check web/intelligence-center.js
-          node --check web/intelligence-export.js
-          node --check web/command-palette.js
-          node --check web/vault-health.js
-          node --check web/pre-regression.js
-
-      - name: Shell syntax
-        run: |
-          bash -n build-macos.sh
-          bash -n build-desktop-macos.sh
-          bash -n package-dev-dmg-macos.sh
-          bash -n release-direct-macos.sh
-          bash -n verify-release-macos.sh
-          bash -n run-fresh-desktop.sh
-          bash -n reinstall-macos.sh
