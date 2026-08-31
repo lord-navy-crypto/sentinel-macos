@@ -33,6 +33,11 @@ jobs:
         run: |
           go test ./... -run 'Migration|IncidentStory|Timeline|Export|StorageAging|ReasonCodeRegistry|RuleRegistry|VaultHealth|Navigation|Regression|SessionNote|Alpha|I18n|Observation|Snapshot|ContinueInvestigation|TerminalGuide|VisualGrammar|Application|Advanced|Workbench|FullScan|CapabilityAtlas|ScanCenter|ActionDock|Manual|LocalAI'
 
+      - name: Localhost functional smoke
+        run: |
+          chmod +x SMOKE_TEST_LOCALHOST.command
+          ./SMOKE_TEST_LOCALHOST.command
+
       - name: Darwin architecture build smoke
         run: |
           CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o /tmp/sentinel-arm64 .
@@ -183,6 +188,7 @@ jobs:
 
       - name: Shell syntax
         run: |
+          bash -n SMOKE_TEST_LOCALHOST.command
           bash -n build-macos.sh
           bash -n build-desktop-macos.sh
           bash -n package-dev-dmg-macos.sh
