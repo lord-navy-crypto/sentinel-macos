@@ -53,7 +53,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
             backing: .buffered,
             defer: false
         )
-        window.title = "Sentinel Mac 2.4"
+        window.title = "Sentinel Mac 2.5"
         window.center()
         window.delegate = self
 
@@ -80,7 +80,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         statusLabel = NSTextField(labelWithString: "Starting local engine…")
         statusLabel.font = .systemFont(ofSize: 14, weight: .medium)
 
-        detailLabel = NSTextField(wrappingLabelWithString: "Sentinel starts one loopback-only engine and one Sentinel 2.4 product interface. Open it in your browser or inside the native App View; both containers use the same local source, session, and evidence.")
+        detailLabel = NSTextField(wrappingLabelWithString: "Sentinel starts one loopback-only engine and one Sentinel 2.5 product interface. Open it in your browser or inside the native App View; both containers use the same local source, session, and evidence.")
         detailLabel.font = .systemFont(ofSize: 12)
         detailLabel.textColor = .secondaryLabelColor
         detailLabel.maximumNumberOfLines = 4
@@ -102,7 +102,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         buttonRow.alignment = .centerY
         buttonRow.spacing = 10
 
-        let hint = NSTextField(labelWithString: "Browser and App View render the same Sentinel 2.4 Native Frontend; only the window container differs.")
+        let hint = NSTextField(labelWithString: "Browser and App View render the same Sentinel 2.5 Native Frontend; only the window container differs.")
         hint.font = .systemFont(ofSize: 11)
         hint.textColor = .tertiaryLabelColor
 
@@ -182,7 +182,10 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         }
 
         let config = WKWebViewConfiguration()
-        config.websiteDataStore = .nonPersistent()
+        // Local AI uses WebLLM IndexedDB for multi-gigabyte model artifacts.
+        // Persist the localhost WebKit store so an explicitly downloaded model
+        // survives App View relaunch instead of being downloaded every time.
+        config.websiteDataStore = .default()
         config.defaultWebpagePreferences.allowsContentJavaScript = true
 
         let view = WKWebView(frame: .zero, configuration: config)
@@ -196,7 +199,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
             backing: .buffered,
             defer: false
         )
-        appWindow.title = "Sentinel 2.4 · Local Evidence"
+        appWindow.title = "Sentinel 2.5 · Local Evidence"
         appWindow.minSize = NSSize(width: 1080, height: 700)
         appWindow.isReleasedWhenClosed = false
         appWindow.contentView = view
@@ -370,7 +373,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
                 self.productURL = url
                 self.window.title = "Sentinel Mac \(payload.version)"
                 self.statusLabel.stringValue = "Local engine ready · Sentinel \(payload.version)"
-                self.detailLabel.stringValue = "Product source: \(payload.origin)\nBrowser and App View both open the same Sentinel 2.4 Native Frontend and the same token-authenticated local evidence session."
+                self.detailLabel.stringValue = "Product source: \(payload.origin)\nBrowser and App View both open the same Sentinel 2.5 Native Frontend and the same token-authenticated local evidence session."
                 self.browserButton.isEnabled = true
                 self.appViewButton.isEnabled = true
             }
