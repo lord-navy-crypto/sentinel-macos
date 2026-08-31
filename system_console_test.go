@@ -80,7 +80,7 @@ func TestSystemConsoleIntegrationContract(t *testing.T) {
 		"main.go": {"/api/system/console", "/api/system/query", "/api/system/query/structured", "/api/system/object/inspect"},
 		"web/system-console.html": {"Start with a question, not a command", "data-recipe-tool", "Inspect a Mac object", "structuredOutput", "Raw evidence", "/system-console.js", "/aux-navigation.js"},
 		"web/system-console.js": {"/api/system/query/structured", "/api/system/object/inspect", "renderStructuredEvidence", "toolIndex", "data-recipe-tool"},
-		"web/aux-navigation.js": {"Sentinel 2.4 · AUX", "productHref('status')", "/system-console.html"},
+		"web/aux-navigation.js": {"Sentinel 2.6 · AUX", "productHref('status')", "/system-console.html"},
 	}
 	for path, needles := range checks {
 		raw, err := os.ReadFile(path); if err != nil { t.Fatalf("read %s: %v", path, err) }
