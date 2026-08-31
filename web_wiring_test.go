@@ -13,7 +13,7 @@ func readUIFile(t *testing.T, path string) string { t.Helper(); b, err := os.Rea
 
 func TestSentinelApplicationIsTheDefaultProductSource(t *testing.T) {
 	html := readUIFile(t, "web/index.html")
-	for _, want := range []string{`data-sentinel-generation="2.6-native"`,`href="/app/shell.css"`,`href="/app/advanced.css"`,`href="/app/workbench.css"`,`src="/app/core.js"`,`src="/app/lenses/orient-investigate.js"`,`src="/app/lenses/compare.js"`,`src="/app/lenses/system.js"`,`src="/app/lenses/act-limits.js"`,`src="/app/advanced.js"`,`src="/app/case-stories.js"`,`src="/app/system-evidence.js"`,`src="/app/workbench.js"`,`src="/app/runtime.js"`,`id="missionRibbon"`,`id="lensRail"`,`id="evidenceStage"`,`id="contextTray"`,`id="activityBar"`} { if !strings.Contains(html, want) { t.Fatalf("Sentinel application shell missing %q", want) } }
+	for _, want := range []string{`data-sentinel-generation="2.6-native"`,`href="/app/shell.css"`,`href="/app/advanced.css"`,`href="/app/workbench.css"`,`src="/app/core.js"`,`src="/app/lenses/orient-investigate.js"`,`src="/app/lenses/compare.js"`,`src="/app/lenses/system.js"`,`src="/app/lenses/act-limits.js"`,`src="/app/advanced.js"`,`src="/app/case-stories.js"`,`src="/app/system-evidence.js"`,`src="/app/workbench.js"`,`src="/app/ai.js"`,`src="/app/ai-reliability.js"`,`src="/app/manual.js"`,`src="/app/manual-entry.js"`,`src="/app/runtime.js"`,`id="missionRibbon"`,`id="lensRail"`,`id="evidenceStage"`,`id="contextTray"`,`id="activityBar"`} { if !strings.Contains(html, want) { t.Fatalf("Sentinel application shell missing %q", want) } }
 	for _, retired := range []string{`/app/controller.js`,`src="/app.js"`,`href="/style.css"`,`desktop-ui.js`,`class="sidebar"`,`id="easyMode"`,`Sentinel 2.2`,`Desktop Conversion`,`/sentinel-24.js`,`/sentinel-24.css`} { if strings.Contains(html, retired) { t.Fatalf("default product source still contains retired marker %q", retired) } }
 	if _, err := os.Stat("web/app/controller.js"); !os.IsNotExist(err) { t.Fatal("retired monolithic controller must not exist") }
 }
@@ -44,7 +44,13 @@ func TestSentinelApplicationUsesAuthenticatedLocalRequests(t *testing.T) {
 }
 
 func TestSentinelApplicationUsesOrderedExternalModules(t *testing.T) {
-	html := readUIFile(t,"web/index.html"); tags := regexp.MustCompile(`(?s)<script\b[^>]*>`).FindAllString(html,-1)
-	if len(tags)!=len(canonicalProductScripts) { t.Fatalf("expected %d product scripts, found %d",len(canonicalProductScripts),len(tags)) }
+	html := readUIFile(t,"web/index.html")
+	tags := regexp.MustCompile(`(?s)<script\b[^>]*>`).FindAllString(html,-1)
+	for _, tag := range tags {
+		if !strings.Contains(tag, `src="`) {
+			t.Fatalf("strict CSP product shell must not contain inline executable script tags: %s", tag)
+		}
+	}
+	if len(tags)!=len(canonicalProductScripts) { t.Fatalf("expected %d external product scripts, found %d",len(canonicalProductScripts),len(tags)) }
 	for i,path := range canonicalProductScripts { want := `src="/`+strings.TrimPrefix(path,"web/")+`"`; if !strings.Contains(tags[i],want) { t.Fatalf("script %d must be %s, got %s",i,want,tags[i]) } }
 }
