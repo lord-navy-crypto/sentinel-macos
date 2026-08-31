@@ -2,7 +2,7 @@
 (() => {
   'use strict';
 
-  const PRODUCT_MARKER = 'Sentinel 2.4 Native Frontend';
+  const PRODUCT_MARKER = 'Sentinel 2.6 Native Frontend';
   const token = new URLSearchParams(location.hash.slice(1)).get('token') || '';
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];

@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MPL-2.0
-// Sentinel 2.5 User Manual — long-form, plain-language, in-app product guide.
+// Sentinel 2.6 User Manual — long-form, plain-language, in-app product guide.
 (() => {
   'use strict';
   const S = window.SentinelApp;
   if (!S) throw new Error('Sentinel application core did not load before User Manual.');
   const {$, esc, question, registerLens, activity} = S;
 
-  const MANUAL_MARKER = 'Sentinel 2.5 Comprehensive User Manual';
+  const MANUAL_MARKER = 'Sentinel 2.6 Comprehensive User Manual';
 
   const GROUPS = [
     {

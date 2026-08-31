@@ -13,16 +13,16 @@ func readUIFile(t *testing.T, path string) string { t.Helper(); b, err := os.Rea
 
 func TestSentinelApplicationIsTheDefaultProductSource(t *testing.T) {
 	html := readUIFile(t, "web/index.html")
-	for _, want := range []string{`data-sentinel-generation="2.4-native"`,`href="/app/shell.css"`,`href="/app/advanced.css"`,`href="/app/workbench.css"`,`src="/app/core.js"`,`src="/app/lenses/orient-investigate.js"`,`src="/app/lenses/compare.js"`,`src="/app/lenses/system.js"`,`src="/app/lenses/act-limits.js"`,`src="/app/advanced.js"`,`src="/app/case-stories.js"`,`src="/app/system-evidence.js"`,`src="/app/workbench.js"`,`src="/app/runtime.js"`,`id="missionRibbon"`,`id="lensRail"`,`id="evidenceStage"`,`id="contextTray"`,`id="activityBar"`} { if !strings.Contains(html, want) { t.Fatalf("Sentinel application shell missing %q", want) } }
+	for _, want := range []string{`data-sentinel-generation="2.6-native"`,`href="/app/shell.css"`,`href="/app/advanced.css"`,`href="/app/workbench.css"`,`src="/app/core.js"`,`src="/app/lenses/orient-investigate.js"`,`src="/app/lenses/compare.js"`,`src="/app/lenses/system.js"`,`src="/app/lenses/act-limits.js"`,`src="/app/advanced.js"`,`src="/app/case-stories.js"`,`src="/app/system-evidence.js"`,`src="/app/workbench.js"`,`src="/app/runtime.js"`,`id="missionRibbon"`,`id="lensRail"`,`id="evidenceStage"`,`id="contextTray"`,`id="activityBar"`} { if !strings.Contains(html, want) { t.Fatalf("Sentinel application shell missing %q", want) } }
 	for _, retired := range []string{`/app/controller.js`,`src="/app.js"`,`href="/style.css"`,`desktop-ui.js`,`class="sidebar"`,`id="easyMode"`,`Sentinel 2.2`,`Desktop Conversion`,`/sentinel-24.js`,`/sentinel-24.css`} { if strings.Contains(html, retired) { t.Fatalf("default product source still contains retired marker %q", retired) } }
 	if _, err := os.Stat("web/app/controller.js"); !os.IsNotExist(err) { t.Fatal("retired monolithic controller must not exist") }
 }
 
 func TestSentinelApplicationOwnsNavigationAndState(t *testing.T) {
 	core := requireProductScript(t, "web/app/core.js"); runtime := requireProductScript(t, "web/app/runtime.js"); workbench := requireProductScript(t, "web/app/workbench.js")
-	for _, want := range []string{"Sentinel 2.4 Native Frontend","const MISSIONS","const LENSES","missionRibbon","lensRail","window.SentinelApp","ORIENT","CORRELATE","CONNECT","COMPARE","RESOLVE","BOUND"} { if !strings.Contains(core, want) { t.Fatalf("application core missing %q", want) } }
-	for _, want := range []string{"window.__SENTINEL_24__","architecture:'modular-app'","document.addEventListener('click'","document.addEventListener('submit'"} { if !strings.Contains(runtime, want) { t.Fatalf("application runtime missing %q", want) } }
-	for _, want := range []string{"Sentinel 2.4 Investigation Workbench","Workspace Persistence","Cross-Lens Selection","Natural-language Command Bar"} { if !strings.Contains(workbench, want) { t.Fatalf("application workbench missing %q", want) } }
+	for _, want := range []string{"Sentinel 2.6 Native Frontend","const MISSIONS","const LENSES","missionRibbon","lensRail","window.SentinelApp","ORIENT","CORRELATE","CONNECT","COMPARE","RESOLVE","BOUND"} { if !strings.Contains(core, want) { t.Fatalf("application core missing %q", want) } }
+	for _, want := range []string{"window.__SENTINEL_26__","architecture:'modular-app'","document.addEventListener('click'","document.addEventListener('submit'"} { if !strings.Contains(runtime, want) { t.Fatalf("application runtime missing %q", want) } }
+	for _, want := range []string{"Sentinel 2.6 Investigation Workbench","Workspace Persistence","Cross-Lens Selection","Natural-language Command Bar"} { if !strings.Contains(workbench, want) { t.Fatalf("application workbench missing %q", want) } }
 }
 
 func TestSentinelApplicationAPIReferencesHaveRegisteredRoutes(t *testing.T) {

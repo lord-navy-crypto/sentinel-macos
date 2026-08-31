@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MPL-2.0
-// Sentinel 2.4 Investigation Workbench — cross-lens product evolution layer.
+// Sentinel 2.6 Investigation Workbench — cross-lens product evolution layer.
 (() => {
   'use strict';
   const S = window.SentinelApp;
@@ -203,5 +203,5 @@
   setTimeout(()=>{if(!wb.onboardingDone)openWorkbench('onboarding');},900);
 
   S.Workbench={FEATURES,store:wb,open:openWorkbench,setSelection,explainSelection,openProcessStory,evidenceBundle,assistantAnswer,runNaturalCommand};
-  window.__SENTINEL_WORKBENCH__={marker:'Sentinel 2.4 Investigation Workbench',features:FEATURES.length};
+  window.__SENTINEL_WORKBENCH__={marker:'Sentinel 2.6 Investigation Workbench',features:FEATURES.length};
 })();

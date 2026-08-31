@@ -22,8 +22,8 @@ func TestLocalAIIsCanonicalAndExplicitlyOptIn(t *testing.T) {
 		if !strings.Contains(html, want) { t.Fatalf("canonical UI missing Local AI asset %q", want) }
 	}
 	for _, want := range []string{
-		"Sentinel 2.5 WebLLM Local AI",
-		"Sentinel 2.5 Integrated Local AI",
+		"Sentinel 2.6 WebLLM Local AI",
+		"Sentinel 2.6 Integrated Local AI",
 		"registerLens('assistant'",
 		"navigator.gpu",
 		"CreateWebWorkerMLCEngine",

@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MPL-2.0
-// Sentinel 2.4 Full Scan Center — visual capability atlas + retained-evidence orchestration.
+// Sentinel 2.6 Full Scan Center — visual capability atlas + retained-evidence orchestration.
 (() => {
   'use strict';
   const S = window.SentinelApp;
   if (!S) throw new Error('Sentinel application core did not load before Full Scan Center.');
   const {$, api, activity, notice, esc, badge, registerLens} = S;
-  const SCAN_MARKER = 'Sentinel 2.4 Full Scan Center';
+  const SCAN_MARKER = 'Sentinel 2.6 Full Scan Center';
 
   const fullScan = {
     running: false,

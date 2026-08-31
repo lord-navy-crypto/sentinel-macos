@@ -24,13 +24,13 @@ UI_STYLE="$HERE/web/app/shell.css"
 UI_WORKBENCH="$HERE/web/app/workbench.js"
 UI_SCAN_CENTER="$HERE/web/app/full-scan.js"
 UI_ACTION_DOCK="$HERE/web/app/action-dock.js"
-UI_MARKER="Sentinel 2.4 Native Frontend"
-WORKBENCH_MARKER="Sentinel 2.4 Investigation Workbench"
-SCAN_CENTER_MARKER="Sentinel 2.4 Full Scan Center"
-ACTION_DOCK_MARKER="Sentinel 2.4 Contextual Action Dock"
+UI_MARKER="Sentinel 2.6 Native Frontend"
+WORKBENCH_MARKER="Sentinel 2.6 Investigation Workbench"
+SCAN_CENTER_MARKER="Sentinel 2.6 Full Scan Center"
+ACTION_DOCK_MARKER="Sentinel 2.6 Contextual Action Dock"
 BUILD_SHA="$(git rev-parse HEAD 2>/dev/null || printf 'unknown')"
 
-# The canonical Sentinel 2.4 application is modular. These are product modules,
+# The canonical Sentinel 2.6 application is modular. These are product modules,
 # not optional legacy workspaces. A clean build must refuse an incomplete source
 # tree rather than silently packaging a stale or partially migrated UI.
 REQUIRED_UI_FILES=(
@@ -76,7 +76,7 @@ REQUIRED_UI_STYLES=(
 
 for rel in "${REQUIRED_UI_FILES[@]}"; do
   if [[ ! -f "$HERE/$rel" ]]; then
-    echo "Required Sentinel 2.4 product module is missing: $rel" >&2
+    echo "Required Sentinel 2.6 product module is missing: $rel" >&2
     echo "Refusing to package an incomplete product source tree." >&2
     exit 2
   fi
@@ -87,24 +87,24 @@ if [[ -e "$HERE/web/app/scan-center.js" || -e "$HERE/web/app/scan-center.css" ]]
   exit 2
 fi
 if ! grep -Fq "$UI_MARKER" "$UI_CORE"; then
-  echo "Sentinel 2.4 product marker missing from $UI_CORE: $UI_MARKER" >&2
+  echo "Sentinel 2.6 product marker missing from $UI_CORE: $UI_MARKER" >&2
   echo "Refusing to build an ambiguous or stale product source tree." >&2
   exit 2
 fi
 if ! grep -Fq "$WORKBENCH_MARKER" "$UI_WORKBENCH"; then
-  echo "Sentinel 2.4 Investigation Workbench marker missing from $UI_WORKBENCH" >&2
+  echo "Sentinel 2.6 Investigation Workbench marker missing from $UI_WORKBENCH" >&2
   exit 2
 fi
 if ! grep -Fq "$SCAN_CENTER_MARKER" "$UI_SCAN_CENTER"; then
-  echo "Sentinel 2.4 Full Scan Center marker missing from $UI_SCAN_CENTER" >&2
+  echo "Sentinel 2.6 Full Scan Center marker missing from $UI_SCAN_CENTER" >&2
   exit 2
 fi
 if ! grep -Fq "$ACTION_DOCK_MARKER" "$UI_ACTION_DOCK"; then
-  echo "Sentinel 2.4 Action Dock marker missing from $UI_ACTION_DOCK" >&2
+  echo "Sentinel 2.6 Action Dock marker missing from $UI_ACTION_DOCK" >&2
   exit 2
 fi
 if ! grep -Fq ".s24-shell" "$UI_STYLE"; then
-  echo "Sentinel 2.4 visual-system marker missing from $UI_STYLE" >&2
+  echo "Sentinel 2.6 visual-system marker missing from $UI_STYLE" >&2
   exit 2
 fi
 if ! grep -Fq ".wb-matrix" "$HERE/web/app/workbench.css"; then
@@ -124,18 +124,18 @@ previous_line=0
 for src in "${REQUIRED_UI_SCRIPTS[@]}"; do
   line="$(grep -nF "<script src=\"$src\"></script>" "$UI_INDEX" | head -n1 | cut -d: -f1 || true)"
   if [[ -z "$line" ]]; then
-    echo "Canonical index.html does not load required Sentinel 2.4 module: $src" >&2
+    echo "Canonical index.html does not load required Sentinel 2.6 module: $src" >&2
     exit 2
   fi
   if (( line <= previous_line )); then
-    echo "Sentinel 2.4 module load order is invalid near: $src" >&2
+    echo "Sentinel 2.6 module load order is invalid near: $src" >&2
     exit 2
   fi
   previous_line="$line"
 done
 for href in "${REQUIRED_UI_STYLES[@]}"; do
   if ! grep -Fq "<link rel=\"stylesheet\" href=\"$href\">" "$UI_INDEX"; then
-    echo "Canonical index.html does not load required Sentinel 2.4 style: $href" >&2
+    echo "Canonical index.html does not load required Sentinel 2.6 style: $href" >&2
     exit 2
   fi
 done
@@ -182,7 +182,7 @@ done
 echo "===== SENTINEL SOURCE IDENTITY ====="
 echo "Source commit: $BUILD_SHA"
 echo "Product version: $VERSION"
-echo "Desktop UI: 2.4 Native Frontend"
+echo "Desktop UI: 2.6 Native Frontend"
 echo "Canonical modules: ${#REQUIRED_UI_SCRIPTS[@]} scripts + ${#REQUIRED_UI_STYLES[@]} styles"
 echo "Core UI marker: verified"
 echo "Advanced capabilities: verified"
@@ -198,13 +198,13 @@ echo
 for engine in "$HERE/dist/sentinel-macos-arm64" "$HERE/dist/sentinel-macos-x86_64"; do
   for marker in "$UI_MARKER" "$WORKBENCH_MARKER" "$SCAN_CENTER_MARKER" "$ACTION_DOCK_MARKER" '/api/intelligence/graph/v2' '/api/incidents/v2' '/api/network/history' 'Evidence Bundle' 'Deep home-storage traversal & hash analysis'; do
     if ! LC_ALL=C grep -aFq "$marker" "$engine"; then
-      echo "Embedded Sentinel 2.4 marker missing from $engine: $marker" >&2
+      echo "Embedded Sentinel 2.6 marker missing from $engine: $marker" >&2
       echo "The Go binary does not contain the current modular web/app product. Aborting." >&2
       exit 2
     fi
   done
 done
-echo "Embedded Sentinel 2.4 product + Workbench + Full Scan Center + Action Dock: verified in arm64 + x86_64 engines"
+echo "Embedded Sentinel 2.6 product + Workbench + Full Scan Center + Action Dock: verified in arm64 + x86_64 engines"
 
 # Build the native launcher completely before replacing the app bundle. If Swift
 # or lipo fails, no partial Sentinel.app is left behind.
@@ -274,7 +274,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
   <key>NSHighResolutionCapable</key><true/>
   <key>SentinelSourceCommit</key><string>${BUILD_SHA}</string>
-  <key>SentinelDesktopUI</key><string>2.4 Native Frontend</string>
+  <key>SentinelDesktopUI</key><string>2.6 Native Frontend</string>
   <key>SentinelWorkbench</key><string>30-function Investigation Workbench</string>
   <key>SentinelScanCenter</key><string>Easy Scan + Full Scan + Capability Atlas</string>
   <key>SentinelActionDock</key><string>Contextual Quick Actions</string>
@@ -292,13 +292,13 @@ printf '%s\n' \
   "Bundle ID: $BUNDLE_ID" \
   "Version: $VERSION" \
   "Source commit: $BUILD_SHA" \
-  "Desktop UI: 2.4 Native Frontend" \
+  "Desktop UI: 2.6 Native Frontend" \
   "Investigation Workbench: 30 integrated improvements" \
   "Scan Center: Easy Scan + Full Scan + Capability Atlas" \
   "Action Dock: contextual quick actions" \
   "Embedded UI: canonical modular product verified in arm64 + x86_64" \
   "Universal launcher: $(lipo -archs "$APP/Contents/MacOS/Sentinel")" \
   "App icon: $APP/Contents/Resources/AppIcon.icns" \
-  "UI modes: browser + native WebKit App View, same Sentinel 2.4 product source" \
+  "UI modes: browser + native WebKit App View, same Sentinel 2.6 product source" \
   "ATS: local networking only; no arbitrary-load exception" \
   "This build is not signed/notarized unless you run release-direct-macos.sh."

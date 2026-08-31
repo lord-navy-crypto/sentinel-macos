@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MPL-2.0
-// Navigation/bootstrap glue for the Sentinel 2.5 in-app User Manual.
+// Navigation/bootstrap glue for the Sentinel 2.6 in-app User Manual.
 (() => {
   'use strict';
   const S = window.SentinelApp;
