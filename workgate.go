@@ -21,6 +21,8 @@ func newWorkGate(limit int) *workGate {
 
 func (g *workGate) wrap(name string, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		timer := time.NewTimer(150 * time.Millisecond)
+		defer timer.Stop()
 		select {
 		case g.sem <- struct{}{}:
 			g.active.Add(1)
@@ -28,8 +30,19 @@ func (g *workGate) wrap(name string, next http.HandlerFunc) http.HandlerFunc {
 				g.active.Add(-1)
 				<-g.sem
 			}()
+			// Re-check after acquiring the slot. If the client disappeared at the
+			// same instant the slot opened, do not start an expensive local scan.
+			select {
+			case <-r.Context().Done():
+				return
+			default:
+			}
 			next(w, r)
-		case <-time.After(150 * time.Millisecond):
+		case <-r.Context().Done():
+			// Navigation changes, closed tabs, and shutdown cancel queued work
+			// rather than allowing a dead request to consume an analysis slot.
+			return
+		case <-timer.C:
 			w.Header().Set("Retry-After", "1")
 			writeJSON(w, http.StatusTooManyRequests, map[string]any{"error": "Sentinel is already performing other expensive local analysis; retry in a moment", "operation": name})
 		}
