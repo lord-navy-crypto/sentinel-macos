@@ -8,8 +8,22 @@ import (
 	"testing"
 )
 
-func TestVaultManifestAcceptsConsistentPaths(t *testing.T) {
+// macOS commonly exposes temporary directories through /var while the resolved
+// filesystem path is /private/var. Canonicalize the test root so these tests
+// exercise Sentinel-owned symlink traversal rather than a platform alias above
+// the test sandbox.
+func canonicalTempRoot(t *testing.T) string {
+	t.Helper()
 	root := t.TempDir()
+	resolved, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		t.Fatalf("resolve temporary test root: %v", err)
+	}
+	return resolved
+}
+
+func TestVaultManifestAcceptsConsistentPaths(t *testing.T) {
+	root := canonicalTempRoot(t)
 	originalDir := filepath.Join(root, "original")
 	if err := os.Mkdir(originalDir, 0o700); err != nil {
 		t.Fatal(err)
@@ -37,7 +51,7 @@ func TestVaultManifestAcceptsConsistentPaths(t *testing.T) {
 }
 
 func TestVaultManifestRejectsCrossIDObjectPath(t *testing.T) {
-	root := t.TempDir()
+	root := canonicalTempRoot(t)
 	originalDir := filepath.Join(root, "original")
 	if err := os.Mkdir(originalDir, 0o700); err != nil {
 		t.Fatal(err)
@@ -56,7 +70,7 @@ func TestVaultManifestRejectsCrossIDObjectPath(t *testing.T) {
 }
 
 func TestVaultManifestRejectsOriginalPathThroughSymlinkAncestor(t *testing.T) {
-	root := t.TempDir()
+	root := canonicalTempRoot(t)
 	realRoot := filepath.Join(root, "real")
 	realParent := filepath.Join(realRoot, "parent")
 	if err := os.MkdirAll(realParent, 0o700); err != nil {
@@ -81,7 +95,7 @@ func TestVaultManifestRejectsOriginalPathThroughSymlinkAncestor(t *testing.T) {
 }
 
 func TestVaultManifestRejectsSymlinkedActiveObject(t *testing.T) {
-	root := t.TempDir()
+	root := canonicalTempRoot(t)
 	originalDir := filepath.Join(root, "original")
 	if err := os.Mkdir(originalDir, 0o700); err != nil {
 		t.Fatal(err)
