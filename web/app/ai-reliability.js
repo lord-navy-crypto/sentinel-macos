@@ -7,8 +7,8 @@
   if(!S||!AI)return;
   const ai=AI.state, esc=S.esc||((v)=>String(v??''));
   const RELIABILITY_MARKER='Sentinel 2.6 Local AI Reliability';
-  const STALL_MS=90000, ABSOLUTE_MS=600000;
-  const reliability={lastError:'',lastFailureAt:0,lastSuccessAt:0,attempt:0,phase:'idle'};
+  const STALL_MS=90000, ABSOLUTE_MS=600000, UNLOAD_MS=1500, GENERATION_STALL_MS=90000;
+  const reliability={lastError:'',lastFailureAt:0,lastSuccessAt:0,attempt:0,phase:'idle',generationStartedAt:0,lastTokenAt:0};
   AI.reliability=reliability;AI.reliabilityMarker=RELIABILITY_MARKER;
 
   function capabilities(){
@@ -23,11 +23,11 @@
     ['IndexedDB',c.indexeddb?'Available':'Unavailable'],['Loopback / secure context',c.secureContext?'OK':'Review'],
     ['Selected model',modelName()],['Loaded model',ai.loadedModel||'Not loaded'],
     ['Worker state',ai.worker?'Created':'Not created'],['Engine state',ai.engine?'Created':'Not created'],
-    ['Load phase',reliability.phase],['Progress',`${Math.round(Number(ai.progress||0)*100)}% · ${ai.progressText||'—'}`],
+    ['Load / generation phase',reliability.phase],['Progress',`${Math.round(Number(ai.progress||0)*100)}% · ${ai.progressText||'—'}`],
     ['Last error',reliability.lastError||'None']
   ];}
   function diagnosticSignature(){return JSON.stringify(diagnosticRows());}
-  function diagnosticsHTML(signature=diagnosticSignature()){return `<section id="aiReliabilityPanel" data-ai-reliability-signature="${esc(signature)}" class="wb-section"><div class="wb-section-head"><div><h3>Local AI diagnostics</h3><p>Runtime → model download/cache → WebGPU initialization → generation. A stalled stage now fails visibly instead of waiting forever.</p></div></div><div class="s24-ledger">${diagnosticRows().map(([k,v])=>`<div><span>${esc(k)}</span><strong>${esc(v)}</strong></div>`).join('')}</div><div class="wb-actions"><button type="button" class="s24-action primary" data-ai-reliable="retry">Retry model load</button><button type="button" class="s24-action" data-ai-reliable="small">Use Qwen 0.5B</button><button type="button" class="s24-action" data-ai-reliable="refresh">Refresh diagnostics</button></div>${reliability.lastError?`<div class="s24-note warn"><b>Last Local AI failure:</b> ${esc(reliability.lastError)}. Sentinel evidence features remain available; use the evidence-only fallback below while troubleshooting the model.</div>`:''}<form id="aiEvidenceFallbackForm" class="wb-form"><label class="wb-field"><span>Evidence-only fallback</span><textarea name="prompt" rows="2" placeholder="What changed since my last checkpoint?"></textarea></label><button class="s24-action" type="submit">Analyze without model</button></form><div id="aiEvidenceFallbackResult"></div></section>`;}
+  function diagnosticsHTML(signature=diagnosticSignature()){return `<section id="aiReliabilityPanel" data-ai-reliability-signature="${esc(signature)}" class="wb-section"><div class="wb-section-head"><div><h3>Local AI diagnostics</h3><p>Runtime → model download/cache → WebGPU initialization → generation. A stalled stage fails visibly instead of waiting forever.</p></div></div><div class="s24-ledger">${diagnosticRows().map(([k,v])=>`<div><span>${esc(k)}</span><strong>${esc(v)}</strong></div>`).join('')}</div><div class="wb-actions"><button type="button" class="s24-action primary" data-ai-reliable="retry">Retry model load</button><button type="button" class="s24-action" data-ai-reliable="small">Use Qwen 0.5B</button><button type="button" class="s24-action" data-ai-reliable="refresh">Refresh diagnostics</button></div>${reliability.lastError?`<div class="s24-note warn"><b>Last Local AI failure:</b> ${esc(reliability.lastError)}. Sentinel evidence features remain available; use the evidence-only fallback below while troubleshooting the model.</div>`:''}<form id="aiEvidenceFallbackForm" class="wb-form"><label class="wb-field"><span>Evidence-only fallback</span><textarea name="prompt" rows="2" placeholder="What changed since my last checkpoint?"></textarea></label><button class="s24-action" type="submit">Analyze without model</button></form><div id="aiEvidenceFallbackResult"></div></section>`;}
   function ensureDiagnostics(){
     const stage=document.querySelector('#evidenceStage');if(!stage||S.state?.lens!=='assistant')return;
     const signature=diagnosticSignature();let panel=stage.querySelector('#aiReliabilityPanel');
@@ -40,12 +40,21 @@
     for(const b of tray.querySelectorAll('[data-wb-tab="assistant"]')){if(b.textContent!=='Evidence fallback')b.textContent='Evidence fallback';b.title='Deterministic Sentinel API fallback; the model-backed assistant is the main Assistant Lens.';}
   }
   function queueUI(){queueMicrotask(()=>{ensureDiagnostics();rebrandLegacyAssistant();});}
+  const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+
+  async function boundedUnload(engine){
+    if(!engine?.unload)return;
+    try{await Promise.race([engine.unload(),delay(UNLOAD_MS)]);}catch{}
+  }
 
   async function resetFailedLoad(message){
     reliability.lastError=String(message||'Unknown Local AI initialization error');reliability.lastFailureAt=Date.now();reliability.phase='failed';
     reliability.attempt++;
-    try{ai.worker?.terminate();}catch{};ai.worker=null;
-    try{await ai.engine?.unload?.();}catch{};ai.engine=null;ai.loadedModel=null;ai.loading=false;ai.generating=false;
+    const oldEngine=ai.engine,oldWorker=ai.worker;
+    // Detach state first so the UI can recover even if WebLLM cleanup itself is unhealthy.
+    ai.engine=null;ai.worker=null;ai.loadedModel=null;ai.loading=false;ai.generating=false;
+    await boundedUnload(oldEngine);
+    try{oldWorker?.terminate();}catch{}
     ai.progressText='Local AI load failed · '+reliability.lastError;
     S.notice?.(ai.progressText);S.activity?.('Error',0,reliability.lastError);queueUI();
   }
@@ -72,6 +81,29 @@
     }catch(error){await resetFailedLoad(error?.message||String(error));}
     finally{clearInterval(monitor);clearTimeout(absolute);queueUI();}
   }
+
+  function latestAssistantText(){
+    const message=[...(ai.conversation||[])].reverse().find(x=>x?.role==='assistant');
+    return String(message?.content||'');
+  }
+  let generationSeen=false,generationText='';
+  setInterval(()=>{
+    if(!ai.generating){
+      if(generationSeen){generationSeen=false;generationText='';reliability.generationStartedAt=0;reliability.lastTokenAt=0;if(ai.engine&&ai.loadedModel)reliability.phase='ready';queueUI();}
+      return;
+    }
+    const now=Date.now(),text=latestAssistantText();
+    if(!generationSeen){generationSeen=true;generationText=text;reliability.generationStartedAt=now;reliability.lastTokenAt=now;reliability.phase='generation';queueUI();return;}
+    if(text!==generationText){generationText=text;reliability.lastTokenAt=now;reliability.phase='generation · streaming';queueUI();return;}
+    if(now-(reliability.lastTokenAt||reliability.generationStartedAt||now)>GENERATION_STALL_MS){
+      reliability.lastError='Local AI generation stalled for 90 seconds without a new token.';
+      reliability.lastFailureAt=now;reliability.phase='generation stalled';
+      try{ai.engine?.interruptGenerate?.();}catch{}
+      S.notice?.(reliability.lastError);S.activity?.('Error',0,reliability.lastError);queueUI();
+      // Avoid repeatedly firing while WebLLM processes the interrupt.
+      reliability.lastTokenAt=now;
+    }
+  },2000);
 
   function renderFallback(answer){
     const out=document.querySelector('#aiEvidenceFallbackResult');if(!out)return;
@@ -104,6 +136,6 @@
 
   const stage=document.querySelector('#evidenceStage');if(stage)new MutationObserver(queueUI).observe(stage,{childList:true});
   const tray=document.querySelector('#contextTray');if(tray)new MutationObserver(queueUI).observe(tray,{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
-  AI.reliableLoad=reliableLoad;AI.capabilityDiagnostics=capabilities;AI.evidenceFallback=fallback;
+  AI.reliableLoad=reliableLoad;AI.capabilityDiagnostics=capabilities;AI.evidenceFallback=fallback;AI.boundedUnload=boundedUnload;
   queueUI();
 })();
