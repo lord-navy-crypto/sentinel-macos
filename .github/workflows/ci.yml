@@ -189,6 +189,7 @@ jobs:
       - name: Shell syntax
         run: |
           bash -n SMOKE_TEST_LOCALHOST.command
+          bash -n CHECK_MAC_RELEASE_PREREQS.command
           bash -n build-macos.sh
           bash -n build-desktop-macos.sh
           bash -n package-dev-dmg-macos.sh
