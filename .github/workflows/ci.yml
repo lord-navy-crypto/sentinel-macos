@@ -53,10 +53,12 @@ jobs:
             LC_ALL=C grep -aFq 'Sentinel 2.7 WebLLM Local AI' "$engine"
             LC_ALL=C grep -aFq 'Sentinel 2.7 Integrated Local AI' "$engine"
             LC_ALL=C grep -aFq 'Sentinel 2.7 Local AI Reliability' "$engine"
+            LC_ALL=C grep -aFq '__sentinelNativeAppView' "$engine"
+            LC_ALL=C grep -aFq 'CreateMLCEngine' "$engine"
             LC_ALL=C grep -aFq 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC' "$engine"
             LC_ALL=C grep -aFq 'gemma-2-9b-it-q4f16_1-MLC' "$engine"
             LC_ALL=C grep -aFq 'Model Library' "$engine"
-            LC_ALL=C grep -aFq "cacheBackend:'cache'" "$engine"
+            LC_ALL=C grep -aFq 'useIndexedDBCache:false' "$engine"
             LC_ALL=C grep -aFq 'contextBarSignature' "$engine"
             LC_ALL=C grep -aFq 'Local AI initialization stalled' "$engine"
           done
@@ -135,7 +137,10 @@ jobs:
           grep -Fq "registerLens('assistant'" web/app/ai.js
           grep -Fq "registerLens('manual'" web/app/manual.js
           grep -Fq "limits.lenses.push('manual')" web/app/manual-entry.js
-          grep -Fq "cacheBackend:'cache'" web/app/ai.js
+          grep -Fq "useIndexedDBCache:false" web/app/ai.js
+          grep -Fq "CreateMLCEngine" web/app/ai.js
+          grep -Fq "CreateWebWorkerMLCEngine" web/app/ai.js
+          grep -Fq "__sentinelNativeAppView" web/app/ai.js
           grep -Fq "Model Library" web/app/ai.js
           grep -Fq "Qwen2.5-1.5B-Instruct-q4f16_1-MLC" web/app/ai.js
           grep -Fq "gemma-2-9b-it-q4f16_1-MLC" web/app/ai.js
