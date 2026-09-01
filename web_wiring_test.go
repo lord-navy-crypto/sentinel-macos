@@ -44,12 +44,12 @@ func TestSentinelApplicationOwnsNavigationAndState(t *testing.T) {
 			t.Fatalf("application core missing %q", want)
 		}
 	}
-	for _, want := range []string{"window.__SENTINEL_26__", "architecture:'modular-app'", "document.addEventListener('click'", "document.addEventListener('submit'"} {
+	for _, want := range []string{"window.__SENTINEL_27__", "architecture:'modular-app'", "document.addEventListener('click'", "document.addEventListener('submit'"} {
 		if !strings.Contains(runtime, want) {
 			t.Fatalf("application runtime missing %q", want)
 		}
 	}
-	for _, want := range []string{"Sentinel 2.6 Investigation Workbench", "Workspace Persistence", "Cross-Lens Selection", "Natural-language Command Bar"} {
+	for _, want := range []string{"Sentinel 2.7 Investigation Workbench", "Workspace Persistence", "Cross-Lens Selection", "Natural-language Command Bar"} {
 		if !strings.Contains(workbench, want) {
 			t.Fatalf("application workbench missing %q", want)
 		}

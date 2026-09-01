@@ -18,11 +18,13 @@ func TestManualIsAFirstClassScrollableProductLens(t *testing.T) {
 		`src="/app/manual.js"`,
 		`src="/app/manual-entry.js"`,
 	} {
-		if !strings.Contains(html, want) { t.Fatalf("manual shell wiring missing %q", want) }
+		if !strings.Contains(html, want) {
+			t.Fatalf("manual shell wiring missing %q", want)
+		}
 	}
 
 	for _, want := range []string{
-		"Sentinel 2.6 Comprehensive User Manual",
+		"Sentinel 2.7 Comprehensive User Manual",
 		"registerLens('manual'",
 		"data-manual-target",
 		"data-manual-open-lens",
@@ -35,9 +37,13 @@ func TestManualIsAFirstClassScrollableProductLens(t *testing.T) {
 		"Attention / Risk / Confidence / Drift",
 		"Full Scan 永远不应该因为",
 	} {
-		if !strings.Contains(manual, want) { t.Fatalf("comprehensive manual missing %q", want) }
+		if !strings.Contains(manual, want) {
+			t.Fatalf("comprehensive manual missing %q", want)
+		}
 	}
-	if strings.Count(manual, "title:'") < 30 { t.Fatalf("manual is not sufficiently detailed; found fewer than 30 topic definitions") }
+	if strings.Count(manual, "title:'") < 30 {
+		t.Fatalf("manual is not sufficiently detailed; found fewer than 30 topic definitions")
+	}
 
 	for _, want := range []string{
 		"limits.lenses.push('manual')",
@@ -45,7 +51,9 @@ func TestManualIsAFirstClassScrollableProductLens(t *testing.T) {
 		"#manualButton",
 		"S.navigate('manual')",
 	} {
-		if !strings.Contains(entry, want) { t.Fatalf("manual navigation missing %q", want) }
+		if !strings.Contains(entry, want) {
+			t.Fatalf("manual navigation missing %q", want)
+		}
 	}
 
 	for _, want := range []string{
@@ -56,6 +64,8 @@ func TestManualIsAFirstClassScrollableProductLens(t *testing.T) {
 		".manual-article",
 		".manual-searchbar",
 	} {
-		if !strings.Contains(css, want) { t.Fatalf("manual visual contract missing %q", want) }
+		if !strings.Contains(css, want) {
+			t.Fatalf("manual visual contract missing %q", want)
+		}
 	}
 }

@@ -1,6 +1,54 @@
 // SPDX-License-Identifier: MPL-2.0
 package main
-import("os";"strings";"testing")
-func TestStorageProgressContract(t *testing.T){goBytes,err:=os.ReadFile("advanced.go");if err!=nil{t.Fatal(err)};js:=requireProductScript(t,"web/app/lenses/system.js");goSource:=string(goBytes);for _,field:=range []string{`json:"phase"`,`json:"phase_percent"`,`json:"slow_paths_skipped"`,`json:"current_dir,omitempty"`,`json:"hash_files_done"`,`json:"hash_files_total"`,`json:"hash_bytes_done"`,`json:"hash_bytes_total"`,`json:"current_hash_path,omitempty"`}{if !strings.Contains(goSource,field){t.Fatalf("backend missing storage progress %q",field)}};for _,field:=range []string{"j.phase","j.phase_percent","j.hash_files_done","j.hash_files_total","j.hash_bytes_done","j.hash_bytes_total","j.current_hash_path","Hash candidates","Building storage report"}{if !strings.Contains(js,field){t.Fatalf("storage UI missing %q",field)}}}
-func TestStorageWalkerHasSlowPathGuards(t *testing.T){b,err:=os.ReadFile("advanced.go");if err!=nil{t.Fatal(err)};source:=string(b);for _,required:=range []string{"readStorageDirBatches","storageDirBatchSize","storageDirIdleTimeout","storageMaxSlowPaths","errStorageSlowDirectory","Readdir(storageDirBatchSize)","SlowPathsSkipped"}{if !strings.Contains(source,required){t.Fatalf("storage walker missing %q",required)}};if strings.Contains(source,"filepath.WalkDir(root"){t.Fatal("must not use monolithic WalkDir")}}
-func TestDuplicateHashPlannerRequiresComparablePairs(t *testing.T){b,err:=os.ReadFile("advanced.go");if err!=nil{t.Fatal(err)};source:=string(b);for _,required:=range []string{"buildDuplicateHashPlan","grp.size > remaining/2","maxFiles < 2","duplicateHashBudget"}{if !strings.Contains(source,required){t.Fatalf("hash planner missing %q",required)}}}
+
+import (
+	"os"
+	"strings"
+	"testing"
+)
+
+func TestStorageProgressContract(t *testing.T) {
+	goBytes, err := os.ReadFile("advanced.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	js := requireProductScript(t, "web/app/lenses/system.js")
+	goSource := string(goBytes)
+	for _, field := range []string{`json:"phase"`, `json:"phase_percent"`, `json:"slow_paths_skipped"`, `json:"current_dir,omitempty"`, `json:"hash_files_done"`, `json:"hash_files_total"`, `json:"hash_bytes_done"`, `json:"hash_bytes_total"`, `json:"current_hash_path,omitempty"`} {
+		if !strings.Contains(goSource, field) {
+			t.Fatalf("backend missing storage progress %q", field)
+		}
+	}
+	for _, field := range []string{"j.phase", "j.phase_percent", "j.hash_files_done", "j.hash_files_total", "j.hash_bytes_done", "j.hash_bytes_total", "j.current_hash_path", "Hash candidates", "Building storage report"} {
+		if !strings.Contains(js, field) {
+			t.Fatalf("storage UI missing %q", field)
+		}
+	}
+}
+func TestStorageWalkerHasSlowPathGuards(t *testing.T) {
+	b, err := os.ReadFile("advanced.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(b)
+	for _, required := range []string{"readStorageDirBatches", "storageDirBatchSize", "storageDirIdleTimeout", "storageMaxSlowPaths", "errStorageSlowDirectory", "Readdir(storageDirBatchSize)", "SlowPathsSkipped"} {
+		if !strings.Contains(source, required) {
+			t.Fatalf("storage walker missing %q", required)
+		}
+	}
+	if strings.Contains(source, "filepath.WalkDir(root") {
+		t.Fatal("must not use monolithic WalkDir")
+	}
+}
+func TestDuplicateHashPlannerRequiresComparablePairs(t *testing.T) {
+	b, err := os.ReadFile("advanced.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(b)
+	for _, required := range []string{"buildDuplicateHashPlan", "grp.size > remaining/2", "maxFiles < 2", "duplicateHashBudget"} {
+		if !strings.Contains(source, required) {
+			t.Fatalf("hash planner missing %q", required)
+		}
+	}
+}

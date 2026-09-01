@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MPL-2.0
-// Sentinel 2.6 Action Dock — contextual controls over existing product operations.
+// Sentinel 2.7 Action Dock — contextual controls over existing product operations.
 (() => {
   'use strict';
   const S = window.SentinelApp;
   if (!S) throw new Error('Sentinel application core did not load before Action Dock.');
   const {$, state, esc, notice, activity} = S;
-  const ACTION_DOCK_MARKER = 'Sentinel 2.6 Contextual Action Dock';
+  const ACTION_DOCK_MARKER = 'Sentinel 2.7 Contextual Action Dock';
 
   let scanRunning = false;
   let scanCancelled = false;

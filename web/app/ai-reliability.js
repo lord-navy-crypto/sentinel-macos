@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MPL-2.0
-// Sentinel 2.6 Local AI Reliability — fail visible, recover cleanly,
+// Sentinel 2.7 Local AI Reliability — fail visible, recover cleanly,
 // keep one Assistant entry point, and retain evidence-only fallback.
 (() => {
   'use strict';
   const S=window.SentinelApp, AI=S?.localAI;
   if(!S||!AI)return;
   const ai=AI.state, esc=S.esc||((v)=>String(v??''));
-  const RELIABILITY_MARKER='Sentinel 2.6 Local AI Reliability';
+  const RELIABILITY_MARKER='Sentinel 2.7 Local AI Reliability';
   const STALL_MS=90000, ABSOLUTE_MS=600000, UNLOAD_MS=1500, GENERATION_STALL_MS=90000, GENERATION_RESET_GRACE_MS=5000;
   const reliability={lastError:'',lastFailureAt:0,lastSuccessAt:0,attempt:0,phase:'idle',generationStartedAt:0,lastTokenAt:0};
   AI.reliability=reliability;AI.reliabilityMarker=RELIABILITY_MARKER;

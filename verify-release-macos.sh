@@ -77,12 +77,12 @@ for engine in \
   codesign --verify --strict --verbose=2 "$engine"
   for marker in \
     'Sentinel 2.7 Native Frontend' \
-    'Sentinel 2.6 Investigation Workbench' \
-    'Sentinel 2.6 Full Scan Center' \
-    'Sentinel 2.6 Contextual Action Dock' \
-    'Sentinel 2.6 Comprehensive User Manual' \
+    'Sentinel 2.7 Investigation Workbench' \
+    'Sentinel 2.7 Full Scan Center' \
+    'Sentinel 2.7 Contextual Action Dock' \
+    'Sentinel 2.7 Comprehensive User Manual' \
     'Sentinel 2.7 WebLLM Local AI' \
-    'Sentinel 2.6 Local AI Reliability'; do
+    'Sentinel 2.7 Local AI Reliability'; do
     LC_ALL=C grep -aFq "$marker" "$engine" || { echo "Shipped engine is missing marker: $marker" >&2; exit 2; }
   done
 done

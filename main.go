@@ -183,7 +183,7 @@ func main() {
 	mux.HandleFunc("/api/readiness", a.auth(a.work.wrap("readiness", a.handleReadiness)))
 	mux.HandleFunc("/api/pre-regression", a.auth(a.handleRegressionGate))
 
-	// Sentinel 2.6 serves the product source directly. There is no runtime DOM
+	// Sentinel 2.7 serves the product source directly. There is no runtime DOM
 	// rewrite, legacy dashboard injection, or desktop-only enhancement layer.
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" || r.URL.Path == "/index.html" {

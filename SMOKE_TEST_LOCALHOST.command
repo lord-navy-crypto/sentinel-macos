@@ -36,7 +36,7 @@ trap cleanup EXIT INT TERM
 pass() { printf "PASS  %-34s %s\n" "$1" "${2-}"; PASSES=$((PASSES + 1)); }
 fail() { printf "FAIL  %-34s %s\n" "$1" "${2-}"; FAILS=$((FAILS + 1)); }
 
-echo "Sentinel 2.6 localhost functional smoke test"
+echo "Sentinel 2.7 localhost functional smoke test"
 echo "Mode: ephemeral / no persistent Behavior-Trust state / no mutating Safe Actions"
 echo
 
@@ -109,23 +109,23 @@ check_absent() {
   fi
 }
 
-check_static "Canonical product shell" "/" 'data-sentinel-generation="2.6-native"'
-check_static "Core application module" "/app/core.js" "Sentinel 2.6 Native Frontend"
-check_static "Investigation Workbench" "/app/workbench.js" "Sentinel 2.6 Investigation Workbench"
-check_static "Full Scan Center" "/app/full-scan.js" "Sentinel 2.6 Full Scan Center"
-check_static "Contextual Action Dock" "/app/action-dock.js" "Sentinel 2.6 Contextual Action Dock"
-check_static "WebLLM Local AI" "/app/ai.js" "Sentinel 2.6 WebLLM Local AI"
-check_static "Local AI reliability" "/app/ai-reliability.js" "Sentinel 2.6 Local AI Reliability"
+check_static "Canonical product shell" "/" 'data-sentinel-generation="2.7-native"'
+check_static "Core application module" "/app/core.js" "Sentinel 2.7 Native Frontend"
+check_static "Investigation Workbench" "/app/workbench.js" "Sentinel 2.7 Investigation Workbench"
+check_static "Full Scan Center" "/app/full-scan.js" "Sentinel 2.7 Full Scan Center"
+check_static "Contextual Action Dock" "/app/action-dock.js" "Sentinel 2.7 Contextual Action Dock"
+check_static "WebLLM Local AI" "/app/ai.js" "Sentinel 2.7 WebLLM Local AI"
+check_static "Local AI reliability" "/app/ai-reliability.js" "Sentinel 2.7 Local AI Reliability"
 check_static "Local AI worker" "/app/ai-worker.js" "WebWorkerMLCEngineHandler"
-check_static "Comprehensive Manual" "/app/manual.js" "Sentinel 2.6 Comprehensive User Manual"
-check_static "Runtime navigation" "/app/runtime.js" "window.__SENTINEL_26__"
+check_static "Comprehensive Manual" "/app/manual.js" "Sentinel 2.7 Comprehensive User Manual"
+check_static "Runtime navigation" "/app/runtime.js" "window.__SENTINEL_27__"
 check_absent "No retired app.js" "/" 'src="/app.js"'
 check_absent "No retired desktop UI" "/" '/desktop-ui.js'
 check_absent "No inline product script" "/" '<script>'
 
 HEADERS="$TMPDIR_SENTINEL/headers.txt"
 if curl -fsS -D "$HEADERS" -o /dev/null --max-time 10 "$ORIGIN/"; then
-  if grep -Fiq 'X-Sentinel-UI: 2.6-native' "$HEADERS"; then pass "Product identity header" "X-Sentinel-UI"; else fail "Product identity header" "missing X-Sentinel-UI"; fi
+  if grep -Fiq 'X-Sentinel-UI: 2.7-native' "$HEADERS"; then pass "Product identity header" "X-Sentinel-UI"; else fail "Product identity header" "missing X-Sentinel-UI"; fi
   if grep -Fiq "script-src 'self' 'wasm-unsafe-eval'" "$HEADERS" && ! grep -Fiq "script-src 'self' 'wasm-unsafe-eval' 'unsafe-inline'" "$HEADERS"; then
     pass "Strict script CSP" "same-origin external product scripts"
   else
@@ -237,7 +237,7 @@ fi
 
 echo
 echo "========================================"
-echo "Sentinel 2.6 localhost smoke summary"
+echo "Sentinel 2.7 localhost smoke summary"
 echo "PASS: $PASSES"
 echo "FAIL: $FAILS"
 echo "========================================"
@@ -247,5 +247,5 @@ if [ "$FAILS" -ne 0 ]; then
   exit 1
 fi
 
-echo "All tested Sentinel 2.6 localhost assets, security boundaries, and function contracts responded successfully."
+echo "All tested Sentinel 2.7 localhost assets, security boundaries, and function contracts responded successfully."
 exit 0

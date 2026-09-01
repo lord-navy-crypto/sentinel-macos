@@ -10,9 +10,15 @@ import (
 func requireNetworkRelationSourceContains(t *testing.T, path string, needles ...string) string {
 	t.Helper()
 	raw, err := os.ReadFile(path)
-	if err != nil { t.Fatalf("read %s: %v", path, err) }
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
 	source := string(raw)
-	for _, needle := range needles { if !strings.Contains(source, needle) { t.Fatalf("%s missing %q", path, needle) } }
+	for _, needle := range needles {
+		if !strings.Contains(source, needle) {
+			t.Fatalf("%s missing %q", path, needle)
+		}
+	}
 	return source
 }
 
@@ -22,7 +28,9 @@ func TestNetworkRelationshipExplorerSeparatesCurrentEvidenceFromExplicitHistory(
 
 func TestNetworkRelationshipExplorerUsesCurrentAndHistoryAPIs(t *testing.T) {
 	source := requireNetworkRelationSourceContains(t, "web/network-relations.js", `/api/network`, `/api/network/history`, `method: 'POST'`, `groupByProcess`, `groupByEndpoint`, `LISTEN`, `ESTABLISHED`, `endpoint_class`, `Open Process Explorer`, `Latest snapshot difference`, `Selected snapshot difference`, `Historical PID is context only`, `Refresh Current`)
-	if strings.Contains(source, `Open Sample PID`) { t.Fatal("historical PID must not be navigated as if it were still current") }
+	if strings.Contains(source, `Open Sample PID`) {
+		t.Fatal("historical PID must not be navigated as if it were still current")
+	}
 	requireNetworkRelationSourceContains(t, "main.go", `networkHistory *networkHistoryManager`, `newNetworkHistoryManager(*ephemeral)`, `/api/network/history`)
 }
 
@@ -33,12 +41,20 @@ func TestNetworkRelationshipExplorerIsLinkedFromSystemConsole(t *testing.T) {
 
 func TestNetworkRelationshipExplorerAvoidsDynamicCodeAndActiveNetworkControl(t *testing.T) {
 	source := requireNetworkRelationSourceContains(t, "web/network-relations.js", `X-Sentinel-Token`)
-	for _, forbidden := range []string{"eval(", "new Function(", "document.write(", "innerHTML", "sudo", "WebSocket(", "RTCPeerConnection(", "XMLHttpRequest("} { if strings.Contains(source, forbidden) { t.Fatalf("network relationship explorer contains forbidden pattern %q", forbidden) } }
+	for _, forbidden := range []string{"eval(", "new Function(", "document.write(", "innerHTML", "sudo", "WebSocket(", "RTCPeerConnection(", "XMLHttpRequest("} {
+		if strings.Contains(source, forbidden) {
+			t.Fatalf("network relationship explorer contains forbidden pattern %q", forbidden)
+		}
+	}
 }
 
 func TestNetworkHistoryBackendIsBoundedMetadataOnly(t *testing.T) {
 	source := requireNetworkRelationSourceContains(t, "network_history.go", `networkHistorySnapshotLimit = 32`, `networkHistoryRelationLimit = 400`, `PID and local ephemeral ports are deliberately excluded`, `explicit Sentinel snapshots`, `never packet contents`, `network snapshot unavailable`, `both from and to snapshot IDs are required for comparison`, `findNetworkHistorySnapshot`)
-	for _, forbidden := range []string{"pcap", "tcpdump", "packet payload", "exec.Command(", "WebSocket("} { if strings.Contains(source, forbidden) { t.Fatalf("network history unexpectedly contains active-capture/control pattern %q", forbidden) } }
+	for _, forbidden := range []string{"pcap", "tcpdump", "packet payload", "exec.Command(", "WebSocket("} {
+		if strings.Contains(source, forbidden) {
+			t.Fatalf("network history unexpectedly contains active-capture/control pattern %q", forbidden)
+		}
+	}
 }
 
 func TestNetworkRelationshipExplorerJavaScriptIsInCI(t *testing.T) {

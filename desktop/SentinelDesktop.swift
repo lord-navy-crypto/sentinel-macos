@@ -80,7 +80,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         statusLabel = NSTextField(labelWithString: "Starting local engine…")
         statusLabel.font = .systemFont(ofSize: 14, weight: .medium)
 
-        detailLabel = NSTextField(wrappingLabelWithString: "Sentinel starts one loopback-only engine and one Sentinel 2.6 product interface. Open it in your browser or inside the native App View; both containers use the same local source, session, and evidence.")
+        detailLabel = NSTextField(wrappingLabelWithString: "Sentinel starts one loopback-only engine and one Sentinel 2.7 product interface. Open it in your browser or inside the native App View; both containers use the same local source, session, and evidence.")
         detailLabel.font = .systemFont(ofSize: 12)
         detailLabel.textColor = .secondaryLabelColor
         detailLabel.maximumNumberOfLines = 4
@@ -203,7 +203,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
             backing: .buffered,
             defer: false
         )
-        appWindow.title = "Sentinel 2.6 · Local Evidence"
+        appWindow.title = "Sentinel 2.7 · Local Evidence"
         appWindow.minSize = NSSize(width: 1080, height: 700)
         appWindow.isReleasedWhenClosed = false
         appWindow.contentView = view

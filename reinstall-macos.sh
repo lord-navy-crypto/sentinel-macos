@@ -20,13 +20,13 @@ EXPECTED_SCAN_CENTER="Easy Scan + Full Scan + Capability Atlas"
 EXPECTED_ACTION_DOCK="Contextual Quick Actions"
 REQUIRED_EMBEDDED_MARKERS=(
   "Sentinel 2.7 Native Frontend"
-  "Sentinel 2.6 Investigation Workbench"
-  "Sentinel 2.6 Full Scan Center"
-  "Sentinel 2.6 Contextual Action Dock"
+  "Sentinel 2.7 Investigation Workbench"
+  "Sentinel 2.7 Full Scan Center"
+  "Sentinel 2.7 Contextual Action Dock"
   "Sentinel 2.7 WebLLM Local AI"
-  "Sentinel 2.6 Integrated Local AI"
-  "Sentinel 2.6 Local AI Reliability"
-  "Sentinel 2.6 Comprehensive User Manual"
+  "Sentinel 2.7 Integrated Local AI"
+  "Sentinel 2.7 Local AI Reliability"
+  "Sentinel 2.7 Comprehensive User Manual"
   "Local AI initialization stalled"
 )
 
@@ -55,7 +55,7 @@ printf '%s\n' \
   "Target Scan Center: $EXPECTED_SCAN_CENTER" \
   "Target Action Dock: $EXPECTED_ACTION_DOCK" \
   "Local AI: WebLLM + CSP-safe reliability + evidence fallback required" \
-  "Manual: Sentinel 2.6 comprehensive guide required" \
+  "Manual: Sentinel 2.7 comprehensive guide required" \
   "Source: $HERE" \
   "Install target: $TARGET_APP" \
   "User history/baselines/recovery data: preserved"

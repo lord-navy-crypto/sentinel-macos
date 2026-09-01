@@ -32,7 +32,9 @@ func readProductScripts(t *testing.T) string {
 	var out strings.Builder
 	for _, path := range canonicalProductScripts {
 		raw, err := os.ReadFile(path)
-		if err != nil { t.Fatalf("read canonical product script %s: %v", path, err) }
+		if err != nil {
+			t.Fatalf("read canonical product script %s: %v", path, err)
+		}
 		out.Write(raw)
 		out.WriteByte('\n')
 	}
@@ -42,21 +44,25 @@ func readProductScripts(t *testing.T) string {
 func requireProductScript(t *testing.T, path string) string {
 	t.Helper()
 	raw, err := os.ReadFile(path)
-	if err != nil { t.Fatalf("read canonical product script %s: %v", path, err) }
+	if err != nil {
+		t.Fatalf("read canonical product script %s: %v", path, err)
+	}
 	return string(raw)
 }
 
 func TestApplicationRegistersEveryDeclaredLens(t *testing.T) {
 	all := readProductScripts(t)
 	declared := []string{
-		"status","snapshot","cases","search","relations","audit","object",
-		"changes","behavior","reference",
-		"machine","processes","startup","persistence","background","network","storage",
-		"reclaim","change","visibility","guide","assistant","manual",
+		"status", "snapshot", "cases", "search", "relations", "audit", "object",
+		"changes", "behavior", "reference",
+		"machine", "processes", "startup", "persistence", "background", "network", "storage",
+		"reclaim", "change", "visibility", "guide", "assistant", "manual",
 	}
 	for _, lens := range declared {
 		needle := "registerLens('" + lens + "'"
-		if !strings.Contains(all, needle) { t.Fatalf("canonical modular application does not register lens %q", lens) }
+		if !strings.Contains(all, needle) {
+			t.Fatalf("canonical modular application does not register lens %q", lens)
+		}
 	}
 
 	// Advanced product modules, the Investigation Workbench, Full Scan, Action
@@ -65,9 +71,19 @@ func TestApplicationRegistersEveryDeclaredLens(t *testing.T) {
 	re := regexp.MustCompile(`registerLens\('([^']+)'`)
 	unique := map[string]bool{}
 	for _, match := range re.FindAllStringSubmatch(all, -1) {
-		if len(match) == 2 { unique[match[1]] = true }
+		if len(match) == 2 {
+			unique[match[1]] = true
+		}
 	}
-	if len(unique) != len(declared) { t.Fatalf("expected %d distinct canonical lenses, got %d: %#v", len(declared), len(unique), unique) }
-	for _, lens := range declared { if !unique[lens] { t.Fatalf("declared lens %q is not registered", lens) } }
-	if _, err := os.Stat("web/app/controller.js"); !os.IsNotExist(err) { t.Fatal("retired monolithic controller returned") }
+	if len(unique) != len(declared) {
+		t.Fatalf("expected %d distinct canonical lenses, got %d: %#v", len(declared), len(unique), unique)
+	}
+	for _, lens := range declared {
+		if !unique[lens] {
+			t.Fatalf("declared lens %q is not registered", lens)
+		}
+	}
+	if _, err := os.Stat("web/app/controller.js"); !os.IsNotExist(err) {
+		t.Fatal("retired monolithic controller returned")
+	}
 }

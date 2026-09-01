@@ -11,7 +11,7 @@ func TestLocalAIReliabilityLayerFailsVisible(t *testing.T) {
 	worker := readLocalAIContractFile(t, "web/app/ai-worker.js")
 
 	for _, want := range []string{
-		"Sentinel 2.6 Local AI Reliability",
+		"Sentinel 2.7 Local AI Reliability",
 		"STALL_MS=90000",
 		"ABSOLUTE_MS=600000",
 		"UNLOAD_MS=1500",

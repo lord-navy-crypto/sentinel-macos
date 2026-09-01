@@ -10,9 +10,15 @@ import (
 func requireProcessRelationSourceContains(t *testing.T, path string, needles ...string) string {
 	t.Helper()
 	raw, err := os.ReadFile(path)
-	if err != nil { t.Fatalf("read %s: %v", path, err) }
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
 	source := string(raw)
-	for _, needle := range needles { if !strings.Contains(source, needle) { t.Fatalf("%s missing %q", path, needle) } }
+	for _, needle := range needles {
+		if !strings.Contains(source, needle) {
+			t.Fatalf("%s missing %q", path, needle)
+		}
+	}
 	return source
 }
 
@@ -34,7 +40,11 @@ func TestInvestigationRuntimeLinksToProcessRelationshipExplorer(t *testing.T) {
 func TestProcessRelationshipExplorerAvoidsDynamicCodeAndShellSurface(t *testing.T) {
 	for _, path := range []string{"web/process-relations.js", "web/process-relations-bridge.js"} {
 		source := requireProcessRelationSourceContains(t, path)
-		for _, forbidden := range []string{"eval(", "new Function(", "document.write(", "innerHTML", "sudo", "exec("} { if strings.Contains(source, forbidden) { t.Fatalf("%s contains forbidden pattern %q", path, forbidden) } }
+		for _, forbidden := range []string{"eval(", "new Function(", "document.write(", "innerHTML", "sudo", "exec("} {
+			if strings.Contains(source, forbidden) {
+				t.Fatalf("%s contains forbidden pattern %q", path, forbidden)
+			}
+		}
 	}
 }
 

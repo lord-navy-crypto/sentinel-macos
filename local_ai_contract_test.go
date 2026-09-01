@@ -27,7 +27,7 @@ func TestLocalAIIsCanonicalAndExplicitlyOptIn(t *testing.T) {
 	}
 	for _, want := range []string{
 		"Sentinel 2.7 WebLLM Local AI",
-		"Sentinel 2.6 Integrated Local AI",
+		"Sentinel 2.7 Integrated Local AI",
 		"registerLens('assistant'",
 		"navigator.gpu",
 		"CreateWebWorkerMLCEngine",
