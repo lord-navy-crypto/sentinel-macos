@@ -1,4 +1,4 @@
-# Sentinel 2.6 — macOS Distribution Plan
+# Sentinel 2.7 — macOS Distribution Plan
 
 ## Current priority: public Beta first
 
@@ -40,7 +40,7 @@ web/app/runtime.js
 web/app/*.css
 ```
 
-The visible product version is read from `VERSION`; the current value is **2.6.0**. Some internal frontend-generation names and `s24-*` CSS namespaces remain compatibility identifiers and are not the user-facing release number.
+The visible product version is read from `VERSION`; the current value is **2.7.0**. Some internal frontend-generation names and `s24-*` CSS namespaces remain compatibility identifiers and are not the user-facing release number.
 
 ## Why DMG instead of PKG
 
@@ -85,11 +85,11 @@ For the current public-testing Beta DMG:
 SENTINEL_RELEASE_CHANNEL=beta ./package-dev-dmg-macos.sh
 ```
 
-With `VERSION=2.6.0`, the expected Beta artifacts are:
+With `VERSION=2.7.0`, the expected Beta artifacts are:
 
 ```text
-dist/Sentinel-2.6.0-beta.dmg
-dist/Sentinel-2.6.0-beta.dmg.sha256
+dist/Sentinel-2.7.0-beta.dmg
+dist/Sentinel-2.7.0-beta.dmg.sha256
 ```
 
 Artifact filenames are derived from `VERSION`. If the version changes, use the filename printed by the packaging script rather than hard-coding an older version string.
@@ -97,14 +97,14 @@ Artifact filenames are derived from `VERSION`. If the version changes, use the f
 Recommended GitHub Release assets:
 
 ```text
-Sentinel-2.6.0-beta.dmg
-Sentinel-2.6.0-beta.dmg.sha256
+Sentinel-2.7.0-beta.dmg
+Sentinel-2.7.0-beta.dmg.sha256
 ```
 
 Recommended release title:
 
 ```text
-Sentinel 2.6 Beta
+Sentinel 2.7 — Resilient Local Intelligence Beta
 ```
 
 The release notes should state whether the Beta is Developer ID signed/notarized. Do not present an unsigned/unnotarized Beta as a production notarized release.
@@ -117,7 +117,7 @@ Recommended flow:
 
 1. Full CI passes on the exact release commit.
 2. Build `Sentinel.app` on macOS.
-3. Launch both Browser and App View and confirm both show the same Sentinel 2.6 product/version.
+3. Launch both Browser and App View and confirm both show the same Sentinel 2.7 product/version.
 4. Confirm the launcher and embedded engines report Apple Silicon + Intel support as expected.
 5. Build the Beta DMG with `SENTINEL_RELEASE_CHANNEL=beta`.
 6. Mount the DMG and launch the copied app.
@@ -168,10 +168,10 @@ export SENTINEL_BUNDLE_ID='io.github.lord-navy-crypto.sentinel'
 ./release-direct-macos.sh
 ```
 
-With `VERSION=2.6.0`, the production artifact is:
+With `VERSION=2.7.0`, the production artifact is:
 
 ```text
-dist/Sentinel-2.6.0.dmg
+dist/Sentinel-2.7.0.dmg
 ```
 
 The production pipeline builds the Universal launcher, embeds architecture-matched Go engines, validates the canonical product, signs nested executables and the outer app with Developer ID + Hardened Runtime, creates/signs the DMG, submits with `notarytool`, staples the result, and emits SHA-256.
