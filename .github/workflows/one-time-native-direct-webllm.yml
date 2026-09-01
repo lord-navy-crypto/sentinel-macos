@@ -53,6 +53,6 @@ jobs:
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add web/app/ai.js web/app/ai-reliability.js desktop/SentinelDesktop.swift desktop_conversion_test.go local_ai_contract_test.go build-desktop-macos.sh .github/workflows/ci.yml
+          git add web/app/ai.js web/app/ai-reliability.js desktop/SentinelDesktop.swift desktop_conversion_test.go local_ai_contract_test.go build-desktop-macos.sh
           git commit -m 'Use direct WebLLM engine in Native App View'
           git push origin HEAD:sentinel-2.7-native-direct-webllm
