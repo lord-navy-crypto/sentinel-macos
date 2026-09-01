@@ -3,7 +3,7 @@
   'use strict';
   const S=window.SentinelApp;
   if(!S)throw new Error('Sentinel application core did not load before Runtime Logs.');
-  const {$,api,esc,question,band,ledger,empty,registerLens,activity,notice}=S;
+  const {$,api,question,band,ledger,registerLens,activity,notice}=S;
 
   const MARKER='Sentinel 2.7 Runtime Logs';
   const logState={timer:null,paused:false,source:'all',level:'all',entries:[],lastSequence:0};
@@ -15,6 +15,7 @@
   }
   S.runtimeLog=runtimeLog;
   S.RUNTIME_LOG_MARKER=MARKER;
+  void runtimeLog('info',window.__sentinelNativeAppView?'native':'client','frontend-ready','Sentinel frontend runtime logging is ready.',{container:window.__sentinelNativeAppView?'native-app-view':'browser'});
 
   function stopTimer(){if(logState.timer){clearInterval(logState.timer);logState.timer=null;}}
   function schedule(){stopTimer();if(!logState.paused&&S.state.lens==='runtime-logs')logState.timer=setInterval(()=>refreshLogs(true),1200);}
@@ -30,6 +31,7 @@
     const count=$('#runtimeLogCount');if(count)count.textContent=`${rows.length} visible / ${logState.entries.length} retained in this view`;
   }
   async function refreshLogs(incremental=false){
+    if(incremental&&S.state.lens!=='runtime-logs'){stopTimer();return;}
     if(logState.paused&&incremental)return;
     try{
       const after=incremental?logState.lastSequence:0;
