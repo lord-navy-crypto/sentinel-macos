@@ -25,7 +25,14 @@ jobs:
           go-version: '1.26.x'
           cache: false
       - name: Apply Mac Health and Storage Graph
-        run: python3 tools/one_time_mac_health_storage_graph.py
+        run: |
+          python3 tools/one_time_mac_health_storage_graph.py
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('mac_health_storage.go')
+          s=p.read_text().replace('\n    "fmt"\n','\n')
+          p.write_text(s)
+          PY
       - name: Validate source
         run: |
           git diff --check
