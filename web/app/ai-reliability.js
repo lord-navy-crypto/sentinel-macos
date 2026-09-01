@@ -7,7 +7,7 @@
   if(!S||!AI)return;
   const ai=AI.state, esc=S.esc||((v)=>String(v??''));
   const RELIABILITY_MARKER='Sentinel 2.7 Local AI Reliability';
-  const STALL_MS=90000, ABSOLUTE_MS=600000, UNLOAD_MS=1500, GENERATION_STALL_MS=90000, GENERATION_RESET_GRACE_MS=5000;
+  const STALL_MS=90000, DOWNLOAD_STALL_MS=300000, ABSOLUTE_MS=600000, UNLOAD_MS=1500, GENERATION_STALL_MS=90000, GENERATION_RESET_GRACE_MS=5000;
   const reliability={lastError:'',lastFailureAt:0,lastSuccessAt:0,attempt:0,phase:'idle',generationStartedAt:0,lastTokenAt:0};
   AI.reliability=reliability;AI.reliabilityMarker=RELIABILITY_MARKER;
 
@@ -22,7 +22,7 @@
     ['WebGPU',c.webgpu?'Available':'Unavailable'],['Worker',c.worker?'Available':'Unavailable'],
     ['IndexedDB',c.indexeddb?'Available':'Unavailable'],['Loopback / secure context',c.secureContext?'OK':'Review'],
     ['Selected model',modelName()],['Loaded model',ai.loadedModel||'Not loaded'],
-    ['Worker state',ai.worker?'Created':'Not created'],['Engine state',ai.engine?'Created':'Not created'],
+    ['Worker state',ai.worker?'Created':'Not created'],['Engine state',ai.engine?'Created':'Not created'],['Cache backend',AI.cacheBackend||'cache'],
     ['Load / generation phase',reliability.phase],['Progress',`${Math.round(Number(ai.progress||0)*100)}% · ${ai.progressText||'—'}`],
     ['Last error',reliability.lastError||'None']
   ];}
@@ -71,7 +71,7 @@
       const p=Number(ai.progress||0),t=String(ai.progressText||'');
       if(p!==lastProgress||t!==lastText){lastProgress=p;lastText=t;lastChange=Date.now();reliability.phase=t||'model initialization';queueUI();}
       if(ai.worker&&ai.worker!==workerSeen){workerSeen=ai.worker;workerSeen.addEventListener('error',event=>rejectWatchdog(new Error(event.message||'Local AI worker bootstrap failed.')),{once:true});}
-      if(Date.now()-lastChange>STALL_MS)rejectWatchdog(new Error(`Local AI initialization stalled for ${Math.round(STALL_MS/1000)} seconds at: ${t||'unknown stage'}`));
+      const stallLimit=/fetch params|download|param/i.test(t)?DOWNLOAD_STALL_MS:STALL_MS;if(Date.now()-lastChange>stallLimit)rejectWatchdog(new Error(`Local AI initialization stalled for ${Math.round(stallLimit/1000)} seconds at: ${t||'unknown stage'}`));
     },1000);
     const absolute=setTimeout(()=>rejectWatchdog(new Error('Local AI initialization exceeded the 10-minute safety limit.')),ABSOLUTE_MS);
     try{

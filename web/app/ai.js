@@ -305,7 +305,7 @@
       if(ai.engine){try{await ai.engine.unload();}catch{}ai.engine=null;ai.loadedModel=null;}
       if(ai.worker){ai.worker.terminate();ai.worker=null;}
       ai.module=ai.module||await import(WEBLLM_URL);
-      const appConfig={...ai.module.prebuiltAppConfig,useIndexedDBCache:true};
+      const appConfig={...ai.module.prebuiltAppConfig,cacheBackend:'cache'};AI.cacheBackend='cache';
       if(!appConfig.model_list?.some(record=>record.model_id===ai.model))throw new Error('Selected model is not present in WebLLM 0.2.82 prebuiltAppConfig.');
       ai.worker=new Worker('/app/ai-worker.js',{type:'module'});
       ai.engine=await ai.module.CreateWebWorkerMLCEngine(ai.worker,ai.model,{appConfig,initProgressCallback:updateProgress,logLevel:'WARN'});
