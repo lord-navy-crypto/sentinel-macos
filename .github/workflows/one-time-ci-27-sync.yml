@@ -1,0 +1,45 @@
+name: One-time Sentinel 2.7 CI identity sync
+
+on:
+  push:
+    branches: [sentinel-2.7-visible-version-sync]
+    paths:
+      - .github/workflows/one-time-ci-27-sync.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: sentinel-2.7-visible-version-sync
+          fetch-depth: 0
+      - name: Patch CI product identity assertions
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('.github/workflows/ci.yml')
+          s=p.read_text()
+          before=s
+          s=s.replace('Sentinel 2.6', 'Sentinel 2.7').replace('2.6 Native Frontend','2.7 Native Frontend').replace('2.6-native','2.7-native').replace('__SENTINEL_26__','__SENTINEL_27__')
+          if s == before:
+              raise SystemExit('no CI identity markers changed')
+          if 'Sentinel 2.6' in s or '2.6 Native Frontend' in s or '2.6-native' in s or '__SENTINEL_26__' in s:
+              raise SystemExit('legacy 2.6 CI identity marker remains')
+          for needle in ['Sentinel 2.7 Native Frontend','Sentinel 2.7 Investigation Workbench','Sentinel 2.7 Full Scan Center','Sentinel 2.7 Contextual Action Dock','Sentinel 2.7 Comprehensive User Manual','Sentinel 2.7 WebLLM Local AI','Sentinel 2.7 Integrated Local AI','Sentinel 2.7 Local AI Reliability']:
+              if needle not in s:
+                  raise SystemExit(f'missing expected CI identity {needle!r}')
+          p.write_text(s)
+          PY
+          git diff --check
+      - name: Commit CI identity sync
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/workflows/ci.yml
+          git diff --cached --quiet && exit 1
+          git commit -m 'Update Sentinel CI identity assertions to 2.7'
+          git push origin HEAD:sentinel-2.7-visible-version-sync
