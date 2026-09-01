@@ -1,4 +1,4 @@
-name: One-time Terminal Tools and bilingual UX migration
+name: One-time Manual bilingual companion validation
 
 on:
   push:
@@ -6,8 +6,7 @@ on:
       - sentinel-2.8-terminal-tools-bilingual-impl
     paths:
       - .github/workflows/one-time-terminal-tools-bilingual.yml
-      - tools/one_time_terminal_tools_bilingual.py
-      - tools/one_time_terminal_tools_contract_sync.py
+      - tools/one_time_manual_bilingual_companion.py
 
 permissions:
   contents: write
@@ -25,26 +24,17 @@ jobs:
         with:
           go-version: '1.26.x'
           cache: false
-      - name: Apply product balance migration
-        run: |
-          python3 tools/one_time_terminal_tools_bilingual.py
-          python3 tools/one_time_terminal_tools_contract_sync.py
-          python3 - <<'PY'
-          from pathlib import Path
-          for name in ('QUICK_START.md','GUIDE.md','docs/PRODUCT_BALANCE_AUDIT.md'):
-              p=Path(name)
-              p.write_text('\n'.join(line.rstrip() for line in p.read_text().splitlines())+'\n')
-          PY
-      - name: Validate source and contracts
+      - name: Apply Manual bilingual companion
+        run: python3 tools/one_time_manual_bilingual_companion.py
+      - name: Validate Manual and product contracts
         run: |
           git diff --check
-          node --check web/app/core.js
-          node --check web/app/lenses/system.js
-          go test ./... -run 'CanonicalSystemPromotesVisualTerminalTools|PrimaryUsageDocsAreBilingual|TerminalBackendRemainsTypedBoundedAndNoShell|SystemConsole|Navigation|Manual|ApplicationRegistersEveryDeclaredLens|APIReferencesHaveRegisteredRoutes'
+          node --check web/app/manual.js
+          node --check web/app/manual-entry.js
+          go test ./... -run 'Manual|Bilingual|CanonicalSystemPromotesVisualTerminalTools|ApplicationRegistersEveryDeclaredLens|APIReferencesHaveRegisteredRoutes'
           go vet ./...
-          grep -Fq 'Terminal Tools / 终端工具' web/app/core.js
-          grep -Fq 'Equivalent command / 等价命令' web/app/lenses/system.js
-          grep -Fq 'Product Balance Audit / 产品重心审计' docs/PRODUCT_BALANCE_AUDIT.md
+          grep -Fq 'English companion / 英文说明' web/app/manual.js
+          grep -Fq 'data-manual-language="en"' web/app/manual.js
       - name: Full repository and desktop package
         run: |
           go test ./...
@@ -52,14 +42,13 @@ jobs:
           ./build-desktop-macos.sh
           test -d dist/Sentinel.app
           for engine in dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-arm64 dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64; do
+            LC_ALL=C grep -aFq 'English companion / 英文说明' "$engine"
             LC_ALL=C grep -aFq 'Terminal Tools / 终端工具' "$engine"
-            LC_ALL=C grep -aFq '/api/system/query/structured' "$engine"
-            LC_ALL=C grep -aFq 'Equivalent command / 等价命令' "$engine"
           done
-      - name: Commit validated product changes
+      - name: Commit validated Manual changes
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add web/app/core.js web/app/lenses/system.js web/system-console.html QUICK_START.md GUIDE.md docs/PRODUCT_BALANCE_AUDIT.md bilingual_terminal_product_contract_test.go product_frontend_contract_helpers_test.go
-          git commit -m 'Promote visual Terminal Tools and bilingual user guidance'
+          git add web/app/manual.js manual_product_contract_test.go
+          git commit -m 'Add bilingual companion to every Manual topic'
           git push origin HEAD:sentinel-2.8-terminal-tools-bilingual-impl
