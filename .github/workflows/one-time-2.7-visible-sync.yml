@@ -25,18 +25,9 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           targets = [
-              'desktop/SentinelDesktop.swift',
-              'build-desktop-macos.sh',
-              'reinstall-macos.sh',
-              'web/index.html',
-              'web/app/core.js',
-              'web/app/ai.js',
-              'main.go',
-              'README.md',
-              'desktop_conversion_test.go',
-              'local_ai_contract_test.go',
-              'web_handler_runtime_test.go',
-              'web_wiring_test.go',
+              'desktop/SentinelDesktop.swift','build-desktop-macos.sh','reinstall-macos.sh','verify-release-macos.sh',
+              'web/index.html','web/app/core.js','web/app/ai.js','main.go','README.md',
+              'desktop_conversion_test.go','local_ai_contract_test.go','web_handler_runtime_test.go','web_wiring_test.go',
           ]
           replacements = {
               '2.6 Native Frontend': '2.7 Native Frontend',
@@ -53,19 +44,15 @@ jobs:
           changed=[]
           for name in targets:
               p=Path(name)
-              if not p.exists():
-                  raise SystemExit(f'missing target {name}')
-              s=p.read_text()
-              before=s
-              for old,new in replacements.items():
-                  s=s.replace(old,new)
-              if s!=before:
-                  p.write_text(s)
-                  changed.append(name)
+              if not p.exists(): raise SystemExit(f'missing target {name}')
+              s=p.read_text(); before=s
+              for old,new in replacements.items(): s=s.replace(old,new)
+              if s!=before: p.write_text(s); changed.append(name)
           required = {
               'desktop/SentinelDesktop.swift':['2.7 Native Frontend'],
               'build-desktop-macos.sh':['2.7 Native Frontend'],
               'reinstall-macos.sh':['2.7 Native Frontend'],
+              'verify-release-macos.sh':['2.7 Native Frontend','Sentinel 2.7 WebLLM Local AI'],
               'web/index.html':['2.7-native'],
               'web/app/core.js':['Sentinel 2.7 Native Frontend'],
               'web/app/ai.js':['Sentinel 2.7 WebLLM Local AI'],
@@ -79,8 +66,7 @@ jobs:
           for name,needles in required.items():
               s=Path(name).read_text()
               for needle in needles:
-                  if needle not in s:
-                      raise SystemExit(f'{name} missing {needle!r}')
+                  if needle not in s: raise SystemExit(f'{name} missing {needle!r}')
           print('changed:', ', '.join(changed))
           PY
           gofmt -w desktop_conversion_test.go local_ai_contract_test.go web_handler_runtime_test.go web_wiring_test.go
@@ -88,14 +74,14 @@ jobs:
           go test ./...
           node --check web/app/core.js
           node --check web/app/ai.js
-          bash -n build-desktop-macos.sh reinstall-macos.sh
+          bash -n build-desktop-macos.sh reinstall-macos.sh verify-release-macos.sh
           echo 'Residual current-runtime 2.6 markers:'
           grep -nR --include='*.go' --include='*.js' --include='*.html' --include='*.swift' --include='*.sh' '2\.6 Native Frontend\|2\.6-native\|Sentinel 2\.6 WebLLM Local AI' . --exclude-dir=.git && exit 1 || true
       - name: Commit verified 2.7 visible sync
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add desktop/SentinelDesktop.swift build-desktop-macos.sh reinstall-macos.sh web/index.html web/app/core.js web/app/ai.js main.go README.md desktop_conversion_test.go local_ai_contract_test.go web_handler_runtime_test.go web_wiring_test.go
+          git add desktop/SentinelDesktop.swift build-desktop-macos.sh reinstall-macos.sh verify-release-macos.sh web/index.html web/app/core.js web/app/ai.js main.go README.md desktop_conversion_test.go local_ai_contract_test.go web_handler_runtime_test.go web_wiring_test.go
           git diff --cached --quiet && exit 1
           git commit -m 'Synchronize Sentinel 2.7 visible runtime markers'
           git push origin HEAD:sentinel-2.7-visible-version-sync
