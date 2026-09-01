@@ -24,6 +24,7 @@ UI_STYLE="$HERE/web/app/shell.css"
 UI_WORKBENCH="$HERE/web/app/workbench.js"
 UI_SCAN_CENTER="$HERE/web/app/full-scan.js"
 UI_ACTION_DOCK="$HERE/web/app/action-dock.js"
+UI_TASK_CENTER="$HERE/web/app/task-center.js"
 UI_RUNTIME_LOGS="$HERE/web/app/runtime-logs.js"
 UI_AI="$HERE/web/app/ai.js"
 UI_AI_RELIABILITY="$HERE/web/app/ai-reliability.js"
@@ -32,6 +33,7 @@ UI_MARKER="Sentinel 2.7 Native Frontend"
 WORKBENCH_MARKER="Sentinel 2.7 Investigation Workbench"
 SCAN_CENTER_MARKER="Sentinel 2.7 Full Scan Center"
 ACTION_DOCK_MARKER="Sentinel 2.7 Contextual Action Dock"
+TASK_CENTER_MARKER="Sentinel 2.7 Floating Task Center"
 RUNTIME_LOGS_MARKER="Sentinel 2.7 Runtime Logs"
 AI_MARKER="Sentinel 2.7 WebLLM Local AI"
 AI_RELIABILITY_MARKER="Sentinel 2.7 Local AI Reliability"
@@ -53,6 +55,7 @@ REQUIRED_UI_FILES=(
   "web/app/workbench.js"
   "web/app/full-scan.js"
   "web/app/action-dock.js"
+  "web/app/task-center.js"
   "web/app/runtime-logs.js"
   "web/app/ai.js"
   "web/app/ai-reliability.js"
@@ -68,11 +71,13 @@ REQUIRED_UI_FILES=(
   "web/app/workbench.css"
   "web/app/full-scan.css"
   "web/app/action-dock.css"
+  "web/app/task-center.css"
   "web/app/ai.css"
   "web/app/manual.css"
 )
 REQUIRED_UI_SCRIPTS=(
   "/app/core.js"
+  "/app/task-center.js"
   "/app/lenses/orient-investigate.js"
   "/app/lenses/compare.js"
   "/app/lenses/system.js"
@@ -96,6 +101,7 @@ REQUIRED_UI_STYLES=(
   "/app/workbench.css"
   "/app/full-scan.css"
   "/app/action-dock.css"
+  "/app/task-center.css"
   "/app/ai.css"
   "/app/manual.css"
 )
@@ -139,6 +145,10 @@ if ! grep -Fq "$ACTION_DOCK_MARKER" "$UI_ACTION_DOCK"; then
   echo "Sentinel 2.7 Action Dock marker missing from $UI_ACTION_DOCK" >&2
   exit 2
 fi
+if ! grep -Fq "$TASK_CENTER_MARKER" "$UI_TASK_CENTER"; then
+  echo "Sentinel 2.7 Floating Task Center marker missing from $UI_TASK_CENTER" >&2
+  exit 2
+fi
 if ! grep -Fq "$RUNTIME_LOGS_MARKER" "$UI_RUNTIME_LOGS"; then
   echo "Sentinel 2.7 Runtime Logs marker missing from $UI_RUNTIME_LOGS" >&2
   exit 2
@@ -169,6 +179,10 @@ if ! grep -Fq ".capability-atlas" "$HERE/web/app/full-scan.css"; then
 fi
 if ! grep -Fq ".s24-action-dock" "$HERE/web/app/action-dock.css"; then
   echo "Action Dock visual-system marker missing from action-dock.css" >&2
+  exit 2
+fi
+if ! grep -Fq ".task-center" "$HERE/web/app/task-center.css"; then
+  echo "Floating Task Center visual-system marker missing from task-center.css" >&2
   exit 2
 fi
 if ! grep -Fq ".ai-model-library" "$HERE/web/app/ai.css"; then
@@ -271,6 +285,7 @@ echo "Advanced capabilities: verified"
 echo "Investigation Workbench: 30-function evolution verified"
 echo "Full Scan Center: Easy Scan + comprehensive retained baseline + Capability Atlas verified"
 echo "Contextual Action Dock: header scan controls + lens-specific quick actions + post-scan routing verified"
+echo "Floating Task Center: concurrent task visibility + measured progress + stall visibility verified"
 echo "Local AI: WebLLM + CSP-safe reliability watchdog + evidence fallback verified"
 echo "User Manual: canonical module verified"
 echo
@@ -281,7 +296,7 @@ echo
 # product, Workbench, Scan Center, Action Dock, Local AI reliability, and Manual
 # markers in both architecture-specific engines.
 for engine in "$HERE/dist/sentinel-macos-arm64" "$HERE/dist/sentinel-macos-x86_64"; do
-  for marker in "$UI_MARKER" "$WORKBENCH_MARKER" "$SCAN_CENTER_MARKER" "$ACTION_DOCK_MARKER" "$AI_MARKER" "$AI_RELIABILITY_MARKER" "$MANUAL_MARKER" '/api/intelligence/graph/v2' '/api/incidents/v2' '/api/network/history' 'Evidence Bundle' 'Deep home-storage traversal & hash analysis' 'Local AI initialization stalled'; do
+  for marker in "$UI_MARKER" "$WORKBENCH_MARKER" "$SCAN_CENTER_MARKER" "$ACTION_DOCK_MARKER" "$TASK_CENTER_MARKER" "$AI_MARKER" "$AI_RELIABILITY_MARKER" "$MANUAL_MARKER" '/api/intelligence/graph/v2' '/api/incidents/v2' '/api/network/history' 'Evidence Bundle' 'Deep home-storage traversal & hash analysis' 'Local AI initialization stalled'; do
     if ! LC_ALL=C grep -aFq "$marker" "$engine"; then
       echo "Embedded Sentinel 2.7 marker missing from $engine: $marker" >&2
       echo "The Go binary does not contain the current modular web/app product. Aborting." >&2
@@ -289,7 +304,7 @@ for engine in "$HERE/dist/sentinel-macos-arm64" "$HERE/dist/sentinel-macos-x86_6
     fi
   done
 done
-echo "Embedded Sentinel 2.7 product + Workbench + Full Scan Center + Action Dock + Local AI + Manual: verified in arm64 + x86_64 engines"
+echo "Embedded Sentinel 2.7 product + Workbench + Full Scan Center + Action Dock + Task Center + Local AI + Manual: verified in arm64 + x86_64 engines"
 
 # Build the native launcher completely before replacing the app bundle. If Swift
 # or lipo fails, no partial Sentinel.app is left behind.

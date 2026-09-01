@@ -16,6 +16,7 @@
     completedAt: 0,
     outcome: 'IDLE',
     lastSummary: null,
+    taskID: '',
   };
 
   const FULL_SCAN_LAST_RUN_KEY = 'sentinel.fullScan.lastRun.v1';
@@ -54,6 +55,12 @@
     });
     if (S.Workbench && typeof S.Workbench.recordEvent === 'function') {
       S.Workbench.recordEvent('full-scan', `Full Scan ${summary.outcome}.`, {outcome: summary.outcome, duration_ms: summary.duration_ms, ...counts});
+    }
+    if (fullScan.taskID && S.TaskCenter) {
+      if (summary.outcome === 'FAILED') S.TaskCenter.fail(fullScan.taskID, `Full Scan failed · ${counts.failed} failed stage(s)`);
+      else if (summary.outcome === 'CANCELLED') S.TaskCenter.cancelled(fullScan.taskID, 'Full Scan cancelled by user.');
+      else S.TaskCenter.complete(fullScan.taskID, `Full Scan ${summary.outcome} · ${counts.done} done · ${counts.limited} limited`);
+      fullScan.taskID = '';
     }
     return summary;
   }
@@ -278,6 +285,7 @@
     const terminal = fullScan.stages.filter(s => ['done', 'limited', 'failed', 'cancelled'].includes(s.status)).length;
     const pct = Math.round(terminal / Math.max(1, fullScan.stages.length) * 100);
     const active = fullScan.stages.find(s => s.status === 'running');
+    if (fullScan.taskID && S.TaskCenter) S.TaskCenter.update(fullScan.taskID, {progress: pct, measured: true, detail: active ? `${active.label} · ${terminal}/${fullScan.stages.length} stages complete` : `${terminal}/${fullScan.stages.length} Full Scan stages`});
     activity(fullScan.running ? 'Full Scan' : fullScan.outcome === 'FAILED' ? 'Error' : 'Ready', pct, active ? active.label : `${terminal}/${fullScan.stages.length} Full Scan stages`);
   }
 
@@ -333,6 +341,7 @@
     fullScan.cancelRequested = false;
     fullScan.storageJob = '';
     fullScan.startedAt = Date.now();
+    if (S.TaskCenter) fullScan.taskID = S.TaskCenter.start({label: 'Full Scan', source: 'Scan Center', detail: 'Preparing comprehensive retained evidence baseline…', measured: true, progress: 0, cancel: async () => { fullScan.cancelRequested = true; }});
     fullScan.completedAt = 0;
     fullScan.outcome = 'RUNNING';
     fullScan.stages = scanStages().map(stage => ({...stage, status: 'pending', detail: '', startedAt: 0, completedAt: 0, durationMs: 0}));
