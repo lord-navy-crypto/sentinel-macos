@@ -1,0 +1,59 @@
+name: One-time Mac Health and Storage Graph migration
+
+on:
+  push:
+    branches:
+      - sentinel-2.8-mac-health-storage-graph
+    paths:
+      - .github/workflows/one-time-mac-health-storage-graph.yml
+      - tools/one_time_mac_health_storage_graph.py
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: sentinel-2.8-mac-health-storage-graph
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+          cache: false
+      - name: Apply Mac Health and Storage Graph
+        run: python3 tools/one_time_mac_health_storage_graph.py
+      - name: Validate source
+        run: |
+          git diff --check
+          gofmt -w mac_health_storage.go mac_health_storage_contract_test.go
+          node --check web/app/lenses/system.js
+          node --check web/app/runtime.js
+          go test ./... -run 'MacHealthAndStorageGraph|Storage|SystemProfile|WorkGate'
+          go vet ./...
+          grep -Fq 'Sentinel 2.8 Mac Health + Lazy Storage Graph' mac_health_storage.go
+          grep -Fq 'Generate Storage Graph' web/app/lenses/system.js
+          grep -Fq '/api/health/live' main.go
+          grep -Fq '/api/storage/graph' main.go
+      - name: Full repository test and desktop package
+        run: |
+          go test ./...
+          chmod +x build-desktop-macos.sh
+          ./build-desktop-macos.sh
+          test -d dist/Sentinel.app
+          for engine in dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-arm64 dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64; do
+            LC_ALL=C grep -aFq 'Sentinel 2.8 Mac Health + Lazy Storage Graph' "$engine"
+            LC_ALL=C grep -aFq '/api/health/live' "$engine"
+            LC_ALL=C grep -aFq '/api/storage/graph' "$engine"
+            LC_ALL=C grep -aFq 'Generate Storage Graph' "$engine"
+          done
+      - name: Commit validated product changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add main.go mac_health_storage.go mac_health_storage_contract_test.go web/app/lenses/system.js web/app/runtime.js
+          git commit -m 'Add Mac Health and lazy Storage Graph'
+          git push origin HEAD:sentinel-2.8-mac-health-storage-graph
