@@ -15,7 +15,7 @@ replace_once(
       if(!appConfig.model_list?.some(record=>record.model_id===ai.model))throw new Error('Selected model is not present in WebLLM 0.2.82 prebuiltAppConfig.');
       ai.worker=new Worker('/app/ai-worker.js',{type:'module'});
       ai.engine=await ai.module.CreateWebWorkerMLCEngine(ai.worker,ai.model,{appConfig,initProgressCallback:updateProgress,logLevel:'WARN'});""",
-    """      const useIndexedDBCache=!('caches' in window);const appConfig={...ai.module.prebuiltAppConfig,useIndexedDBCache};AI.cacheBackend=useIndexedDBCache?'indexeddb':'cache';
+    """      const appConfig={...ai.module.prebuiltAppConfig,useIndexedDBCache:false};AI.cacheBackend='cache';
       if(!appConfig.model_list?.some(record=>record.model_id===ai.model))throw new Error('Selected model is not present in WebLLM 0.2.82 prebuiltAppConfig.');
       const nativeAppView=Boolean(window.__sentinelNativeAppView);AI.executionBackend=nativeAppView?'main-thread':'web-worker';
       if(nativeAppView){
@@ -67,14 +67,14 @@ replace_once(
     """    ['WebGPU',c.webgpu?'Available':'Unavailable'],['Worker',c.worker?'Available':'Unavailable'],
     ['Cache API',c.cacheAPI?'Available':'Unavailable'],['IndexedDB',c.indexeddb?'Available':'Unavailable'],['Loopback / secure context',c.secureContext?'OK':'Review'],
     ['Selected model',modelName()],['Loaded model',ai.loadedModel||'Not loaded'],
-    ['Execution backend',AI.executionBackend||(window.__sentinelNativeAppView?'main-thread':'web-worker')],['Worker state',ai.worker?'Created':'Not created'],['Engine state',ai.engine?'Created':'Not created'],['Cache backend',AI.cacheBackend||'auto'],""",
+    ['Execution backend',AI.executionBackend||(window.__sentinelNativeAppView?'main-thread':'web-worker')],['Worker state',ai.worker?'Created':'Not created'],['Engine state',ai.engine?'Created':'Not created'],['Cache backend',AI.cacheBackend||'cache'],""",
 )
 
 replace_once(
     "web/app/ai-reliability.js",
     """    if(!c.worker||!c.indexeddb||!c.webgpu){await resetFailedLoad(`Prerequisite unavailable: ${!c.webgpu?'WebGPU ':''}${!c.worker?'Worker ':''}${!c.indexeddb?'IndexedDB ':''}`.trim());return;}""",
-    """    const needsWorker=!window.__sentinelNativeAppView,storageReady=c.cacheAPI||c.indexeddb;
-    if((needsWorker&&!c.worker)||!storageReady||!c.webgpu){await resetFailedLoad(`Prerequisite unavailable: ${!c.webgpu?'WebGPU ':''}${needsWorker&&!c.worker?'Worker ':''}${!storageReady?'persistent browser storage ':''}`.trim());return;}""",
+    """    const needsWorker=!window.__sentinelNativeAppView;
+    if((needsWorker&&!c.worker)||!c.cacheAPI||!c.webgpu){await resetFailedLoad(`Prerequisite unavailable: ${!c.webgpu?'WebGPU ':''}${needsWorker&&!c.worker?'Worker ':''}${!c.cacheAPI?'Cache API ':''}`.trim());return;}""",
 )
 
 for path in ["desktop_conversion_test.go", "local_ai_contract_test.go"]:
