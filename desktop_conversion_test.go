@@ -17,7 +17,7 @@ func TestDesktopDistributionAssets(t *testing.T) {
 		"DIRECT_DISTRIBUTION_GUIDE.md":         {"Developer ID", "notarytool"},
 		"web/index.html":                       {"2.7-native", "/app/shell.css", "/app/core.js", "/app/ai.js", "/app/runtime.js", "missionRibbon", "evidenceStage", "contextTray"},
 		"web/app/core.js":                      {"Sentinel 2.7 Native Frontend", "X-Sentinel-Token", "window.SentinelApp"},
-		"web/app/ai.js":                        {"Sentinel 2.7 WebLLM Local AI", "CreateWebWorkerMLCEngine", "useIndexedDBCache:true", "Model Library", "Qwen2.5-1.5B-Instruct-q4f16_1-MLC", "Load / Download selected"},
+		"web/app/ai.js":                        {"Sentinel 2.7 WebLLM Local AI", "CreateWebWorkerMLCEngine", "cacheBackend:'cache'", "Model Library", "Qwen2.5-1.5B-Instruct-q4f16_1-MLC", "Load / Download selected"},
 		"web/app/lenses/orient-investigate.js": {"/api/quick-check"},
 		"web/app/lenses/act-limits.js":         {"/api/actions/preview"},
 		"web/app/shell.css":                    {".s24-shell", ".s24-missions", ".s24-stage", ".s24-context", ".s24-activity"},
@@ -60,7 +60,7 @@ func TestBrowserAndNativeAppViewUseSameProduct(t *testing.T) {
 		}
 	}
 	if strings.Contains(swift, "websiteDataStore = .nonPersistent()") {
-		t.Fatal("native App View must retain the explicitly downloaded WebLLM IndexedDB model cache")
+		t.Fatal("native App View must retain the explicitly downloaded WebLLM persistent model cache")
 	}
 	mainBytes, err := os.ReadFile("main.go")
 	if err != nil {

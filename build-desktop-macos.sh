@@ -240,7 +240,7 @@ for marker in 'Easy Scan' 'Full Scan' 'Capture Checkpoint' 'Capture History' 'Op
     exit 2
   fi
 done
-for marker in 'Model Library' 'useIndexedDBCache:true' 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC' 'Sentinel 2.7 Integrated Local AI'; do
+for marker in 'Model Library' "cacheBackend:'cache'" 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC' 'Sentinel 2.7 Integrated Local AI'; do
   if ! grep -Fq "$marker" "$UI_AI"; then
     echo "Local AI capability marker missing: $marker" >&2
     exit 2

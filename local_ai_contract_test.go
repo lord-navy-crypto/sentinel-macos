@@ -31,7 +31,7 @@ func TestLocalAIIsCanonicalAndExplicitlyOptIn(t *testing.T) {
 		"registerLens('assistant'",
 		"navigator.gpu",
 		"CreateWebWorkerMLCEngine",
-		"useIndexedDBCache:true",
+		"cacheBackend:'cache'",
 		"collectEvidencePacket",
 		"Evidence explanation only · no shell execution",
 		"Model loading is explicit",
@@ -59,8 +59,8 @@ func TestLocalAIIsCanonicalAndExplicitlyOptIn(t *testing.T) {
 	if strings.Contains(ai, "Qwen3-0.6B-q4f16_1-MLC") {
 		t.Fatal("WebLLM 0.2.82 Local AI must not default to an unsupported Qwen3 prebuilt model")
 	}
-	if strings.Contains(ai, "cacheBackend:'indexeddb'") {
-		t.Fatal("WebLLM 0.2.82 must use useIndexedDBCache:true instead of the newer cacheBackend API")
+	if strings.Contains(ai, "useIndexedDBCache:true") {
+		t.Fatal("Local AI must use the explicit Cache API backend instead of the retired IndexedDB flag")
 	}
 	if strings.Contains(ai, "installHeaderButton();\n  loadAI()") || strings.Contains(ai, "renderAI();\n  loadAI()") {
 		t.Fatal("Local AI must never load a model automatically during application startup")
@@ -251,7 +251,7 @@ func TestLocalAIHasBoundedNetworkAndPersistentAppCache(t *testing.T) {
 		t.Fatal("packaged WebLLM runtime is missing or invalid")
 	}
 	if !strings.Contains(desktop, "config.websiteDataStore = .default()") {
-		t.Fatal("Native App View must use persistent WebKit storage so the WebLLM IndexedDB model cache survives relaunch")
+		t.Fatal("Native App View must use persistent WebKit storage so the WebLLM persistent model cache survives relaunch")
 	}
 	if strings.Contains(desktop, "config.websiteDataStore = .nonPersistent()") {
 		t.Fatal("Native App View still uses non-persistent storage; WebLLM model cache would be discarded on relaunch")
