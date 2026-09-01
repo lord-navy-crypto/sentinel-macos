@@ -7,6 +7,8 @@
   const {$,$$,state,api,busy,activity,notice,esc,bytes,fmt,badge,sev,ledger,table,empty,registerLens} = S;
 
   const STORE_KEY = 'sentinel24-investigation-workbench-v1';
+  const FULL_SCAN_LAST_RUN_KEY = 'sentinel.fullScan.lastRun.v1';
+  const INVESTIGATION_CONTINUITY_MARKER = 'Sentinel 2.7 Investigation Continuity';
   const FEATURES = [
     'Interactive Evidence Graph 3.0','Process Story 2.0','Unified Investigation Workspace','Timeline 3.0','Network Intelligence 2.0','Launch & Persistence Drift','System Checkpoint 2.0','Storage Intelligence 2.0','Case Stories 3.0','Object Story 3.0','Permission & Visibility Assistant','Evidence Completeness Meter','Explain This','Smart Next Step','Cross-Lens Selection','Compare Any Two Objects','Reference Profiles 2.0','Safe Change Simulation','Recovery Center 2.0','Evidence Bundle','Local Evidence Assistant','Natural-language Command Bar','Saved Queries','Watch Rules','Visual Relationship Matrix','Change Evidence Flow','Historical Heatmaps','Workspace Persistence','Keyboard Workflow','Product Onboarding'
   ];
@@ -28,7 +30,7 @@
   async function structured(mode,params={}){const q=new URLSearchParams({mode,...params});return api('/api/system/query/structured?'+q.toString(),{method:'POST'});}
 
   function selectionLabel(s=wb.selected){if(!s)return 'No selection';return s.path||s.label||(s.pid?`PID ${s.pid}`:s.type||'Evidence');}
-  function setSelection(next){if(!next)return;wb.selected={type:next.type||'evidence',path:next.path||'',pid:Number(next.pid||0),label:next.label||next.path||(next.pid?`PID ${next.pid}`:'Evidence'),at:Date.now()};saveStore();renderSelectionChip();highlightSelection();}
+  function setSelection(next){if(!next)return;wb.selected={type:next.type||'evidence',path:next.path||'',pid:Number(next.pid||0),label:next.label||next.path||(next.pid?`PID ${next.pid}`:'Evidence'),at:Date.now()};saveStore();recordEvent('selection','Evidence selected.',{type:wb.selected.type,label:wb.selected.label,pid:wb.selected.pid||0});renderSelectionChip();highlightSelection();}
   function renderSelectionChip(){let chip=$('#wbSelectionChip');if(!chip){chip=document.createElement('button');chip.id='wbSelectionChip';chip.type='button';chip.className='s24-quiet wb-selection-chip';chip.dataset.workbench='selection';const actions=$('.s24-command-actions');if(actions)actions.prepend(chip);}if(chip){chip.textContent=wb.selected?`Selected · ${selectionLabel().split('/').pop()}`:'Select evidence';chip.title=selectionLabel();}}
   function installWorkbenchButton(){if($('#workbenchButton'))return;const b=document.createElement('button');b.id='workbenchButton';b.type='button';b.className='s24-quiet';b.textContent='Workbench';b.dataset.workbench='open';const actions=$('.s24-command-actions');if(actions)actions.insertBefore(b,$('#refreshButton'));renderSelectionChip();}
   function highlightSelection(){const selected=wb.selected;if(!selected)return;const needle=(selected.path||String(selected.pid||'')).toLowerCase();if(!needle)return;for(const row of $$('.s24-table tbody tr,.s24-feed-item,.s24-checkpoint')){row.classList.toggle('wb-related',row.textContent.toLowerCase().includes(needle));}}
@@ -51,6 +53,37 @@
   async function openProcessStory(pid){busy('Building Process Story',`PID ${pid}`);const d=await processStoryData(pid);setSelection({type:'process',pid,label:d.detail?.command||`PID ${pid}`});const net=d.network||[],launch=d.launch_relationships||[];openContext(`Process Story · PID ${pid}`,section('Process identity',ledger([['PID',pid],['Command',d.detail?.command||d.detail?.executable||'—'],['User',d.detail?.user||'—'],['CPU',d.detail?.cpu??'—'],['Memory',d.detail?.memory??'—']]))+section('Launch origin',launch.length?table(['Scope','Label','Executable'],launch.slice(0,20).map(x=>[esc(x.scope||''),esc(x.label||''),`<code>${esc(x.executable||'')}</code>`])):empty('No exact visible launch relationship matched this process.'))+section('Current network relationships',net.length?table(['State','Local','Remote','Class'],net.slice(0,40).map(x=>[esc(x.state||''),`<code>${esc(x.local||'')}</code>`,`<code>${esc(x.remote||'')}</code>`,esc(x.endpoint_class||'')])):empty('No visible TCP relationship matched this PID.'))+section('Unknowns','<div class="s24-note">Process ancestry is shown only when an available evidence source exposes it. Sentinel does not invent parent/child history from current PID state.</div>')+section('Next useful step',nextStepHTML()));activity('Ready',100,'Process Story loaded');}
 
   function currentInvestigation(){return wb.investigations.find(x=>x.id===wb.activeInvestigation)||null;}
+  function wbRuntimeLog(level,event,message,fields={}){if(typeof S.runtimeLog==='function')void S.runtimeLog(level,'workbench',event,message,fields);}
+  function recordEvent(kind,message,fields={}){
+    wbRuntimeLog('info',`investigation-${kind}`,message,{investigation_id:wb.activeInvestigation||'',...fields});
+    const active=currentInvestigation();if(!active)return null;
+    active.events=Array.isArray(active.events)?active.events:[];
+    const entry={id:uid('evt'),kind,message,fields,at:Date.now()};active.events.push(entry);
+    if(active.events.length>200)active.events=active.events.slice(-200);
+    active.updated=Date.now();saveStore();return entry;
+  }
+  function lastFullScan(){try{return JSON.parse(localStorage.getItem(FULL_SCAN_LAST_RUN_KEY)||'null');}catch{return null;}}
+  function investigationCompleteness(inv=currentInvestigation()){
+    if(!inv)return {score:0,done:[],missing:['Create or select an investigation']};
+    const checks=[
+      ['title',Boolean(String(inv.title||'').trim()),10,'Name the investigation'],
+      ['hypothesis',Boolean(String(inv.hypothesis||'').trim()),20,'Write a hypothesis / question'],
+      ['notes',Boolean(String(inv.notes||'').trim()),20,'Record investigation notes'],
+      ['bookmarks',Boolean((inv.bookmarks||[]).length),20,'Bookmark relevant evidence'],
+      ['activity',Boolean((inv.events||[]).length>=3),10,'Collect at least three investigation events'],
+      ['scan',Boolean((inv.scanSnapshots||[]).length),20,'Attach a Full Scan summary'],
+    ];
+    const score=checks.reduce((n,[,ok,points])=>n+(ok?points:0),0);
+    return {score,done:checks.filter(([,ok])=>ok).map(([id])=>id),missing:checks.filter(([,ok])=>!ok).map(([, , ,label])=>label)};
+  }
+  function investigationContinuityHTML(inv=currentInvestigation()){
+    if(!inv)return '<div class="s24-note">No active investigation. Create one to retain activity, scan context, notes, hypotheses, and bookmarks together.</div>';
+    const c=investigationCompleteness(inv),events=(inv.events||[]).slice(-12).reverse(),scan=lastFullScan(),attached=(inv.scanSnapshots||[]).length;
+    const scanBlock=scan?ledger([['Last Full Scan',scan.outcome||'—'],['Duration',`${(Number(scan.duration_ms||0)/1000).toFixed(1)} s`],['Stages',`${Number(scan.counts?.done||0)} done · ${Number(scan.counts?.limited||0)} limited · ${Number(scan.counts?.failed||0)} failed`],['Attached summaries',attached]]):'<div class="s24-note">No retained Full Scan summary is available yet.</div>';
+    const timeline=events.length?`<div class="wb-list">${events.map(e=>`<div class="wb-list-row"><div><b>${esc(e.message||e.kind)}</b><small>${esc(e.kind)} · ${esc(new Date(e.at).toLocaleString())}</small></div></div>`).join('')}</div>`:empty('No investigation activity recorded yet.');
+    return `<div class="wb-completeness"><strong>${c.score}%</strong><div><span>workflow completeness</span><span>${c.missing.length?`${c.missing.length} next step(s)`:'ready for review'}</span></div><progress max="100" value="${c.score}"></progress></div><div class="s24-note">This completeness score describes investigation workflow coverage only. It is not a malware, risk, or safety score.</div>${c.missing.length?`<div class="wb-advice">${c.missing.map(x=>`<p>${esc(x)}</p>`).join('')}</div>`:''}${scanBlock}<div class="wb-actions">${panelButton('Attach last Full Scan','attach-last-full-scan')}${panelButton('Export investigation','export-investigation')}</div>${timeline}`;
+  }
+  function attachLastFullScan(){const inv=currentInvestigation();if(!inv)throw new Error('Create or select an investigation first.');const scan=lastFullScan();if(!scan)throw new Error('Run Full Scan before attaching scan context.');inv.scanSnapshots=Array.isArray(inv.scanSnapshots)?inv.scanSnapshots:[];if(!inv.scanSnapshots.some(x=>x.completed_at===scan.completed_at))inv.scanSnapshots.push(scan);if(inv.scanSnapshots.length>12)inv.scanSnapshots=inv.scanSnapshots.slice(-12);recordEvent('scan-attached',`Attached Full Scan ${scan.outcome||'summary'}.`,{outcome:scan.outcome||'',duration_ms:Number(scan.duration_ms||0)});notice('Last Full Scan summary attached to the active investigation.');return openWorkbench('investigations');}
   function investigationPanel(){const active=currentInvestigation();const list=wb.investigations.map(x=>`<button type="button" class="wb-list-row ${x.id===wb.activeInvestigation?'active':''}" data-wb-investigation="${esc(x.id)}"><b>${esc(x.title)}</b><small>${esc(new Date(x.updated||x.created).toLocaleString())}</small></button>`).join('')||empty('No saved investigations yet.');const editor=active?`<label class="wb-field"><span>Title</span><input id="wbInvTitle" value="${esc(active.title)}"></label><label class="wb-field"><span>Notes</span><textarea id="wbInvNotes" rows="6">${esc(active.notes||'')}</textarea></label><label class="wb-field"><span>Hypothesis / question</span><textarea id="wbInvHypothesis" rows="4">${esc(active.hypothesis||'')}</textarea></label><div class="wb-actions">${panelButton('Save investigation','save-investigation','primary')}${panelButton('Bookmark selected evidence','bookmark-selection')}${panelButton('Export investigation','export-investigation')}</div><div class="wb-bookmarks">${(active.bookmarks||[]).map(b=>`<div><b>${esc(b.label||b.path||`PID ${b.pid}`)}</b><small>${esc(b.path||b.type||'')}</small></div>`).join('')||empty('No bookmarked evidence.')}</div>`:empty('Create or select an investigation to keep notes, hypotheses, bookmarks, and filters together.');return `<div class="wb-two"><div>${panelButton('New investigation','new-investigation','primary')}${list}</div><div>${editor}</div></div>`;}
 
   function savedQueryPanel(){return `<form id="wbSavedQueryForm" class="wb-inline"><input name="query" placeholder="processes connecting to new endpoints"><button class="s24-action primary" type="submit">Save query</button></form><div class="wb-list">${wb.savedQueries.map(q=>`<div class="wb-list-row"><div><b>${esc(q.text)}</b><small>${esc(q.created?new Date(q.created).toLocaleString():'')}</small></div><div>${panelButton('Run',`run-query:${q.id}`)}${panelButton('Remove',`remove-query:${q.id}`)}</div></div>`).join('')||empty('No saved queries.')}</div>`;}
@@ -95,7 +128,9 @@
   async function openWorkbench(tab='overview'){
     let body='';
     if(tab==='overview')body=section('30-function evolution',featureGrid(),'All thirty improvements are integrated into the existing Sentinel intent/lens model; no second dashboard is created.')+section('Selected evidence',ledger([['Selection',selectionLabel()],['Type',wb.selected?.type||'—'],['Compare A',selectionLabel(wb.compareA)],['Compare B',selectionLabel(wb.compareB)]])+`<div class="wb-actions">${panelButton('Explain This','explain-selection','primary')}${panelButton('Set Compare A','set-compare-a')}${panelButton('Set Compare B','set-compare-b')}${panelButton('Compare A/B','compare-ab')}${panelButton('Export Evidence Bundle','export-bundle')}</div>`)+section('Smart next step',nextStepHTML())+section('Workspace persistence',ledger([['Last Lens',wb.workspace.lens||state.lens],['Investigations',wb.investigations.length],['Saved queries',wb.savedQueries.length],['Watch rules',wb.watchRules.length]]));
+    if(tab==='overview')body+=section('Investigation continuity',investigationContinuityHTML(currentInvestigation()),'Resume the current investigation with explicit workflow completeness and retained Full Scan context.');
     if(tab==='investigations')body=section('Unified Investigation Workspace',investigationPanel(),'Notes, hypotheses, bookmarks and filters persist locally in this Sentinel UI workspace.');
+    if(tab==='investigations')body+=section('Investigation continuity & activity',investigationContinuityHTML(currentInvestigation()),'Recent local workflow events are retained with the active investigation.');
     if(tab==='queries')body=section('Saved Queries',savedQueryPanel())+section('Watch Rules',watchRulePanel());
     if(tab==='visibility')body=await visibilityAssistantHTML();
     if(tab==='evolution')body=await loadNetworkEvolution()+await loadLaunchDrift()+await checkpoint2HTML()+await storageForecastHTML()+await referenceProfilesHTML();
@@ -128,14 +163,15 @@
 
   async function handleWBAction(action){
     if(action==='explain-selection')return explainSelection();
-    if(action==='set-compare-a'){if(!wb.selected)throw new Error('Select evidence first.');wb.compareA={...wb.selected};saveStore();return openWorkbench('overview');}
-    if(action==='set-compare-b'){if(!wb.selected)throw new Error('Select evidence first.');wb.compareB={...wb.selected};saveStore();return openWorkbench('overview');}
+    if(action==='set-compare-a'){if(!wb.selected)throw new Error('Select evidence first.');wb.compareA={...wb.selected};saveStore();recordEvent('compare-a','Set Compare A.',{label:selectionLabel(wb.compareA)});return openWorkbench('overview');}
+    if(action==='set-compare-b'){if(!wb.selected)throw new Error('Select evidence first.');wb.compareB={...wb.selected};saveStore();recordEvent('compare-b','Set Compare B.',{label:selectionLabel(wb.compareB)});return openWorkbench('overview');}
     if(action==='compare-ab')return compareAB();
     if(action==='export-bundle')return evidenceBundle();
-    if(action==='new-investigation'){const x={id:uid('inv'),title:`Investigation ${wb.investigations.length+1}`,created:Date.now(),updated:Date.now(),notes:'',hypothesis:'',bookmarks:[]};wb.investigations.unshift(x);wb.activeInvestigation=x.id;saveStore();return openWorkbench('investigations');}
-    if(action==='save-investigation'){const x=currentInvestigation();if(!x)return;x.title=$('#wbInvTitle')?.value.trim()||x.title;x.notes=$('#wbInvNotes')?.value||'';x.hypothesis=$('#wbInvHypothesis')?.value||'';x.updated=Date.now();saveStore();notice('Investigation saved.');return openWorkbench('investigations');}
-    if(action==='bookmark-selection'){const x=currentInvestigation();if(!x||!wb.selected)throw new Error('Select an investigation and evidence first.');x.bookmarks=x.bookmarks||[];x.bookmarks.push({...wb.selected,bookmarked:Date.now()});x.updated=Date.now();saveStore();return openWorkbench('investigations');}
-    if(action==='export-investigation'){const x=currentInvestigation();if(!x)throw new Error('No active investigation.');downloadJSON(`sentinel-investigation-${x.id}.json`,x);return;}
+    if(action==='new-investigation'){const x={id:uid('inv'),title:`Investigation ${wb.investigations.length+1}`,created:Date.now(),updated:Date.now(),notes:'',hypothesis:'',bookmarks:[],events:[],scanSnapshots:[]};wb.investigations.unshift(x);wb.activeInvestigation=x.id;saveStore();recordEvent('created','Investigation created.',{title:x.title});return openWorkbench('investigations');}
+    if(action==='save-investigation'){const x=currentInvestigation();if(!x)return;x.title=$('#wbInvTitle')?.value.trim()||x.title;x.notes=$('#wbInvNotes')?.value||'';x.hypothesis=$('#wbInvHypothesis')?.value||'';x.updated=Date.now();saveStore();recordEvent('saved','Investigation notes and hypothesis saved.',{title:x.title});notice('Investigation saved.');return openWorkbench('investigations');}
+    if(action==='bookmark-selection'){const x=currentInvestigation();if(!x||!wb.selected)throw new Error('Select an investigation and evidence first.');x.bookmarks=x.bookmarks||[];x.bookmarks.push({...wb.selected,bookmarked:Date.now()});x.updated=Date.now();saveStore();recordEvent('bookmark','Bookmarked selected evidence.',{label:selectionLabel(wb.selected)});return openWorkbench('investigations');}
+    if(action==='export-investigation'){const x=currentInvestigation();if(!x)throw new Error('No active investigation.');wbRuntimeLog('info','investigation-exported','Investigation exported.',{investigation_id:x.id,title:x.title});downloadJSON(`sentinel-investigation-${x.id}.json`,x);return;}
+    if(action==='attach-last-full-scan')return attachLastFullScan();
     if(action.startsWith('run-query:')){const q=wb.savedQueries.find(x=>x.id===action.split(':')[1]);if(q){const ran=await runNaturalCommand(q.text);if(!ran){const search=$('#globalSearch');if(search){search.value=q.text;search.dispatchEvent(new Event('input',{bubbles:true}));}}}return;}
     if(action.startsWith('remove-query:')){wb.savedQueries=wb.savedQueries.filter(x=>x.id!==action.split(':')[1]);saveStore();return openWorkbench('queries');}
     if(action.startsWith('check-watch:')){const r=wb.watchRules.find(x=>x.id===action.split(':')[1]);if(r){const changed=await checkWatch(r);notice(changed?'Watch evidence changed.':'No bounded watch difference.');return openWorkbench('queries');}}
@@ -202,6 +238,6 @@
   setInterval(()=>{if(document.visibilityState==='visible'&&wb.watchRules.length)checkAllWatches();},60000);
   setTimeout(()=>{if(!wb.onboardingDone)openWorkbench('onboarding');},900);
 
-  S.Workbench={FEATURES,store:wb,open:openWorkbench,setSelection,explainSelection,openProcessStory,evidenceBundle,assistantAnswer,runNaturalCommand};
+  S.Workbench={FEATURES,store:wb,open:openWorkbench,setSelection,explainSelection,openProcessStory,evidenceBundle,assistantAnswer,runNaturalCommand,recordEvent,attachLastFullScan,investigationCompleteness,lastFullScan,continuityMarker:INVESTIGATION_CONTINUITY_MARKER};
   window.__SENTINEL_WORKBENCH__={marker:'Sentinel 2.7 Investigation Workbench',features:FEATURES.length};
 })();

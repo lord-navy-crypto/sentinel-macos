@@ -15,7 +15,50 @@
     startedAt: 0,
     completedAt: 0,
     outcome: 'IDLE',
+    lastSummary: null,
   };
+
+  const FULL_SCAN_LAST_RUN_KEY = 'sentinel.fullScan.lastRun.v1';
+
+  function emitRuntimeLog(level, event, message, fields = {}) {
+    if (typeof S.runtimeLog === 'function') void S.runtimeLog(level, 'scan', event, message, fields);
+  }
+
+  function readLastScanSummary() {
+    try { return JSON.parse(localStorage.getItem(FULL_SCAN_LAST_RUN_KEY) || 'null'); } catch { return null; }
+  }
+
+  function persistFullScanSummary() {
+    const counts = {done: 0, limited: 0, failed: 0, cancelled: 0};
+    const stages = fullScan.stages.map(stage => {
+      if (Object.prototype.hasOwnProperty.call(counts, stage.status)) counts[stage.status]++;
+      return {
+        id: stage.id, label: stage.label, status: stage.status, detail: stage.detail || '',
+        started_at: stage.startedAt ? new Date(stage.startedAt).toISOString() : '',
+        completed_at: stage.completedAt ? new Date(stage.completedAt).toISOString() : '',
+        duration_ms: Number(stage.durationMs || 0),
+      };
+    });
+    const summary = {
+      version: 1, outcome: fullScan.outcome,
+      started_at: fullScan.startedAt ? new Date(fullScan.startedAt).toISOString() : '',
+      completed_at: fullScan.completedAt ? new Date(fullScan.completedAt).toISOString() : '',
+      duration_ms: Math.max(0, Number(fullScan.completedAt || Date.now()) - Number(fullScan.startedAt || Date.now())),
+      counts, stages,
+    };
+    fullScan.lastSummary = summary;
+    try { localStorage.setItem(FULL_SCAN_LAST_RUN_KEY, JSON.stringify(summary)); } catch {}
+    const level = summary.outcome === 'FAILED' ? 'error' : summary.outcome === 'LIMITED' ? 'warn' : 'info';
+    emitRuntimeLog(level, 'full-scan-finished', `Full Scan ${summary.outcome}.`, {
+      outcome: summary.outcome, duration_ms: summary.duration_ms, done: counts.done, limited: counts.limited, failed: counts.failed, cancelled: counts.cancelled,
+    });
+    if (S.Workbench && typeof S.Workbench.recordEvent === 'function') {
+      S.Workbench.recordEvent('full-scan', `Full Scan ${summary.outcome}.`, {outcome: summary.outcome, duration_ms: summary.duration_ms, ...counts});
+    }
+    return summary;
+  }
+
+  fullScan.lastSummary = readLastScanSummary();
 
   async function structured(mode, params = {}) {
     const q = new URLSearchParams({mode, ...params});
@@ -292,7 +335,8 @@
     fullScan.startedAt = Date.now();
     fullScan.completedAt = 0;
     fullScan.outcome = 'RUNNING';
-    fullScan.stages = scanStages().map(stage => ({...stage, status: 'pending', detail: ''}));
+    fullScan.stages = scanStages().map(stage => ({...stage, status: 'pending', detail: '', startedAt: 0, completedAt: 0, durationMs: 0}));
+    emitRuntimeLog('info', 'full-scan-start', 'Full Scan started by explicit user action.', {stage_count: fullScan.stages.length});
     const host = $('#fullScanProgress');
     if (host) host.innerHTML = renderFullScanProgress();
     notice('Full Scan started by explicit user action. It creates local comparison/history state but does not modify user files.');
@@ -303,22 +347,35 @@
         break;
       }
       stage.status = 'running';
+      stage.startedAt = Date.now();
+      stage.completedAt = 0;
+      stage.durationMs = 0;
       stage.detail = 'Collecting bounded local evidence…';
+      emitRuntimeLog('info', 'full-scan-stage-start', stage.label, {stage: stage.id});
       refreshProgress();
       // Yield one turn so WebKit can paint the stage before the next request.
       await new Promise(resolve => setTimeout(resolve, 0));
       try {
         await stage.run();
         stage.status = 'done';
-        stage.detail = 'Captured successfully';
+        stage.completedAt = Date.now();
+        stage.durationMs = Math.max(0, stage.completedAt - stage.startedAt);
+        stage.detail = `Captured successfully · ${(stage.durationMs / 1000).toFixed(1)} s`;
+        emitRuntimeLog('info', 'full-scan-stage-finished', stage.label, {stage: stage.id, status: stage.status, duration_ms: stage.durationMs});
       } catch (error) {
         if (fullScan.cancelRequested) {
           stage.status = 'cancelled';
+          stage.completedAt = Date.now();
+          stage.durationMs = stage.startedAt ? Math.max(0, stage.completedAt - stage.startedAt) : 0;
           stage.detail = 'Cancelled by user';
+          emitRuntimeLog('warn', 'full-scan-stage-finished', stage.label, {stage: stage.id, status: stage.status, duration_ms: stage.durationMs});
           break;
         }
         stage.status = classifyStageError(error);
+        stage.completedAt = Date.now();
+        stage.durationMs = stage.startedAt ? Math.max(0, stage.completedAt - stage.startedAt) : 0;
         stage.detail = error?.message || (stage.status === 'limited' ? 'Source unavailable or bounded' : 'Stage failed');
+        emitRuntimeLog(stage.status === 'failed' ? 'error' : 'warn', 'full-scan-stage-finished', stage.label, {stage: stage.id, status: stage.status, duration_ms: stage.durationMs, detail: stage.detail});
       }
       refreshProgress();
       await new Promise(resolve => setTimeout(resolve, 0));
@@ -332,6 +389,7 @@
       for (const stage of fullScan.stages) if (stage.status === 'pending') stage.status = 'cancelled';
       fullScan.outcome = 'CANCELLED';
       refreshProgress();
+      persistFullScanSummary();
       notice('Full Scan cancelled. Evidence already captured by completed stages remains retained; no fabricated completion state was created.');
       return;
     }
@@ -340,11 +398,13 @@
     if (failed > 0) {
       fullScan.outcome = 'FAILED';
       refreshProgress();
+      persistFullScanSummary();
       notice(`Full Scan incomplete: ${failed} stage(s) failed. Completed evidence remains available, but Sentinel will not label this run a complete retained baseline.`);
       return;
     }
     fullScan.outcome = limited > 0 ? 'LIMITED' : 'DONE';
     refreshProgress();
+    persistFullScanSummary();
     notice(limited ? `Full Scan completed in LIMITED state with ${limited} bounded/unavailable stage(s). Retained evidence is usable with those limitations.` : 'Full Scan DONE. Retained evidence baseline is ready for analysis.');
     setTimeout(() => S.navigate('status', {push: false}), 250);
   }
@@ -420,6 +480,7 @@
     startFullScan,
     cancelFullScan,
     readBaselineState,
+    readLastScanSummary,
     capabilityGroups: CAPABILITY_GROUPS,
     state: fullScan,
   };
