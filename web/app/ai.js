@@ -305,10 +305,16 @@
       if(ai.engine){try{await ai.engine.unload();}catch{}ai.engine=null;ai.loadedModel=null;}
       if(ai.worker){ai.worker.terminate();ai.worker=null;}
       ai.module=ai.module||await import(WEBLLM_URL);
-      const appConfig={...ai.module.prebuiltAppConfig,cacheBackend:'cache'};AI.cacheBackend='cache';
+      const appConfig={...ai.module.prebuiltAppConfig,useIndexedDBCache:false};AI.cacheBackend='cache';
       if(!appConfig.model_list?.some(record=>record.model_id===ai.model))throw new Error('Selected model is not present in WebLLM 0.2.82 prebuiltAppConfig.');
-      ai.worker=new Worker('/app/ai-worker.js',{type:'module'});
-      ai.engine=await ai.module.CreateWebWorkerMLCEngine(ai.worker,ai.model,{appConfig,initProgressCallback:updateProgress,logLevel:'WARN'});
+      const nativeAppView=Boolean(window.__sentinelNativeAppView);AI.executionBackend=nativeAppView?'main-thread':'web-worker';
+      if(nativeAppView){
+        ai.worker=null;
+        ai.engine=await ai.module.CreateMLCEngine(ai.model,{appConfig,initProgressCallback:updateProgress,logLevel:'WARN'});
+      }else{
+        ai.worker=new Worker('/app/ai-worker.js',{type:'module'});
+        ai.engine=await ai.module.CreateWebWorkerMLCEngine(ai.worker,ai.model,{appConfig,initProgressCallback:updateProgress,logLevel:'WARN'});
+      }
       ai.loadedModel=ai.model;ai.progress=1;ai.progressText='Model ready in local WebGPU memory.';notice('Local AI model ready: '+currentModel().name+'.');
     }finally{ai.loading=false;renderAI();}
     if(ai.pendingPrompt&&ai.pendingAutoRun)setTimeout(()=>runPendingPrompt(),0);

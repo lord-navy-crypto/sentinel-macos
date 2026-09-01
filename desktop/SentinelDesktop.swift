@@ -186,11 +186,16 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         }
 
         let config = WKWebViewConfiguration()
-        // Local AI uses WebLLM IndexedDB for multi-gigabyte model artifacts.
-        // Persist the localhost WebKit store so an explicitly downloaded model
-        // survives App View relaunch instead of being downloaded every time.
+        // Persist Local AI artifacts and mark this container explicitly so the
+        // frontend can avoid WebWorker execution inside WKWebView when needed.
         config.websiteDataStore = .default()
         config.defaultWebpagePreferences.allowsContentJavaScript = true
+        let nativeMarker = WKUserScript(
+            source: "window.__sentinelNativeAppView = true;",
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: true
+        )
+        config.userContentController.addUserScript(nativeMarker)
 
         let view = WKWebView(frame: .zero, configuration: config)
         view.translatesAutoresizingMaskIntoConstraints = false
