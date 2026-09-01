@@ -1,0 +1,43 @@
+name: One-time journal durability edge fix
+
+on:
+  push:
+    branches: [sentinel-2.6-hardening-20260831]
+    paths:
+      - .github/workflows/one-time-journal-durability-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-verify:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: sentinel-2.6-hardening-20260831
+          fetch-depth: 0
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.x'
+      - name: Patch exact journal commit edge
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('actions.go'); s=p.read_text()
+          old='''\twrapper := struct {\n\t\tVersion int                  `json:"version"`\n\t\tEntries []ActionJournalEntry `json:"entries"`\n\t}{actionJournalVersion, entries}\n\treturn writePrivateJSON(m.journalPath, wrapper)\n}\n'''
+          new='''\twrapper := struct {\n\t\tVersion int                  `json:"version"`\n\t\tEntries []ActionJournalEntry `json:"entries"`\n\t}{actionJournalVersion, entries}\n\tif err := writePrivateJSON(m.journalPath, wrapper); err != nil {\n\t\t// atomicPrivateWrite can report a directory-fsync durability error after\n\t\t// rename has already made the new journal visible. Re-read the journal\n\t\t// before asking the caller to roll back the filesystem mutation; if this\n\t\t// exact action is already present, treating it as uncommitted would create\n\t\t// a false success journal for a mutation we then reverse.\n\t\tif committed, readErr := m.readJournal(); readErr == nil {\n\t\t\tfor i := len(committed) - 1; i >= 0; i-- {\n\t\t\t\tif committed[i].ID == e.ID && committed[i].Action == e.Action && committed[i].Status == e.Status {\n\t\t\t\t\treturn nil\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\t\treturn err\n\t}\n\treturn nil\n}\n'''
+          if s.count(old)!=1: raise SystemExit(f'appendJournal exact match count={s.count(old)}')
+          p.write_text(s.replace(old,new,1))
+          PY
+          gofmt -w actions.go
+          git diff --check
+          go test ./...
+      - name: Commit verified fix
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add actions.go
+          git diff --cached --quiet && exit 1
+          git commit -m 'Keep Safe Action journal and rollback state consistent'
+          git push origin HEAD:sentinel-2.6-hardening-20260831
