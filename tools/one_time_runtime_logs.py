@@ -108,13 +108,30 @@ replace_once(
     "    }catch(error){runtimeLogEvent('error','generation-error',error?.message||String(error),{model:ai.loadedModel||ai.model});ai.conversation[ai.conversation.length-1].content='Local AI error: '+(error?.message||String(error));notice(error?.message||String(error));activity('Error',0,error?.message||String(error));}",
 )
 
-# Existing frontend contract counts explicit product scripts.
+# Canonical modular frontend contract: Runtime Logs is loaded before Local AI so
+# Local AI can publish lifecycle/progress events through S.runtimeLog.
+replace_once(
+    "product_frontend_contract_helpers_test.go",
+    '\t"web/app/action-dock.js",\n\t"web/app/ai.js",',
+    '\t"web/app/action-dock.js",\n\t"web/app/runtime-logs.js",\n\t"web/app/ai.js",',
+)
+replace_once(
+    "product_frontend_contract_helpers_test.go",
+    '\t\t"reclaim", "change", "visibility", "guide", "assistant", "manual",',
+    '\t\t"reclaim", "change", "visibility", "guide", "assistant", "manual", "runtime-logs",',
+)
+replace_once(
+    "web_wiring_test.go",
+    '`src="/app/workbench.js"`, `src="/app/ai.js"`,',
+    '`src="/app/workbench.js"`, `src="/app/runtime-logs.js"`, `src="/app/ai.js"`,',
+)
+
+# Existing frontend/distribution contract counts explicit product scripts.
 for path in ["desktop_conversion_test.go", ".github/workflows/ci.yml"]:
     p=Path(path); s=p.read_text(); s=s.replace('"$(grep -c \'<script src=\' web/index.html)" -eq 16', '"$(grep -c \'<script src=\' web/index.html)" -eq 17')
     s=s.replace('Canonical modules: 16 scripts + 7 styles', 'Canonical modules: 17 scripts + 7 styles')
     p.write_text(s)
 
-# Make the new product module part of syntax/distribution contracts when anchors exist.
 p=Path('.github/workflows/ci.yml'); s=p.read_text()
 s=s.replace('          node --check web/app/action-dock.js\n          node --check web/app/ai.js', '          node --check web/app/action-dock.js\n          node --check web/app/runtime-logs.js\n          node --check web/app/ai.js')
 s=s.replace("          grep -Fq '/app/action-dock.js' web/index.html\n          grep -Fq '/app/ai.css' web/index.html", "          grep -Fq '/app/action-dock.js' web/index.html\n          grep -Fq '/app/runtime-logs.js' web/index.html\n          grep -Fq '/app/ai.css' web/index.html")
