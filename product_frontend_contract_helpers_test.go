@@ -10,6 +10,7 @@ import (
 
 var canonicalProductScripts = []string{
 	"web/app/core.js",
+	"web/app/task-center.js",
 	"web/app/lenses/orient-investigate.js",
 	"web/app/lenses/compare.js",
 	"web/app/lenses/system.js",
@@ -67,8 +68,9 @@ func TestApplicationRegistersEveryDeclaredLens(t *testing.T) {
 	}
 
 	// Advanced product modules, the Investigation Workbench, Full Scan, Action
-	// Dock, Local AI, Local AI reliability, and Manual navigation may enhance
-	// existing lenses without replacing the canonical lens registry model.
+	// Dock, Floating Task Center, Local AI, Local AI reliability, and Manual
+	// navigation may enhance existing lenses without replacing the canonical lens
+	// registry model.
 	re := regexp.MustCompile(`registerLens\('([^']+)'`)
 	unique := map[string]bool{}
 	for _, match := range re.FindAllStringSubmatch(all, -1) {
