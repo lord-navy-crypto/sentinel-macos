@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -117,9 +118,7 @@ func parsePowerAssertions(raw string) []string {
 		line = strings.TrimSpace(line)
 		if line == "" { continue }
 		lower := strings.ToLower(line)
-		if strings.Contains(lower, "preventusersystemsleep") || strings.Contains(lower, "preventuserdisplaysleep") || strings.Contains(lower, "preventsystemsleep") {
-			items = append(items, line)
-		}
+		if strings.Contains(lower, "preventusersystemsleep") || strings.Contains(lower, "preventuserdisplaysleep") || strings.Contains(lower, "preventsystemsleep") { items = append(items, line) }
 	}
 	if len(items) > 12 { items = items[:12] }
 	return items
@@ -134,8 +133,6 @@ func parseNetworkCounters(raw string) (uint64, uint64) {
 		if len(fields) < 10 || fields[0] == "Name" { continue }
 		iface := fields[0]
 		if iface == "lo0" || seen[iface] { continue }
-		// netstat -ibn commonly exposes Ibytes/Obytes near the tail. Parse the last
-		// two numeric counters rather than depending on one macOS column width.
 		nums := []uint64{}
 		for _, f := range fields[1:] { if n, err := strconv.ParseUint(f, 10, 64); err == nil { nums = append(nums, n) } }
 		if len(nums) < 2 { continue }
@@ -170,32 +167,20 @@ func (o *resourceObservatory) snapshot() []resourceSample {
 func (a *app) captureResourceSample(r *http.Request) resourceSample {
 	ctx, cancel := context.WithTimeout(r.Context(), 6*time.Second); defer cancel()
 	s := resourceSample{CapturedAt: time.Now().UTC().Format(time.RFC3339Nano)}
-
 	if raw, stderr, err := observatoryCommand(ctx, "/bin/ps", "-A", "-o", "pid=,%cpu=,%mem=,comm="); err == nil {
-		total, top := parseProcessSample(raw); cpus := float64(1)
-		if n := runtimeNumCPU(); n > 0 { cpus = float64(n) }
+		total, top := parseProcessSample(raw); cpus := float64(runtime.NumCPU()); if cpus < 1 { cpus = 1 }
 		s.CPUPercent = total / cpus; if s.CPUPercent > 100 { s.CPUPercent = 100 }; s.TopProcesses = top
 	} else { s.Limitations = append(s.Limitations, "Process CPU sample unavailable: "+strings.TrimSpace(stderr)) }
-
 	if raw, _, err := observatoryCommand(ctx, "/usr/bin/vm_stat"); err == nil {
-		vm := parseVMStatObservatory(raw)
-		s.MemoryFreeBytes = vm["Pages free"] + vm["Pages speculative"]
-		s.MemoryActiveBytes = vm["Pages active"]
-		s.MemoryWiredBytes = vm["Pages wired down"]
-		s.MemoryCompressed = vm["Pages occupied by compressor"]
+		vm := parseVMStatObservatory(raw); s.MemoryFreeBytes = vm["Pages free"] + vm["Pages speculative"]; s.MemoryActiveBytes = vm["Pages active"]; s.MemoryWiredBytes = vm["Pages wired down"]; s.MemoryCompressed = vm["Pages occupied by compressor"]
 	}
-	if raw, _, err := observatoryCommand(ctx, "/usr/bin/memory_pressure", "-Q"); err == nil {
-		if m := regexp.MustCompile(`System-wide memory free percentage:\s*([0-9]+)%`).FindStringSubmatch(raw); len(m) == 2 { s.MemoryFreePercent, _ = strconv.Atoi(m[1]) }
-	}
+	if raw, _, err := observatoryCommand(ctx, "/usr/bin/memory_pressure", "-Q"); err == nil { if m := regexp.MustCompile(`System-wide memory free percentage:\s*([0-9]+)%`).FindStringSubmatch(raw); len(m) == 2 { s.MemoryFreePercent, _ = strconv.Atoi(m[1]) } }
 	if raw, _, err := observatoryCommand(ctx, "/usr/bin/pmset", "-g", "batt"); err == nil { s.Battery = parseBatteryObservatory(raw) }
 	if raw, _, err := observatoryCommand(ctx, "/usr/bin/pmset", "-g", "assertions"); err == nil { s.PowerAssertions = parsePowerAssertions(raw) }
 	if raw, _, err := observatoryCommand(ctx, "/usr/bin/uptime"); err == nil { s.Uptime = strings.TrimSpace(raw) }
 	if raw, _, err := observatoryCommand(ctx, "/usr/sbin/netstat", "-ibn"); err == nil { s.NetworkInBytes, s.NetworkOutBytes = parseNetworkCounters(raw) }
 	return a.observatory.append(s)
 }
-
-// runtimeNumCPU is split out to keep the sampling code independently testable.
-var runtimeNumCPU = func() int { return 1 }
 
 func (a *app) handleMacObservatory(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet { writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error":"GET required"}); return }
