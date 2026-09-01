@@ -1,0 +1,58 @@
+name: One-time investigation depth migration
+
+on:
+  push:
+    branches:
+      - sentinel-2.8-investigation-depth
+    paths:
+      - .github/workflows/one-time-investigation-depth.yml
+      - tools/one_time_investigation_depth.py
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: macos-latest
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: sentinel-2.8-investigation-depth
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+          cache: false
+      - name: Patch investigation continuity
+        run: python3 tools/one_time_investigation_depth.py
+      - name: Validate source and contracts
+        run: |
+          git diff --check
+          node --check web/app/full-scan.js
+          node --check web/app/workbench.js
+          node --check web/app/runtime-logs.js
+          grep -Fq 'full-scan-stage-start' web/app/full-scan.js
+          grep -Fq 'persistFullScanSummary' web/app/full-scan.js
+          grep -Fq 'Sentinel 2.7 Investigation Continuity' web/app/workbench.js
+          grep -Fq 'attach-last-full-scan' web/app/workbench.js
+          grep -Fq '<option value="workbench">workbench</option>' web/app/runtime-logs.js
+          go test ./... -run 'FullScan|Workbench|RuntimeLog|Investigation'
+          go vet ./...
+      - name: Validate packaged Sentinel app
+        run: |
+          chmod +x build-desktop-macos.sh
+          ./build-desktop-macos.sh
+          test -d dist/Sentinel.app
+          for engine in dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-arm64 dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64; do
+            LC_ALL=C grep -aFq 'Sentinel 2.7 Investigation Continuity' "$engine"
+            LC_ALL=C grep -aFq 'full-scan-stage-start' "$engine"
+            LC_ALL=C grep -aFq 'workflow completeness' "$engine"
+          done
+      - name: Commit validated product changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add web/app/full-scan.js web/app/workbench.js web/app/runtime-logs.js investigation_depth_contract_test.go
+          git commit -m 'Deepen Full Scan and investigation continuity'
+          git push origin HEAD:sentinel-2.8-investigation-depth
