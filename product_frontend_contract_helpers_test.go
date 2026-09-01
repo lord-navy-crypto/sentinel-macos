@@ -56,7 +56,7 @@ func TestApplicationRegistersEveryDeclaredLens(t *testing.T) {
 	declared := []string{
 		"status", "snapshot", "cases", "search", "relations", "audit", "object",
 		"changes", "behavior", "reference",
-		"machine", "processes", "startup", "persistence", "background", "network", "storage",
+		"machine", "tools", "processes", "startup", "persistence", "background", "network", "storage",
 		"reclaim", "change", "visibility", "guide", "assistant", "manual", "runtime-logs",
 	}
 	for _, lens := range declared {

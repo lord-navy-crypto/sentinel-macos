@@ -41,6 +41,12 @@ func TestManualIsAFirstClassScrollableProductLens(t *testing.T) {
 			t.Fatalf("comprehensive manual missing %q", want)
 		}
 	}
+	for _, want := range []string{"englishCompanion", "English companion / 英文说明", "data-manual-language=\"en\"", "Purpose:", "How to use", "Caution"} {
+		if !strings.Contains(manual, want) {
+			t.Fatalf("bilingual manual companion missing %q", want)
+		}
+	}
+
 	if strings.Count(manual, "title:'") < 30 {
 		t.Fatalf("manual is not sufficiently detailed; found fewer than 30 topic definitions")
 	}

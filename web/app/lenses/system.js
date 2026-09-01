@@ -22,6 +22,61 @@
 
   function renderStorageResult(d,status){const summary=$('#storageSummary'),objects=$('#storageObjects');if(!summary||!objects)return;summary.innerHTML=ledger([['Status',status||'complete'],['Files visited',Number(d.files_visited||0).toLocaleString()],['Folders visited',Number(d.dirs_visited||0).toLocaleString()],['Visible bytes',bytes(d.visible_bytes)],['Permission limits',d.permission_errors||0],['Slow paths skipped',d.slow_paths_skipped||0],['Duplicate hash bytes',bytes(d.duplicate_hash_bytes||0)]]);const files=d.large_files||[],dups=d.duplicates||[],families=d.families||[];let body=files.length?table(['Size','Modified','File','Path',''],files.slice(0,300).map(f=>[`<b>${bytes(f.size)}</b>`,esc(fmt(f.modified_unix)),esc(f.name),`<code>${esc(f.path)}</code>`,`<button data-story-path="${esc(encodeURIComponent(f.path))}">Explain</button>`])):empty('No large files matched the scan threshold.');if(dups.length)body+=`<div class="s24-note good">${dups.length} exact duplicate group(s) use hash agreement. Filename families remain separate heuristics.</div>`;if(families.length)body+=`<div class="s24-note warn">${families.length} possible version family/families are naming heuristics only.</div>`;objects.innerHTML=body;}
 
-  registerLens('machine',renderMachine);registerLens('processes',renderProcesses);registerLens('startup',renderStartup);registerLens('persistence',()=>renderGenericLens('/api/persistence','Persistence comparison','Visible LaunchAgent/LaunchDaemon configuration state and bounded comparison.'));registerLens('background',()=>renderGenericLens('/api/background','Background registrations','Background Task Management registrations macOS exposes to this process.'));registerLens('network',()=>renderGenericLens('/api/network','Current TCP evidence','Current network snapshot only; encrypted content and unobserved history are outside this evidence.'));registerLens('storage',renderStorage);
+
+  const TOOL_ZH={
+    system:'系统与硬件信息',processes:'进程与资源占用',storage:'磁盘、文件系统与空间',network:'网络连接与配置',power:'电池、电源与睡眠',security:'系统安全状态',filesystem:'文件与元数据',integrity:'应用签名与完整性',startup:'启动项与服务',backup:'Time Machine 与备份',search:'Spotlight 与搜索',logs:'系统日志',persistence:'持久化配置',changes:'变化记录',trust:'信任基线'
+  };
+  const TOOL_PURPOSE_ZH={
+    'network-quality':'运行 Apple networkQuality 测量网络响应与吞吐表现；会产生临时测试流量，但不会修改网络设置。',
+    'battery-status':'查看当前电量、电源来源和充电状态。',
+    'power-assertions':'查看哪些进程或系统断言正在影响睡眠或屏幕休眠。',
+    'power-profile':'查看电池与电源硬件信息。',
+    'disk-filesystems':'查看各已挂载文件系统的容量和使用量。',
+    'disk-layout':'查看物理磁盘、APFS 容器、分区与卷的布局。',
+    'file-metadata':'读取一个绝对路径的 Spotlight 元数据。',
+    'extended-attributes':'读取文件扩展属性，例如 quarantine 元数据。',
+    'code-signing':'读取应用或可执行文件的代码签名身份。',
+    'gatekeeper-assessment':'询问 Gatekeeper 如何评估一个应用/可执行路径；拒绝不是恶意软件结论。',
+    'process-table':'查看当前进程的 PID、父进程、用户、CPU、内存和命令。',
+    'process-open-files':'查看指定 PID 当前打开的文件和 socket。',
+    'dns-configuration':'查看 macOS 当前 DNS resolver 配置。',
+    'proxy-configuration':'查看当前系统代理配置。',
+    'route-table':'查看当前路由表，不修改网络。',
+    'time-machine-status':'查看 Time Machine 当前是否正在备份以及可见状态。',
+    'software-update-history':'查看 macOS 已安装的软件更新历史。',
+    'filevault-status':'查看 FileVault 加密状态；Sentinel 不读取恢复密钥。',
+    'sip-status':'查看 System Integrity Protection 状态。'
+  };
+  function toolZh(t){return TOOL_PURPOSE_ZH[t.id]||`读取“${TOOL_ZH[t.domain]||t.domain||'系统'}”相关的本机证据。该工具使用固定程序和固定参数，不会把你的输入交给任意 shell。`;}
+  function toolCommand(t){const args=[...(t.base_args||[])];if(t.target_kind==='path')args.push('<absolute-path>');if(t.target_kind==='pid')args.push('<PID>');return [t.command,...args].filter(Boolean).join(' ');}
+  function toolCard(t){
+    const needs=t.target_kind==='path'||t.target_kind==='pid';
+    const target=needs?`<label class="s24-field"><span>${t.target_kind==='pid'?'PID':'Absolute path / 绝对路径'}</span><input data-terminal-target="${esc(t.id)}" placeholder="${t.target_kind==='pid'?'1234':'/Applications/Example.app'}"></label>`:'';
+    const run=t.mode==='read_only'?`<button class="s24-action primary" type="button" data-terminal-run="${esc(t.id)}" ${t.available?'':'disabled'}>Run / 运行</button>`:`<button class="s24-action" type="button" data-terminal-managed="${esc(t.route||'')}">Open managed workflow / 打开受控流程</button>`;
+    return `<article class="s24-card" data-terminal-tool="${esc(t.id)}"><div class="s24-card-head"><div><span>${esc((TOOL_ZH[t.domain]||t.domain||'System')+' / '+(t.domain||'system'))}</span><h3>${esc(t.name)}</h3></div>${badge(t.mode==='read_only'?'READ ONLY / 只读':'MANAGED / 受控',t.mode==='read_only'?'good':'focus')}</div><p><b>中文：</b>${esc(toolZh(t))}</p><p><b>English:</b> ${esc(t.summary||'')}</p><div class="s24-note"><b>Equivalent command / 等价命令</b><br><code>${esc(toolCommand(t)||t.route||'Sentinel managed workflow')}</code></div>${target}<div class="s24-form-actions">${run}</div><div class="terminal-inline-result" data-terminal-result="${esc(t.id)}"></div></article>`;
+  }
+  async function renderTools(){
+    busy('Loading tools','Allowlisted macOS command catalog / 白名单 macOS 工具目录');
+    const d=await api('/api/system/console');
+    const tools=d.tools||[];
+    const read=tools.filter(t=>t.mode==='read_only'),managed=tools.filter(t=>t.mode!=='read_only');
+    $('#evidenceStage').innerHTML=question('<button type="button" class="s24-action" data-terminal-full>Open full System Console / 打开完整 System Console</button>')+
+      band(1,'Terminal Tools / 终端工具',`<div class="s24-note good"><b>不是任意 Terminal / Not an arbitrary shell.</b><br>Sentinel 只运行白名单 executable + 明确参数，并限制时间与输出。 / Sentinel runs only allowlisted executables with explicit arguments, bounded time and bounded output.</div><div class="s24-card-grid">${read.map(toolCard).join('')}</div>`,'Use visual controls for common macOS command-line evidence without memorising syntax. / 用可视化控件调用常用 macOS 命令行证据能力，无需记忆语法。')+
+      band(2,'Managed actions / 受控操作',`<div class="s24-card-grid">${managed.map(toolCard).join('')}</div>`,'Mutating operations stay in Preview → confirmation → journal/recovery. / 会修改状态的操作仍必须经过预览、确认、日志与恢复边界。');
+    activity('Ready',100,`${tools.length} Terminal-backed tools / 终端工具`);
+  }
+  async function runTerminalTool(id){
+    const card=document.querySelector(`[data-terminal-tool="${CSS.escape(id)}"]`),host=card?.querySelector(`[data-terminal-result="${CSS.escape(id)}"]`),input=card?.querySelector(`[data-terminal-target="${CSS.escape(id)}"]`);
+    if(!host)return;host.innerHTML='<div class="s24-note">Running locally… / 正在本机运行…</div>';
+    try{const d=await api('/api/system/query/structured',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tool_id:id,target:input?.value?.trim()||''})});host.innerHTML=`<div class="s24-note ${d.status==='ok'?'good':'warn'}"><b>${esc(d.tool_name||id)}</b> · ${esc(d.status||'')} · ${Number(d.duration_ms||0)} ms<br><code>${esc(d.display_command||'')}</code></div>${d.summary?.length?`<ul>${d.summary.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}<details><summary>Raw evidence / 原始证据</summary><pre>${esc(d.output||'No textual output / 无文本输出')}</pre></details>${d.limitations?.length?`<div class="s24-note warn"><b>Limitations / 限制</b><br>${d.limitations.map(esc).join('<br>')}</div>`:''}`;}
+    catch(e){host.innerHTML=`<div class="s24-note warn">${esc(e.message||String(e))}</div>`;}
+  }
+  document.addEventListener('click',event=>{
+    const run=event.target.closest('[data-terminal-run]');if(run){void runTerminalTool(run.dataset.terminalRun);return;}
+    const full=event.target.closest('[data-terminal-full]');if(full){location.href='/system-console.html'+location.hash;return;}
+    const managed=event.target.closest('[data-terminal-managed]');if(managed){const route=managed.dataset.terminalManaged||'';if(route.startsWith('/api/'+'actions/'))S.navigate('change');else if(route.includes('changes'))S.navigate('changes');else if(route.includes('trust'))S.navigate('reference');else if(route.endsWith('.html'))location.href=route+location.hash;}
+  });
+
+  registerLens('machine',renderMachine);registerLens('tools',renderTools);registerLens('processes',renderProcesses);registerLens('startup',renderStartup);registerLens('persistence',()=>renderGenericLens('/api/persistence','Persistence comparison','Visible LaunchAgent/LaunchDaemon configuration state and bounded comparison.'));registerLens('background',()=>renderGenericLens('/api/background','Background registrations','Background Task Management registrations macOS exposes to this process.'));registerLens('network',()=>renderGenericLens('/api/network','Current TCP evidence','Current network snapshot only; encrypted content and unobserved history are outside this evidence.'));registerLens('storage',renderStorage);
   S.startStorage=startStorage;S.pollStorage=pollStorage;S.renderStorage=renderStorage;
 })();
