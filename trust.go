@@ -519,8 +519,12 @@ func validateTrustFile(path string) (exists, valid bool, mode string) {
 	if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
 		return exists, false, mode
 	}
+	raw, err := readBoundedPrivateFile(path, maxPrivateJSONBytes)
+	if err != nil {
+		return exists, false, mode
+	}
 	var p TrustProfile
-	valid = readPrivateJSON(path, &p) == nil && p.Version == trustProfileVersion && p.CreatedAt != "" && len(p.Objects) <= 120
+	valid = json.Unmarshal(raw, &p) == nil && p.Version == trustProfileVersion && p.CreatedAt != "" && len(p.Objects) <= 120
 	return
 }
 
@@ -622,13 +626,18 @@ func (m *trustManager) restorePrevious() (TrustProfile, error) {
 	if !m.persistent || m.backupPath == "" || m.path == "" {
 		return TrustProfile{}, fmt.Errorf("previous-profile restore is unavailable in ephemeral mode")
 	}
-	var previous TrustProfile
-	if err := readPrivateJSON(m.backupPath, &previous); err != nil || previous.Version != trustProfileVersion || previous.CreatedAt == "" {
-		return TrustProfile{}, fmt.Errorf("previous profile is invalid or unavailable")
-	}
 	backupRaw, err := readBoundedPrivateFile(m.backupPath, maxPrivateJSONBytes)
-	if err != nil {
-		return TrustProfile{}, fmt.Errorf("previous profile unavailable: %w", err)
+	var previous TrustProfile
+	validPrimary := err == nil && json.Unmarshal(backupRaw, &previous) == nil && previous.Version == trustProfileVersion && previous.CreatedAt != ""
+	if !validPrimary {
+		recoveredRaw, recoveredErr := readBoundedPrivateFile(m.backupPath+".bak", maxPrivateJSONBytes)
+		var recovered TrustProfile
+		if recoveredErr != nil || json.Unmarshal(recoveredRaw, &recovered) != nil || recovered.Version != trustProfileVersion || recovered.CreatedAt == "" {
+			return TrustProfile{}, fmt.Errorf("previous profile is invalid or unavailable")
+		}
+		backupRaw = recoveredRaw
+		previous = recovered
+		recordStateRecovery(m.backupPath)
 	}
 	currentRaw, currentErr := readBoundedPrivateFile(m.path, maxPrivateJSONBytes)
 	if currentErr != nil && !os.IsNotExist(currentErr) {
