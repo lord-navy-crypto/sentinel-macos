@@ -133,17 +133,20 @@ func boundRuntimeLogText(value string, limit int) string {
 
 func redactRuntimeSecrets(value string) string {
 	for _, marker := range []string{"#token=", "X-Sentinel-Token", "sentinel_token"} {
-		for {
-			i := strings.Index(strings.ToLower(value), strings.ToLower(marker))
-			if i < 0 {
+		lowerMarker := strings.ToLower(marker)
+		for cursor := 0; cursor < len(value); {
+			rel := strings.Index(strings.ToLower(value[cursor:]), lowerMarker)
+			if rel < 0 {
 				break
 			}
+			i := cursor + rel
 			start := i + len(marker)
 			end := start
 			for end < len(value) && !strings.ContainsRune(" \t\r\n&\"'", rune(value[end])) {
 				end++
 			}
 			value = value[:start] + "[REDACTED]" + value[end:]
+			cursor = start + len("[REDACTED]")
 		}
 	}
 	return value
