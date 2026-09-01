@@ -1,0 +1,47 @@
+name: One-time Trust restore consistency fix
+
+on:
+  push:
+    branches: [sentinel-2.6-hardening-20260831]
+    paths:
+      - .github/workflows/one-time-trust-restore-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-verify:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: sentinel-2.6-hardening-20260831
+          fetch-depth: 0
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.x'
+      - name: Patch exact Trust restore paths
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('trust.go'); s=p.read_text()
+          old='''func validateTrustFile(path string) (exists, valid bool, mode string) {\n\tinfo, err := os.Lstat(path)\n\tif err != nil {\n\t\treturn false, false, ""\n\t}\n\texists = true\n\tmode = fileModeString(info)\n\tif info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {\n\t\treturn exists, false, mode\n\t}\n\tvar p TrustProfile\n\tvalid = readPrivateJSON(path, &p) == nil && p.Version == trustProfileVersion && p.CreatedAt != "" && len(p.Objects) <= 120\n\treturn\n}\n'''
+          new='''func validateTrustFile(path string) (exists, valid bool, mode string) {\n\tinfo, err := os.Lstat(path)\n\tif err != nil {\n\t\treturn false, false, ""\n\t}\n\texists = true\n\tmode = fileModeString(info)\n\tif info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {\n\t\treturn exists, false, mode\n\t}\n\traw, err := readBoundedPrivateFile(path, maxPrivateJSONBytes)\n\tif err != nil {\n\t\treturn exists, false, mode\n\t}\n\tvar p TrustProfile\n\tvalid = json.Unmarshal(raw, &p) == nil && p.Version == trustProfileVersion && p.CreatedAt != "" && len(p.Objects) <= 120\n\treturn\n}\n'''
+          if s.count(old)!=1: raise SystemExit(f'validateTrustFile exact match count={s.count(old)}')
+          s=s.replace(old,new,1)
+          old2='''\tvar previous TrustProfile\n\tif err := readPrivateJSON(m.backupPath, &previous); err != nil || previous.Version != trustProfileVersion || previous.CreatedAt == "" {\n\t\treturn TrustProfile{}, fmt.Errorf("previous profile is invalid or unavailable")\n\t}\n\tbackupRaw, err := readBoundedPrivateFile(m.backupPath, maxPrivateJSONBytes)\n\tif err != nil {\n\t\treturn TrustProfile{}, fmt.Errorf("previous profile unavailable: %w", err)\n\t}\n'''
+          new2='''\tbackupRaw, err := readBoundedPrivateFile(m.backupPath, maxPrivateJSONBytes)\n\tvar previous TrustProfile\n\tvalidPrimary := err == nil && json.Unmarshal(backupRaw, &previous) == nil && previous.Version == trustProfileVersion && previous.CreatedAt != ""\n\tif !validPrimary {\n\t\trecoveredRaw, recoveredErr := readBoundedPrivateFile(m.backupPath+".bak", maxPrivateJSONBytes)\n\t\tvar recovered TrustProfile\n\t\tif recoveredErr != nil || json.Unmarshal(recoveredRaw, &recovered) != nil || recovered.Version != trustProfileVersion || recovered.CreatedAt == "" {\n\t\t\treturn TrustProfile{}, fmt.Errorf("previous profile is invalid or unavailable")\n\t\t}\n\t\tbackupRaw = recoveredRaw\n\t\tprevious = recovered\n\t\trecordStateRecovery(m.backupPath)\n\t}\n'''
+          if s.count(old2)!=1: raise SystemExit(f'restore source exact match count={s.count(old2)}')
+          p.write_text(s.replace(old2,new2,1))
+          PY
+          gofmt -w trust.go
+          git diff --check
+          go test ./...
+      - name: Commit verified fix
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add trust.go
+          git diff --cached --quiet && exit 1
+          git commit -m 'Keep Trust restore validation bound to recovered bytes'
+          git push origin HEAD:sentinel-2.6-hardening-20260831
