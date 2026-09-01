@@ -18,6 +18,10 @@ jobs:
         with:
           ref: sentinel-2.7-local-ai-cache-fix
           fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+          cache: false
       - name: Patch Local AI cache and download watchdog
         run: |
           python3 - <<'PY'
@@ -53,15 +57,7 @@ jobs:
           r = r.replace(old_monitor, new_monitor, 1)
           rel.write_text(r)
 
-          for path in Path('.').glob('*_test.go'):
-              t = path.read_text()
-              if 'useIndexedDBCache:true' in t:
-                  t = t.replace('useIndexedDBCache:true', "cacheBackend:'cache'")
-                  path.write_text(t)
-
           for path in Path('.').rglob('*_test.go'):
-              if path.parent == Path('.'):
-                  continue
               t = path.read_text()
               if 'useIndexedDBCache:true' in t:
                   t = t.replace('useIndexedDBCache:true', "cacheBackend:'cache'")
@@ -83,8 +79,8 @@ jobs:
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add web/app/ai.js web/app/ai-reliability.js '*_test.go'
-          git add -- '**/*_test.go' || true
+          git add web/app/ai.js web/app/ai-reliability.js
+          git add -- '*_test.go' '**/*_test.go' || true
           git diff --cached --quiet && { echo 'No production changes to commit'; exit 1; }
           git commit -m 'Fix Sentinel Local AI model cache loading'
           git push origin HEAD:sentinel-2.7-local-ai-cache-fix
