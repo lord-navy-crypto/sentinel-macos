@@ -6,6 +6,7 @@ on:
       - sentinel-2.7-native-direct-webllm
     paths:
       - .github/workflows/one-time-native-direct-webllm.yml
+      - tools/one_time_native_direct_webllm.py
 
 permissions:
   contents: write
