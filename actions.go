@@ -926,7 +926,22 @@ func (m *actionManager) appendJournal(e ActionJournalEntry) error {
 		Version int                  `json:"version"`
 		Entries []ActionJournalEntry `json:"entries"`
 	}{actionJournalVersion, entries}
-	return writePrivateJSON(m.journalPath, wrapper)
+	if err := writePrivateJSON(m.journalPath, wrapper); err != nil {
+		// atomicPrivateWrite can report a directory-fsync durability error after
+		// rename has already made the new journal visible. Re-read the journal
+		// before asking the caller to roll back the filesystem mutation; if this
+		// exact action is already present, treating it as uncommitted would create
+		// a false success journal for a mutation we then reverse.
+		if committed, readErr := m.readJournal(); readErr == nil {
+			for i := len(committed) - 1; i >= 0; i-- {
+				if committed[i].ID == e.ID && committed[i].Action == e.Action && committed[i].Status == e.Status {
+					return nil
+				}
+			}
+		}
+		return err
+	}
+	return nil
 }
 func (m *actionManager) journalSnapshot(limit int) []ActionJournalEntry {
 	m.journalMu.Lock()
