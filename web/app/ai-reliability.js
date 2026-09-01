@@ -23,16 +23,16 @@
 
   function capabilities(){
     return {
-      webgpu:Boolean(navigator.gpu),worker:Boolean(window.Worker),indexeddb:Boolean(window.indexedDB),
+      webgpu:Boolean(navigator.gpu),worker:Boolean(window.Worker),indexeddb:Boolean(window.indexedDB),cacheAPI:Boolean(window.caches),
       secureContext:Boolean(window.isSecureContext||location.hostname==='127.0.0.1'||location.hostname==='localhost')
     };
   }
   function modelName(){return AI.models?.find(x=>x.id===ai.model)?.name||ai.model||'—';}
   function diagnosticRows(){const c=capabilities();return [
     ['WebGPU',c.webgpu?'Available':'Unavailable'],['Worker',c.worker?'Available':'Unavailable'],
-    ['IndexedDB',c.indexeddb?'Available':'Unavailable'],['Loopback / secure context',c.secureContext?'OK':'Review'],
+    ['Cache API',c.cacheAPI?'Available':'Unavailable'],['IndexedDB',c.indexeddb?'Available':'Unavailable'],['Loopback / secure context',c.secureContext?'OK':'Review'],
     ['Selected model',modelName()],['Loaded model',ai.loadedModel||'Not loaded'],
-    ['Worker state',ai.worker?'Created':'Not created'],['Engine state',ai.engine?'Created':'Not created'],['Cache backend',AI.cacheBackend||'cache'],
+    ['Execution backend',AI.executionBackend||(window.__sentinelNativeAppView?'main-thread':'web-worker')],['Worker state',ai.worker?'Created':'Not created'],['Engine state',ai.engine?'Created':'Not created'],['Cache backend',AI.cacheBackend||'cache'],
     ['Load / generation phase',reliability.phase],['Diagnostics log',`${readLog().length} local events`],['Progress',`${Math.round(Number(ai.progress||0)*100)}% · ${ai.progressText||'—'}`],
     ['Last error',reliability.lastError||'None']
   ];}
@@ -73,7 +73,8 @@
   async function reliableLoad(){
     if(ai.loading)return;
     const c=capabilities();
-    if(!c.worker||!c.indexeddb||!c.webgpu){await resetFailedLoad(`Prerequisite unavailable: ${!c.webgpu?'WebGPU ':''}${!c.worker?'Worker ':''}${!c.indexeddb?'IndexedDB ':''}`.trim());return;}
+    const needsWorker=!window.__sentinelNativeAppView;
+    if((needsWorker&&!c.worker)||!c.cacheAPI||!c.webgpu){await resetFailedLoad(`Prerequisite unavailable: ${!c.webgpu?'WebGPU ':''}${needsWorker&&!c.worker?'Worker ':''}${!c.cacheAPI?'Cache API ':''}`.trim());return;}
     const attempt=++reliability.attempt;reliability.lastError='';reliability.phase='runtime / model initialization';
     logEvent('ai_load_start',{model:ai.model,attempt,cache_backend:AI.cacheBackend||'cache'});
     let lastProgress=Number(ai.progress||0),lastText=String(ai.progressText||''),lastChange=Date.now(),workerSeen=null,rejectWatchdog;

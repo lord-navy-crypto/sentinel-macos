@@ -31,7 +31,7 @@ func TestLocalAIIsCanonicalAndExplicitlyOptIn(t *testing.T) {
 		"registerLens('assistant'",
 		"navigator.gpu",
 		"CreateWebWorkerMLCEngine",
-		"cacheBackend:'cache'",
+		"useIndexedDBCache:false",
 		"collectEvidencePacket",
 		"Evidence explanation only · no shell execution",
 		"Model loading is explicit",
@@ -59,8 +59,13 @@ func TestLocalAIIsCanonicalAndExplicitlyOptIn(t *testing.T) {
 	if strings.Contains(ai, "Qwen3-0.6B-q4f16_1-MLC") {
 		t.Fatal("WebLLM 0.2.82 Local AI must not default to an unsupported Qwen3 prebuilt model")
 	}
-	if strings.Contains(ai, "useIndexedDBCache:true") {
-		t.Fatal("Local AI must use the explicit Cache API backend instead of the retired IndexedDB flag")
+	if strings.Contains(ai, "cacheBackend:'cache'") {
+		t.Fatal("WebLLM 0.2.82 must not use the newer cacheBackend API")
+	}
+	for _, want := range []string{"CreateMLCEngine", "__sentinelNativeAppView", "executionBackend"} {
+		if !strings.Contains(ai, want) {
+			t.Fatalf("Native direct Local AI fallback missing %q", want)
+		}
 	}
 	if strings.Contains(ai, "installHeaderButton();\n  loadAI()") || strings.Contains(ai, "renderAI();\n  loadAI()") {
 		t.Fatal("Local AI must never load a model automatically during application startup")
