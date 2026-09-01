@@ -7,6 +7,7 @@ on:
     paths:
       - .github/workflows/one-time-everyday-mac-observatory.yml
       - tools/one_time_everyday_mac_observatory.py
+      - bilingual_terminal_product_contract_test.go
 
 permissions:
   contents: write
@@ -27,7 +28,7 @@ jobs:
       - name: Apply Observatory integration
         run: |
           python3 tools/one_time_everyday_mac_observatory.py
-          gofmt -w mac_observatory.go resource_observatory_contract_test.go main.go product_frontend_contract_helpers_test.go
+          gofmt -w mac_observatory.go resource_observatory_contract_test.go main.go product_frontend_contract_helpers_test.go bilingual_terminal_product_contract_test.go
       - name: Validate contracts and syntax
         run: |
           git diff --check
