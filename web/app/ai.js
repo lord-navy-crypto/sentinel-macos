@@ -76,7 +76,7 @@
   const ai = {
     module:null,worker:null,engine:null,loading:false,generating:false,
     model:localStorage.getItem('sentinel.ai.model') || DEFAULT_MODEL,
-    loadedModel:null,progress:0,progressText:'Model not loaded.',conversation:[],lastPacket:null,
+    loadedModel:null,progress:0,progressText:'Model not loaded.',executionBackend:'pending',cacheBackend:'pending',conversation:[],lastPacket:null,
     pinnedPacket:null,pinnedLabel:'',pendingPrompt:'',pendingMode:'evidence',pendingAutoRun:false,
     level:localStorage.getItem('sentinel.ai.level') || 'beginner',
     guided:readJSON('sentinel.ai.guided', null),
@@ -297,7 +297,7 @@
   }
 
   function runtimeLogEvent(level,event,message,fields={}){if(typeof S.runtimeLog==='function')void S.runtimeLog(level,'local-ai',event,message,fields);}
-  function updateProgress(report){ai.progress=Number(report?.progress||0);ai.progressText=report?.text||'Loading model…';runtimeLogEvent('info','init-progress',ai.progressText,{progress:ai.progress,model:ai.model,execution_backend:AI.executionBackend||'pending',cache_backend:AI.cacheBackend||'pending'});const p=$('#aiLoadProgress'),t=$('#aiProgressText');if(p)p.value=Math.max(0,Math.min(1,ai.progress));if(t)t.textContent=ai.progressText;activity('Local AI',Math.round(ai.progress*100),ai.progressText);}
+  function updateProgress(report){ai.progress=Number(report?.progress||0);ai.progressText=report?.text||'Loading model…';runtimeLogEvent('info','init-progress',ai.progressText,{progress:ai.progress,model:ai.model,execution_backend:ai.executionBackend||'pending',cache_backend:ai.cacheBackend||'pending'});const p=$('#aiLoadProgress'),t=$('#aiProgressText');if(p)p.value=Math.max(0,Math.min(1,ai.progress));if(t)t.textContent=ai.progressText;activity('Local AI',Math.round(ai.progress*100),ai.progressText);}
   async function loadAI(){
     if(!supportsLocalAI())throw new Error('WebGPU is not available in this browser/WebView.');
     if(ai.loading)return;
@@ -306,9 +306,9 @@
       if(ai.engine){try{await ai.engine.unload();}catch{}ai.engine=null;ai.loadedModel=null;}
       if(ai.worker){ai.worker.terminate();ai.worker=null;}
       ai.module=ai.module||await import(WEBLLM_URL);runtimeLogEvent('info','runtime-imported','WebLLM runtime module imported.',{runtime:WEBLLM_URL});
-      const appConfig={...ai.module.prebuiltAppConfig,useIndexedDBCache:false};AI.cacheBackend='cache';
+      const appConfig={...ai.module.prebuiltAppConfig,useIndexedDBCache:false};ai.cacheBackend='cache';
       if(!appConfig.model_list?.some(record=>record.model_id===ai.model))throw new Error('Selected model is not present in WebLLM 0.2.82 prebuiltAppConfig.');
-      const nativeAppView=Boolean(window.__sentinelNativeAppView);AI.executionBackend=nativeAppView?'main-thread':'web-worker';runtimeLogEvent('info','engine-selected','Local AI execution backend selected.',{model:ai.model,execution_backend:AI.executionBackend,cache_backend:AI.cacheBackend});
+      const nativeAppView=Boolean(window.__sentinelNativeAppView);ai.executionBackend=nativeAppView?'main-thread':'web-worker';runtimeLogEvent('info','engine-selected','Local AI execution backend selected.',{model:ai.model,execution_backend:ai.executionBackend,cache_backend:ai.cacheBackend});
       if(nativeAppView){
         ai.worker=null;
         ai.engine=await ai.module.CreateMLCEngine(ai.model,{appConfig,initProgressCallback:updateProgress,logLevel:'WARN'});
@@ -316,8 +316,8 @@
         ai.worker=new Worker('/app/ai-worker.js',{type:'module'});
         ai.engine=await ai.module.CreateWebWorkerMLCEngine(ai.worker,ai.model,{appConfig,initProgressCallback:updateProgress,logLevel:'WARN'});
       }
-      ai.loadedModel=ai.model;ai.progress=1;ai.progressText='Model ready in local WebGPU memory.';runtimeLogEvent('info','model-ready','Local AI model is ready in WebGPU memory.',{model:ai.model,execution_backend:AI.executionBackend});notice('Local AI model ready: '+currentModel().name+'.');
-    }catch(error){runtimeLogEvent('error','load-error',error?.message||String(error),{model:ai.model,progress:ai.progress,progress_text:ai.progressText,execution_backend:AI.executionBackend||'pending',cache_backend:AI.cacheBackend||'pending'});throw error;
+      ai.loadedModel=ai.model;ai.progress=1;ai.progressText='Model ready in local WebGPU memory.';runtimeLogEvent('info','model-ready','Local AI model is ready in WebGPU memory.',{model:ai.model,execution_backend:ai.executionBackend});notice('Local AI model ready: '+currentModel().name+'.');
+    }catch(error){runtimeLogEvent('error','load-error',error?.message||String(error),{model:ai.model,progress:ai.progress,progress_text:ai.progressText,execution_backend:ai.executionBackend||'pending',cache_backend:ai.cacheBackend||'pending'});throw error;
     }finally{ai.loading=false;renderAI();}
     if(ai.pendingPrompt&&ai.pendingAutoRun)setTimeout(()=>runPendingPrompt(),0);
   }
