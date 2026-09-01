@@ -7,7 +7,7 @@
   if(!S||!AI)return;
   const ai=AI.state, esc=S.esc||((v)=>String(v??''));
   const RELIABILITY_MARKER='Sentinel 2.6 Local AI Reliability';
-  const STALL_MS=90000, ABSOLUTE_MS=600000, UNLOAD_MS=1500, GENERATION_STALL_MS=90000;
+  const STALL_MS=90000, ABSOLUTE_MS=600000, UNLOAD_MS=1500, GENERATION_STALL_MS=90000, GENERATION_RESET_GRACE_MS=5000;
   const reliability={lastError:'',lastFailureAt:0,lastSuccessAt:0,attempt:0,phase:'idle',generationStartedAt:0,lastTokenAt:0};
   AI.reliability=reliability;AI.reliabilityMarker=RELIABILITY_MARKER;
 
@@ -86,23 +86,42 @@
     const message=[...(ai.conversation||[])].reverse().find(x=>x?.role==='assistant');
     return String(message?.content||'');
   }
-  let generationSeen=false,generationText='';
+  let generationSeen=false,generationText='',generationResetPending=false;
+
+  async function forceResetStalledGeneration(){
+    if(!ai.generating)return;
+    const oldEngine=ai.engine,oldWorker=ai.worker;
+    ai.engine=null;ai.worker=null;ai.loadedModel=null;ai.generating=false;ai.loading=false;
+    reliability.lastError='Local AI generation did not stop after interrupt; the WebLLM engine and worker were reset.';
+    reliability.lastFailureAt=Date.now();reliability.phase='generation reset';
+    ai.progress=0;ai.progressText='Local AI generation failed · reload the selected model to continue.';
+    await boundedUnload(oldEngine);
+    try{oldWorker?.terminate();}catch{}
+    S.notice?.(reliability.lastError);S.activity?.('Error',0,reliability.lastError);queueUI();
+  }
+
+  function requestGenerationRecovery(now){
+    if(generationResetPending)return;
+    generationResetPending=true;
+    reliability.lastError='Local AI generation stalled for 90 seconds without a new token. Interrupt requested.';
+    reliability.lastFailureAt=now;reliability.phase='generation interrupt requested';
+    try{ai.engine?.interruptGenerate?.();}catch{}
+    S.notice?.(reliability.lastError);S.activity?.('Error',0,reliability.lastError);queueUI();
+    setTimeout(()=>{
+      if(!ai.generating){generationResetPending=false;return;}
+      void forceResetStalledGeneration().finally(()=>{generationResetPending=false;});
+    },GENERATION_RESET_GRACE_MS);
+  }
+
   setInterval(()=>{
     if(!ai.generating){
-      if(generationSeen){generationSeen=false;generationText='';reliability.generationStartedAt=0;reliability.lastTokenAt=0;if(ai.engine&&ai.loadedModel)reliability.phase='ready';queueUI();}
+      if(generationSeen){generationSeen=false;generationText='';generationResetPending=false;reliability.generationStartedAt=0;reliability.lastTokenAt=0;if(ai.engine&&ai.loadedModel)reliability.phase='ready';queueUI();}
       return;
     }
     const now=Date.now(),text=latestAssistantText();
     if(!generationSeen){generationSeen=true;generationText=text;reliability.generationStartedAt=now;reliability.lastTokenAt=now;reliability.phase='generation';queueUI();return;}
     if(text!==generationText){generationText=text;reliability.lastTokenAt=now;reliability.phase='generation · streaming';queueUI();return;}
-    if(now-(reliability.lastTokenAt||reliability.generationStartedAt||now)>GENERATION_STALL_MS){
-      reliability.lastError='Local AI generation stalled for 90 seconds without a new token.';
-      reliability.lastFailureAt=now;reliability.phase='generation stalled';
-      try{ai.engine?.interruptGenerate?.();}catch{}
-      S.notice?.(reliability.lastError);S.activity?.('Error',0,reliability.lastError);queueUI();
-      // Avoid repeatedly firing while WebLLM processes the interrupt.
-      reliability.lastTokenAt=now;
-    }
+    if(now-(reliability.lastTokenAt||reliability.generationStartedAt||now)>GENERATION_STALL_MS)requestGenerationRecovery(now);
   },2000);
 
   function renderFallback(answer){
@@ -136,6 +155,6 @@
 
   const stage=document.querySelector('#evidenceStage');if(stage)new MutationObserver(queueUI).observe(stage,{childList:true});
   const tray=document.querySelector('#contextTray');if(tray)new MutationObserver(queueUI).observe(tray,{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
-  AI.reliableLoad=reliableLoad;AI.capabilityDiagnostics=capabilities;AI.evidenceFallback=fallback;AI.boundedUnload=boundedUnload;
+  AI.reliableLoad=reliableLoad;AI.capabilityDiagnostics=capabilities;AI.evidenceFallback=fallback;AI.boundedUnload=boundedUnload;AI.forceResetStalledGeneration=forceResetStalledGeneration;
   queueUI();
 })();
