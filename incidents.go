@@ -13,9 +13,9 @@ import (
 )
 
 const (
-	incidentHistoryLimit  = 120
-	incidentEvidenceLimit = 40
-	incidentWindowSeconds = int64(15 * 60)
+	incidentHistoryLimit   = 120
+	incidentEvidenceLimit  = 40
+	incidentWindowSeconds  = int64(15 * 60)
 	incidentHistoryVersion = 3
 )
 
@@ -48,15 +48,18 @@ type Incident struct {
 }
 
 type IncidentStatus struct {
-	GeneratedAt string     `json:"generated_at"`
-	Count       int        `json:"count"`
-	High        int        `json:"high"`
-	Review      int        `json:"review"`
-	Info        int        `json:"info"`
-	Persistent  bool       `json:"persistent"`
-	HistoryPath string     `json:"history_path,omitempty"`
-	Incidents   []Incident `json:"incidents"`
-	Note        string     `json:"note"`
+	GeneratedAt        string     `json:"generated_at"`
+	Count              int        `json:"count"`
+	High               int        `json:"high"`
+	Review             int        `json:"review"`
+	Info               int        `json:"info"`
+	Persistent         bool       `json:"persistent"`
+	PersistenceHealthy bool       `json:"persistence_healthy"`
+	LastPersistError   string     `json:"last_persist_error,omitempty"`
+	LastPersistOKAt    string     `json:"last_persist_ok_at,omitempty"`
+	HistoryPath        string     `json:"history_path,omitempty"`
+	Incidents          []Incident `json:"incidents"`
+	Note               string     `json:"note"`
 }
 
 type IncidentDeepReview struct {
@@ -68,11 +71,13 @@ type IncidentDeepReview struct {
 }
 
 type incidentManager struct {
-	mu         sync.RWMutex
-	persistent bool
-	path       string
-	current    []Incident
-	history    []Incident
+	mu               sync.RWMutex
+	persistent       bool
+	path             string
+	current          []Incident
+	history          []Incident
+	lastPersistError string
+	lastPersistOKAt  time.Time
 }
 
 func incidentHistoryPath() string {
@@ -440,7 +445,9 @@ func (m *incidentManager) store(current []Incident) {
 	compacted := merged[:0]
 	index = map[string]int{}
 	for _, x := range merged {
-		if x.StoryKey == "" { continue }
+		if x.StoryKey == "" {
+			continue
+		}
 		index[x.StoryKey] = len(compacted)
 		compacted = append(compacted, x)
 	}
@@ -461,10 +468,15 @@ func (m *incidentManager) store(current []Incident) {
 	}
 	m.history = merged
 	if m.persistent && m.path != "" {
-		_ = writePrivateGzipJSON(m.path, struct {
+		if err := writePrivateGzipJSON(m.path, struct {
 			Version   int        `json:"version"`
 			Incidents []Incident `json:"incidents"`
-		}{incidentHistoryVersion, m.history})
+		}{incidentHistoryVersion, m.history}); err != nil {
+			m.lastPersistError = err.Error()
+		} else {
+			m.lastPersistError = ""
+			m.lastPersistOKAt = time.Now()
+		}
 	}
 }
 
@@ -489,7 +501,7 @@ func (m *incidentManager) snapshot(includeHistory bool) IncidentStatus {
 	} else {
 		rows = append([]Incident(nil), rows...)
 	}
-	st := IncidentStatus{GeneratedAt: time.Now().UTC().Format(time.RFC3339), Count: len(rows), Persistent: m.persistent, HistoryPath: m.path, Incidents: rows, Note: "Incidents correlate time-bounded local evidence into object-centered review stories. Confidence is relationship confidence, never malware probability."}
+	st := IncidentStatus{GeneratedAt: time.Now().UTC().Format(time.RFC3339), Count: len(rows), Persistent: m.persistent, PersistenceHealthy: !m.persistent || m.lastPersistError == "", LastPersistError: m.lastPersistError, LastPersistOKAt: optTime(m.lastPersistOKAt), HistoryPath: m.path, Incidents: rows, Note: "Incidents correlate time-bounded local evidence into object-centered review stories. Confidence is relationship confidence, never malware probability."}
 	for _, x := range rows {
 		switch strings.ToLower(x.Severity) {
 		case "high":

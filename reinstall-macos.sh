@@ -18,6 +18,34 @@ EXPECTED_UI="2.6 Native Frontend"
 EXPECTED_WORKBENCH="30-function Investigation Workbench"
 EXPECTED_SCAN_CENTER="Easy Scan + Full Scan + Capability Atlas"
 EXPECTED_ACTION_DOCK="Contextual Quick Actions"
+REQUIRED_EMBEDDED_MARKERS=(
+  "Sentinel 2.6 Native Frontend"
+  "Sentinel 2.6 Investigation Workbench"
+  "Sentinel 2.6 Full Scan Center"
+  "Sentinel 2.6 Contextual Action Dock"
+  "Sentinel 2.6 WebLLM Local AI"
+  "Sentinel 2.6 Integrated Local AI"
+  "Sentinel 2.6 Local AI Reliability"
+  "Sentinel 2.6 Comprehensive User Manual"
+  "Local AI initialization stalled"
+)
+
+verify_embedded_product() {
+  local app="$1" label="$2"
+  local engine marker
+  for engine in "$app/Contents/Resources/bin/sentinel-macos-arm64" "$app/Contents/Resources/bin/sentinel-macos-x86_64"; do
+    if [[ ! -x "$engine" ]]; then
+      echo "$label is missing an executable engine: $engine" >&2
+      return 2
+    fi
+    for marker in "${REQUIRED_EMBEDDED_MARKERS[@]}"; do
+      if ! LC_ALL=C grep -aFq "$marker" "$engine"; then
+        echo "$label engine is missing current product marker: $marker" >&2
+        return 2
+      fi
+    done
+  done
+}
 
 printf '%s\n' \
   "===== SENTINEL CLEAN REINSTALL =====" \
@@ -26,6 +54,8 @@ printf '%s\n' \
   "Target Workbench: $EXPECTED_WORKBENCH" \
   "Target Scan Center: $EXPECTED_SCAN_CENTER" \
   "Target Action Dock: $EXPECTED_ACTION_DOCK" \
+  "Local AI: WebLLM + CSP-safe reliability + evidence fallback required" \
+  "Manual: Sentinel 2.6 comprehensive guide required" \
   "Source: $HERE" \
   "Install target: $TARGET_APP" \
   "User history/baselines/recovery data: preserved"
@@ -76,6 +106,7 @@ if [[ "$PACKAGED_ACTION_DOCK" != "$EXPECTED_ACTION_DOCK" ]]; then
   echo "Unexpected packaged Action Dock: $PACKAGED_ACTION_DOCK (expected $EXPECTED_ACTION_DOCK)" >&2
   exit 2
 fi
+verify_embedded_product "$BUILT_APP" "Freshly built Sentinel.app"
 
 install_app() {
   local source="$1" target="$2"
@@ -112,6 +143,7 @@ if [[ "$INSTALLED_VERSION" != "$VERSION" || "$INSTALLED_UI" != "$EXPECTED_UI" ||
   echo "Action Dock: $INSTALLED_ACTION_DOCK (expected $EXPECTED_ACTION_DOCK)" >&2
   exit 2
 fi
+verify_embedded_product "$TARGET_APP" "Installed Sentinel.app"
 
 cat <<EOF
 
@@ -121,6 +153,8 @@ Desktop UI: $INSTALLED_UI
 Investigation Workbench: $INSTALLED_WORKBENCH
 Scan Center: $INSTALLED_SCAN_CENTER
 Action Dock: $INSTALLED_ACTION_DOCK
+Local AI: embedded runtime + reliability markers verified in arm64/x86_64 engines
+Manual: embedded current guide verified
 Source commit: $INSTALLED_SHA
 Path: $TARGET_APP
 

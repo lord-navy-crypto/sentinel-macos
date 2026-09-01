@@ -24,7 +24,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.26.x'
-          cache: true
+          cache: false
 
       - name: Go tests
         run: go test ./...
@@ -33,36 +33,33 @@ jobs:
         run: |
           go test ./... -run 'Migration|IncidentStory|Timeline|Export|StorageAging|ReasonCodeRegistry|RuleRegistry|VaultHealth|Navigation|Regression|SessionNote|Alpha|I18n|Observation|Snapshot|ContinueInvestigation|TerminalGuide|VisualGrammar|Application|Advanced|Workbench|FullScan|CapabilityAtlas|ScanCenter|ActionDock|Manual|LocalAI'
 
+      - name: Localhost functional smoke
+        run: |
+          chmod +x SMOKE_TEST_LOCALHOST.command
+          ./SMOKE_TEST_LOCALHOST.command
+
       - name: Darwin architecture build smoke
         run: |
           CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o /tmp/sentinel-arm64 .
           CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o /tmp/sentinel-amd64 .
           test -s /tmp/sentinel-arm64
           test -s /tmp/sentinel-amd64
-          LC_ALL=C grep -aFq 'Sentinel 2.6 Native Frontend' /tmp/sentinel-arm64
-          LC_ALL=C grep -aFq 'Sentinel 2.6 Native Frontend' /tmp/sentinel-amd64
-          LC_ALL=C grep -aFq 'Sentinel 2.6 Investigation Workbench' /tmp/sentinel-arm64
-          LC_ALL=C grep -aFq 'Sentinel 2.6 Investigation Workbench' /tmp/sentinel-amd64
-          LC_ALL=C grep -aFq 'Sentinel 2.6 Full Scan Center' /tmp/sentinel-arm64
-          LC_ALL=C grep -aFq 'Sentinel 2.6 Full Scan Center' /tmp/sentinel-amd64
-          LC_ALL=C grep -aFq 'Sentinel 2.6 Contextual Action Dock' /tmp/sentinel-arm64
-          LC_ALL=C grep -aFq 'Sentinel 2.6 Contextual Action Dock' /tmp/sentinel-amd64
-          LC_ALL=C grep -aFq 'Sentinel 2.6 Comprehensive User Manual' /tmp/sentinel-arm64
-          LC_ALL=C grep -aFq 'Sentinel 2.6 Comprehensive User Manual' /tmp/sentinel-amd64
-          LC_ALL=C grep -aFq 'Sentinel 2.6 WebLLM Local AI' /tmp/sentinel-arm64
-          LC_ALL=C grep -aFq 'Sentinel 2.6 WebLLM Local AI' /tmp/sentinel-amd64
-          LC_ALL=C grep -aFq 'Sentinel 2.6 Integrated Local AI' /tmp/sentinel-arm64
-          LC_ALL=C grep -aFq 'Sentinel 2.6 Integrated Local AI' /tmp/sentinel-amd64
-          LC_ALL=C grep -aFq 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC' /tmp/sentinel-arm64
-          LC_ALL=C grep -aFq 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC' /tmp/sentinel-amd64
-          LC_ALL=C grep -aFq 'gemma-2-9b-it-q4f16_1-MLC' /tmp/sentinel-arm64
-          LC_ALL=C grep -aFq 'gemma-2-9b-it-q4f16_1-MLC' /tmp/sentinel-amd64
-          LC_ALL=C grep -aFq 'Model Library' /tmp/sentinel-arm64
-          LC_ALL=C grep -aFq 'Model Library' /tmp/sentinel-amd64
-          LC_ALL=C grep -aFq 'useIndexedDBCache:true' /tmp/sentinel-arm64
-          LC_ALL=C grep -aFq 'useIndexedDBCache:true' /tmp/sentinel-amd64
-          LC_ALL=C grep -aFq 'contextBarSignature' /tmp/sentinel-arm64
-          LC_ALL=C grep -aFq 'contextBarSignature' /tmp/sentinel-amd64
+          for engine in /tmp/sentinel-arm64 /tmp/sentinel-amd64; do
+            LC_ALL=C grep -aFq 'Sentinel 2.6 Native Frontend' "$engine"
+            LC_ALL=C grep -aFq 'Sentinel 2.6 Investigation Workbench' "$engine"
+            LC_ALL=C grep -aFq 'Sentinel 2.6 Full Scan Center' "$engine"
+            LC_ALL=C grep -aFq 'Sentinel 2.6 Contextual Action Dock' "$engine"
+            LC_ALL=C grep -aFq 'Sentinel 2.6 Comprehensive User Manual' "$engine"
+            LC_ALL=C grep -aFq 'Sentinel 2.6 WebLLM Local AI' "$engine"
+            LC_ALL=C grep -aFq 'Sentinel 2.6 Integrated Local AI' "$engine"
+            LC_ALL=C grep -aFq 'Sentinel 2.6 Local AI Reliability' "$engine"
+            LC_ALL=C grep -aFq 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC' "$engine"
+            LC_ALL=C grep -aFq 'gemma-2-9b-it-q4f16_1-MLC' "$engine"
+            LC_ALL=C grep -aFq 'Model Library' "$engine"
+            LC_ALL=C grep -aFq 'useIndexedDBCache:true' "$engine"
+            LC_ALL=C grep -aFq 'contextBarSignature' "$engine"
+            LC_ALL=C grep -aFq 'Local AI initialization stalled' "$engine"
+          done
 
       - name: Desktop application packaging smoke
         run: |
@@ -79,24 +76,18 @@ jobs:
           ARCHS="$(lipo -archs dist/Sentinel.app/Contents/MacOS/Sentinel)"
           echo "$ARCHS" | grep -q arm64
           echo "$ARCHS" | grep -q x86_64
-          LC_ALL=C grep -aFq 'Sentinel 2.6 Investigation Workbench' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-arm64
-          LC_ALL=C grep -aFq 'Sentinel 2.6 Investigation Workbench' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64
-          LC_ALL=C grep -aFq 'Sentinel 2.6 Full Scan Center' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-arm64
-          LC_ALL=C grep -aFq 'Sentinel 2.6 Full Scan Center' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64
-          LC_ALL=C grep -aFq 'Sentinel 2.6 Contextual Action Dock' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-arm64
-          LC_ALL=C grep -aFq 'Sentinel 2.6 Contextual Action Dock' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64
-          LC_ALL=C grep -aFq 'Sentinel 2.6 Comprehensive User Manual' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-arm64
-          LC_ALL=C grep -aFq 'Sentinel 2.6 Comprehensive User Manual' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64
-          LC_ALL=C grep -aFq 'Sentinel 2.6 WebLLM Local AI' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-arm64
-          LC_ALL=C grep -aFq 'Sentinel 2.6 WebLLM Local AI' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64
-          LC_ALL=C grep -aFq 'Sentinel 2.6 Integrated Local AI' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-arm64
-          LC_ALL=C grep -aFq 'Sentinel 2.6 Integrated Local AI' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64
-          LC_ALL=C grep -aFq 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-arm64
-          LC_ALL=C grep -aFq 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64
-          LC_ALL=C grep -aFq 'Model Library' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-arm64
-          LC_ALL=C grep -aFq 'Model Library' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64
-          LC_ALL=C grep -aFq 'contextBarSignature' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-arm64
-          LC_ALL=C grep -aFq 'contextBarSignature' dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64
+          for engine in dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-arm64 dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64; do
+            LC_ALL=C grep -aFq 'Sentinel 2.6 Investigation Workbench' "$engine"
+            LC_ALL=C grep -aFq 'Sentinel 2.6 Full Scan Center' "$engine"
+            LC_ALL=C grep -aFq 'Sentinel 2.6 Contextual Action Dock' "$engine"
+            LC_ALL=C grep -aFq 'Sentinel 2.6 Comprehensive User Manual' "$engine"
+            LC_ALL=C grep -aFq 'Sentinel 2.6 WebLLM Local AI' "$engine"
+            LC_ALL=C grep -aFq 'Sentinel 2.6 Integrated Local AI' "$engine"
+            LC_ALL=C grep -aFq 'Sentinel 2.6 Local AI Reliability' "$engine"
+            LC_ALL=C grep -aFq 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC' "$engine"
+            LC_ALL=C grep -aFq 'Model Library' "$engine"
+            LC_ALL=C grep -aFq 'contextBarSignature' "$engine"
+          done
           grep -Fq 'config.websiteDataStore = .default()' desktop/SentinelDesktop.swift
           test -z "$(grep -F 'config.websiteDataStore = .nonPersistent()' desktop/SentinelDesktop.swift || true)"
 
@@ -123,6 +114,7 @@ jobs:
           node --check web/app/full-scan.js
           node --check web/app/action-dock.js
           node --check web/app/ai.js
+          node --check web/app/ai-reliability.js
           node --check web/app/ai-worker.js
           node --check web/app/manual.js
           node --check web/app/manual-entry.js
@@ -135,6 +127,7 @@ jobs:
           grep -Fq '/app/action-dock.js' web/index.html
           grep -Fq '/app/ai.css' web/index.html
           grep -Fq '/app/ai.js' web/index.html
+          grep -Fq '/app/ai-reliability.js' web/index.html
           grep -Fq '/app/manual.css' web/index.html
           grep -Fq '/app/manual.js' web/index.html
           grep -Fq '/app/manual-entry.js' web/index.html
@@ -151,13 +144,19 @@ jobs:
           grep -Fq "dataset.aiSignature" web/app/ai.js
           grep -Fq "dataset.aiQuery" web/app/ai.js
           grep -Fq "navigator.gpu" web/app/ai.js
+          grep -Fq "Sentinel 2.6 Local AI Reliability" web/app/ai-reliability.js
+          grep -Fq "STALL_MS=90000" web/app/ai-reliability.js
+          grep -Fq "AI.evidenceFallback=fallback" web/app/ai-reliability.js
           grep -Fq "WebWorkerMLCEngineHandler" web/app/ai-worker.js
           test "$(grep -nF '<script src="/app/workbench.js"></script>' web/index.html | cut -d: -f1)" -lt "$(grep -nF '<script src="/app/full-scan.js"></script>' web/index.html | cut -d: -f1)"
           test "$(grep -nF '<script src="/app/full-scan.js"></script>' web/index.html | cut -d: -f1)" -lt "$(grep -nF '<script src="/app/action-dock.js"></script>' web/index.html | cut -d: -f1)"
           test "$(grep -nF '<script src="/app/action-dock.js"></script>' web/index.html | cut -d: -f1)" -lt "$(grep -nF '<script src="/app/ai.js"></script>' web/index.html | cut -d: -f1)"
-          test "$(grep -nF '<script src="/app/ai.js"></script>' web/index.html | cut -d: -f1)" -lt "$(grep -nF '<script src="/app/manual.js"></script>' web/index.html | cut -d: -f1)"
+          test "$(grep -nF '<script src="/app/ai.js"></script>' web/index.html | cut -d: -f1)" -lt "$(grep -nF '<script src="/app/ai-reliability.js"></script>' web/index.html | cut -d: -f1)"
+          test "$(grep -nF '<script src="/app/ai-reliability.js"></script>' web/index.html | cut -d: -f1)" -lt "$(grep -nF '<script src="/app/manual.js"></script>' web/index.html | cut -d: -f1)"
           test "$(grep -nF '<script src="/app/manual.js"></script>' web/index.html | cut -d: -f1)" -lt "$(grep -nF '<script src="/app/manual-entry.js"></script>' web/index.html | cut -d: -f1)"
           test "$(grep -nF '<script src="/app/manual-entry.js"></script>' web/index.html | cut -d: -f1)" -lt "$(grep -nF '<script src="/app/runtime.js"></script>' web/index.html | cut -d: -f1)"
+          test "$(grep -c '<script src=' web/index.html)" -eq 16
+          test "$(grep -c '<script>' web/index.html || true)" -eq 0
 
       - name: Auxiliary workspace JavaScript syntax
         run: |
@@ -189,6 +188,8 @@ jobs:
 
       - name: Shell syntax
         run: |
+          bash -n SMOKE_TEST_LOCALHOST.command
+          bash -n CHECK_MAC_RELEASE_PREREQS.command
           bash -n build-macos.sh
           bash -n build-desktop-macos.sh
           bash -n package-dev-dmg-macos.sh

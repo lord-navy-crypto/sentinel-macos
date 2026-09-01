@@ -14,6 +14,7 @@
     stages: [],
     startedAt: 0,
     completedAt: 0,
+    outcome: 'IDLE',
   };
 
   async function structured(mode, params = {}) {
@@ -212,21 +213,29 @@
 
   function renderFullScanProgress() {
     if (!fullScan.stages.length) return '';
-    const done = fullScan.stages.filter(s => ['done', 'limited'].includes(s.status)).length;
-    return `<div class="full-scan-progress"><div class="full-scan-summary"><div><span>FULL SCAN</span><b>${fullScan.running ? 'Building retained evidence baseline' : 'Scan finished'}</b><small>${done}/${fullScan.stages.length} stage(s) completed or bounded-limited</small></div><progress max="${fullScan.stages.length}" value="${done}"></progress></div><div class="full-scan-stages">${fullScan.stages.map((s, i) => `<div class="full-scan-stage ${esc(s.status)}"><span>${String(i + 1).padStart(2, '0')}</span><div><b>${esc(s.label)}</b><small>${esc(s.detail || stageStatusText(s.status))}</small></div>${badge(s.status.toUpperCase(), s.status === 'done' ? 'good' : s.status === 'limited' ? 'warn' : s.status === 'running' ? 'focus' : '')}</div>`).join('')}</div></div>`;
+    const terminal = fullScan.stages.filter(s => ['done', 'limited', 'failed', 'cancelled'].includes(s.status)).length;
+    return `<div class="full-scan-progress"><div class="full-scan-summary"><div><span>FULL SCAN · ${esc(fullScan.outcome)}</span><b>${fullScan.running ? 'Building retained evidence baseline' : 'Scan finished'}</b><small>${terminal}/${fullScan.stages.length} stage(s) reached a terminal state</small></div><progress max="${fullScan.stages.length}" value="${terminal}"></progress></div><div class="full-scan-stages">${fullScan.stages.map((s, i) => `<div class="full-scan-stage ${esc(s.status)}"><span>${String(i + 1).padStart(2, '0')}</span><div><b>${esc(s.label)}</b><small>${esc(s.detail || stageStatusText(s.status))}</small></div>${badge(s.status.toUpperCase(), s.status === 'done' ? 'good' : s.status === 'limited' ? 'warn' : s.status === 'failed' ? 'bad' : s.status === 'running' ? 'focus' : '')}</div>`).join('')}</div></div>`;
   }
 
   function stageStatusText(status) {
-    return ({pending: 'Waiting', running: 'Collecting local evidence…', done: 'Captured', limited: 'Completed with an unavailable / bounded source', cancelled: 'Cancelled'})[status] || status;
+    return ({pending: 'Waiting', running: 'Collecting local evidence…', done: 'Captured', limited: 'Completed with an unavailable / bounded source', failed: 'Sentinel could not complete this stage', cancelled: 'Cancelled'})[status] || status;
+  }
+
+  function classifyStageError(error) {
+    const status = Number(error?.status || 0);
+    const message = String(error?.message || '');
+    if ([403, 408, 429, 501, 503].includes(status)) return 'limited';
+    if (/permission|unavailable|unsupported|not available|timed out|bounded|visibility/i.test(message)) return 'limited';
+    return 'failed';
   }
 
   function refreshProgress() {
     const node = $('#fullScanProgress');
     if (node) node.innerHTML = renderFullScanProgress();
-    const done = fullScan.stages.filter(s => ['done', 'limited'].includes(s.status)).length;
-    const pct = Math.round(done / Math.max(1, fullScan.stages.length) * 100);
+    const terminal = fullScan.stages.filter(s => ['done', 'limited', 'failed', 'cancelled'].includes(s.status)).length;
+    const pct = Math.round(terminal / Math.max(1, fullScan.stages.length) * 100);
     const active = fullScan.stages.find(s => s.status === 'running');
-    activity(fullScan.running ? 'Full Scan' : 'Ready', pct, active ? active.label : `${done}/${fullScan.stages.length} Full Scan stages`);
+    activity(fullScan.running ? 'Full Scan' : fullScan.outcome === 'FAILED' ? 'Error' : 'Ready', pct, active ? active.label : `${terminal}/${fullScan.stages.length} Full Scan stages`);
   }
 
   async function pollStorageJob(id) {
@@ -282,6 +291,7 @@
     fullScan.storageJob = '';
     fullScan.startedAt = Date.now();
     fullScan.completedAt = 0;
+    fullScan.outcome = 'RUNNING';
     fullScan.stages = scanStages().map(stage => ({...stage, status: 'pending', detail: ''}));
     const host = $('#fullScanProgress');
     if (host) host.innerHTML = renderFullScanProgress();
@@ -307,8 +317,8 @@
           stage.detail = 'Cancelled by user';
           break;
         }
-        stage.status = 'limited';
-        stage.detail = error?.message || 'Source unavailable or bounded';
+        stage.status = classifyStageError(error);
+        stage.detail = error?.message || (stage.status === 'limited' ? 'Source unavailable or bounded' : 'Stage failed');
       }
       refreshProgress();
       await new Promise(resolve => setTimeout(resolve, 0));
@@ -319,11 +329,23 @@
     fullScan.storageJob = '';
     refreshProgress();
     if (fullScan.cancelRequested) {
+      for (const stage of fullScan.stages) if (stage.status === 'pending') stage.status = 'cancelled';
+      fullScan.outcome = 'CANCELLED';
+      refreshProgress();
       notice('Full Scan cancelled. Evidence already captured by completed stages remains retained; no fabricated completion state was created.');
       return;
     }
+    const failed = fullScan.stages.filter(stage => stage.status === 'failed').length;
     const limited = fullScan.stages.filter(stage => stage.status === 'limited').length;
-    notice(limited ? `Full Scan complete with ${limited} bounded/unavailable stage(s). Retained evidence is ready for analysis.` : 'Full Scan complete. Retained evidence baseline is ready for analysis.');
+    if (failed > 0) {
+      fullScan.outcome = 'FAILED';
+      refreshProgress();
+      notice(`Full Scan incomplete: ${failed} stage(s) failed. Completed evidence remains available, but Sentinel will not label this run a complete retained baseline.`);
+      return;
+    }
+    fullScan.outcome = limited > 0 ? 'LIMITED' : 'DONE';
+    refreshProgress();
+    notice(limited ? `Full Scan completed in LIMITED state with ${limited} bounded/unavailable stage(s). Retained evidence is usable with those limitations.` : 'Full Scan DONE. Retained evidence baseline is ready for analysis.');
     setTimeout(() => S.navigate('status', {push: false}), 250);
   }
 
@@ -399,5 +421,6 @@
     cancelFullScan,
     readBaselineState,
     capabilityGroups: CAPABILITY_GROUPS,
+    state: fullScan,
   };
 })();

@@ -29,23 +29,26 @@ type ChangeEvent struct {
 	Why         string   `json:"why"`
 }
 type ChangeStatus struct {
-	Running           bool     `json:"running"`
-	Mode              string   `json:"mode"`
-	NativeAvailable   bool     `json:"native_available"`
-	StartedAt         string   `json:"started_at,omitempty"`
-	Roots             []string `json:"roots"`
-	EventCount        int      `json:"event_count"`
-	HistoryEntries    int      `json:"history_entries"`
-	PersistentHistory bool     `json:"persistent_history"`
-	HistoryPath       string   `json:"history_path,omitempty"`
-	CheckpointPath    string   `json:"checkpoint_path,omitempty"`
-	LastNativeEventID uint64   `json:"last_native_event_id,omitempty"`
-	ResumeCheckpoint  bool     `json:"resume_checkpoint"`
-	NeedsRescan       bool     `json:"needs_rescan"`
-	LastEventAt       int64    `json:"last_event_at,omitempty"`
-	DroppedSignals    int      `json:"dropped_signals"`
-	PollIntervalMS    int      `json:"poll_interval_ms,omitempty"`
-	Note              string   `json:"note"`
+	Running            bool     `json:"running"`
+	Mode               string   `json:"mode"`
+	NativeAvailable    bool     `json:"native_available"`
+	StartedAt          string   `json:"started_at,omitempty"`
+	Roots              []string `json:"roots"`
+	EventCount         int      `json:"event_count"`
+	HistoryEntries     int      `json:"history_entries"`
+	PersistentHistory  bool     `json:"persistent_history"`
+	PersistenceHealthy bool     `json:"persistence_healthy"`
+	LastPersistError   string   `json:"last_persist_error,omitempty"`
+	LastPersistOKAt    string   `json:"last_persist_ok_at,omitempty"`
+	HistoryPath        string   `json:"history_path,omitempty"`
+	CheckpointPath     string   `json:"checkpoint_path,omitempty"`
+	LastNativeEventID  uint64   `json:"last_native_event_id,omitempty"`
+	ResumeCheckpoint   bool     `json:"resume_checkpoint"`
+	NeedsRescan        bool     `json:"needs_rescan"`
+	LastEventAt        int64    `json:"last_event_at,omitempty"`
+	DroppedSignals     int      `json:"dropped_signals"`
+	PollIntervalMS     int      `json:"poll_interval_ms,omitempty"`
+	Note               string   `json:"note"`
 }
 type changeStartRequest struct {
 	Preset     string   `json:"preset"`
@@ -80,6 +83,8 @@ type changeManager struct {
 	done             chan struct{}
 	snapshots        map[string]map[string]changeSnapshotEntry
 	intel            *intelligenceManager
+	lastPersistError string
+	lastPersistOKAt  time.Time
 }
 
 type changeCheckpoint struct {
@@ -142,15 +147,26 @@ func (m *changeManager) persistStateLocked() {
 	if !m.persistent {
 		return
 	}
+	errorsSeen := []string{}
 	if m.historyPath != "" {
-		_ = writePrivateGzipJSON(m.historyPath, struct {
+		if err := writePrivateGzipJSON(m.historyPath, struct {
 			Version int           `json:"version"`
 			Events  []ChangeEvent `json:"events"`
-		}{1, m.history})
+		}{1, m.history}); err != nil {
+			errorsSeen = append(errorsSeen, "history: "+err.Error())
+		}
 	}
 	if m.checkpointPath != "" {
-		_ = writePrivateGzipJSON(m.checkpointPath, changeCheckpoint{Version: 1, UpdatedAt: time.Now().UTC().Format(time.RFC3339), Roots: append([]string(nil), m.roots...), LastNativeEventID: m.lastNativeID, NeedsRescan: m.needsRescan})
+		if err := writePrivateGzipJSON(m.checkpointPath, changeCheckpoint{Version: 1, UpdatedAt: time.Now().UTC().Format(time.RFC3339), Roots: append([]string(nil), m.roots...), LastNativeEventID: m.lastNativeID, NeedsRescan: m.needsRescan}); err != nil {
+			errorsSeen = append(errorsSeen, "checkpoint: "+err.Error())
+		}
 	}
+	if len(errorsSeen) > 0 {
+		m.lastPersistError = strings.Join(errorsSeen, "; ")
+		return
+	}
+	m.lastPersistError = ""
+	m.lastPersistOKAt = time.Now()
 }
 func equalStringSet(a, b []string) bool {
 	if len(a) != len(b) {
@@ -188,7 +204,7 @@ func (m *changeManager) status() ChangeStatus {
 	if m.running && m.mode == "polling-fallback" {
 		note = "Bounded metadata polling fallback. No symlink following or file-content indexing."
 	}
-	return ChangeStatus{Running: m.running, Mode: m.mode, NativeAvailable: nativeFSEventsAvailable(), StartedAt: optTime(m.startedAt), Roots: append([]string(nil), m.roots...), EventCount: len(m.events), HistoryEntries: len(m.history), PersistentHistory: m.persistent, HistoryPath: m.historyPath, CheckpointPath: m.checkpointPath, LastNativeEventID: m.lastNativeID, ResumeCheckpoint: m.resumeCheckpoint, NeedsRescan: m.needsRescan, LastEventAt: last, DroppedSignals: m.dropped, PollIntervalMS: int(m.interval / time.Millisecond), Note: note}
+	return ChangeStatus{Running: m.running, Mode: m.mode, NativeAvailable: nativeFSEventsAvailable(), StartedAt: optTime(m.startedAt), Roots: append([]string(nil), m.roots...), EventCount: len(m.events), HistoryEntries: len(m.history), PersistentHistory: m.persistent, PersistenceHealthy: !m.persistent || m.lastPersistError == "", LastPersistError: m.lastPersistError, LastPersistOKAt: optTime(m.lastPersistOKAt), HistoryPath: m.historyPath, CheckpointPath: m.checkpointPath, LastNativeEventID: m.lastNativeID, ResumeCheckpoint: m.resumeCheckpoint, NeedsRescan: m.needsRescan, LastEventAt: last, DroppedSignals: m.dropped, PollIntervalMS: int(m.interval / time.Millisecond), Note: note}
 }
 func (m *changeManager) eventsSnapshot(limit int) []ChangeEvent {
 	m.mu.RLock()

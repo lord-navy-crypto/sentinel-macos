@@ -109,6 +109,31 @@ func pathExistsForIsolation(path string) (bool, error) {
 	return false, err
 }
 
+// verifiedVaultIsolationObject binds a manifest to the exact managed object
+// belonging to the same Vault ID. A locally corrupted/tampered manifest must
+// never make the isolation report inspect or hash an arbitrary path.
+func verifiedVaultIsolationObject(m *actionManager, v VaultManifest) (string, os.FileInfo, error) {
+	if m == nil || m.vaultDir == "" || v.ID == "" || v.VaultPath == "" {
+		return "", nil, fmt.Errorf("Vault manifest does not identify an active managed object")
+	}
+	expected := filepath.Join(m.vaultDir, v.ID, "object")
+	if !samePath(v.VaultPath, expected) {
+		return "", nil, fmt.Errorf("Vault manifest path does not match its Vault ID")
+	}
+	managed, info, err := vaultMutablePath(m, v.VaultPath)
+	if err != nil {
+		return "", nil, err
+	}
+	resolved, err := filepath.EvalSymlinks(managed)
+	if err != nil {
+		return "", nil, err
+	}
+	if !samePath(managed, resolved) {
+		return "", nil, fmt.Errorf("Vault object path traverses a symbolic link")
+	}
+	return managed, info, nil
+}
+
 func (m *actionManager) vaultIsolationForManifest(v VaultManifest) VaultIsolationStatus {
 	out := VaultIsolationStatus{
 		VaultID: v.ID, ObjectName: v.OriginalName, OriginalPath: v.OriginalPath,
@@ -118,12 +143,13 @@ func (m *actionManager) vaultIsolationForManifest(v VaultManifest) VaultIsolatio
 		out.Checks = append(out.Checks, VaultIsolationCheck{ID: id, Status: status, Title: title, Detail: detail})
 	}
 
-	objectInfo, objectErr := os.Lstat(v.VaultPath)
+	managedVaultPath, objectInfo, objectErr := verifiedVaultIsolationObject(m, v)
 	if objectErr != nil {
-		add("vault-object", "fail", "Vault object", fmt.Sprintf("Stored object is unavailable: %v", objectErr))
-	} else if !objectInfo.Mode().IsRegular() || objectInfo.Mode()&os.ModeSymlink != 0 {
-		add("vault-object", "fail", "Vault object", "Stored object is not a regular non-symlink file.")
+		add("manifest-binding", "fail", "Vault manifest binding", fmt.Sprintf("Manifest does not resolve to its exact managed Vault object: %v", objectErr))
+		add("vault-object", "fail", "Vault object", "Stored object cannot be trusted as the managed object named by this manifest.")
 	} else {
+		add("manifest-binding", "pass", "Vault manifest binding", "Manifest path matches the exact managed object for this Vault ID and does not traverse a symbolic link.")
+		out.VaultPath = managedVaultPath
 		out.ObjectMode = objectInfo.Mode().Perm().String()
 		add("vault-object", "pass", "Vault object", "Stored object exists as a regular non-symlink file.")
 		if objectInfo.Mode().Perm() == 0o600 {
@@ -147,14 +173,18 @@ func (m *actionManager) vaultIsolationForManifest(v VaultManifest) VaultIsolatio
 		}
 	}
 
-	if dirInfo, err := os.Lstat(filepath.Dir(v.VaultPath)); err != nil {
+	vaultDirForCheck := filepath.Dir(v.VaultPath)
+	if managedVaultPath != "" {
+		vaultDirForCheck = filepath.Dir(managedVaultPath)
+	}
+	if dirInfo, err := os.Lstat(vaultDirForCheck); err != nil {
 		add("vault-directory", "fail", "Vault directory", fmt.Sprintf("Per-object Vault directory is unavailable: %v", err))
 	} else {
 		out.DirectoryMode = dirInfo.Mode().Perm().String()
-		if dirInfo.IsDir() && dirInfo.Mode().Perm() == 0o700 {
+		if dirInfo.IsDir() && dirInfo.Mode()&os.ModeSymlink == 0 && dirInfo.Mode().Perm() == 0o700 {
 			add("vault-directory", "pass", "Vault directory", "Per-object Vault directory mode is 0700.")
 		} else {
-			add("vault-directory", "fail", "Vault directory", fmt.Sprintf("Per-object Vault directory mode is %04o; expected 0700.", dirInfo.Mode().Perm()))
+			add("vault-directory", "fail", "Vault directory", fmt.Sprintf("Per-object Vault directory is not a real 0700 directory; observed mode %04o.", dirInfo.Mode().Perm()))
 		}
 	}
 
@@ -169,15 +199,27 @@ func (m *actionManager) vaultIsolationForManifest(v VaultManifest) VaultIsolatio
 		}
 	}
 
-	out.RunningPIDs = runningPIDsForPaths(v.OriginalPath, v.VaultPath)
+	pathsForRuntime := []string{v.OriginalPath}
+	if managedVaultPath != "" {
+		pathsForRuntime = append(pathsForRuntime, managedVaultPath)
+	}
+	out.RunningPIDs = runningPIDsForPaths(pathsForRuntime...)
 	sort.Ints(out.RunningPIDs)
 	if len(out.RunningPIDs) > 0 {
 		add("running-processes", "review", "Runtime containment", fmt.Sprintf("Related running PID(s) remain observable: %v. Vaulting does not terminate an already-running process.", out.RunningPIDs))
 	} else {
-		add("running-processes", "pass", "Runtime containment", "No related running PID is currently observed for the original or Vault path.")
+		add("running-processes", "pass", "Runtime containment", "No related running PID is currently observed for the original or verified Vault path.")
 	}
 
-	out.StartupRefs = uniqueStrings(append(startupRefsForPath(v.OriginalPath), startupRefsForPath(v.VaultPath)...))
+	startupPaths := []string{v.OriginalPath}
+	if managedVaultPath != "" {
+		startupPaths = append(startupPaths, managedVaultPath)
+	}
+	refs := []string{}
+	for _, p := range startupPaths {
+		refs = append(refs, startupRefsForPath(p)...)
+	}
+	out.StartupRefs = uniqueStrings(refs)
 	sort.Strings(out.StartupRefs)
 	if len(out.StartupRefs) > 0 {
 		add("startup-chain", "review", "Startup-chain isolation", fmt.Sprintf("%d startup reference(s) still point at the recorded object path. The file move can break execution without removing the configuration.", len(out.StartupRefs)))
@@ -185,9 +227,9 @@ func (m *actionManager) vaultIsolationForManifest(v VaultManifest) VaultIsolatio
 		add("startup-chain", "pass", "Startup-chain isolation", "No matching LaunchAgent/LaunchDaemon startup reference is currently observed.")
 	}
 
-	if objectErr == nil && v.SHA256 != "" {
+	if objectErr == nil && managedVaultPath != "" && v.SHA256 != "" {
 		if objectInfo != nil && objectInfo.Size() <= actionGuardHashLimit {
-			if hash, err := sha256File(context.Background(), v.VaultPath); err != nil {
+			if hash, err := sha256File(context.Background(), managedVaultPath); err != nil {
 				out.HashMatch = "unavailable"
 				add("content-integrity", "unknown", "Content integrity", fmt.Sprintf("Recorded SHA-256 exists but live verification failed: %v", err))
 			} else if hash == v.SHA256 {
@@ -204,6 +246,9 @@ func (m *actionManager) vaultIsolationForManifest(v VaultManifest) VaultIsolatio
 	} else if v.SHA256 == "" {
 		out.HashMatch = "not_recorded"
 		add("content-integrity", "unknown", "Content integrity", "No SHA-256 fingerprint was recorded for this object, so content identity cannot be reverified.")
+	} else if objectErr != nil {
+		out.HashMatch = "not_checked"
+		add("content-integrity", "unknown", "Content integrity", "Content hashing was skipped because the manifest was not bound to a verified managed Vault object.")
 	}
 
 	out.State = vaultIsolationState(out.Checks)

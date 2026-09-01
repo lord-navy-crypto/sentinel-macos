@@ -2,7 +2,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -90,18 +89,17 @@ func (m *trustManager) historySnapshot(limit int) TrustHistoryResponse {
 }
 
 func validateTrustHistory(path string) (exists, valid bool, mode string, count int) {
-	info, err := os.Stat(path)
+	info, err := os.Lstat(path)
 	if err != nil {
 		return false, false, "", 0
 	}
 	exists = true
 	mode = fileModeString(info)
-	raw, err := os.ReadFile(path)
-	if err != nil {
+	if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
 		return exists, false, mode, 0
 	}
 	var entries []TrustHistoryEntry
-	if json.Unmarshal(raw, &entries) == nil && len(entries) <= trustHistoryLimit {
+	if err := readPrivateJSON(path, &entries); err == nil && len(entries) <= trustHistoryLimit {
 		valid = true
 		count = len(entries)
 	}
