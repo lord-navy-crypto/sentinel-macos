@@ -24,6 +24,7 @@ UI_STYLE="$HERE/web/app/shell.css"
 UI_WORKBENCH="$HERE/web/app/workbench.js"
 UI_SCAN_CENTER="$HERE/web/app/full-scan.js"
 UI_ACTION_DOCK="$HERE/web/app/action-dock.js"
+UI_RUNTIME_LOGS="$HERE/web/app/runtime-logs.js"
 UI_AI="$HERE/web/app/ai.js"
 UI_AI_RELIABILITY="$HERE/web/app/ai-reliability.js"
 UI_MANUAL="$HERE/web/app/manual.js"
@@ -31,6 +32,7 @@ UI_MARKER="Sentinel 2.7 Native Frontend"
 WORKBENCH_MARKER="Sentinel 2.7 Investigation Workbench"
 SCAN_CENTER_MARKER="Sentinel 2.7 Full Scan Center"
 ACTION_DOCK_MARKER="Sentinel 2.7 Contextual Action Dock"
+RUNTIME_LOGS_MARKER="Sentinel 2.7 Runtime Logs"
 AI_MARKER="Sentinel 2.7 WebLLM Local AI"
 AI_RELIABILITY_MARKER="Sentinel 2.7 Local AI Reliability"
 MANUAL_MARKER="Sentinel 2.7 Comprehensive User Manual"
@@ -51,6 +53,7 @@ REQUIRED_UI_FILES=(
   "web/app/workbench.js"
   "web/app/full-scan.js"
   "web/app/action-dock.js"
+  "web/app/runtime-logs.js"
   "web/app/ai.js"
   "web/app/ai-reliability.js"
   "web/app/ai-worker.js"
@@ -80,6 +83,7 @@ REQUIRED_UI_SCRIPTS=(
   "/app/workbench.js"
   "/app/full-scan.js"
   "/app/action-dock.js"
+  "/app/runtime-logs.js"
   "/app/ai.js"
   "/app/ai-reliability.js"
   "/app/manual.js"
@@ -133,6 +137,10 @@ if ! grep -Fq "$SCAN_CENTER_MARKER" "$UI_SCAN_CENTER"; then
 fi
 if ! grep -Fq "$ACTION_DOCK_MARKER" "$UI_ACTION_DOCK"; then
   echo "Sentinel 2.7 Action Dock marker missing from $UI_ACTION_DOCK" >&2
+  exit 2
+fi
+if ! grep -Fq "$RUNTIME_LOGS_MARKER" "$UI_RUNTIME_LOGS"; then
+  echo "Sentinel 2.7 Runtime Logs marker missing from $UI_RUNTIME_LOGS" >&2
   exit 2
 fi
 if ! grep -Fq "$AI_MARKER" "$UI_AI"; then

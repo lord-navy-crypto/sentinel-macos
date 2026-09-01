@@ -20,7 +20,7 @@ func readUIFile(t *testing.T, path string) string {
 
 func TestSentinelApplicationIsTheDefaultProductSource(t *testing.T) {
 	html := readUIFile(t, "web/index.html")
-	for _, want := range []string{`data-sentinel-generation="2.7-native"`, `href="/app/shell.css"`, `href="/app/advanced.css"`, `href="/app/workbench.css"`, `src="/app/core.js"`, `src="/app/lenses/orient-investigate.js"`, `src="/app/lenses/compare.js"`, `src="/app/lenses/system.js"`, `src="/app/lenses/act-limits.js"`, `src="/app/advanced.js"`, `src="/app/case-stories.js"`, `src="/app/system-evidence.js"`, `src="/app/workbench.js"`, `src="/app/ai.js"`, `src="/app/ai-reliability.js"`, `src="/app/manual.js"`, `src="/app/manual-entry.js"`, `src="/app/runtime.js"`, `id="missionRibbon"`, `id="lensRail"`, `id="evidenceStage"`, `id="contextTray"`, `id="activityBar"`} {
+	for _, want := range []string{`data-sentinel-generation="2.7-native"`, `href="/app/shell.css"`, `href="/app/advanced.css"`, `href="/app/workbench.css"`, `src="/app/core.js"`, `src="/app/lenses/orient-investigate.js"`, `src="/app/lenses/compare.js"`, `src="/app/lenses/system.js"`, `src="/app/lenses/act-limits.js"`, `src="/app/advanced.js"`, `src="/app/case-stories.js"`, `src="/app/system-evidence.js"`, `src="/app/workbench.js"`, `src="/app/runtime-logs.js"`, `src="/app/ai.js"`, `src="/app/ai-reliability.js"`, `src="/app/manual.js"`, `src="/app/manual-entry.js"`, `src="/app/runtime.js"`, `id="missionRibbon"`, `id="lensRail"`, `id="evidenceStage"`, `id="contextTray"`, `id="activityBar"`} {
 		if !strings.Contains(html, want) {
 			t.Fatalf("Sentinel application shell missing %q", want)
 		}

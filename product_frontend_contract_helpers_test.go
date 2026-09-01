@@ -20,6 +20,7 @@ var canonicalProductScripts = []string{
 	"web/app/workbench.js",
 	"web/app/full-scan.js",
 	"web/app/action-dock.js",
+	"web/app/runtime-logs.js",
 	"web/app/ai.js",
 	"web/app/ai-reliability.js",
 	"web/app/manual.js",
@@ -56,7 +57,7 @@ func TestApplicationRegistersEveryDeclaredLens(t *testing.T) {
 		"status", "snapshot", "cases", "search", "relations", "audit", "object",
 		"changes", "behavior", "reference",
 		"machine", "processes", "startup", "persistence", "background", "network", "storage",
-		"reclaim", "change", "visibility", "guide", "assistant", "manual",
+		"reclaim", "change", "visibility", "guide", "assistant", "manual", "runtime-logs",
 	}
 	for _, lens := range declared {
 		needle := "registerLens('" + lens + "'"
