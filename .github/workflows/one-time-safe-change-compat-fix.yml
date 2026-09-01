@@ -1,0 +1,50 @@
+name: One-time Safe Change visual contract fix
+
+on:
+  push:
+    branches:
+      - sentinel-2.8-safe-change-workflow
+    paths:
+      - .github/workflows/one-time-safe-change-compat-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: sentinel-2.8-safe-change-workflow
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+          cache: false
+      - name: Restore visual grammar compatibility
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('web/app/lenses/act-limits.js')
+          s=p.read_text()
+          old="band(2,'Fresh preview safety gate',"
+          new="band(2,'Safety gate · fresh preview',"
+          if old not in s:
+              raise SystemExit('Safe Change band title anchor missing')
+          p.write_text(s.replace(old,new,1))
+          PY
+      - name: Validate full repository
+        run: |
+          git diff --check
+          node --check web/app/lenses/act-limits.js
+          go test ./...
+          go vet ./...
+      - name: Commit compatibility fix
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add web/app/lenses/act-limits.js
+          git commit -m 'Preserve Safe Change visual grammar contract'
+          git push origin HEAD:sentinel-2.8-safe-change-workflow
