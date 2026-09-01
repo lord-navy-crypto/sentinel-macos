@@ -1,0 +1,27 @@
+name: One-time investigation-depth audit
+
+on:
+  push:
+    branches:
+      - sentinel-2.8-investigation-depth
+    paths:
+      - .github/workflows/one-time-audit-investigation-depth.yml
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect Full Scan and Workbench anchors
+        run: |
+          echo '=== FULL SCAN FUNCTIONS ==='
+          grep -nE 'function |async function |fullScan\.outcome|fullScan\.stages|cancelRequested|completedAt' web/app/full-scan.js | head -n 260
+          echo '=== WORKBENCH ACTIONS ==='
+          grep -nE 'new-investigation|save-investigation|bookmark-selection|export-investigation|data-wb-action|activeInvestigation|investigations|saveStore|setSelection|submit' web/app/workbench.js | head -n 320
+          echo '=== RUNTIME LOG HOOKS ==='
+          grep -nE 'runtimeLog|S\.runtimeLog' web/app/*.js | head -n 180
+          echo '=== TEST CONTRACTS ==='
+          grep -RniE 'FullScan|Workbench|Investigation|RuntimeLog|runtime-logs|script src' -- *.go web_wiring_test.go product_frontend_contract_helpers_test.go 2>/dev/null | head -n 320
