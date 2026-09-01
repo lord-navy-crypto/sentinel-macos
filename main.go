@@ -43,6 +43,7 @@ type app struct {
 	incidents      *incidentManager
 	networkHistory *networkHistoryManager
 	logs           *runtimeLogBuffer
+	observatory    *resourceObservatory
 }
 
 func main() {
@@ -89,7 +90,7 @@ func main() {
 		behavior: newBehaviorManager(*ephemeral), trust: newTrustManager(*ephemeral),
 		persistence: newPersistenceManager(), actions: newActionManager(*ephemeral),
 		changes: newChangeManager(intel, *ephemeral), incidents: newIncidentManager(*ephemeral),
-		networkHistory: newNetworkHistoryManager(*ephemeral), logs: logs,
+		networkHistory: newNetworkHistoryManager(*ephemeral), logs: logs, observatory: newResourceObservatory(),
 	}
 
 	mux := http.NewServeMux()
@@ -102,6 +103,8 @@ func main() {
 	// Core state and system evidence.
 	mux.HandleFunc("/api/overview", a.auth(a.handleOverview))
 	mux.HandleFunc("/api/system-profile", a.auth(a.handleSystemProfile))
+	mux.HandleFunc("/api/health/live", a.auth(a.work.wrap("resource-observatory", a.handleMacObservatory)))
+	mux.HandleFunc("/api/health/history", a.auth(a.handleMacObservatoryHistory))
 	mux.HandleFunc("/api/system/console", a.auth(a.handleSystemConsole))
 	mux.HandleFunc("/api/system/query", a.auth(a.work.wrap("system-query", a.handleSystemConsoleQuery)))
 	mux.HandleFunc("/api/system/query/structured", a.auth(a.work.wrap("system-query-structured", a.handleSystemConsoleStructuredQuery)))
@@ -128,6 +131,7 @@ func main() {
 	mux.HandleFunc("/api/storage/scan", a.auth(a.handleStorageScan))
 	mux.HandleFunc("/api/storage/jobs", a.auth(a.handleStorageJobs))
 	mux.HandleFunc("/api/storage/cancel", a.auth(a.handleStorageCancel))
+	mux.HandleFunc("/api/storage/graph", a.auth(a.work.wrap("storage-graph", a.handleStorageGraph)))
 	mux.HandleFunc("/api/storage/aging", a.auth(a.handleStorageAging))
 	mux.HandleFunc("/api/security/audit", a.auth(a.work.wrap("security-audit", a.handleSecurityAudit)))
 	mux.HandleFunc("/api/security/investigate", a.auth(a.work.wrap("continue-investigation", a.handleContinueInvestigation)))

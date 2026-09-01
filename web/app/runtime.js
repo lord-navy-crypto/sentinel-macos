@@ -31,6 +31,7 @@
     if(name==='capture-reference'){if(!confirm('Establish or refresh the Trusted Profile from the current reviewed Mac state? The profile is a reference, not a safety certificate.'))return;busy('Fingerprinting reference');await api('/api/trust/capture',{method:'POST'});return S.renderReference();}
     if(name==='compare-reference'){busy('Comparing reference');await api('/api/trust/compare',{method:'POST'});return S.renderReference();}
     if(name==='cancel-storage'){if(state.scanJob)await api('/api/storage/cancel?id='+encodeURIComponent(state.scanJob),{method:'POST'});return;}
+    if(name==='refresh-health')return navigate('health',{push:false});
   }
 
   document.addEventListener('click',async event=>{
@@ -50,6 +51,7 @@
       if(form.dataset.form==='deep-search')await runDeepSearch(form);
       else if(form.dataset.form==='object')await S.inspectObject(new FormData(form).get('path'));
       else if(form.dataset.form==='storage')await S.startStorage(form);
+      else if(form.dataset.form==='storage-graph'){const fd=new FormData(form);await S.loadStorageGraph(String(fd.get('path')||''),Number(fd.get('limit')||24));}
       else if(form.dataset.form==='change-watch'){const fd=new FormData(form);await api('/api/changes/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({preset:fd.get('preset'),roots:[],interval_ms:Number(fd.get('interval')||2500)})});await S.renderChanges();}
       else if(form.dataset.form==='safe-action')await S.previewSafeAction(form);
       else if(form.dataset.form==='execute-action')await S.executeSafeAction(form);
