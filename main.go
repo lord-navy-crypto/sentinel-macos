@@ -42,6 +42,7 @@ type app struct {
 	changes        *changeManager
 	incidents      *incidentManager
 	networkHistory *networkHistoryManager
+	logs           *runtimeLogBuffer
 }
 
 func main() {
@@ -79,6 +80,8 @@ func main() {
 	runStateMigrations(*ephemeral)
 
 	token := randomToken(24)
+	logs := newRuntimeLogBuffer()
+	log.SetOutput(runtimeLogOutput(logs, os.Stderr))
 	intel := newIntelligenceManager()
 	a := &app{
 		token: token, startedAt: time.Now(), ephemeral: *ephemeral, instanceLock: instanceLock,
@@ -86,7 +89,7 @@ func main() {
 		behavior: newBehaviorManager(*ephemeral), trust: newTrustManager(*ephemeral),
 		persistence: newPersistenceManager(), actions: newActionManager(*ephemeral),
 		changes: newChangeManager(intel, *ephemeral), incidents: newIncidentManager(*ephemeral),
-		networkHistory: newNetworkHistoryManager(*ephemeral),
+		networkHistory: newNetworkHistoryManager(*ephemeral), logs: logs,
 	}
 
 	mux := http.NewServeMux()
@@ -155,6 +158,7 @@ func main() {
 
 	// Diagnostics, integrity, persistence, reversible actions, and changes.
 	mux.HandleFunc("/api/doctor", a.auth(a.handleDoctor))
+	mux.HandleFunc("/api/runtime/logs", a.auth(a.handleRuntimeLogs))
 	mux.HandleFunc("/api/diagnostics/export", a.auth(a.work.wrap("diagnostics-export", a.handleDiagnosticsExport)))
 	mux.HandleFunc("/api/integrity/inspect", a.auth(a.work.wrap("integrity-inspect", a.handleIntegrityInspectAPI)))
 	mux.HandleFunc("/api/self/integrity", a.auth(a.work.wrap("self-integrity", a.handleSelfIntegrity)))
@@ -230,8 +234,9 @@ func main() {
 		}()
 	}
 
+	a.logs.append("info", "backend", "engine-ready", "Sentinel local engine is ready.", map[string]any{"version": sentinelVersion, "desktop": *desktopMode, "ephemeral": *ephemeral})
 	server := &http.Server{
-		Handler:           securityHeaders(a.requestGuard(mux)),
+		Handler:           securityHeaders(a.runtimeLogHTTP(a.requestGuard(mux))),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		IdleTimeout:       60 * time.Second,
