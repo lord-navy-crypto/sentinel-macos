@@ -15,7 +15,7 @@ func TestIncidentRuleMatchesDeterministicEvidence(t *testing.T) {
 		ID: "new-persistence-correlation", Title: "Persistence correlated with filesystem activity", Enabled: true,
 		RequireSources: []string{"filesystem", "persistence"},
 		RequireReasons: []string{"multi_source_correlation", "persistence_observed"},
-		MinConfidence: 70, MinSeverity: "review", Guidance: "Review the related persistence target.",
+		MinConfidence:  70, MinSeverity: "review", Guidance: "Review the related persistence target.",
 	}
 	got := EvaluateIncidentRule(rule, EnrichIncidentV23(in))
 	if !got.Matched || len(got.MissingInputs) != 0 {

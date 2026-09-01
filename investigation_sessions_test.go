@@ -17,8 +17,8 @@ func TestInvestigationSessionCreatesBranchesAndPreservesBookmark(t *testing.T) {
 	m := newInvestigationSessionManager(true)
 	root, err := m.save(InvestigationSessionSaveRequest{
 		Title: "Example investigation",
-		Path: "/Applications/Example.app",
-		Kind: "application_bundle",
+		Path:  "/Applications/Example.app",
+		Kind:  "application_bundle",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -28,11 +28,11 @@ func TestInvestigationSessionCreatesBranchesAndPreservesBookmark(t *testing.T) {
 	}
 
 	branch, err := m.save(InvestigationSessionSaveRequest{
-		SessionID: root.ID,
-		Path: "/Applications/Example.app/Contents/MacOS/Example",
+		SessionID:  root.ID,
+		Path:       "/Applications/Example.app/Contents/MacOS/Example",
 		ParentPath: "/Applications/Example.app",
-		Kind: "executable",
-		Note: "main executable",
+		Kind:       "executable",
+		Note:       "main executable",
 		Bookmarked: true,
 	})
 	if err != nil {
@@ -44,8 +44,8 @@ func TestInvestigationSessionCreatesBranchesAndPreservesBookmark(t *testing.T) {
 
 	branch, err = m.save(InvestigationSessionSaveRequest{
 		SessionID: root.ID,
-		Path: "/Applications/Example.app/Contents/MacOS/Example",
-		Kind: "executable",
+		Path:      "/Applications/Example.app/Contents/MacOS/Example",
+		Kind:      "executable",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -70,9 +70,9 @@ func TestInvestigationSessionBranchRetentionIsBounded(t *testing.T) {
 	}
 	for i := 0; i < investigationSessionBranchLimit+12; i++ {
 		_, err := m.save(InvestigationSessionSaveRequest{
-			SessionID: first.ID,
-			Path: fmt.Sprintf("/tmp/sentinel-session-branch-%03d", i),
-			Kind: "file",
+			SessionID:  first.ID,
+			Path:       fmt.Sprintf("/tmp/sentinel-session-branch-%03d", i),
+			Kind:       "file",
 			Bookmarked: i == 0,
 		})
 		if err != nil {

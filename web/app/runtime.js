@@ -63,7 +63,7 @@
   document.addEventListener('keydown',event=>{if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==='k'){event.preventDefault();$('#globalSearch').focus();$('#globalSearch').select();}if(event.key==='Escape'){closeContext();$('#searchResults').hidden=true;}});
 
   const applicationIdentity={marker:S.PRODUCT_MARKER,version:'2.6.0',architecture:'modular-app'};
-  window.__SENTINEL_26__=applicationIdentity;
+  window.__SENTINEL_27__=applicationIdentity;
   window.__SENTINEL_25__=applicationIdentity;
   window.__SENTINEL_24__=applicationIdentity;
   S.navigate=navigate;

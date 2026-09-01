@@ -15,7 +15,7 @@ func TestLaunchServiceFromPersistenceCorrelatesExactProcess(t *testing.T) {
 		t.Fatal(err)
 	}
 	file := PersistenceFile{
-		Path: filepath.Join(root, "com.example.agent.plist"),
+		Path:  filepath.Join(root, "com.example.agent.plist"),
 		Scope: "User LaunchAgent", Label: "com.example.agent",
 		Executable: executable, RunAtLoad: true, KeepAlive: "true",
 		Modified: 123, HashStatus: "complete", SHA256: "abc",
@@ -35,7 +35,7 @@ func TestLaunchServiceFromPersistenceCorrelatesExactProcess(t *testing.T) {
 
 func TestLaunchServiceFromPersistenceSurfacesMissingTarget(t *testing.T) {
 	file := PersistenceFile{
-		Path: "/Library/LaunchDaemons/com.example.missing.plist",
+		Path:  "/Library/LaunchDaemons/com.example.missing.plist",
 		Scope: "System LaunchDaemon", Label: "com.example.missing",
 		Executable: "/definitely/not/present/sentinel-test",
 	}
@@ -50,7 +50,7 @@ func TestLaunchServiceFromPersistenceSurfacesMissingTarget(t *testing.T) {
 
 func TestLaunchServiceFromPersistenceDoesNotGuessRelativeExecutable(t *testing.T) {
 	file := PersistenceFile{
-		Path: "/Library/LaunchAgents/com.example.relative.plist",
+		Path:  "/Library/LaunchAgents/com.example.relative.plist",
 		Scope: "System LaunchAgent", Label: "com.example.relative",
 		Executable: "bin/helper",
 	}

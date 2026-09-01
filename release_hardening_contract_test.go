@@ -81,7 +81,7 @@ func TestReleaseVerifierInspectsMountedShippedApp(t *testing.T) {
 		"lipo -archs",
 		"sentinel-macos-arm64",
 		"sentinel-macos-x86_64",
-		"Sentinel 2.6 Local AI Reliability",
+		"Sentinel 2.7 Local AI Reliability",
 	} {
 		if !strings.Contains(verify, want) {
 			t.Fatalf("mounted release verification missing %q", want)

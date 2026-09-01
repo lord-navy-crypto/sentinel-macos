@@ -7,37 +7,220 @@ import (
 	"testing"
 )
 
-func TestIncidentEvolutionReconstructsSeparatedEpisodes(t *testing.T){
-	in:=Incident{StoryKey:"story-test",PrimaryPath:"/Applications/Test.app",Evidence:[]IncidentEvidence{{At:100,Source:"system_console",Kind:"gatekeeper_rejected",Severity:"review",Path:"/Applications/Test.app",Detail:"review"},{At:110,Source:"persistence",Kind:"launch_changed",Severity:"review",Path:"/Applications/Test.app",Detail:"startup"},{At:2000,Source:"system_console",Kind:"gatekeeper_rejected",Severity:"review",Path:"/Applications/Test.app",Detail:"review again"},{At:2010,Source:"persistence",Kind:"launch_changed",Severity:"high",Path:"/Applications/Test.app",Detail:"startup again"},{At:2020,Source:"trust",Kind:"identity_drift",Severity:"high",Path:"/Applications/Test.app",Detail:"new source"}}}
-	episodes,evolution:=BuildIncidentEvolutionV23(in);if len(episodes)!=2{t.Fatalf("expected 2 reconstructed episodes, got %d",len(episodes))};if evolution.EpisodeCount!=2||evolution.LatestDirection!="escalated"{t.Fatalf("unexpected evolution: %+v",evolution)};if !containsString(evolution.AddedSources,"trust"){t.Fatalf("expected trust as newly observed source: %+v",evolution.AddedSources)};if evolution.GapSeconds<=incidentWindowSeconds{t.Fatalf("expected retained episode gap beyond correlation window, got %d",evolution.GapSeconds)};if episodes[0].EpisodeID==episodes[1].EpisodeID{t.Fatal("separated episodes must retain distinct analytical episode IDs")}
+func TestIncidentEvolutionReconstructsSeparatedEpisodes(t *testing.T) {
+	in := Incident{StoryKey: "story-test", PrimaryPath: "/Applications/Test.app", Evidence: []IncidentEvidence{{At: 100, Source: "system_console", Kind: "gatekeeper_rejected", Severity: "review", Path: "/Applications/Test.app", Detail: "review"}, {At: 110, Source: "persistence", Kind: "launch_changed", Severity: "review", Path: "/Applications/Test.app", Detail: "startup"}, {At: 2000, Source: "system_console", Kind: "gatekeeper_rejected", Severity: "review", Path: "/Applications/Test.app", Detail: "review again"}, {At: 2010, Source: "persistence", Kind: "launch_changed", Severity: "high", Path: "/Applications/Test.app", Detail: "startup again"}, {At: 2020, Source: "trust", Kind: "identity_drift", Severity: "high", Path: "/Applications/Test.app", Detail: "new source"}}}
+	episodes, evolution := BuildIncidentEvolutionV23(in)
+	if len(episodes) != 2 {
+		t.Fatalf("expected 2 reconstructed episodes, got %d", len(episodes))
+	}
+	if evolution.EpisodeCount != 2 || evolution.LatestDirection != "escalated" {
+		t.Fatalf("unexpected evolution: %+v", evolution)
+	}
+	if !containsString(evolution.AddedSources, "trust") {
+		t.Fatalf("expected trust as newly observed source: %+v", evolution.AddedSources)
+	}
+	if evolution.GapSeconds <= incidentWindowSeconds {
+		t.Fatalf("expected retained episode gap beyond correlation window, got %d", evolution.GapSeconds)
+	}
+	if episodes[0].EpisodeID == episodes[1].EpisodeID {
+		t.Fatal("separated episodes must retain distinct analytical episode IDs")
+	}
 }
 
-func TestIncidentEvolutionSingleEpisodeIsExplicit(t *testing.T){in:=Incident{PrimaryPath:"/tmp/object",Evidence:[]IncidentEvidence{{At:10,Source:"persistence",Kind:"change",Severity:"review",Path:"/tmp/object"},{At:20,Source:"filesystem",Kind:"modified",Severity:"review",Path:"/tmp/object"}}};episodes,evolution:=BuildIncidentEvolutionV23(in);if len(episodes)!=1||evolution.LatestDirection!="single-episode"{t.Fatalf("unexpected single-episode analysis: %+v %+v",episodes,evolution)};if !strings.Contains(strings.ToLower(evolution.Limitations[1]),"not malware"){t.Fatalf("evolution limitation must reject malware-probability interpretation: %+v",evolution.Limitations)}}
-
-func TestSystemSnapshotDiffBuildsTypedTargetsAndStrictCorrelation(t *testing.T){in:=SystemSnapshotDiffV23{FromID:"a",ToID:"b",Categories:[]SystemSnapshotCategoryDiff{{Category:"mounts",Added:[]string{"/dev/disk3 → /Volumes/Test · rw"}},{Category:"filesystems",Added:[]string{"/dev/disk3 → /Volumes/Test"}},{Category:"startup",Added:[]string{"com.example.agent"}}}};analysis:=BuildSystemSnapshotDiffAnalysisV23(in);if len(analysis.Objects)!=3{t.Fatalf("expected 3 typed objects, got %d",len(analysis.Objects))};if len(analysis.Correlations)!=1||analysis.Correlations[0].Type!="shared_ref"||analysis.Correlations[0].Confidence!="explicit"{t.Fatalf("expected one strict shared-ref correlation: %+v",analysis.Correlations)};foundPath,foundStartupReview:=false,false;for _,target:=range analysis.Targets{if target.Kind=="path"&&target.Ref=="/Volumes/Test"{foundPath=true}};for _,obj:=range analysis.Objects{if obj.Category=="startup"&&obj.Severity=="review"{foundStartupReview=true}};if !foundPath||!foundStartupReview{t.Fatalf("missing path/startup semantics: targets=%+v objects=%+v",analysis.Targets,analysis.Objects)};raw,err:=json.Marshal(in);if err!=nil{t.Fatal(err)};if !strings.Contains(string(raw),"\"analysis\"")||!strings.Contains(string(raw),"investigation_targets"){t.Fatalf("additive diff analysis missing from JSON: %s",raw)}}
-
-func TestRecoveryAnalysisBuildsCandidatesAndPriorityPlan(t *testing.T){in:=RecoveryCenterV23{Mode:"persistent-local",SafeActions:ActionHealth{Healthy:false,ManifestIssues:1,Issues:[]string{"manifest mismatch"}},Journal:[]ActionJournalEntry{{ID:"j1",At:"2026-08-29T00:00:00Z",Action:"vault",Status:"success",ObjectName:"Test",From:"/tmp/Test",To:"/vault/Test",VaultID:"v1",Reversible:true}},ChangeMonitor:ChangeStatus{NeedsRescan:true,ResumeCheckpoint:true},SystemSnapshots:0,StorageSnapshots:2,NetworkSnapshots:1,InterruptedJobs:[]RecoveryJobV23{{ID:"job1",Status:"failed",Root:"/tmp"}},InterruptedOrPartial:true};analysis:=BuildRecoveryAnalysisV23(in);if analysis.Readiness!="blocked"{t.Fatalf("unhealthy Safe Actions should block recovery readiness: %+v",analysis)};if len(analysis.Candidates)!=1||analysis.Candidates[0].State!="preview_required"{t.Fatalf("expected reversible preview candidate: %+v",analysis.Candidates)};hasP0,hasRescan,hasCheckpoint:=false,false,false;for _,step:=range analysis.Plan{if step.Priority=="P0"&&step.Blocking{hasP0=true};if step.Category=="change_monitor"&&strings.Contains(step.Title,"continuity"){hasRescan=true};if step.Category=="checkpoint"{hasCheckpoint=true}};if !hasP0||!hasRescan||!hasCheckpoint{t.Fatalf("recovery plan missing required priorities: %+v",analysis.Plan)};raw,err:=json.Marshal(in);if err!=nil{t.Fatal(err)};if !strings.Contains(string(raw),"\"analysis\"")||!strings.Contains(string(raw),"\"candidates\"")||!strings.Contains(string(raw),"\"plan\""){t.Fatalf("additive recovery analysis missing from JSON: %s",raw)}}
-
-func TestStorageGrowthAnalysisSeparatesOverlappingViews(t *testing.T){
-	in:=StorageComparison{BeforeID:"s1",AfterID:"s2",DeltaBytes:300,DirectoryChanges:[]StorageDelta{{Name:"Projects",DeltaBytes:1000,DeltaFiles:10},{Name:"Caches",DeltaBytes:-700,DeltaFiles:-4}},FileTypeChanges:[]StorageDelta{{Name:".bin",DeltaBytes:800,DeltaFiles:2},{Name:".log",DeltaBytes:-500,DeltaFiles:-5}}}
-	analysis:=BuildStorageGrowthAnalysisV23(in)
-	if analysis.NetDeltaBytes!=300{t.Fatalf("net delta must preserve source comparison, got %d",analysis.NetDeltaBytes)}
-	if analysis.DirectoryChangedMagnitudeBytes!=1700||analysis.DirectoryGrowthBytes!=1000||analysis.DirectoryReductionBytes!=700{t.Fatalf("unexpected directory-view accounting: %+v",analysis)}
-	if analysis.FileTypeChangedMagnitudeBytes!=1300||analysis.FileTypeGrowthBytes!=800||analysis.FileTypeReductionBytes!=500{t.Fatalf("unexpected file-type accounting: %+v",analysis)}
-	if analysis.DominantDirectoryDriver==nil||analysis.DominantDirectoryDriver.Name!="Projects"{t.Fatalf("expected Projects as dominant directory driver: %+v",analysis.DominantDirectoryDriver)}
-	if analysis.DominantFileTypeDriver==nil||analysis.DominantFileTypeDriver.Name!=".bin"{t.Fatalf("expected .bin as dominant file-type driver: %+v",analysis.DominantFileTypeDriver)}
-	if analysis.DirectoryChurnRatio<=0||analysis.FileTypeChurnRatio<=0{t.Fatalf("expected nonzero per-view churn ratios: %+v",analysis)}
-	if !strings.Contains(strings.ToLower(strings.Join(analysis.Limitations," ")),"must not be summed"){t.Fatalf("overlap/double-counting guard missing: %+v",analysis.Limitations)}
-	raw,err:=json.Marshal(in);if err!=nil{t.Fatal(err)}
-	text:=string(raw);if strings.Contains(text,"gross_changed_bytes")||strings.Contains(text,"\"growth_bytes\""){t.Fatalf("ambiguous cross-view aggregate fields must not be emitted: %s",raw)}
-	if !strings.Contains(text,"directory_changed_magnitude_bytes")||!strings.Contains(text,"file_type_changed_magnitude_bytes"){t.Fatalf("per-view storage analysis missing from comparison JSON: %s",raw)}
+func TestIncidentEvolutionSingleEpisodeIsExplicit(t *testing.T) {
+	in := Incident{PrimaryPath: "/tmp/object", Evidence: []IncidentEvidence{{At: 10, Source: "persistence", Kind: "change", Severity: "review", Path: "/tmp/object"}, {At: 20, Source: "filesystem", Kind: "modified", Severity: "review", Path: "/tmp/object"}}}
+	episodes, evolution := BuildIncidentEvolutionV23(in)
+	if len(episodes) != 1 || evolution.LatestDirection != "single-episode" {
+		t.Fatalf("unexpected single-episode analysis: %+v %+v", episodes, evolution)
+	}
+	if !strings.Contains(strings.ToLower(evolution.Limitations[1]), "not malware") {
+		t.Fatalf("evolution limitation must reject malware-probability interpretation: %+v", evolution.Limitations)
+	}
 }
-func TestStorageGrowthAnalysisMarksPartialAttribution(t *testing.T){in:=StorageComparison{Partial:true,DeltaBytes:1024,Limitations:[]string{"scan entry budget was reached"}};analysis:=BuildStorageGrowthAnalysisV23(in);if !strings.Contains(strings.ToLower(analysis.Interpretation),"partial"){t.Fatalf("partial comparison must surface directional limitation: %+v",analysis)}}
 
-func TestGlobalTimelineAnalysisBuildsActivityWindows(t *testing.T){in:=GlobalTimelineResponse{Events:[]InvestigationTimelineEvent{{At:100,Source:"filesystem_change",Kind:"modified",Severity:"info",Path:"/tmp/A"},{At:140,Source:"incident",Kind:"evidence",Severity:"review",Path:"/tmp/A",IncidentID:"i1"},{At:180,Source:"intelligence",Kind:"system_evidence",Severity:"high",Path:"/tmp/A"},{At:500,Source:"filesystem_change",Kind:"modified",Severity:"info",Path:"/tmp/B"}}};analysis:=BuildGlobalTimelineAnalysisV23(in);if len(analysis.Windows)!=2{t.Fatalf("expected 2 activity windows, got %+v",analysis.Windows)};if !analysis.Windows[0].CrossSource||analysis.Windows[0].HighCount!=1||analysis.Windows[0].ReviewCount!=2{t.Fatalf("unexpected first window: %+v",analysis.Windows[0])};if len(analysis.CoObservations)!=3{t.Fatalf("three sources in one window should produce 3 source pairs: %+v",analysis.CoObservations)};if len(analysis.ReviewWindows)!=1{t.Fatalf("expected one review window: %+v",analysis.ReviewWindows)};raw,err:=json.Marshal(in);if err!=nil{t.Fatal(err)};if !strings.Contains(string(raw),"source_co_observations")||!strings.Contains(string(raw),"window_gap_seconds"){t.Fatalf("timeline analysis missing from global timeline JSON: %s",raw)}}
+func TestSystemSnapshotDiffBuildsTypedTargetsAndStrictCorrelation(t *testing.T) {
+	in := SystemSnapshotDiffV23{FromID: "a", ToID: "b", Categories: []SystemSnapshotCategoryDiff{{Category: "mounts", Added: []string{"/dev/disk3 → /Volumes/Test · rw"}}, {Category: "filesystems", Added: []string{"/dev/disk3 → /Volumes/Test"}}, {Category: "startup", Added: []string{"com.example.agent"}}}}
+	analysis := BuildSystemSnapshotDiffAnalysisV23(in)
+	if len(analysis.Objects) != 3 {
+		t.Fatalf("expected 3 typed objects, got %d", len(analysis.Objects))
+	}
+	if len(analysis.Correlations) != 1 || analysis.Correlations[0].Type != "shared_ref" || analysis.Correlations[0].Confidence != "explicit" {
+		t.Fatalf("expected one strict shared-ref correlation: %+v", analysis.Correlations)
+	}
+	foundPath, foundStartupReview := false, false
+	for _, target := range analysis.Targets {
+		if target.Kind == "path" && target.Ref == "/Volumes/Test" {
+			foundPath = true
+		}
+	}
+	for _, obj := range analysis.Objects {
+		if obj.Category == "startup" && obj.Severity == "review" {
+			foundStartupReview = true
+		}
+	}
+	if !foundPath || !foundStartupReview {
+		t.Fatalf("missing path/startup semantics: targets=%+v objects=%+v", analysis.Targets, analysis.Objects)
+	}
+	raw, err := json.Marshal(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), "\"analysis\"") || !strings.Contains(string(raw), "investigation_targets") {
+		t.Fatalf("additive diff analysis missing from JSON: %s", raw)
+	}
+}
 
-func TestEvidenceGraphAnalysisFindsComponentsAndHubs(t *testing.T){in:=EvidenceGraphV2{Nodes:[]EvidenceGraphV2Node{{ID:"f1",Type:"file",Label:"File",Severity:"review"},{ID:"p1",Type:"process",Label:"Process"},{ID:"i1",Type:"incident",Label:"Incident",Severity:"high"},{ID:"x",Type:"file",Label:"Isolated"}},Edges:[]EvidenceGraphV2Edge{{ID:"e1",From:"f1",To:"p1",Type:"executed_by"},{ID:"e2",From:"f1",To:"i1",Type:"member_of_incident"}}};analysis:=BuildEvidenceGraphAnalysisV23(in);if len(analysis.Components)!=2{t.Fatalf("expected connected component plus isolated node: %+v",analysis.Components)};if len(analysis.TopConnected)==0||analysis.TopConnected[0].ID!="f1"||analysis.TopConnected[0].Degree!=2{t.Fatalf("expected f1 as graph hub: %+v",analysis.TopConnected)};if analysis.IsolatedNodes!=1||!containsString(analysis.IsolatedNodeIDs,"x"){t.Fatalf("expected isolated node x: %+v",analysis)};if analysis.RelationCounts["member_of_incident"]!=1{t.Fatalf("missing relation count: %+v",analysis.RelationCounts)};raw,err:=json.Marshal(in);if err!=nil{t.Fatal(err)};if !strings.Contains(string(raw),"top_connected")||!strings.Contains(string(raw),"components"){t.Fatalf("graph analysis missing from JSON: %s",raw)}}
+func TestRecoveryAnalysisBuildsCandidatesAndPriorityPlan(t *testing.T) {
+	in := RecoveryCenterV23{Mode: "persistent-local", SafeActions: ActionHealth{Healthy: false, ManifestIssues: 1, Issues: []string{"manifest mismatch"}}, Journal: []ActionJournalEntry{{ID: "j1", At: "2026-08-29T00:00:00Z", Action: "vault", Status: "success", ObjectName: "Test", From: "/tmp/Test", To: "/vault/Test", VaultID: "v1", Reversible: true}}, ChangeMonitor: ChangeStatus{NeedsRescan: true, ResumeCheckpoint: true}, SystemSnapshots: 0, StorageSnapshots: 2, NetworkSnapshots: 1, InterruptedJobs: []RecoveryJobV23{{ID: "job1", Status: "failed", Root: "/tmp"}}, InterruptedOrPartial: true}
+	analysis := BuildRecoveryAnalysisV23(in)
+	if analysis.Readiness != "blocked" {
+		t.Fatalf("unhealthy Safe Actions should block recovery readiness: %+v", analysis)
+	}
+	if len(analysis.Candidates) != 1 || analysis.Candidates[0].State != "preview_required" {
+		t.Fatalf("expected reversible preview candidate: %+v", analysis.Candidates)
+	}
+	hasP0, hasRescan, hasCheckpoint := false, false, false
+	for _, step := range analysis.Plan {
+		if step.Priority == "P0" && step.Blocking {
+			hasP0 = true
+		}
+		if step.Category == "change_monitor" && strings.Contains(step.Title, "continuity") {
+			hasRescan = true
+		}
+		if step.Category == "checkpoint" {
+			hasCheckpoint = true
+		}
+	}
+	if !hasP0 || !hasRescan || !hasCheckpoint {
+		t.Fatalf("recovery plan missing required priorities: %+v", analysis.Plan)
+	}
+	raw, err := json.Marshal(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), "\"analysis\"") || !strings.Contains(string(raw), "\"candidates\"") || !strings.Contains(string(raw), "\"plan\"") {
+		t.Fatalf("additive recovery analysis missing from JSON: %s", raw)
+	}
+}
 
-func TestVisibilityContinuityMakesBlindSpotsExplicit(t *testing.T){in:=VisibilityCenterV2{Available:1,Limited:2,Unavailable:1,Sources:[]VisibilitySourceV2{{ID:"ps",Category:"local_tool",Name:"ps",Status:"available"},{ID:"es",Category:"sensor",Name:"Endpoint Security",Status:"unavailable",Impact:"No entitled event stream."},{ID:"fda",Category:"permission",Name:"Full Disk Access",Status:"user_controlled",Impact:"Protected locations may be unavailable.",UserControlled:true},{ID:"fs",Category:"sensor",Name:"Filesystem",Status:"limited",Impact:"Fallback fidelity is reduced."}}};analysis:=BuildVisibilityContinuityAnalysisV23(in);if analysis.State!="degraded"{t.Fatalf("unavailable evidence source should mark continuity degraded: %+v",analysis)};if len(analysis.BlindSpots)!=3{t.Fatalf("expected unavailable/user-controlled/limited blind spots: %+v",analysis.BlindSpots)};if !strings.Contains(strings.ToLower(analysis.InterpretationPolicy["unavailable"]),"do not draw negative conclusions"){t.Fatalf("missing negative-conclusion guard: %+v",analysis.InterpretationPolicy)};raw,err:=json.Marshal(in);if err!=nil{t.Fatal(err)};if !strings.Contains(string(raw),"blind_spots")||!strings.Contains(string(raw),"interpretation_policy"){t.Fatalf("visibility analysis missing from JSON: %s",raw)}}
+func TestStorageGrowthAnalysisSeparatesOverlappingViews(t *testing.T) {
+	in := StorageComparison{BeforeID: "s1", AfterID: "s2", DeltaBytes: 300, DirectoryChanges: []StorageDelta{{Name: "Projects", DeltaBytes: 1000, DeltaFiles: 10}, {Name: "Caches", DeltaBytes: -700, DeltaFiles: -4}}, FileTypeChanges: []StorageDelta{{Name: ".bin", DeltaBytes: 800, DeltaFiles: 2}, {Name: ".log", DeltaBytes: -500, DeltaFiles: -5}}}
+	analysis := BuildStorageGrowthAnalysisV23(in)
+	if analysis.NetDeltaBytes != 300 {
+		t.Fatalf("net delta must preserve source comparison, got %d", analysis.NetDeltaBytes)
+	}
+	if analysis.DirectoryChangedMagnitudeBytes != 1700 || analysis.DirectoryGrowthBytes != 1000 || analysis.DirectoryReductionBytes != 700 {
+		t.Fatalf("unexpected directory-view accounting: %+v", analysis)
+	}
+	if analysis.FileTypeChangedMagnitudeBytes != 1300 || analysis.FileTypeGrowthBytes != 800 || analysis.FileTypeReductionBytes != 500 {
+		t.Fatalf("unexpected file-type accounting: %+v", analysis)
+	}
+	if analysis.DominantDirectoryDriver == nil || analysis.DominantDirectoryDriver.Name != "Projects" {
+		t.Fatalf("expected Projects as dominant directory driver: %+v", analysis.DominantDirectoryDriver)
+	}
+	if analysis.DominantFileTypeDriver == nil || analysis.DominantFileTypeDriver.Name != ".bin" {
+		t.Fatalf("expected .bin as dominant file-type driver: %+v", analysis.DominantFileTypeDriver)
+	}
+	if analysis.DirectoryChurnRatio <= 0 || analysis.FileTypeChurnRatio <= 0 {
+		t.Fatalf("expected nonzero per-view churn ratios: %+v", analysis)
+	}
+	if !strings.Contains(strings.ToLower(strings.Join(analysis.Limitations, " ")), "must not be summed") {
+		t.Fatalf("overlap/double-counting guard missing: %+v", analysis.Limitations)
+	}
+	raw, err := json.Marshal(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(raw)
+	if strings.Contains(text, "gross_changed_bytes") || strings.Contains(text, "\"growth_bytes\"") {
+		t.Fatalf("ambiguous cross-view aggregate fields must not be emitted: %s", raw)
+	}
+	if !strings.Contains(text, "directory_changed_magnitude_bytes") || !strings.Contains(text, "file_type_changed_magnitude_bytes") {
+		t.Fatalf("per-view storage analysis missing from comparison JSON: %s", raw)
+	}
+}
+func TestStorageGrowthAnalysisMarksPartialAttribution(t *testing.T) {
+	in := StorageComparison{Partial: true, DeltaBytes: 1024, Limitations: []string{"scan entry budget was reached"}}
+	analysis := BuildStorageGrowthAnalysisV23(in)
+	if !strings.Contains(strings.ToLower(analysis.Interpretation), "partial") {
+		t.Fatalf("partial comparison must surface directional limitation: %+v", analysis)
+	}
+}
 
-func containsString(rows []string,want string)bool{for _,x:=range rows{if x==want{return true}};return false}
+func TestGlobalTimelineAnalysisBuildsActivityWindows(t *testing.T) {
+	in := GlobalTimelineResponse{Events: []InvestigationTimelineEvent{{At: 100, Source: "filesystem_change", Kind: "modified", Severity: "info", Path: "/tmp/A"}, {At: 140, Source: "incident", Kind: "evidence", Severity: "review", Path: "/tmp/A", IncidentID: "i1"}, {At: 180, Source: "intelligence", Kind: "system_evidence", Severity: "high", Path: "/tmp/A"}, {At: 500, Source: "filesystem_change", Kind: "modified", Severity: "info", Path: "/tmp/B"}}}
+	analysis := BuildGlobalTimelineAnalysisV23(in)
+	if len(analysis.Windows) != 2 {
+		t.Fatalf("expected 2 activity windows, got %+v", analysis.Windows)
+	}
+	if !analysis.Windows[0].CrossSource || analysis.Windows[0].HighCount != 1 || analysis.Windows[0].ReviewCount != 2 {
+		t.Fatalf("unexpected first window: %+v", analysis.Windows[0])
+	}
+	if len(analysis.CoObservations) != 3 {
+		t.Fatalf("three sources in one window should produce 3 source pairs: %+v", analysis.CoObservations)
+	}
+	if len(analysis.ReviewWindows) != 1 {
+		t.Fatalf("expected one review window: %+v", analysis.ReviewWindows)
+	}
+	raw, err := json.Marshal(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), "source_co_observations") || !strings.Contains(string(raw), "window_gap_seconds") {
+		t.Fatalf("timeline analysis missing from global timeline JSON: %s", raw)
+	}
+}
+
+func TestEvidenceGraphAnalysisFindsComponentsAndHubs(t *testing.T) {
+	in := EvidenceGraphV2{Nodes: []EvidenceGraphV2Node{{ID: "f1", Type: "file", Label: "File", Severity: "review"}, {ID: "p1", Type: "process", Label: "Process"}, {ID: "i1", Type: "incident", Label: "Incident", Severity: "high"}, {ID: "x", Type: "file", Label: "Isolated"}}, Edges: []EvidenceGraphV2Edge{{ID: "e1", From: "f1", To: "p1", Type: "executed_by"}, {ID: "e2", From: "f1", To: "i1", Type: "member_of_incident"}}}
+	analysis := BuildEvidenceGraphAnalysisV23(in)
+	if len(analysis.Components) != 2 {
+		t.Fatalf("expected connected component plus isolated node: %+v", analysis.Components)
+	}
+	if len(analysis.TopConnected) == 0 || analysis.TopConnected[0].ID != "f1" || analysis.TopConnected[0].Degree != 2 {
+		t.Fatalf("expected f1 as graph hub: %+v", analysis.TopConnected)
+	}
+	if analysis.IsolatedNodes != 1 || !containsString(analysis.IsolatedNodeIDs, "x") {
+		t.Fatalf("expected isolated node x: %+v", analysis)
+	}
+	if analysis.RelationCounts["member_of_incident"] != 1 {
+		t.Fatalf("missing relation count: %+v", analysis.RelationCounts)
+	}
+	raw, err := json.Marshal(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), "top_connected") || !strings.Contains(string(raw), "components") {
+		t.Fatalf("graph analysis missing from JSON: %s", raw)
+	}
+}
+
+func TestVisibilityContinuityMakesBlindSpotsExplicit(t *testing.T) {
+	in := VisibilityCenterV2{Available: 1, Limited: 2, Unavailable: 1, Sources: []VisibilitySourceV2{{ID: "ps", Category: "local_tool", Name: "ps", Status: "available"}, {ID: "es", Category: "sensor", Name: "Endpoint Security", Status: "unavailable", Impact: "No entitled event stream."}, {ID: "fda", Category: "permission", Name: "Full Disk Access", Status: "user_controlled", Impact: "Protected locations may be unavailable.", UserControlled: true}, {ID: "fs", Category: "sensor", Name: "Filesystem", Status: "limited", Impact: "Fallback fidelity is reduced."}}}
+	analysis := BuildVisibilityContinuityAnalysisV23(in)
+	if analysis.State != "degraded" {
+		t.Fatalf("unavailable evidence source should mark continuity degraded: %+v", analysis)
+	}
+	if len(analysis.BlindSpots) != 3 {
+		t.Fatalf("expected unavailable/user-controlled/limited blind spots: %+v", analysis.BlindSpots)
+	}
+	if !strings.Contains(strings.ToLower(analysis.InterpretationPolicy["unavailable"]), "do not draw negative conclusions") {
+		t.Fatalf("missing negative-conclusion guard: %+v", analysis.InterpretationPolicy)
+	}
+	raw, err := json.Marshal(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), "blind_spots") || !strings.Contains(string(raw), "interpretation_policy") {
+		t.Fatalf("visibility analysis missing from JSON: %s", raw)
+	}
+}
+
+func containsString(rows []string, want string) bool {
+	for _, x := range rows {
+		if x == want {
+			return true
+		}
+	}
+	return false
+}

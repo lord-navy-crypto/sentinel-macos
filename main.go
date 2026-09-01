@@ -183,7 +183,7 @@ func main() {
 	mux.HandleFunc("/api/readiness", a.auth(a.work.wrap("readiness", a.handleReadiness)))
 	mux.HandleFunc("/api/pre-regression", a.auth(a.handleRegressionGate))
 
-	// Sentinel 2.6 serves the product source directly. There is no runtime DOM
+	// Sentinel 2.7 serves the product source directly. There is no runtime DOM
 	// rewrite, legacy dashboard injection, or desktop-only enhancement layer.
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" || r.URL.Path == "/index.html" {
@@ -192,7 +192,7 @@ func main() {
 				http.Error(w, "Sentinel interface unavailable", http.StatusInternalServerError)
 				return
 			}
-			w.Header().Set("X-Sentinel-UI", "2.6-native")
+			w.Header().Set("X-Sentinel-UI", "2.7-native")
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			_, _ = w.Write(page)
 			return
@@ -215,7 +215,7 @@ func main() {
 	}
 	fmt.Printf("Sentinel macOS v%s\n", sentinelVersion)
 	fmt.Println("Local-only system & security auditor")
-	fmt.Println("UI generation: 2.6 Native Frontend")
+	fmt.Println("UI generation: 2.7 Native Frontend")
 	fmt.Println("Listening only on 127.0.0.1")
 	fmt.Println("Open:", url)
 	if *ephemeral {

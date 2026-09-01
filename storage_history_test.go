@@ -19,12 +19,12 @@ func TestCompareStorageSnapshotsAttributesGrowth(t *testing.T) {
 	before := StorageSnapshot{
 		ID: "before", CreatedAt: 1, Root: "/Users/test", VisibleBytes: 100,
 		Categories: []StorageCategory{{Name: "Downloads", Size: 30, Files: 3}, {Name: "Documents", Size: 70, Files: 7}},
-		FileTypes: []StorageCategory{{Name: "video", Size: 20, Files: 1}},
+		FileTypes:  []StorageCategory{{Name: "video", Size: 20, Files: 1}},
 	}
 	after := StorageSnapshot{
 		ID: "after", CreatedAt: 2, Root: "/Users/test", VisibleBytes: 145,
 		Categories: []StorageCategory{{Name: "Downloads", Size: 75, Files: 5}, {Name: "Documents", Size: 70, Files: 7}},
-		FileTypes: []StorageCategory{{Name: "video", Size: 65, Files: 2}},
+		FileTypes:  []StorageCategory{{Name: "video", Size: 65, Files: 2}},
 	}
 	got := CompareStorageSnapshots(before, after)
 	if got.DeltaBytes != 45 {

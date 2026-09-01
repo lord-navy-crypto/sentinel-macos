@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MPL-2.0
-// Sentinel 2.6 Local AI — deeply integrated, read-only WebLLM analyst over Sentinel evidence.
+// Sentinel 2.7 Local AI — deeply integrated, read-only WebLLM analyst over Sentinel evidence.
 (() => {
   'use strict';
   const S = window.SentinelApp;
   if (!S) throw new Error('Sentinel application core did not load before Local AI.');
   const {$, state, api, esc, question, registerLens, activity, notice} = S;
 
-  const AI_MARKER = 'Sentinel 2.6 WebLLM Local AI';
-  const AI_FUSION_MARKER = 'Sentinel 2.6 Integrated Local AI';
+  const AI_MARKER = 'Sentinel 2.7 WebLLM Local AI';
+  const AI_FUSION_MARKER = 'Sentinel 2.7 Integrated Local AI';
   const WEBLLM_URL = '/vendor/webllm-0.2.82.mjs';
   const DEFAULT_MODEL = 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC';
   const MODELS = [
@@ -22,7 +22,7 @@
     {id:'Mistral-7B-Instruct-v0.3-q4f16_1-MLC',name:'Mistral 7B Instruct',tier:'large',vramMB:4573.39,memory:'16 GB+',focus:'Strong general assistant',note:'Large model with stronger responses; requires shader-f16 support.',requires:'shader-f16'},
     {id:'Qwen2.5-7B-Instruct-q4f16_1-MLC',name:'Qwen 2.5 7B',tier:'large',vramMB:5106.67,memory:'16 GB+',focus:'Strong bilingual analysis',note:'High-quality Chinese/English option for deeper evidence interpretation.'},
     {id:'Llama-3.1-8B-Instruct-q4f16_1-MLC',name:'Llama 3.1 8B',tier:'large',vramMB:5001.0,memory:'16 GB+',focus:'Strong general reasoning',note:'Large general-purpose model; expect slower loading and generation than the smaller tiers.'},
-    {id:'gemma-2-9b-it-q4f16_1-MLC',name:'Gemma 2 9B',tier:'large',vramMB:6422.01,memory:'24 GB recommended',focus:'Largest curated option',note:'Highest-memory curated model in Sentinel 2.6; requires shader-f16 and is intended for well-equipped Macs.',requires:'shader-f16'},
+    {id:'gemma-2-9b-it-q4f16_1-MLC',name:'Gemma 2 9B',tier:'large',vramMB:6422.01,memory:'24 GB recommended',focus:'Largest curated option',note:'Highest-memory curated model in Sentinel 2.7; requires shader-f16 and is intended for well-equipped Macs.',requires:'shader-f16'},
   ];
   const TIER_META = {
     small:{label:'SMALL',title:'Fast & light',description:'Best starting point for 8 GB Macs and quick evidence explanations.'},

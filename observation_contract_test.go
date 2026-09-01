@@ -1,8 +1,70 @@
 // SPDX-License-Identifier: MPL-2.0
 package main
-import("os";"strings";"testing")
-func scanContractSource(t *testing.T,path string)string{t.Helper();raw,err:=os.ReadFile(path);if err!=nil{t.Fatal(err)};return string(raw)}
-func TestObservationCapabilitiesAreNativeProductLenses(t *testing.T){html:=scanContractSource(t,"web/index.html");orient:=scanContractSource(t,"web/app/lenses/orient-investigate.js");system:=scanContractSource(t,"web/app/lenses/system.js");for _,want:=range []string{"missionRibbon","lensRail","evidenceStage","/app/core.js","/app/runtime.js"}{if !strings.Contains(html,want){t.Fatalf("product HTML missing %q",want)}};for _,want:=range []string{"/api/quick-check","/api/security/audit","runDeepSearch"}{if !strings.Contains(orient+readProductScripts(t),want){t.Fatalf("observation capability missing %q",want)}};for _,want:=range []string{"/api/storage/jobs","/api/storage/cancel","renderStorage","phase_percent","slow_paths_skipped","hash_files_done","hash_files_total","hash_bytes_done","hash_bytes_total"}{if !strings.Contains(system+readProductScripts(t),want){t.Fatalf("storage capability missing %q",want)}}}
-func TestStorageAcquisitionStaysBoundedAndCancellable(t *testing.T){js:=scanContractSource(t,"web/app/lenses/system.js");for _,want:=range []string{`<option value="home">Home</option>`,`<option value="downloads">Downloads</option>`,`type="number" min="1" max="10240" value="100"`,`type="number" min="10" max="2000" value="200"`,`data-do="cancel-storage"`,`Bounded localhost request`}{if !strings.Contains(js,want){t.Fatalf("storage acquisition missing %q",want)}};advanced:=scanContractSource(t,"advanced.go");for _,want:=range []string{"if req.MinMB < 1","if req.MinMB > 1024*1024","if req.Limit > 250","context.WithCancel"}{if !strings.Contains(advanced,want){t.Fatalf("backend bound missing %q",want)}}}
-func TestObservationLensesSeparateReadOnlyWorkFromMutation(t *testing.T){orient:=scanContractSource(t,"web/app/lenses/orient-investigate.js");for _,bad:=range []string{"/api/actions/execute","/api/trust/capture","sudo ","rm -"}{if strings.Contains(orient,bad){t.Fatalf("read-only investigation module contains mutation %q",bad)}}}
-func TestApplicationJavaScriptIsSyntaxCheckedInCI(t *testing.T){ci:=scanContractSource(t,".github/workflows/ci.yml");for _,path:=range canonicalProductScripts{if !strings.Contains(ci,"node --check "+path){t.Fatalf("CI does not syntax-check %s",path)}};if !strings.Contains(ci,"test ! -e web/app/controller.js"){t.Fatal("CI must prevent monolithic controller return")}}
+
+import (
+	"os"
+	"strings"
+	"testing"
+)
+
+func scanContractSource(t *testing.T, path string) string {
+	t.Helper()
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(raw)
+}
+func TestObservationCapabilitiesAreNativeProductLenses(t *testing.T) {
+	html := scanContractSource(t, "web/index.html")
+	orient := scanContractSource(t, "web/app/lenses/orient-investigate.js")
+	system := scanContractSource(t, "web/app/lenses/system.js")
+	for _, want := range []string{"missionRibbon", "lensRail", "evidenceStage", "/app/core.js", "/app/runtime.js"} {
+		if !strings.Contains(html, want) {
+			t.Fatalf("product HTML missing %q", want)
+		}
+	}
+	for _, want := range []string{"/api/quick-check", "/api/security/audit", "runDeepSearch"} {
+		if !strings.Contains(orient+readProductScripts(t), want) {
+			t.Fatalf("observation capability missing %q", want)
+		}
+	}
+	for _, want := range []string{"/api/storage/jobs", "/api/storage/cancel", "renderStorage", "phase_percent", "slow_paths_skipped", "hash_files_done", "hash_files_total", "hash_bytes_done", "hash_bytes_total"} {
+		if !strings.Contains(system+readProductScripts(t), want) {
+			t.Fatalf("storage capability missing %q", want)
+		}
+	}
+}
+func TestStorageAcquisitionStaysBoundedAndCancellable(t *testing.T) {
+	js := scanContractSource(t, "web/app/lenses/system.js")
+	for _, want := range []string{`<option value="home">Home</option>`, `<option value="downloads">Downloads</option>`, `type="number" min="1" max="10240" value="100"`, `type="number" min="10" max="2000" value="200"`, `data-do="cancel-storage"`, `Bounded localhost request`} {
+		if !strings.Contains(js, want) {
+			t.Fatalf("storage acquisition missing %q", want)
+		}
+	}
+	advanced := scanContractSource(t, "advanced.go")
+	for _, want := range []string{"if req.MinMB < 1", "if req.MinMB > 1024*1024", "if req.Limit > 250", "context.WithCancel"} {
+		if !strings.Contains(advanced, want) {
+			t.Fatalf("backend bound missing %q", want)
+		}
+	}
+}
+func TestObservationLensesSeparateReadOnlyWorkFromMutation(t *testing.T) {
+	orient := scanContractSource(t, "web/app/lenses/orient-investigate.js")
+	for _, bad := range []string{"/api/actions/execute", "/api/trust/capture", "sudo ", "rm -"} {
+		if strings.Contains(orient, bad) {
+			t.Fatalf("read-only investigation module contains mutation %q", bad)
+		}
+	}
+}
+func TestApplicationJavaScriptIsSyntaxCheckedInCI(t *testing.T) {
+	ci := scanContractSource(t, ".github/workflows/ci.yml")
+	for _, path := range canonicalProductScripts {
+		if !strings.Contains(ci, "node --check "+path) {
+			t.Fatalf("CI does not syntax-check %s", path)
+		}
+	}
+	if !strings.Contains(ci, "test ! -e web/app/controller.js") {
+		t.Fatal("CI must prevent monolithic controller return")
+	}
+}

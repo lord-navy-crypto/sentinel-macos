@@ -1,4 +1,4 @@
-# Sentinel 2.6 — Local macOS System Intelligence
+# Sentinel 2.7 — Resilient Local Intelligence
 
 Sentinel is a local-first macOS evidence and system-intelligence application. It observes current state, connects related evidence, compares change over time, verifies exact objects, measures storage pressure, and exposes deliberately bounded reversible actions.
 
@@ -12,7 +12,7 @@ Sentinel.app
       └─ architecture-matched Go engine
           ├─ binds 127.0.0.1 on a random port
           ├─ issues an in-memory session token
-          ├─ serves the canonical Sentinel 2.6 frontend
+          ├─ serves the canonical Sentinel 2.7 frontend
           └─ exposes authenticated local APIs
 
 Canonical frontend
@@ -104,7 +104,7 @@ Workbench metadata such as notes, hypotheses, bookmarks, saved queries, and loca
 
 ## Local AI
 
-Sentinel 2.6 includes an opt-in local WebLLM assistant over bounded Sentinel evidence.
+Sentinel 2.7 includes an opt-in local WebLLM assistant over bounded Sentinel evidence.
 
 ### Runtime
 
@@ -202,7 +202,7 @@ On a Mac with current Xcode command-line tools:
 open dist/Sentinel.app
 ```
 
-The desktop builder validates the complete current product chain before packaging, builds both Darwin engine architectures, builds a Universal AppKit launcher, and checks that the architecture-specific engines physically embed the current Sentinel 2.6 product markers including Local AI reliability and the Manual.
+The desktop builder validates the complete current product chain before packaging, builds both Darwin engine architectures, builds a Universal AppKit launcher, and checks that the architecture-specific engines physically embed the current Sentinel 2.7 product markers including Local AI reliability and the Manual.
 
 For a clean reinstall into `/Applications` while preserving Sentinel-owned history/baselines/recovery metadata:
 
@@ -264,7 +264,7 @@ Production distribution can use Developer ID signing, Hardened Runtime, Apple no
 
 ```text
 web/index.html              canonical product document
-web/app/                    modular Sentinel 2.6 application
+web/app/                    modular Sentinel 2.7 application
 web/vendor/                 vendored WebLLM runtime + license/provenance
 web/aux-*                   shared auxiliary-workspace foundation
 web/*-center.html           retained specialist workspaces

@@ -45,14 +45,14 @@ jobs:
           test -s /tmp/sentinel-arm64
           test -s /tmp/sentinel-amd64
           for engine in /tmp/sentinel-arm64 /tmp/sentinel-amd64; do
-            LC_ALL=C grep -aFq 'Sentinel 2.6 Native Frontend' "$engine"
-            LC_ALL=C grep -aFq 'Sentinel 2.6 Investigation Workbench' "$engine"
-            LC_ALL=C grep -aFq 'Sentinel 2.6 Full Scan Center' "$engine"
-            LC_ALL=C grep -aFq 'Sentinel 2.6 Contextual Action Dock' "$engine"
-            LC_ALL=C grep -aFq 'Sentinel 2.6 Comprehensive User Manual' "$engine"
-            LC_ALL=C grep -aFq 'Sentinel 2.6 WebLLM Local AI' "$engine"
-            LC_ALL=C grep -aFq 'Sentinel 2.6 Integrated Local AI' "$engine"
-            LC_ALL=C grep -aFq 'Sentinel 2.6 Local AI Reliability' "$engine"
+            LC_ALL=C grep -aFq 'Sentinel 2.7 Native Frontend' "$engine"
+            LC_ALL=C grep -aFq 'Sentinel 2.7 Investigation Workbench' "$engine"
+            LC_ALL=C grep -aFq 'Sentinel 2.7 Full Scan Center' "$engine"
+            LC_ALL=C grep -aFq 'Sentinel 2.7 Contextual Action Dock' "$engine"
+            LC_ALL=C grep -aFq 'Sentinel 2.7 Comprehensive User Manual' "$engine"
+            LC_ALL=C grep -aFq 'Sentinel 2.7 WebLLM Local AI' "$engine"
+            LC_ALL=C grep -aFq 'Sentinel 2.7 Integrated Local AI' "$engine"
+            LC_ALL=C grep -aFq 'Sentinel 2.7 Local AI Reliability' "$engine"
             LC_ALL=C grep -aFq 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC' "$engine"
             LC_ALL=C grep -aFq 'gemma-2-9b-it-q4f16_1-MLC' "$engine"
             LC_ALL=C grep -aFq 'Model Library' "$engine"
@@ -70,20 +70,20 @@ jobs:
           test -x dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-arm64
           test -x dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' dist/Sentinel.app/Contents/Info.plist)" = "$(tr -d '[:space:]' < VERSION)"
-          test "$(/usr/libexec/PlistBuddy -c 'Print :SentinelDesktopUI' dist/Sentinel.app/Contents/Info.plist)" = "2.6 Native Frontend"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :SentinelDesktopUI' dist/Sentinel.app/Contents/Info.plist)" = "2.7 Native Frontend"
           test "$(/usr/libexec/PlistBuddy -c 'Print :SentinelScanCenter' dist/Sentinel.app/Contents/Info.plist)" = "Easy Scan + Full Scan + Capability Atlas"
           test "$(/usr/libexec/PlistBuddy -c 'Print :SentinelActionDock' dist/Sentinel.app/Contents/Info.plist)" = "Contextual Quick Actions"
           ARCHS="$(lipo -archs dist/Sentinel.app/Contents/MacOS/Sentinel)"
           echo "$ARCHS" | grep -q arm64
           echo "$ARCHS" | grep -q x86_64
           for engine in dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-arm64 dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64; do
-            LC_ALL=C grep -aFq 'Sentinel 2.6 Investigation Workbench' "$engine"
-            LC_ALL=C grep -aFq 'Sentinel 2.6 Full Scan Center' "$engine"
-            LC_ALL=C grep -aFq 'Sentinel 2.6 Contextual Action Dock' "$engine"
-            LC_ALL=C grep -aFq 'Sentinel 2.6 Comprehensive User Manual' "$engine"
-            LC_ALL=C grep -aFq 'Sentinel 2.6 WebLLM Local AI' "$engine"
-            LC_ALL=C grep -aFq 'Sentinel 2.6 Integrated Local AI' "$engine"
-            LC_ALL=C grep -aFq 'Sentinel 2.6 Local AI Reliability' "$engine"
+            LC_ALL=C grep -aFq 'Sentinel 2.7 Investigation Workbench' "$engine"
+            LC_ALL=C grep -aFq 'Sentinel 2.7 Full Scan Center' "$engine"
+            LC_ALL=C grep -aFq 'Sentinel 2.7 Contextual Action Dock' "$engine"
+            LC_ALL=C grep -aFq 'Sentinel 2.7 Comprehensive User Manual' "$engine"
+            LC_ALL=C grep -aFq 'Sentinel 2.7 WebLLM Local AI' "$engine"
+            LC_ALL=C grep -aFq 'Sentinel 2.7 Integrated Local AI' "$engine"
+            LC_ALL=C grep -aFq 'Sentinel 2.7 Local AI Reliability' "$engine"
             LC_ALL=C grep -aFq 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC' "$engine"
             LC_ALL=C grep -aFq 'Model Library' "$engine"
             LC_ALL=C grep -aFq 'contextBarSignature' "$engine"
@@ -139,12 +139,12 @@ jobs:
           grep -Fq "Model Library" web/app/ai.js
           grep -Fq "Qwen2.5-1.5B-Instruct-q4f16_1-MLC" web/app/ai.js
           grep -Fq "gemma-2-9b-it-q4f16_1-MLC" web/app/ai.js
-          grep -Fq "Sentinel 2.6 Integrated Local AI" web/app/ai.js
+          grep -Fq "Sentinel 2.7 Integrated Local AI" web/app/ai.js
           grep -Fq "contextBarSignature" web/app/ai.js
           grep -Fq "dataset.aiSignature" web/app/ai.js
           grep -Fq "dataset.aiQuery" web/app/ai.js
           grep -Fq "navigator.gpu" web/app/ai.js
-          grep -Fq "Sentinel 2.6 Local AI Reliability" web/app/ai-reliability.js
+          grep -Fq "Sentinel 2.7 Local AI Reliability" web/app/ai-reliability.js
           grep -Fq "STALL_MS=90000" web/app/ai-reliability.js
           grep -Fq "AI.evidenceFallback=fallback" web/app/ai-reliability.js
           grep -Fq "WebWorkerMLCEngineHandler" web/app/ai-worker.js

@@ -51,7 +51,7 @@ PACKAGED_VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionStrin
 PACKAGED_UI="$(/usr/libexec/PlistBuddy -c 'Print :SentinelDesktopUI' "$PLIST")"
 PACKAGED_SOURCE_SHA="$(/usr/libexec/PlistBuddy -c 'Print :SentinelSourceCommit' "$PLIST")"
 [[ "$PACKAGED_VERSION" == "$VERSION" ]] || { echo "DMG app version mismatch: $PACKAGED_VERSION (expected $VERSION)" >&2; exit 2; }
-[[ "$PACKAGED_UI" == "2.6 Native Frontend" ]] || { echo "DMG app UI identity mismatch: $PACKAGED_UI" >&2; exit 2; }
+[[ "$PACKAGED_UI" == "2.7 Native Frontend" ]] || { echo "DMG app UI identity mismatch: $PACKAGED_UI" >&2; exit 2; }
 [[ "$PACKAGED_SOURCE_SHA" =~ ^[0-9a-fA-F]{40}$ ]] || { echo "DMG app has invalid SentinelSourceCommit: $PACKAGED_SOURCE_SHA" >&2; exit 2; }
 if [[ -n "$EXPECTED_SOURCE_SHA" && "$PACKAGED_SOURCE_SHA" != "$EXPECTED_SOURCE_SHA" ]]; then
   echo "DMG app source provenance mismatch." >&2
@@ -76,13 +76,13 @@ for engine in \
   [[ -x "$engine" ]] || { echo "Missing executable engine: $engine" >&2; exit 2; }
   codesign --verify --strict --verbose=2 "$engine"
   for marker in \
-    'Sentinel 2.6 Native Frontend' \
-    'Sentinel 2.6 Investigation Workbench' \
-    'Sentinel 2.6 Full Scan Center' \
-    'Sentinel 2.6 Contextual Action Dock' \
-    'Sentinel 2.6 Comprehensive User Manual' \
-    'Sentinel 2.6 WebLLM Local AI' \
-    'Sentinel 2.6 Local AI Reliability'; do
+    'Sentinel 2.7 Native Frontend' \
+    'Sentinel 2.7 Investigation Workbench' \
+    'Sentinel 2.7 Full Scan Center' \
+    'Sentinel 2.7 Contextual Action Dock' \
+    'Sentinel 2.7 Comprehensive User Manual' \
+    'Sentinel 2.7 WebLLM Local AI' \
+    'Sentinel 2.7 Local AI Reliability'; do
     LC_ALL=C grep -aFq "$marker" "$engine" || { echo "Shipped engine is missing marker: $marker" >&2; exit 2; }
   done
 done
