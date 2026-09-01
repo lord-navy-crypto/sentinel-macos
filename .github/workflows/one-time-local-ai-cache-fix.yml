@@ -1,0 +1,90 @@
+name: One-time Sentinel 2.7 Local AI cache fix
+
+on:
+  push:
+    branches: [sentinel-2.7-local-ai-cache-fix]
+    paths:
+      - .github/workflows/one-time-local-ai-cache-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: sentinel-2.7-local-ai-cache-fix
+          fetch-depth: 0
+      - name: Patch Local AI cache and download watchdog
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          ai = Path('web/app/ai.js')
+          s = ai.read_text()
+          old = "const appConfig={...ai.module.prebuiltAppConfig,useIndexedDBCache:true};"
+          new = "const appConfig={...ai.module.prebuiltAppConfig,cacheBackend:'cache'};AI.cacheBackend='cache';"
+          if old not in s:
+              raise SystemExit('expected legacy WebLLM cache config not found')
+          s = s.replace(old, new, 1)
+          if 'useIndexedDBCache:true' in s:
+              raise SystemExit('legacy cache flag remains in ai.js')
+          ai.write_text(s)
+
+          rel = Path('web/app/ai-reliability.js')
+          r = rel.read_text()
+          old_const = "const STALL_MS=90000, ABSOLUTE_MS=600000, UNLOAD_MS=1500, GENERATION_STALL_MS=90000, GENERATION_RESET_GRACE_MS=5000;"
+          new_const = "const STALL_MS=90000, DOWNLOAD_STALL_MS=300000, ABSOLUTE_MS=600000, UNLOAD_MS=1500, GENERATION_STALL_MS=90000, GENERATION_RESET_GRACE_MS=5000;"
+          if old_const not in r:
+              raise SystemExit('expected reliability constants not found')
+          r = r.replace(old_const, new_const, 1)
+          old_diag = "['Worker state',ai.worker?'Created':'Not created'],['Engine state',ai.engine?'Created':'Not created'],"
+          new_diag = "['Worker state',ai.worker?'Created':'Not created'],['Engine state',ai.engine?'Created':'Not created'],['Cache backend',AI.cacheBackend||'cache'],"
+          if old_diag not in r:
+              raise SystemExit('expected diagnostics insertion point not found')
+          r = r.replace(old_diag, new_diag, 1)
+          old_monitor = "if(Date.now()-lastChange>STALL_MS)rejectWatchdog(new Error(`Local AI initialization stalled for ${Math.round(STALL_MS/1000)} seconds at: ${t||'unknown stage'}`));"
+          new_monitor = "const stallLimit=/fetch params|download|param/i.test(t)?DOWNLOAD_STALL_MS:STALL_MS;if(Date.now()-lastChange>stallLimit)rejectWatchdog(new Error(`Local AI initialization stalled for ${Math.round(stallLimit/1000)} seconds at: ${t||'unknown stage'}`));"
+          if old_monitor not in r:
+              raise SystemExit('expected watchdog statement not found')
+          r = r.replace(old_monitor, new_monitor, 1)
+          rel.write_text(r)
+
+          for path in Path('.').glob('*_test.go'):
+              t = path.read_text()
+              if 'useIndexedDBCache:true' in t:
+                  t = t.replace('useIndexedDBCache:true', "cacheBackend:'cache'")
+                  path.write_text(t)
+
+          for path in Path('.').rglob('*_test.go'):
+              if path.parent == Path('.'):
+                  continue
+              t = path.read_text()
+              if 'useIndexedDBCache:true' in t:
+                  t = t.replace('useIndexedDBCache:true', "cacheBackend:'cache'")
+                  path.write_text(t)
+          PY
+          git diff --check
+          node --check web/app/ai.js
+          node --check web/app/ai-reliability.js
+          grep -Fq "cacheBackend:'cache'" web/app/ai.js
+          grep -Fq 'DOWNLOAD_STALL_MS=300000' web/app/ai-reliability.js
+          ! grep -Fq 'useIndexedDBCache:true' web/app/ai.js
+      - name: Validate
+        run: |
+          go test ./...
+          go vet ./...
+          bash -n SMOKE_TEST_LOCALHOST.command
+          ./SMOKE_TEST_LOCALHOST.command
+      - name: Commit production changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add web/app/ai.js web/app/ai-reliability.js '*_test.go'
+          git add -- '**/*_test.go' || true
+          git diff --cached --quiet && { echo 'No production changes to commit'; exit 1; }
+          git commit -m 'Fix Sentinel Local AI model cache loading'
+          git push origin HEAD:sentinel-2.7-local-ai-cache-fix
