@@ -7,6 +7,7 @@ on:
     paths:
       - .github/workflows/one-time-terminal-tools-bilingual.yml
       - tools/one_time_terminal_tools_bilingual.py
+      - tools/one_time_terminal_tools_contract_sync.py
 
 permissions:
   contents: write
@@ -27,6 +28,7 @@ jobs:
       - name: Apply product balance migration
         run: |
           python3 tools/one_time_terminal_tools_bilingual.py
+          python3 tools/one_time_terminal_tools_contract_sync.py
           python3 - <<'PY'
           from pathlib import Path
           for name in ('QUICK_START.md','GUIDE.md','docs/PRODUCT_BALANCE_AUDIT.md'):
@@ -38,7 +40,7 @@ jobs:
           git diff --check
           node --check web/app/core.js
           node --check web/app/lenses/system.js
-          go test ./... -run 'CanonicalSystemPromotesVisualTerminalTools|PrimaryUsageDocsAreBilingual|TerminalBackendRemainsTypedBoundedAndNoShell|SystemConsole|Navigation|Manual'
+          go test ./... -run 'CanonicalSystemPromotesVisualTerminalTools|PrimaryUsageDocsAreBilingual|TerminalBackendRemainsTypedBoundedAndNoShell|SystemConsole|Navigation|Manual|ApplicationRegistersEveryDeclaredLens|APIReferencesHaveRegisteredRoutes'
           go vet ./...
           grep -Fq 'Terminal Tools / 终端工具' web/app/core.js
           grep -Fq 'Equivalent command / 等价命令' web/app/lenses/system.js
@@ -58,6 +60,6 @@ jobs:
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add web/app/core.js web/app/lenses/system.js web/system-console.html QUICK_START.md GUIDE.md docs/PRODUCT_BALANCE_AUDIT.md bilingual_terminal_product_contract_test.go
+          git add web/app/core.js web/app/lenses/system.js web/system-console.html QUICK_START.md GUIDE.md docs/PRODUCT_BALANCE_AUDIT.md bilingual_terminal_product_contract_test.go product_frontend_contract_helpers_test.go
           git commit -m 'Promote visual Terminal Tools and bilingual user guidance'
           git push origin HEAD:sentinel-2.8-terminal-tools-bilingual-impl
