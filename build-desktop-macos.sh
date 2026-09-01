@@ -27,11 +27,11 @@ UI_ACTION_DOCK="$HERE/web/app/action-dock.js"
 UI_AI="$HERE/web/app/ai.js"
 UI_AI_RELIABILITY="$HERE/web/app/ai-reliability.js"
 UI_MANUAL="$HERE/web/app/manual.js"
-UI_MARKER="Sentinel 2.6 Native Frontend"
+UI_MARKER="Sentinel 2.7 Native Frontend"
 WORKBENCH_MARKER="Sentinel 2.6 Investigation Workbench"
 SCAN_CENTER_MARKER="Sentinel 2.6 Full Scan Center"
 ACTION_DOCK_MARKER="Sentinel 2.6 Contextual Action Dock"
-AI_MARKER="Sentinel 2.6 WebLLM Local AI"
+AI_MARKER="Sentinel 2.7 WebLLM Local AI"
 AI_RELIABILITY_MARKER="Sentinel 2.6 Local AI Reliability"
 MANUAL_MARKER="Sentinel 2.6 Comprehensive User Manual"
 BUILD_SHA="$(git rev-parse HEAD 2>/dev/null || printf 'unknown')"
@@ -256,7 +256,7 @@ done
 echo "===== SENTINEL SOURCE IDENTITY ====="
 echo "Source commit: $BUILD_SHA"
 echo "Product version: $VERSION"
-echo "Desktop UI: 2.6 Native Frontend"
+echo "Desktop UI: 2.7 Native Frontend"
 echo "Canonical modules: ${#REQUIRED_UI_SCRIPTS[@]} scripts + ${#REQUIRED_UI_STYLES[@]} styles"
 echo "Core UI marker: verified"
 echo "Advanced capabilities: verified"
@@ -351,7 +351,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
   <key>NSHighResolutionCapable</key><true/>
   <key>SentinelSourceCommit</key><string>${BUILD_SHA}</string>
-  <key>SentinelDesktopUI</key><string>2.6 Native Frontend</string>
+  <key>SentinelDesktopUI</key><string>2.7 Native Frontend</string>
   <key>SentinelWorkbench</key><string>30-function Investigation Workbench</string>
   <key>SentinelScanCenter</key><string>Easy Scan + Full Scan + Capability Atlas</string>
   <key>SentinelActionDock</key><string>Contextual Quick Actions</string>
@@ -369,7 +369,7 @@ printf '%s\n' \
   "Bundle ID: $BUNDLE_ID" \
   "Version: $VERSION" \
   "Source commit: $BUILD_SHA" \
-  "Desktop UI: 2.6 Native Frontend" \
+  "Desktop UI: 2.7 Native Frontend" \
   "Investigation Workbench: 30 integrated improvements" \
   "Scan Center: Easy Scan + Full Scan + Capability Atlas" \
   "Action Dock: contextual quick actions" \

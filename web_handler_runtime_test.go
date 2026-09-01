@@ -1,6 +1,48 @@
 // SPDX-License-Identifier: MPL-2.0
 package main
-import("os";"strings";"testing")
-func TestApplicationRuntimeIsSelfContained(t *testing.T){htmlBytes,err:=os.ReadFile("web/index.html");if err!=nil{t.Fatal(err)};core:=requireProductScript(t,"web/app/core.js");runtime:=requireProductScript(t,"web/app/runtime.js");html:=string(htmlBytes);for _,required:=range []string{`src="/app/core.js"`,`src="/app/runtime.js"`,`document.addEventListener('click'`,`document.addEventListener('submit'`,`X-Sentinel-Token`,`window.__SENTINEL_24__`,`architecture:'modular-app'`}{if !strings.Contains(html+"\n"+core+"\n"+runtime,required){t.Fatalf("application runtime missing %q",required)}}}
-func TestServerServesApplicationWithoutLegacyScriptInjection(t *testing.T){mainBytes,err:=os.ReadFile("main.go");if err!=nil{t.Fatal(err)};mainSource:=string(mainBytes);for _,required:=range []string{`fs.ReadFile(staticFS, "index.html")`,`X-Sentinel-UI", "2.6-native`,`_, _ = w.Write(page)`}{if !strings.Contains(mainSource,required){t.Fatalf("root serving contract missing %q",required)}};for _,retired:=range []string{`core-compat.js`,`<script src=\"/app.js\"></script>`,`desktop-ui.js`,`legacy-diagnostic`,`v5-evidence-notebook`}{if strings.Contains(mainSource,retired){t.Fatalf("server injects retired runtime %q",retired)}}}
-func TestApplicationRuntimeKeepsErrorsVisibleInsteadOfInventingEvidence(t *testing.T){runtime:=requireProductScript(t,"web/app/runtime.js");for _,required:=range []string{"throw new Error","notice(e.message)","activity('Error'","The interface did not invent replacement evidence."}{if !strings.Contains(runtime,required){t.Fatalf("failure semantics missing %q",required)}}}
+
+import (
+	"os"
+	"strings"
+	"testing"
+)
+
+func TestApplicationRuntimeIsSelfContained(t *testing.T) {
+	htmlBytes, err := os.ReadFile("web/index.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	core := requireProductScript(t, "web/app/core.js")
+	runtime := requireProductScript(t, "web/app/runtime.js")
+	html := string(htmlBytes)
+	for _, required := range []string{`src="/app/core.js"`, `src="/app/runtime.js"`, `document.addEventListener('click'`, `document.addEventListener('submit'`, `X-Sentinel-Token`, `window.__SENTINEL_24__`, `architecture:'modular-app'`} {
+		if !strings.Contains(html+"\n"+core+"\n"+runtime, required) {
+			t.Fatalf("application runtime missing %q", required)
+		}
+	}
+}
+func TestServerServesApplicationWithoutLegacyScriptInjection(t *testing.T) {
+	mainBytes, err := os.ReadFile("main.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	mainSource := string(mainBytes)
+	for _, required := range []string{`fs.ReadFile(staticFS, "index.html")`, `X-Sentinel-UI", "2.7-native`, `_, _ = w.Write(page)`} {
+		if !strings.Contains(mainSource, required) {
+			t.Fatalf("root serving contract missing %q", required)
+		}
+	}
+	for _, retired := range []string{`core-compat.js`, `<script src=\"/app.js\"></script>`, `desktop-ui.js`, `legacy-diagnostic`, `v5-evidence-notebook`} {
+		if strings.Contains(mainSource, retired) {
+			t.Fatalf("server injects retired runtime %q", retired)
+		}
+	}
+}
+func TestApplicationRuntimeKeepsErrorsVisibleInsteadOfInventingEvidence(t *testing.T) {
+	runtime := requireProductScript(t, "web/app/runtime.js")
+	for _, required := range []string{"throw new Error", "notice(e.message)", "activity('Error'", "The interface did not invent replacement evidence."} {
+		if !strings.Contains(runtime, required) {
+			t.Fatalf("failure semantics missing %q", required)
+		}
+	}
+}

@@ -192,7 +192,7 @@ func main() {
 				http.Error(w, "Sentinel interface unavailable", http.StatusInternalServerError)
 				return
 			}
-			w.Header().Set("X-Sentinel-UI", "2.6-native")
+			w.Header().Set("X-Sentinel-UI", "2.7-native")
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			_, _ = w.Write(page)
 			return
@@ -215,7 +215,7 @@ func main() {
 	}
 	fmt.Printf("Sentinel macOS v%s\n", sentinelVersion)
 	fmt.Println("Local-only system & security auditor")
-	fmt.Println("UI generation: 2.6 Native Frontend")
+	fmt.Println("UI generation: 2.7 Native Frontend")
 	fmt.Println("Listening only on 127.0.0.1")
 	fmt.Println("Open:", url)
 	if *ephemeral {

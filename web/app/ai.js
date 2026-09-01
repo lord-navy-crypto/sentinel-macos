@@ -6,7 +6,7 @@
   if (!S) throw new Error('Sentinel application core did not load before Local AI.');
   const {$, state, api, esc, question, registerLens, activity, notice} = S;
 
-  const AI_MARKER = 'Sentinel 2.6 WebLLM Local AI';
+  const AI_MARKER = 'Sentinel 2.7 WebLLM Local AI';
   const AI_FUSION_MARKER = 'Sentinel 2.6 Integrated Local AI';
   const WEBLLM_URL = '/vendor/webllm-0.2.82.mjs';
   const DEFAULT_MODEL = 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC';
