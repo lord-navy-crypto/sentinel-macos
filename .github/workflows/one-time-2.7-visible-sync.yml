@@ -34,6 +34,9 @@ jobs:
               'main.go',
               'README.md',
               'desktop_conversion_test.go',
+              'local_ai_contract_test.go',
+              'web_handler_runtime_test.go',
+              'web_wiring_test.go',
           ]
           replacements = {
               '2.6 Native Frontend': '2.7 Native Frontend',
@@ -69,6 +72,9 @@ jobs:
               'main.go':['2.7-native'],
               'README.md':['# Sentinel 2.7 — Resilient Local Intelligence'],
               'desktop_conversion_test.go':['2.7 Native Frontend','2.7-native','Sentinel 2.7 WebLLM Local AI'],
+              'local_ai_contract_test.go':['Sentinel 2.7 WebLLM Local AI'],
+              'web_handler_runtime_test.go':['2.7-native'],
+              'web_wiring_test.go':['2.7-native','Sentinel 2.7 Native Frontend'],
           }
           for name,needles in required.items():
               s=Path(name).read_text()
@@ -77,7 +83,7 @@ jobs:
                       raise SystemExit(f'{name} missing {needle!r}')
           print('changed:', ', '.join(changed))
           PY
-          gofmt -w desktop_conversion_test.go
+          gofmt -w desktop_conversion_test.go local_ai_contract_test.go web_handler_runtime_test.go web_wiring_test.go
           git diff --check
           go test ./...
           node --check web/app/core.js
@@ -89,7 +95,7 @@ jobs:
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add desktop/SentinelDesktop.swift build-desktop-macos.sh reinstall-macos.sh web/index.html web/app/core.js web/app/ai.js main.go README.md desktop_conversion_test.go
+          git add desktop/SentinelDesktop.swift build-desktop-macos.sh reinstall-macos.sh web/index.html web/app/core.js web/app/ai.js main.go README.md desktop_conversion_test.go local_ai_contract_test.go web_handler_runtime_test.go web_wiring_test.go
           git diff --cached --quiet && exit 1
           git commit -m 'Synchronize Sentinel 2.7 visible runtime markers'
           git push origin HEAD:sentinel-2.7-visible-version-sync
