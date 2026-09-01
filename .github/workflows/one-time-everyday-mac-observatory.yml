@@ -1,0 +1,63 @@
+name: One-time Everyday Mac Observatory integration
+
+on:
+  push:
+    branches:
+      - sentinel-2.8-everyday-mac-observatory-v2
+    paths:
+      - .github/workflows/one-time-everyday-mac-observatory.yml
+      - tools/one_time_everyday_mac_observatory.py
+
+permissions:
+  contents: write
+
+jobs:
+  integrate:
+    runs-on: macos-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: sentinel-2.8-everyday-mac-observatory-v2
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+          cache: false
+      - name: Apply Observatory integration
+        run: |
+          python3 tools/one_time_everyday_mac_observatory.py
+          gofmt -w mac_observatory.go resource_observatory_contract_test.go main.go product_frontend_contract_helpers_test.go
+      - name: Validate contracts and syntax
+        run: |
+          git diff --check
+          go test ./... -run 'ResourceObservatory|EverydayMacObservatory|ApplicationRegistersEveryDeclaredLens|APIReferencesHaveRegisteredRoutes|CanonicalSystemPromotesVisualTerminalTools'
+          go vet ./...
+          node --check web/app/core.js
+          node --check web/app/lenses/system.js
+          node --check web/app/runtime.js
+          grep -Fq 'Everyday Mac / 日常 Mac' web/app/core.js
+          grep -Fq 'Resource & Energy / 资源与能耗' web/app/lenses/system.js
+          grep -Fq 'Storage Graph / 存储图' web/app/lenses/system.js
+          grep -Fq '/api/health/live' main.go
+          grep -Fq '/api/storage/graph' main.go
+      - name: Full repository and Universal app
+        run: |
+          go test ./...
+          chmod +x build-desktop-macos.sh
+          ./build-desktop-macos.sh
+          test -d dist/Sentinel.app
+          for engine in dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-arm64 dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64; do
+            LC_ALL=C grep -aFq 'Sentinel 2.8 Everyday Mac Observatory' "$engine"
+            LC_ALL=C grep -aFq '/api/health/live' "$engine"
+            LC_ALL=C grep -aFq 'Everyday Mac / 日常 Mac' "$engine"
+          done
+      - name: Commit validated integration
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add main.go product_frontend_contract_helpers_test.go web/app/core.js web/app/lenses/system.js web/app/runtime.js mac_observatory.go resource_observatory_contract_test.go
+          if ! git diff --cached --quiet; then
+            git commit -m 'Add Everyday Mac resource observatory and lazy Storage Graph'
+            git push origin HEAD:sentinel-2.8-everyday-mac-observatory-v2
+          fi
