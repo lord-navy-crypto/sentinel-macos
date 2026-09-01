@@ -99,7 +99,21 @@ type scanManager struct {
 	latestID string
 }
 
+const storageMaxActiveJobs = 2
+
+var errStorageScanCapacity = errors.New("storage scan capacity reached")
+
 func newScanManager() *scanManager { return &scanManager{jobs: make(map[string]*ScanJob)} }
+
+func (m *scanManager) activeJobsLocked() int {
+	active := 0
+	for _, job := range m.jobs {
+		if job != nil && job.Status == "running" {
+			active++
+		}
+	}
+	return active
+}
 
 func newStorageProgress(phase string, percent, files, dirs, permissionErr int, path string) storageProgress {
 	return storageProgress{Phase: phase, PhasePercent: percent, FilesVisited: files, DirsVisited: dirs, PermissionErr: permissionErr, CurrentPath: path}
@@ -127,9 +141,14 @@ func (m *scanManager) create(req StorageScanRequest) (*ScanJob, error) {
 	id := randomToken(8)
 	job := &ScanJob{ID: id, Status: "running", Root: root, Phase: "walking", PhasePercent: 2, StartedAt: time.Now().Unix(), cancel: cancel}
 	m.mu.Lock()
+	if m.activeJobsLocked() >= storageMaxActiveJobs {
+		m.mu.Unlock()
+		cancel()
+		return nil, errStorageScanCapacity
+	}
 	m.jobs[id] = job
 	m.latestID = id
-	// Bound in-memory job history.
+	// Bound completed in-memory job history separately from the active-work gate.
 	if len(m.jobs) > 16 {
 		type pair struct {
 			id string
@@ -259,7 +278,11 @@ func (a *app) handleStorageJobs(w http.ResponseWriter, r *http.Request) {
 		}
 		j, err := a.jobs.create(req)
 		if err != nil {
-			writeJSON(w, 400, map[string]any{"error": err.Error()})
+			if errors.Is(err, errStorageScanCapacity) {
+				writeJSON(w, http.StatusTooManyRequests, map[string]any{"error": err.Error(), "retryable": true, "active_limit": storageMaxActiveJobs})
+				return
+			}
+			writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
 			return
 		}
 		writeJSON(w, 202, j)

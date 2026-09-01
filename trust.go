@@ -157,12 +157,8 @@ func (m *trustManager) load() {
 	if m.path == "" {
 		return
 	}
-	raw, err := os.ReadFile(m.path)
-	if err != nil {
-		return
-	}
 	var p TrustProfile
-	if json.Unmarshal(raw, &p) == nil && p.Version == trustProfileVersion && p.CreatedAt != "" {
+	if err := readPrivateJSON(m.path, &p); err == nil && p.Version == trustProfileVersion && p.CreatedAt != "" {
 		m.profile = &p
 		m.loadedDisk = true
 	}
@@ -269,10 +265,14 @@ func (m *trustManager) persistLocked(p TrustProfile) error {
 	if !m.persistent || m.path == "" {
 		return nil
 	}
-	if old, err := os.ReadFile(m.path); err == nil && len(old) > 0 {
+	if old, err := readBoundedPrivateFile(m.path, maxPrivateJSONBytes); err == nil && len(old) > 0 {
 		// The .prev profile is an intentional user-facing rollback point, separate
 		// from the automatic .bak crash-recovery copy maintained by stateio.
-		_ = atomicPrivateWrite(m.backupPath, old)
+		if err := atomicPrivateWrite(m.backupPath, old); err != nil {
+			return fmt.Errorf("could not preserve previous Trust Profile rollback point: %w", err)
+		}
+	} else if err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("could not safely read current Trust Profile before replacement: %w", err)
 	}
 	return writePrivateJSON(m.path, p)
 }
@@ -510,18 +510,17 @@ func (m *trustManager) status() map[string]any {
 }
 
 func validateTrustFile(path string) (exists, valid bool, mode string) {
-	info, err := os.Stat(path)
+	info, err := os.Lstat(path)
 	if err != nil {
 		return false, false, ""
 	}
 	exists = true
 	mode = fileModeString(info)
-	raw, err := os.ReadFile(path)
-	if err != nil {
+	if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
 		return exists, false, mode
 	}
 	var p TrustProfile
-	valid = json.Unmarshal(raw, &p) == nil && p.Version == trustProfileVersion && p.CreatedAt != "" && len(p.Objects) <= 120
+	valid = readPrivateJSON(path, &p) == nil && p.Version == trustProfileVersion && p.CreatedAt != "" && len(p.Objects) <= 120
 	return
 }
 
@@ -623,27 +622,27 @@ func (m *trustManager) restorePrevious() (TrustProfile, error) {
 	if !m.persistent || m.backupPath == "" || m.path == "" {
 		return TrustProfile{}, fmt.Errorf("previous-profile restore is unavailable in ephemeral mode")
 	}
-	backupRaw, err := os.ReadFile(m.backupPath)
+	var previous TrustProfile
+	if err := readPrivateJSON(m.backupPath, &previous); err != nil || previous.Version != trustProfileVersion || previous.CreatedAt == "" {
+		return TrustProfile{}, fmt.Errorf("previous profile is invalid or unavailable")
+	}
+	backupRaw, err := readBoundedPrivateFile(m.backupPath, maxPrivateJSONBytes)
 	if err != nil {
 		return TrustProfile{}, fmt.Errorf("previous profile unavailable: %w", err)
 	}
-	var previous TrustProfile
-	if json.Unmarshal(backupRaw, &previous) != nil || previous.Version != trustProfileVersion || previous.CreatedAt == "" {
-		return TrustProfile{}, fmt.Errorf("previous profile is invalid")
+	currentRaw, currentErr := readBoundedPrivateFile(m.path, maxPrivateJSONBytes)
+	if currentErr != nil && !os.IsNotExist(currentErr) {
+		return TrustProfile{}, fmt.Errorf("current profile could not be safely preserved before restore: %w", currentErr)
 	}
-	currentRaw, _ := os.ReadFile(m.path)
-	tmp := m.path + ".restore.tmp"
-	if err := os.WriteFile(tmp, backupRaw, 0600); err != nil {
-		return TrustProfile{}, err
+	if err := atomicPrivateWrite(m.path, backupRaw); err != nil {
+		return TrustProfile{}, fmt.Errorf("could not atomically restore previous profile: %w", err)
 	}
-	if err := os.Rename(tmp, m.path); err != nil {
-		_ = os.Remove(tmp)
-		return TrustProfile{}, err
-	}
-	_ = os.Chmod(m.path, 0600)
-	if len(currentRaw) > 0 {
-		if err := os.WriteFile(m.backupPath, currentRaw, 0600); err == nil {
-			_ = os.Chmod(m.backupPath, 0600)
+	if currentErr == nil && len(currentRaw) > 0 {
+		if err := atomicPrivateWrite(m.backupPath, currentRaw); err != nil {
+			if rollbackErr := atomicPrivateWrite(m.path, currentRaw); rollbackErr != nil {
+				return TrustProfile{}, fmt.Errorf("could not rotate Trust Profile rollback point: %v; rollback also failed: %w", err, rollbackErr)
+			}
+			return TrustProfile{}, fmt.Errorf("could not rotate Trust Profile rollback point; restore was rolled back: %w", err)
 		}
 	}
 	m.profile = &previous

@@ -674,7 +674,11 @@ func (a *app) executeRename(p ActionPreview) (ActionJournalEntry, error) {
 	}
 	e := ActionJournalEntry{ID: "a-" + randomToken(6), At: time.Now().UTC().Format(time.RFC3339), Action: "rename", Status: "success", ObjectName: p.ObjectName, From: p.Source, To: p.Destination, SHA256: p.SHA256, Size: p.Size, Message: "Renamed without overwriting an existing destination.", Reversible: true}
 	e.Observation = a.postActionObservation(p.Source, p.Destination)
-	a.recordAction(&e)
+	if err := a.commitAction(&e, func() error {
+		return moveRegularNoReplace(p.Destination, p.Source)
+	}); err != nil {
+		return ActionJournalEntry{}, err
+	}
 	return e, nil
 }
 
@@ -717,7 +721,17 @@ func (a *app) executeVault(p ActionPreview) (ActionJournalEntry, error) {
 	}
 	e := ActionJournalEntry{ID: "a-" + randomToken(6), At: time.Now().UTC().Format(time.RFC3339), Action: "vault", Status: "success", ObjectName: p.ObjectName, From: p.Source, To: p.Destination, VaultID: p.VaultID, SHA256: p.SHA256, Size: p.Size, Message: "Moved to Sentinel Vault and stored recovery metadata; executable permission bits removed.", Reversible: true}
 	e.Observation = a.postActionObservation(p.Source, p.Destination)
-	a.recordAction(&e)
+	if err := a.commitAction(&e, func() error {
+		if err := os.Chmod(p.Destination, os.FileMode(originalMode).Perm()); err != nil {
+			return err
+		}
+		if err := moveRegularNoReplace(p.Destination, p.Source); err != nil {
+			return err
+		}
+		return os.RemoveAll(dir)
+	}); err != nil {
+		return ActionJournalEntry{}, err
+	}
 	return e, nil
 }
 
@@ -726,6 +740,7 @@ func (a *app) executeRestore(p ActionPreview) (ActionJournalEntry, error) {
 	if err != nil {
 		return ActionJournalEntry{}, err
 	}
+	activeManifest := manifest
 	if manifest.VaultPath == "" {
 		return ActionJournalEntry{}, fmt.Errorf("Vault item is not active")
 	}
@@ -757,7 +772,17 @@ func (a *app) executeRestore(p ActionPreview) (ActionJournalEntry, error) {
 	}
 	e := ActionJournalEntry{ID: "a-" + randomToken(6), At: time.Now().UTC().Format(time.RFC3339), Action: "restore", Status: "success", ObjectName: manifest.OriginalName, From: p.Source, To: p.Destination, VaultID: p.VaultID, SHA256: manifest.SHA256, Size: manifest.Size, Message: "Restored from Sentinel Vault without overwriting an existing destination.", Reversible: false}
 	e.Observation = a.postActionObservation(p.Source, p.Destination)
-	a.recordAction(&e)
+	if err := a.commitAction(&e, func() error {
+		if err := os.Chmod(p.Destination, 0600); err != nil {
+			return err
+		}
+		if err := moveRegularNoReplace(p.Destination, p.Source); err != nil {
+			return err
+		}
+		return a.actions.writeManifest(activeManifest)
+	}); err != nil {
+		return ActionJournalEntry{}, err
+	}
 	return e, nil
 }
 
@@ -783,9 +808,12 @@ func (a *app) postActionObservation(source, destination string) ActionObservatio
 	return ActionObservation{SourceExists: srcExists, DestinationExists: dstExists, RunningPIDs: pids, StartupRefs: refs, TrustMatch: trustMatch, Note: "Post-action observation is a local snapshot, not proof that software or malware was disabled. Existing processes may continue after an on-disk file is renamed or moved."}
 }
 
-func (a *app) recordAction(e *ActionJournalEntry) {
-	if a.actions != nil {
-		_ = a.actions.appendJournal(*e)
+func (a *app) recordAction(e *ActionJournalEntry) error {
+	if a.actions == nil {
+		return fmt.Errorf("Safe Action recovery journal is unavailable")
+	}
+	if err := a.actions.appendJournal(*e); err != nil {
+		return fmt.Errorf("could not durably record recovery journal: %w", err)
 	}
 	if a.intel != nil {
 		sev := "info"
@@ -799,6 +827,20 @@ func (a *app) recordAction(e *ActionJournalEntry) {
 			return e.From
 		}()))})
 	}
+	return nil
+}
+
+func (a *app) commitAction(e *ActionJournalEntry, rollback func() error) error {
+	if err := a.recordAction(e); err != nil {
+		if rollback == nil {
+			return err
+		}
+		if rollbackErr := rollback(); rollbackErr != nil {
+			return fmt.Errorf("%v; automatic rollback also failed: %w", err, rollbackErr)
+		}
+		return fmt.Errorf("%w; filesystem mutation was rolled back", err)
+	}
+	return nil
 }
 
 func (m *actionManager) manifestPath(id string) string {

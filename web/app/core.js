@@ -69,7 +69,11 @@
     const response=await fetch(url,{...options,headers});
     const type=response.headers.get('content-type')||'';
     const data=type.includes('application/json')?await response.json().catch(()=>({error:`HTTP ${response.status}`})):null;
-    if(!response.ok)throw new Error(data?.error||`HTTP ${response.status}`);
+    if(!response.ok){
+      const error=new Error(data?.error||`HTTP ${response.status}`);
+      error.status=response.status;error.payload=data;error.url=url;
+      throw error;
+    }
     return data;
   }
 
