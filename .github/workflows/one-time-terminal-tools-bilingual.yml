@@ -25,7 +25,14 @@ jobs:
           go-version: '1.26.x'
           cache: false
       - name: Apply product balance migration
-        run: python3 tools/one_time_terminal_tools_bilingual.py
+        run: |
+          python3 tools/one_time_terminal_tools_bilingual.py
+          python3 - <<'PY'
+          from pathlib import Path
+          for name in ('QUICK_START.md','GUIDE.md','docs/PRODUCT_BALANCE_AUDIT.md'):
+              p=Path(name)
+              p.write_text('\n'.join(line.rstrip() for line in p.read_text().splitlines())+'\n')
+          PY
       - name: Validate source and contracts
         run: |
           git diff --check
