@@ -42,7 +42,7 @@ func TestWorkbenchUsesLayoutDockInsteadOfFloatingContext(t *testing.T) {
 			t.Fatalf("Workbench dock CSS missing %q", want)
 		}
 	}
-	for _, want := range []string{"Sentinel 3.4 Workbench Dock", "Investigation Workbench", "wb-dock-open", "wb-docked", "data.workbenchDockExpand", "MutationObserver"} {
+	for _, want := range []string{"Sentinel 3.4 Workbench Dock", "Investigation Workbench", "wb-dock-open", "wb-docked", "dataset.workbenchDockExpand", "MutationObserver"} {
 		if !strings.Contains(js, want) {
 			t.Fatalf("Workbench dock behavior missing %q", want)
 		}
