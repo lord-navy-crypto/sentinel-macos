@@ -47,8 +47,13 @@ func TestWorkbenchUsesLayoutDockInsteadOfFloatingContext(t *testing.T) {
 			t.Fatalf("Workbench dock behavior missing %q", want)
 		}
 	}
-	if !strings.Contains(html, "/app/workbench-dock.css") {
+	const visualLayout = "/app/visual-native-layout.css"
+	const workbenchDock = "/app/workbench-dock.css"
+	if !strings.Contains(html, workbenchDock) {
 		t.Fatal("canonical app must load Workbench dock layout CSS")
+	}
+	if strings.Index(html, workbenchDock) <= strings.Index(html, visualLayout) {
+		t.Fatal("Workbench dock CSS must load after Visual Native layout so the open dock grid cannot be overwritten")
 	}
 	for _, want := range []string{"loadNativePolish", "/app/workbench-dock.js", "/app/task-center-placement.js"} {
 		if !strings.Contains(runtime, want) {
