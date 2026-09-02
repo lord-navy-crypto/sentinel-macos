@@ -1,0 +1,118 @@
+name: One-time Resource Observatory Ultra integration
+
+on:
+  push:
+    branches:
+      - sentinel-3.0-resource-observatory-ultra
+    paths:
+      - .github/workflows/one-time-resource-observatory-ultra.yml
+
+permissions:
+  contents: write
+
+jobs:
+  integrate:
+    runs-on: macos-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: sentinel-3.0-resource-observatory-ultra
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+          cache: false
+
+      - name: Integrate Observatory with current mainline
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          # Fix backend import required by the bounded memory-pressure parser.
+          p=Path('resource_observatory.go'); s=p.read_text()
+          if '"regexp"' not in s:
+              s=s.replace('\t"os/exec"\n', '\t"os/exec"\n\t"regexp"\n', 1)
+          p.write_text(s)
+
+          # Register authenticated read-only Observatory APIs.
+          p=Path('main.go'); s=p.read_text()
+          anchor='\tmux.HandleFunc("/api/health/live", a.auth(a.handleMacHealth))\n'
+          addition='\tmux.HandleFunc("/api/resource/current", a.auth(a.handleResourceCurrent))\n\tmux.HandleFunc("/api/resource/history", a.auth(a.handleResourceHistory))\n\tmux.HandleFunc("/api/resource/explain", a.auth(a.handleResourceExplain))\n'
+          if '/api/resource/current' not in s:
+              if anchor not in s: raise SystemExit('main.go health route anchor missing')
+              s=s.replace(anchor, anchor+addition, 1)
+          p.write_text(s)
+
+          # Promote Resource Observatory to a first-class System lens.
+          p=Path('web/app/core.js'); s=p.read_text()
+          old="lenses:['machine','tools','processes','startup','persistence','background','network','storage']"
+          new="lenses:['machine','observatory','tools','processes','startup','persistence','background','network','storage']"
+          if "observatory:{label:'Resource Observatory'" not in s:
+              if old not in s: raise SystemExit('core System mission anchor missing')
+              s=s.replace(old,new,1)
+              anchor="    machine:{label:'Machine',verb:'CONTEXT',title:'What machine is producing this evidence?',rule:'Hardware and runtime explain capability and compatibility.'},\n"
+              lens="    observatory:{label:'Resource Observatory',verb:'OBSERVE',title:'What is using this Mac right now, and how is it changing?',rule:'Measure CPU, memory, disk, network and battery together. Trends and contributors are evidence, not a health score.'},\n"
+              if anchor not in s: raise SystemExit('core machine lens anchor missing')
+              s=s.replace(anchor,anchor+lens,1)
+          p.write_text(s)
+
+          # Load the optional product module without disturbing canonical static script order.
+          p=Path('web/app/runtime.js'); s=p.read_text()
+          if 'function loadResourceObservatory()' not in s:
+              anchor="  function loadTaskCenter(){\n"
+              if anchor not in s: raise SystemExit('runtime Task Center loader anchor missing')
+              loader="""  function loadResourceObservatory(){
+              if(document.querySelector('script[data-sentinel-resource-observatory]'))return;
+              const script=document.createElement('script');
+              script.src='/app/resource-observatory.js';
+              script.dataset.sentinelResourceObservatory='1';
+              script.async=true;
+              script.addEventListener('error',()=>console.warn('Sentinel Resource Observatory could not be loaded.'));
+              document.body.appendChild(script);
+            }
+
+          """
+              s=s.replace(anchor,loader+anchor,1)
+              tail="  loadTaskCenter();\n})();\n"
+              if tail not in s: raise SystemExit('runtime load tail missing')
+              s=s.replace(tail,"  loadTaskCenter();\n  loadResourceObservatory();\n})();\n",1)
+          p.write_text(s)
+          PY
+          gofmt -w resource_observatory.go resource_observatory_contract_test.go
+
+      - name: Validate Observatory source and contracts
+        run: |
+          git diff --check
+          node --check web/app/core.js
+          node --check web/app/runtime.js
+          node --check web/app/resource-observatory.js
+          go test ./... -run 'ResourceObservatoryUltra|MacHealthAndStorageGraph|TaskCenter|WorkGate'
+          go vet ./...
+          grep -Fq '/api/resource/current' main.go
+          grep -Fq "observatory:{label:'Resource Observatory'" web/app/core.js
+          grep -Fq '/app/resource-observatory.js' web/app/runtime.js
+          grep -Fq 'Resource History · 60s' web/app/resource-observatory.js
+          grep -Fq 'Sentinel 3.0 Resource Observatory Ultra' resource_observatory.go
+
+      - name: Full repository test and Universal desktop package
+        run: |
+          go test ./...
+          chmod +x build-desktop-macos.sh
+          ./build-desktop-macos.sh
+          test -d dist/Sentinel.app
+          for engine in dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-arm64 dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64; do
+            LC_ALL=C grep -aFq 'Sentinel 3.0 Resource Observatory Ultra' "$engine"
+            LC_ALL=C grep -aFq '/api/resource/current' "$engine"
+            LC_ALL=C grep -aFq 'Why is my Mac slow?' "$engine"
+            LC_ALL=C grep -aFq 'Resource History · 60s' "$engine"
+            LC_ALL=C grep -aFq 'Sentinel 2.9 Floating Task Center' "$engine"
+          done
+
+      - name: Commit validated Observatory integration
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add main.go resource_observatory.go resource_observatory_contract_test.go web/app/core.js web/app/runtime.js web/app/resource-observatory.js web/app/resource-observatory.css
+          git commit -m 'Integrate Resource Observatory Ultra'
+          git push origin HEAD:sentinel-3.0-resource-observatory-ultra
