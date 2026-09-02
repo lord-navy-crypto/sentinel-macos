@@ -21,7 +21,7 @@ func visualNativeRead(t *testing.T, path string) string {
 func TestVisualNativeIsWiredIntoCanonicalProduct(t *testing.T) {
 	html := visualNativeRead(t, "web/index.html")
 	runtime := visualNativeRead(t, "web/app/runtime.js")
-	for _, want := range []string{"/app/visual-native.css", "/app/visual-native-highfreq.css"} {
+	for _, want := range []string{"/app/visual-native.css", "/app/visual-native-highfreq.css", "/app/visual-native-layout.css"} {
 		if !strings.Contains(html, want) {
 			t.Fatalf("canonical app missing Visual Native stylesheet %q", want)
 		}
@@ -29,6 +29,24 @@ func TestVisualNativeIsWiredIntoCanonicalProduct(t *testing.T) {
 	for _, want := range []string{"loadVisualNative", "/app/visual-native.js", "data-sentinel-visual-native"} {
 		if !strings.Contains(runtime, want) {
 			t.Fatalf("canonical runtime missing Visual Native loader %q", want)
+		}
+	}
+}
+
+func TestVisualNativeDesktopUsesStableStageSidebar(t *testing.T) {
+	layout := visualNativeRead(t, "web/app/visual-native-layout.css")
+	for _, want := range []string{
+		"grid-template-columns:218px minmax(0,1fr)",
+		".s24-missions",
+		"flex-direction:column",
+		"grid-row:2/4",
+		".s24-lenses",
+		"grid-column:2",
+		"@media(max-width:900px)",
+		"flex-direction:row",
+	} {
+		if !strings.Contains(layout, want) {
+			t.Fatalf("Visual Native desktop/sidebar layout missing %q", want)
 		}
 	}
 }
@@ -80,7 +98,7 @@ func TestVisualNativeDoesNotInventResourceHealthScore(t *testing.T) {
 }
 
 func TestVisualNativeCSSIsPassiveAndBalanced(t *testing.T) {
-	for _, path := range []string{"web/app/visual-native.css", "web/app/visual-native-highfreq.css"} {
+	for _, path := range []string{"web/app/visual-native.css", "web/app/visual-native-highfreq.css", "web/app/visual-native-layout.css"} {
 		source := visualNativeRead(t, path)
 		if strings.Count(source, "{") == 0 || strings.Count(source, "{") != strings.Count(source, "}") {
 			t.Fatalf("%s has unbalanced CSS braces", path)
