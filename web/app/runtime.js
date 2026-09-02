@@ -100,6 +100,16 @@
     document.body.appendChild(script);
   }
 
+  function loadControlledWorkflowsUltra(){
+    if(document.querySelector('script[data-sentinel-controlled-workflows-ultra]'))return;
+    const script=document.createElement('script');
+    script.src='/app/controlled-workflows-ultra.js';
+    script.dataset.sentinelControlledWorkflowsUltra='1';
+    script.async=true;
+    script.addEventListener('error',()=>console.warn('Sentinel Controlled Workflows Ultra could not be loaded.'));
+    document.body.appendChild(script);
+  }
+
   const applicationIdentity={marker:S.PRODUCT_MARKER,version:'2.6.0',architecture:'modular-app'};
   window.__SENTINEL_27__=applicationIdentity;
   window.__SENTINEL_25__=applicationIdentity;
@@ -111,4 +121,5 @@
   loadResourceObservatory();
   loadMaintenanceUltra();
   loadProductBalanceUltra();
+  loadControlledWorkflowsUltra();
 })();
