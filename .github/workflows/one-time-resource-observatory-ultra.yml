@@ -29,10 +29,11 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
 
-          # Fix backend import required by the bounded memory-pressure parser.
+          # Resource Observatory reuses commandText() from mac_health_storage.go.
           p=Path('resource_observatory.go'); s=p.read_text()
+          s=s.replace('\t"os/exec"\n','')
           if '"regexp"' not in s:
-              s=s.replace('\t"os/exec"\n', '\t"os/exec"\n\t"regexp"\n', 1)
+              s=s.replace('\t"runtime"\n', '\t"regexp"\n\t"runtime"\n', 1)
           p.write_text(s)
 
           # Register authenticated read-only Observatory APIs.
