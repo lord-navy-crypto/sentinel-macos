@@ -29,23 +29,20 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
 
-          # Register bounded authenticated APIs.
           p=Path('main.go'); s=p.read_text()
           anchor='\tmux.HandleFunc("/api/resource/explain", a.auth(a.handleResourceExplain))\n'
-          addition='''\tmux.HandleFunc("/api/maintenance/large-files", a.auth(a.work.wrap("large-file-explorer", a.handleLargeFiles)))
-\tmux.HandleFunc("/api/maintenance/duplicates", a.auth(a.work.wrap("duplicate-explorer", a.handleDuplicateExplorer)))
-\tmux.HandleFunc("/api/maintenance/app-footprint", a.auth(a.work.wrap("app-footprint", a.handleAppFootprint)))
-\tmux.HandleFunc("/api/maintenance/history/settings", a.auth(a.handlePersistentHistorySettings))
-\tmux.HandleFunc("/api/maintenance/history/sample", a.auth(a.work.wrap("persistent-resource-sample", a.handlePersistentHistorySample)))
-\tmux.HandleFunc("/api/maintenance/history/read", a.auth(a.handlePersistentHistoryRead))
-\tmux.HandleFunc("/api/maintenance/rates", a.auth(a.handleResourceRates))
-'''
+          addition=('\tmux.HandleFunc("/api/maintenance/large-files", a.auth(a.work.wrap("large-file-explorer", a.handleLargeFiles)))\n'
+                    '\tmux.HandleFunc("/api/maintenance/duplicates", a.auth(a.work.wrap("duplicate-explorer", a.handleDuplicateExplorer)))\n'
+                    '\tmux.HandleFunc("/api/maintenance/app-footprint", a.auth(a.work.wrap("app-footprint", a.handleAppFootprint)))\n'
+                    '\tmux.HandleFunc("/api/maintenance/history/settings", a.auth(a.handlePersistentHistorySettings))\n'
+                    '\tmux.HandleFunc("/api/maintenance/history/sample", a.auth(a.work.wrap("persistent-resource-sample", a.handlePersistentHistorySample)))\n'
+                    '\tmux.HandleFunc("/api/maintenance/history/read", a.auth(a.handlePersistentHistoryRead))\n'
+                    '\tmux.HandleFunc("/api/maintenance/rates", a.auth(a.handleResourceRates))\n')
           if '/api/maintenance/large-files' not in s:
               if anchor not in s: raise SystemExit('resource route anchor missing')
               s=s.replace(anchor,anchor+addition,1)
           p.write_text(s)
 
-          # Add first-class Maintenance lens without disturbing canonical Machine -> Tools -> Processes ordering.
           p=Path('web/app/core.js'); s=p.read_text()
           old="lenses:['machine','tools','processes','observatory','startup','persistence','background','network','storage']"
           new="lenses:['machine','tools','processes','observatory','startup','persistence','background','network','storage','maintenance']"
@@ -58,33 +55,29 @@ jobs:
               s=s.replace(anchor,anchor+lens,1)
           p.write_text(s)
 
-          # Load the Maintenance module and stylesheet after the existing optional modules.
           p=Path('web/app/runtime.js'); s=p.read_text()
           if 'function loadMaintenanceUltra()' not in s:
               anchor="  function loadTaskCenter(){\n"
               if anchor not in s: raise SystemExit('Task Center loader anchor missing')
-              loader="""  function loadMaintenanceUltra(){
-              if(!document.querySelector('link[data-sentinel-maintenance-ultra-style]')){
-                const link=document.createElement('link');
-                link.rel='stylesheet';link.href='/app/maintenance-ultra.css';link.dataset.sentinelMaintenanceUltraStyle='1';document.head.appendChild(link);
-              }
-              if(document.querySelector('script[data-sentinel-maintenance-ultra]'))return;
-              const script=document.createElement('script');
-              script.src='/app/maintenance-ultra.js';
-              script.dataset.sentinelMaintenanceUltra='1';
-              script.async=true;
-              script.addEventListener('error',()=>console.warn('Sentinel Maintenance Intelligence Ultra could not be loaded.'));
-              document.body.appendChild(script);
-            }
-
-          """
+              loader=("  function loadMaintenanceUltra(){\n"
+                      "    if(!document.querySelector('link[data-sentinel-maintenance-ultra-style]')){\n"
+                      "      const link=document.createElement('link');\n"
+                      "      link.rel='stylesheet';link.href='/app/maintenance-ultra.css';link.dataset.sentinelMaintenanceUltraStyle='1';document.head.appendChild(link);\n"
+                      "    }\n"
+                      "    if(document.querySelector('script[data-sentinel-maintenance-ultra]'))return;\n"
+                      "    const script=document.createElement('script');\n"
+                      "    script.src='/app/maintenance-ultra.js';\n"
+                      "    script.dataset.sentinelMaintenanceUltra='1';\n"
+                      "    script.async=true;\n"
+                      "    script.addEventListener('error',()=>console.warn('Sentinel Maintenance Intelligence Ultra could not be loaded.'));\n"
+                      "    document.body.appendChild(script);\n"
+                      "  }\n\n")
               s=s.replace(anchor,loader+anchor,1)
               tail="  loadTaskCenter();\n  loadResourceObservatory();\n})();\n"
               if tail not in s: raise SystemExit('runtime optional-module tail missing')
               s=s.replace(tail,"  loadTaskCenter();\n  loadResourceObservatory();\n  loadMaintenanceUltra();\n})();\n",1)
           p.write_text(s)
 
-          # Upgrade Task Center with honest indeterminate progress for unknowable filesystem work.
           p=Path('web/app/task-center.js'); s=p.read_text()
           if 'indeterminate: Boolean(options.indeterminate)' not in s:
               s=s.replace("      progress: clamp(options.progress || 1),\n", "      progress: clamp(options.progress || 1),\n      indeterminate: Boolean(options.indeterminate),\n",1)
@@ -95,8 +88,7 @@ jobs:
           p.write_text(s)
 
           p=Path('web/app/task-center.css'); s=p.read_text()
-          marker='@keyframes sentinelTaskIndeterminate'
-          if marker not in s:
+          if '@keyframes sentinelTaskIndeterminate' not in s:
               s += "\n.sentinel-task.indeterminate .sentinel-task-track i{width:34%!important;min-width:34%;animation:sentinelTaskIndeterminate 1.25s ease-in-out infinite}.sentinel-task.indeterminate .sentinel-task-row strong{font-size:16px;line-height:.7}@keyframes sentinelTaskIndeterminate{0%{transform:translateX(-130%)}50%{transform:translateX(110%)}100%{transform:translateX(330%)}}\n"
           p.write_text(s)
           PY
