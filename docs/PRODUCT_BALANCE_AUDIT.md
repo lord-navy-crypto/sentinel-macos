@@ -22,7 +22,7 @@ Investigation 继续保持深度，但不再默认成为整个产品的中心。
 |---|---|---|
 | Observe / 观察 | Why is my Mac slow/hot/busy? / 为什么卡、热、忙？ | Status, Easy Scan, Machine, Resource Observatory |
 | Explore / 探索 | What is using resources, network or storage? / 谁在使用资源、网络或空间？ | Processes, Network Diagnostics, Storage, Maintenance, Search, Relations |
-| Tools / 工具 | Can I use useful Terminal capabilities without memorising commands? / 不记命令能否使用 Terminal 能力？ | Visual allowlisted Terminal Tools |
+| Tools / 工具 | Can I use useful Terminal capabilities without memorising commands? / 不记命令能否使用 Terminal 能力？ | Visual allowlisted Terminal Tools + Controlled Workflows |
 | Compare / 比较 | What changed since a known point? / 和之前相比变了什么？ | Changes, Behavior, Reference, Persistence |
 | Act / 操作 | What is the smallest reversible action? / 最小可恢复操作是什么？ | Reclaim + Safe Change preview/confirmation/recovery |
 | Investigate / 调查 | What explains one concrete anomaly? / 一个具体异常如何解释？ | Cases, Audit, Object verification |
@@ -42,11 +42,11 @@ Read-only Terminal-backed tools may execute directly only when the executable an
 
 Git Pull and Download are managed workflows rather than read-only tools:
 
-- **Git Pull** changes a working tree. Before execution the product must show repository path, current branch/upstream, worktree state, equivalent operation and consequences. The approved mutation path is fast-forward-only; Sentinel must not silently reset, stash or resolve conflicts.
-- **Download** creates a file. Before execution the product must show HTTPS source and destination, avoid silent overwrite, use bounded transfer policy and keep command construction typed rather than text-concatenated.
-- Until backend preflight and recovery requirements are satisfied, the UI may expose the preview requirements while keeping direct execution unavailable.
+- **Git Pull** changes a working tree. Sentinel first performs a typed preflight that shows the resolved repository, branch, upstream, worktree cleanliness and equivalent operation. Execution is offered only when the worktree is clean and an upstream exists; the only supported mutation is `pull --ff-only`. Sentinel does not silently reset, stash, switch branches or resolve conflicts. The result records the before/after commit IDs for review.
+- **Download** creates a file. Sentinel first validates a credential-free HTTPS source and a destination already contained inside the user's resolved `~/Downloads` tree. Execution uses exclusive file creation, never overwrites an existing path, has a 512 MiB hard ceiling, stays on HTTPS across redirects, rejects local/private-network destinations, removes partial files after failure and reports the resulting SHA-256.
+- Both execution paths require a second explicit confirmation and are disabled in Sentinel ephemeral mode.
 
-Git Pull 会改变工作区；Download 会创建文件。二者必须明确标记为 Managed Workflow，而不能标成 READ ONLY。
+Git Pull 会改变工作区；Download 会创建文件。二者会先做真实后端 preflight，只有满足边界条件才出现执行入口，并且执行前还需要第二次明确确认。Git 只允许 fast-forward-only；Download 只允许受限 HTTPS 下载到 `~/Downloads`，默认绝不覆盖已有文件。
 
 ## Task progress rule / 任务进度规则
 
