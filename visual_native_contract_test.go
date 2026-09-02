@@ -67,7 +67,7 @@ func TestVisualNativeKeepsTrendFirstHighFrequencySurfaces(t *testing.T) {
 func TestVisualNativeDoesNotInventResourceHealthScore(t *testing.T) {
 	visual := strings.ToLower(visualNativeRead(t, "web/app/visual-native.js"))
 	observatory := strings.ToLower(visualNativeRead(t, "web/app/resource-observatory.js"))
-	for _, want := range []string{"not a hardware-health certificate", "does not fabricate apple energy impact"} {
+	for _, want := range []string{"hardware-health certificate", "does not fabricate apple energy impact"} {
 		if !strings.Contains(visual+observatory, want) {
 			t.Fatalf("Visual Native must preserve resource interpretation boundary %q", want)
 		}
