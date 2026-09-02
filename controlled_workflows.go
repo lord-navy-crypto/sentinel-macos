@@ -134,6 +134,9 @@ func buildControlledGitPreview(repo string) (controlledGitPreview, error) {
 		return controlledGitPreview{}, errors.New("detached HEAD is not eligible for controlled pull")
 	}
 	upstream, upstreamErr := gitOutput(ctx, top, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
+	if upstreamErr != nil {
+		upstream = ""
+	}
 	status, statusErr := gitOutput(ctx, top, "status", "--porcelain")
 	clean := statusErr == nil && strings.TrimSpace(status) == ""
 	ready := upstreamErr == nil && strings.TrimSpace(upstream) != "" && clean
