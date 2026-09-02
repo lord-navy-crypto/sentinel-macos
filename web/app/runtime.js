@@ -90,6 +90,16 @@
     document.body.appendChild(script);
   }
 
+  function loadProductBalanceUltra(){
+    if(document.querySelector('script[data-sentinel-product-balance-ultra]'))return;
+    const script=document.createElement('script');
+    script.src='/app/product-balance-ultra.js';
+    script.dataset.sentinelProductBalanceUltra='1';
+    script.async=true;
+    script.addEventListener('error',()=>console.warn('Sentinel Product Balance Ultra could not be loaded.'));
+    document.body.appendChild(script);
+  }
+
   const applicationIdentity={marker:S.PRODUCT_MARKER,version:'2.6.0',architecture:'modular-app'};
   window.__SENTINEL_27__=applicationIdentity;
   window.__SENTINEL_25__=applicationIdentity;
@@ -100,4 +110,5 @@
   loadTaskCenter();
   loadResourceObservatory();
   loadMaintenanceUltra();
+  loadProductBalanceUltra();
 })();

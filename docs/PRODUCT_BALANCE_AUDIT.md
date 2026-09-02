@@ -2,23 +2,72 @@
 
 ## Finding / 结论
 
-**English:** Sentinel became disproportionately deep in Investigation, Full Scan, Local AI and Safe Change while everyday observability and discoverability of existing AUX tools lagged behind. The missing capability was often not backend code; it was product integration and information architecture.
-**中文：** Sentinel 在 Investigation、Full Scan、Local AI、Safe Change 上发展得很深，但日常观察能力和既有 AUX 工具的可发现性相对落后。很多时候真正缺少的不是后端代码，而是产品整合和信息架构。
+**English:** Sentinel became disproportionately deep in Investigation, Full Scan, Local AI and Safe Change while everyday observability and discoverability of existing tools lagged behind. The missing capability was often not backend code; it was product integration and information architecture.
 
-## Balanced roadmap / 均衡路线
+**中文：** Sentinel 在 Investigation、Full Scan、Local AI、Safe Change 上发展得很深，但日常观察能力和既有工具的可发现性相对落后。很多时候真正缺少的不是后端代码，而是产品整合和信息架构。
 
-| Area / 领域 | User question / 用户问题 | Priority / 优先级 |
+## Canonical product model / 正式产品模型
+
+**Observe → Explore → Tools → Compare → Act → Investigate → Learn**
+
+**观察 → 探索 → 工具 → 比较 → 操作 → 调查 → 学习**
+
+Investigation remains deep, but it no longer defines the default center of gravity. Everyday Mac understanding comes first; deeper investigation is available when a concrete anomaly needs explanation.
+
+Investigation 继续保持深度，但不再默认成为整个产品的中心。普通用户先理解 Mac 当前状态，需要解释具体异常时再进入深度调查。
+
+## Balanced coverage / 均衡覆盖
+
+| Area / 领域 | User question / 用户问题 | Canonical coverage / 正式覆盖 |
 |---|---|---|
-| Observe / 观察 | Why is my Mac slow/hot/busy? / 为什么卡、热、忙？ | High / 高 |
-| Power / 电源 | Why is battery draining or sleep blocked? / 为什么掉电快或不睡眠？ | High / 高 |
-| Network / 网络 | Is the connection healthy and what is using it? / 网络是否正常、谁在使用？ | High / 高 |
-| Storage / 存储 | What is using space and how is it organised? / 空间去哪了、文件如何组织？ | High / 高 |
-| Tools / 工具 | Can I use useful Terminal capabilities without memorising commands? / 不记命令能否使用 Terminal 能力？ | High / 高 |
-| Compare / 比较 | What changed since a known point? / 和之前相比变了什么？ | High / 高 |
-| Recovery / 恢复 | Can I undo or explain a change? / 能否恢复或解释一次修改？ | High / 高 |
-| Investigate / 调查 | What explains one concrete anomaly? / 一个具体异常如何解释？ | High, but not dominant / 高，但不能独占 |
-| Learn / 学习 | What does this button/metric mean? / 这个按钮或指标是什么意思？ | High / 高 |
+| Observe / 观察 | Why is my Mac slow/hot/busy? / 为什么卡、热、忙？ | Status, Easy Scan, Machine, Resource Observatory |
+| Explore / 探索 | What is using resources, network or storage? / 谁在使用资源、网络或空间？ | Processes, Network Diagnostics, Storage, Maintenance, Search, Relations |
+| Tools / 工具 | Can I use useful Terminal capabilities without memorising commands? / 不记命令能否使用 Terminal 能力？ | Visual allowlisted Terminal Tools |
+| Compare / 比较 | What changed since a known point? / 和之前相比变了什么？ | Changes, Behavior, Reference, Persistence |
+| Act / 操作 | What is the smallest reversible action? / 最小可恢复操作是什么？ | Reclaim + Safe Change preview/confirmation/recovery |
+| Investigate / 调查 | What explains one concrete anomaly? / 一个具体异常如何解释？ | Cases, Audit, Object verification |
+| Learn / 学习 | What does this feature or metric mean? / 这个功能或指标是什么意思？ | Visibility, Guide, bilingual Manual, Local AI guidance, Runtime Logs |
 
-## Rule / 规则
+## Everyday-system commitments / 日常系统能力承诺
 
-Every major release should review coverage across Observe, Explore, Tools, Compare, Act, Investigate and Learn. / 每个主要版本都应检查 Observe、Explore、Tools、Compare、Act、Investigate、Learn 七类能力是否失衡。
+Major releases must preserve first-class coverage for CPU, memory pressure/compression/swap, disk and network activity, battery/power evidence, resource history, Network Quality/DNS/Proxy/Route diagnostics, Storage Graph/Heatmap, Large Files, exact duplicate evidence, App Footprint, Floating Task Center, and Chinese + English product guidance.
+
+主要版本必须保持 CPU、内存压力/压缩/swap、磁盘/网络活动、电池与电源、资源历史、网络诊断、Storage Graph/Heatmap、大文件、严格重复文件、App Footprint、Task Center 和中英双语说明作为一等能力。
+
+## Controlled workflow boundary / 受控工作流边界
+
+Read-only Terminal-backed tools may execute directly only when the executable and argument structure are explicitly allowlisted and bounded. Sentinel does not provide a free-form command surface.
+
+只读 Terminal 工具只有在 executable 与参数结构均被明确白名单限制并受到时间/输出限制时才能直接运行。Sentinel 不提供自由命令输入面。
+
+Git Pull and Download are managed workflows rather than read-only tools:
+
+- **Git Pull** changes a working tree. Before execution the product must show repository path, current branch/upstream, worktree state, equivalent operation and consequences. The approved mutation path is fast-forward-only; Sentinel must not silently reset, stash or resolve conflicts.
+- **Download** creates a file. Before execution the product must show HTTPS source and destination, avoid silent overwrite, use bounded transfer policy and keep command construction typed rather than text-concatenated.
+- Until backend preflight and recovery requirements are satisfied, the UI may expose the preview requirements while keeping direct execution unavailable.
+
+Git Pull 会改变工作区；Download 会创建文件。二者必须明确标记为 Managed Workflow，而不能标成 READ ONLY。
+
+## Task progress rule / 任务进度规则
+
+The visible legacy bottom Activity Bar is retired. The Floating Task Center is the canonical progress surface.
+
+旧的可见底部 Activity Bar 已退役。Floating Task Center 是正式任务进度界面。
+
+- Measurable work shows real measured progress.
+- Unknown-total work shows an indeterminate state rather than an invented percentage.
+- A stalled warning is a visibility warning, not proof of failure.
+
+## Release audit / 版本发布审计
+
+Every major release must answer all seven questions before merge:
+
+1. **Observe:** Did everyday current-state understanding improve or regress?
+2. **Explore:** Can users move from a symptom to a relevant process/network/storage object without entering Investigation first?
+3. **Tools:** Are useful command-line capabilities discoverable with bounded authority?
+4. **Compare:** Can users distinguish current state from retained history/reference?
+5. **Act:** Are mutations previewed, explicit and recoverable?
+6. **Investigate:** Is deep investigation available without dominating the default product flow?
+7. **Learn:** Are new user-facing capabilities explained in Chinese and English, including Purpose / How to use / Caution where appropriate?
+
+A major release should not deepen Investigation or AI while leaving Observe, Explore, Tools or Learn materially behind.
