@@ -1,0 +1,87 @@
+name: Maintenance Ultra integration v2
+
+on:
+  push:
+    branches:
+      - sentinel-3.1-maintenance-intelligence-ultra
+    paths:
+      - .github/workflows/maintenance-ultra-integration-v2.yml
+
+permissions:
+  contents: write
+
+jobs:
+  integrate:
+    runs-on: macos-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: sentinel-3.1-maintenance-intelligence-ultra
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+          cache: false
+      - name: Patch current mainline integration points
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('main.go'); s=p.read_text(); anchor='\tmux.HandleFunc("/api/resource/explain", a.auth(a.handleResourceExplain))\n'; addition=('\tmux.HandleFunc("/api/maintenance/large-files", a.auth(a.work.wrap("large-file-explorer", a.handleLargeFiles)))\n' '\tmux.HandleFunc("/api/maintenance/duplicates", a.auth(a.work.wrap("duplicate-explorer", a.handleDuplicateExplorer)))\n' '\tmux.HandleFunc("/api/maintenance/app-footprint", a.auth(a.work.wrap("app-footprint", a.handleAppFootprint)))\n' '\tmux.HandleFunc("/api/maintenance/history/settings", a.auth(a.handlePersistentHistorySettings))\n' '\tmux.HandleFunc("/api/maintenance/history/sample", a.auth(a.work.wrap("persistent-resource-sample", a.handlePersistentHistorySample)))\n' '\tmux.HandleFunc("/api/maintenance/history/read", a.auth(a.handlePersistentHistoryRead))\n' '\tmux.HandleFunc("/api/maintenance/rates", a.auth(a.handleResourceRates))\n')
+          if '/api/maintenance/large-files' not in s:
+              if anchor not in s: raise SystemExit('resource route anchor missing')
+              s=s.replace(anchor,anchor+addition,1)
+          p.write_text(s)
+          p=Path('web/app/core.js'); s=p.read_text(); old="lenses:['machine','tools','processes','observatory','startup','persistence','background','network','storage']"; new="lenses:['machine','tools','processes','observatory','startup','persistence','background','network','storage','maintenance']"
+          if "maintenance:{label:'Maintenance Intelligence'" not in s:
+              if old not in s: raise SystemExit('System mission lens anchor missing')
+              s=s.replace(old,new,1); anchor="    storage:{label:'Storage',verb:'MEASURE',title:'Where is storage pressure coming from?',rule:'Measure first. Exact duplicates and filename heuristics must remain separate.'},\n"; lens="    maintenance:{label:'Maintenance Intelligence',verb:'MAINTAIN',title:'What can I safely understand before changing this Mac?',rule:'Measure large files, exact duplicates, app footprint and retained resource trends before considering cleanup.'},\n"
+              if anchor not in s: raise SystemExit('storage lens anchor missing')
+              s=s.replace(anchor,anchor+lens,1)
+          p.write_text(s)
+          p=Path('web/app/runtime.js'); s=p.read_text()
+          if 'function loadMaintenanceUltra()' not in s:
+              anchor="  function loadTaskCenter(){\n"; loader=("  function loadMaintenanceUltra(){\n" "    if(!document.querySelector('link[data-sentinel-maintenance-ultra-style]')){const link=document.createElement('link');link.rel='stylesheet';link.href='/app/maintenance-ultra.css';link.dataset.sentinelMaintenanceUltraStyle='1';document.head.appendChild(link);}\n" "    if(document.querySelector('script[data-sentinel-maintenance-ultra]'))return;\n" "    const script=document.createElement('script');script.src='/app/maintenance-ultra.js';script.dataset.sentinelMaintenanceUltra='1';script.async=true;script.addEventListener('error',()=>console.warn('Sentinel Maintenance Intelligence Ultra could not be loaded.'));document.body.appendChild(script);\n" "  }\n\n")
+              if anchor not in s: raise SystemExit('Task Center loader anchor missing')
+              s=s.replace(anchor,loader+anchor,1); tail="  loadTaskCenter();\n  loadResourceObservatory();\n})();\n"
+              if tail not in s: raise SystemExit('runtime optional-module tail missing')
+              s=s.replace(tail,"  loadTaskCenter();\n  loadResourceObservatory();\n  loadMaintenanceUltra();\n})();\n",1)
+          p.write_text(s)
+          p=Path('web/app/task-center.js'); s=p.read_text()
+          if 'indeterminate: Boolean(options.indeterminate)' not in s:
+              s=s.replace("      progress: clamp(options.progress || 1),\n", "      progress: clamp(options.progress || 1),\n      indeterminate: Boolean(options.indeterminate),\n",1); s=s.replace("    if (patch.progress != null) task.progress = clamp(patch.progress);\n", "    if (patch.progress != null) task.progress = clamp(patch.progress);\n    if (patch.indeterminate != null) task.indeterminate = Boolean(patch.indeterminate);\n",1); s=s.replace("      return `<article class=\"sentinel-task ${esc(task.status)} ${task.stalled ? 'stalled' : ''}\" data-task-id=\"${esc(task.id)}\">", "      return `<article class=\"sentinel-task ${esc(task.status)} ${task.stalled ? 'stalled' : ''} ${task.indeterminate && task.status === 'running' ? 'indeterminate' : ''}\" data-task-id=\"${esc(task.id)}\">"); s=s.replace("<strong>${task.status === 'running' ? `${Math.round(pct)}%` : task.status === 'done' ? '100%' : `${Math.round(pct)}%`}</strong>", "<strong>${task.status === 'running' && task.indeterminate ? '…' : task.status === 'running' ? `${Math.round(pct)}%` : task.status === 'done' ? '100%' : `${Math.round(pct)}%`}</strong>"); s=s.replace("  function finish(id, detail = 'Completed') { update(id, {status: 'done', progress: 100, detail}); }", "  function finish(id, detail = 'Completed') { update(id, {status: 'done', progress: 100, indeterminate:false, detail}); }")
+          p.write_text(s)
+          p=Path('web/app/task-center.css'); s=p.read_text()
+          if '@keyframes sentinelTaskIndeterminate' not in s: s += "\n.sentinel-task.indeterminate .sentinel-task-track i{width:34%!important;min-width:34%;animation:sentinelTaskIndeterminate 1.25s ease-in-out infinite}.sentinel-task.indeterminate .sentinel-task-row strong{font-size:16px;line-height:.7}@keyframes sentinelTaskIndeterminate{0%{transform:translateX(-130%)}50%{transform:translateX(110%)}100%{transform:translateX(330%)}}\n"
+          p.write_text(s)
+          PY
+          gofmt -w maintenance_intelligence.go maintenance_intelligence_contract_test.go
+      - name: Validate source and contracts
+        run: |
+          git diff --check
+          node --check web/app/core.js
+          node --check web/app/runtime.js
+          node --check web/app/task-center.js
+          node --check web/app/maintenance-ultra.js
+          go test ./... -run 'MaintenanceUltra|MaintenanceHash|CounterRate|ResourceObservatoryUltra|TaskCenter|MacHealthAndStorageGraph'
+          go vet ./...
+      - name: Full tests and Universal package
+        run: |
+          go test ./...
+          chmod +x build-desktop-macos.sh
+          ./build-desktop-macos.sh
+          test -d dist/Sentinel.app
+          for engine in dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-arm64 dist/Sentinel.app/Contents/Resources/bin/sentinel-macos-x86_64; do
+            LC_ALL=C grep -aFq 'Sentinel 3.1 Maintenance Intelligence Ultra' "$engine"
+            LC_ALL=C grep -aFq '/api/maintenance/large-files' "$engine"
+            LC_ALL=C grep -aFq 'Duplicate means full-file SHA-256 equality' "$engine"
+            LC_ALL=C grep -aFq 'Sentinel 3.0 Resource Observatory Ultra' "$engine"
+            LC_ALL=C grep -aFq 'Sentinel 2.9 Floating Task Center' "$engine"
+          done
+      - name: Commit validated integration
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add main.go maintenance_intelligence.go maintenance_intelligence_contract_test.go web/app/core.js web/app/runtime.js web/app/task-center.js web/app/task-center.css web/app/maintenance-ultra.js web/app/maintenance-ultra.css
+          git commit -m 'Integrate Maintenance Intelligence Ultra'
+          git push origin HEAD:sentinel-3.1-maintenance-intelligence-ultra
