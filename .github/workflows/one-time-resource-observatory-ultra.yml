@@ -29,14 +29,12 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
 
-          # Resource Observatory reuses commandText() from mac_health_storage.go.
           p=Path('resource_observatory.go'); s=p.read_text()
           s=s.replace('\t"os/exec"\n','')
           if '"regexp"' not in s:
               s=s.replace('\t"runtime"\n', '\t"regexp"\n\t"runtime"\n', 1)
           p.write_text(s)
 
-          # Register authenticated read-only Observatory APIs.
           p=Path('main.go'); s=p.read_text()
           anchor='\tmux.HandleFunc("/api/health/live", a.auth(a.handleMacHealth))\n'
           addition='\tmux.HandleFunc("/api/resource/current", a.auth(a.handleResourceCurrent))\n\tmux.HandleFunc("/api/resource/history", a.auth(a.handleResourceHistory))\n\tmux.HandleFunc("/api/resource/explain", a.auth(a.handleResourceExplain))\n'
@@ -45,10 +43,9 @@ jobs:
               s=s.replace(anchor, anchor+addition, 1)
           p.write_text(s)
 
-          # Promote Resource Observatory to a first-class System lens.
           p=Path('web/app/core.js'); s=p.read_text()
           old="lenses:['machine','tools','processes','startup','persistence','background','network','storage']"
-          new="lenses:['machine','observatory','tools','processes','startup','persistence','background','network','storage']"
+          new="lenses:['machine','tools','processes','observatory','startup','persistence','background','network','storage']"
           if "observatory:{label:'Resource Observatory'" not in s:
               if old not in s: raise SystemExit('core System mission anchor missing')
               s=s.replace(old,new,1)
@@ -58,7 +55,6 @@ jobs:
               s=s.replace(anchor,anchor+lens,1)
           p.write_text(s)
 
-          # Load the optional product module without disturbing canonical static script order.
           p=Path('web/app/runtime.js'); s=p.read_text()
           if 'function loadResourceObservatory()' not in s:
               anchor="  function loadTaskCenter(){\n"
@@ -92,6 +88,7 @@ jobs:
           go vet ./...
           grep -Fq '/api/resource/current' main.go
           grep -Fq "observatory:{label:'Resource Observatory'" web/app/core.js
+          grep -Fq "'machine','tools','processes','observatory'" web/app/core.js
           grep -Fq '/app/resource-observatory.js' web/app/runtime.js
           grep -Fq 'Resource History · 60s' web/app/resource-observatory.js
           grep -Fq 'Sentinel 3.0 Resource Observatory Ultra' resource_observatory.go
