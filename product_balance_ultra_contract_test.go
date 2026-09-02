@@ -59,7 +59,7 @@ func TestManualProductBalanceUsesTaskCenterAsVisibleProgressSurface(t *testing.T
 		"Task Center 与任务进度怎么读？",
 		"真实百分比",
 		"indeterminate",
-		"旧的可见底部 Activity Bar",
+		"左下角 Task Center",
 	} {
 		if !strings.Contains(js, want) {
 			t.Fatalf("Task Center manual migration missing %q", want)
