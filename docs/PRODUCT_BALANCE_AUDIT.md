@@ -40,13 +40,13 @@ Read-only Terminal-backed tools may execute directly only when the executable an
 
 只读 Terminal 工具只有在 executable 与参数结构均被明确白名单限制并受到时间/输出限制时才能直接运行。Sentinel 不提供自由命令输入面。
 
-Git Pull and Download are managed workflows rather than read-only tools:
+Git Pull and Download are **Managed Workflow** capabilities rather than read-only tools:
 
 - **Git Pull** changes a working tree. Sentinel first performs a typed preflight that shows the resolved repository, branch, upstream, worktree cleanliness and equivalent operation. Execution is offered only when the worktree is clean and an upstream exists; the only supported mutation is `pull --ff-only`. Sentinel does not silently reset, stash, switch branches or resolve conflicts. The result records the before/after commit IDs for review.
 - **Download** creates a file. Sentinel first validates a credential-free HTTPS source and a destination already contained inside the user's resolved `~/Downloads` tree. Execution uses exclusive file creation, never overwrites an existing path, has a 512 MiB hard ceiling, stays on HTTPS across redirects, rejects local/private-network destinations, removes partial files after failure and reports the resulting SHA-256.
 - Both execution paths require a second explicit confirmation and are disabled in Sentinel ephemeral mode.
 
-Git Pull 会改变工作区；Download 会创建文件。二者会先做真实后端 preflight，只有满足边界条件才出现执行入口，并且执行前还需要第二次明确确认。Git 只允许 fast-forward-only；Download 只允许受限 HTTPS 下载到 `~/Downloads`，默认绝不覆盖已有文件。
+Git Pull 会改变工作区；Download 会创建文件。二者属于 **Managed Workflow / 受控工作流**：先做真实后端 preflight，只有满足边界条件才出现执行入口，并且执行前还需要第二次明确确认。Git 只允许 fast-forward-only；Download 只允许受限 HTTPS 下载到 `~/Downloads`，默认绝不覆盖已有文件。
 
 ## Task progress rule / 任务进度规则
 
