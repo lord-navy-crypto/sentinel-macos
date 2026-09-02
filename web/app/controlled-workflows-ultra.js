@@ -12,6 +12,14 @@
   function failTask(id,detail){if(id)S.TaskCenter?.fail(id,detail);}
   function note(text,kind=''){return `<div class="s24-note ${kind}">${text}</div>`;}
 
+  function refreshManagedWorkflowCopy(){
+    document.querySelectorAll('.s24-note.warn').forEach(node=>{
+      if((node.textContent||'').includes('Direct mutation is intentionally gated')){
+        node.innerHTML='<b>Managed execution / 受控执行：</b> Execution appears only after the backend preflight succeeds and a second explicit confirmation is given. Git remains <code>pull --ff-only</code> only; Download remains HTTPS-only, inside <code>~/Downloads</code>, no-overwrite and size-bounded.';
+      }
+    });
+  }
+
   async function previewGit(card){
     const repo=(card.querySelector('[data-controlled-git-repo]')?.value||'').trim();
     const host=card.querySelector('[data-controlled-git-result]');
@@ -35,7 +43,7 @@
     host.insertAdjacentHTML('beforeend',note('Executing <code>pull --ff-only</code>…'));
     try{
       const d=await api('/api/workflows/git/pull',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({repository:repo,confirm:'PULL --FF-ONLY'})});
-      host.innerHTML=note(`<b>Git Pull completed / 已完成</b><br>Repository: <code>${esc(d.repository||repo)}</code><br>Branch: <code>${esc(d.branch||'')}</code><br>Upstream: <code>${esc(d.upstream||'')}</code><br><pre>${esc(d.output||'Completed with no textual output.')}</pre><small>${esc(d.note||'')}</small>`,'good');
+      host.innerHTML=note(`<b>Git Pull completed / 已完成</b><br>Repository: <code>${esc(d.repository||repo)}</code><br>Branch: <code>${esc(d.branch||'')}</code><br>Upstream: <code>${esc(d.upstream||'')}</code><br>Before: <code>${esc(d.before_head||'—')}</code><br>After: <code>${esc(d.after_head||'—')}</code><br><pre>${esc(d.output||'Completed with no textual output.')}</pre><small>${esc(d.note||'')}</small>`,'good');
       finishTask(tid,'Fast-forward-only Git Pull completed');
     }catch(err){host.insertAdjacentHTML('beforeend',note(esc(err.message||String(err)),'warn'));failTask(tid,err.message||String(err));}
   }
@@ -81,5 +89,11 @@
     if(downloadExecute){event.preventDefault();event.stopImmediatePropagation();void executeDownload(downloadExecute.closest('.s24-card'));}
   },true);
 
+  const stage=$('#evidenceStage');
+  if(stage){
+    const observer=new MutationObserver(refreshManagedWorkflowCopy);
+    observer.observe(stage,{childList:true,subtree:true});
+  }
+  refreshManagedWorkflowCopy();
   S.ControlledWorkflowsUltra={marker:MARKER};
 })();
