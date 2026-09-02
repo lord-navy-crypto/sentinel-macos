@@ -100,6 +100,16 @@
     document.body.appendChild(script);
   }
 
+  function loadVisualNative(){
+    if(document.querySelector('script[data-sentinel-visual-native]'))return;
+    const script=document.createElement('script');
+    script.src='/app/visual-native.js';
+    script.dataset.sentinelVisualNative='1';
+    script.async=true;
+    script.addEventListener('error',()=>console.warn('Sentinel Visual Native could not be loaded.'));
+    document.body.appendChild(script);
+  }
+
   const applicationIdentity={marker:S.PRODUCT_MARKER,version:'2.6.0',architecture:'modular-app'};
   window.__SENTINEL_27__=applicationIdentity;
   window.__SENTINEL_25__=applicationIdentity;
@@ -111,4 +121,5 @@
   loadResourceObservatory();
   loadMaintenanceUltra();
   loadProductBalanceUltra();
+  loadVisualNative();
 })();

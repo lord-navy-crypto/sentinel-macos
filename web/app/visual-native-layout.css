@@ -1,0 +1,62 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+/* Sentinel 3.3 Visual Native — desktop shell layout.
+   Product stages form a stable left rail; lenses remain contextual navigation. */
+
+@media(min-width:901px){
+  .s24-shell.s24-shell{
+    grid-template-columns:218px minmax(0,1fr)!important;
+    grid-template-rows:68px 42px minmax(0,1fr)!important;
+  }
+  .s24-command{
+    grid-column:1/3!important;
+    grid-row:1!important;
+  }
+  .s24-missions{
+    grid-column:1!important;
+    grid-row:2/4!important;
+    align-self:stretch!important;
+    flex-direction:column!important;
+    align-items:stretch!important;
+    overflow-x:hidden!important;
+    overflow-y:auto!important;
+    margin:5px 0 10px 14px!important;
+    padding:10px 8px!important;
+    border-radius:15px!important;
+    background:linear-gradient(180deg,rgba(10,23,35,.8),rgba(7,16,25,.58))!important;
+  }
+  .s24-mission{
+    width:100%!important;
+    min-width:0!important;
+    min-height:54px;
+    grid-template-columns:30px minmax(0,1fr)!important;
+    grid-template-rows:auto auto!important;
+    padding:8px 9px!important;
+  }
+  .s24-mission .mark{grid-row:1/3!important;align-self:center}
+  .s24-mission b{align-self:end;font-size:11px!important}
+  .s24-mission small{align-self:start;font-size:8px!important}
+  .s24-lenses{
+    grid-column:2!important;
+    grid-row:2!important;
+    margin:3px 14px 0 10px!important;
+    padding:4px 2px 7px!important;
+    align-self:stretch;
+  }
+  .s24-stage{
+    grid-column:2!important;
+    grid-row:3!important;
+  }
+  .s24-context{left:218px!important}
+}
+
+@media(max-width:900px){
+  .s24-shell.s24-shell{
+    grid-template-columns:minmax(0,1fr)!important;
+    grid-template-rows:52px 50px 38px minmax(0,1fr)!important;
+  }
+  .s24-command{grid-column:1!important;grid-row:1!important}
+  .s24-missions{grid-column:1!important;grid-row:2!important;flex-direction:row!important;overflow-x:auto!important;overflow-y:hidden!important}
+  .s24-lenses{grid-column:1!important;grid-row:3!important}
+  .s24-stage{grid-column:1!important;grid-row:4!important}
+  .s24-context{left:0!important}
+}

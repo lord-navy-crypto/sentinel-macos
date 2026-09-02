@@ -1,0 +1,34 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+/* Sentinel 3.3 Visual Native — high-frequency visualization components. */
+
+.vn-process-bars{display:grid;gap:2px}
+.vn-process-row{width:100%;display:grid;grid-template-columns:minmax(135px,.72fr) minmax(140px,1fr) 54px;gap:12px;align-items:center;padding:10px 8px;border:0;border-bottom:1px solid var(--vn-line);border-radius:8px;background:transparent;color:inherit;text-align:left;cursor:pointer}
+.vn-process-row:last-child{border-bottom:0}
+.vn-process-row:hover{background:rgba(111,220,255,.04)}
+.vn-process-row>span{min-width:0}
+.vn-process-row b{display:block;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--vn-ink)}
+.vn-process-row small{display:block;margin-top:3px;color:var(--vn-muted);font-size:9px}
+.vn-process-row>i{display:block;height:7px;border-radius:999px;background:rgba(255,255,255,.06);overflow:hidden}
+.vn-process-row>i em{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--vn-blue),var(--vn-purple));box-shadow:0 0 12px rgba(111,220,255,.16)}
+.vn-process-row strong{font:700 10px/1 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--vn-muted);text-align:right}
+
+.storage-graph-tree{display:grid;gap:8px;margin-top:10px}
+.storage-graph-node{display:grid;grid-template-columns:minmax(170px,.42fr) minmax(140px,1fr) auto;gap:12px;align-items:center;padding:11px 12px;border:1px solid var(--vn-line);border-radius:11px;background:rgba(255,255,255,.024)}
+.storage-graph-node>div:first-child{min-width:0;display:grid;gap:3px}
+.storage-graph-node>div:first-child b{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.storage-graph-node>div:first-child span{color:var(--vn-muted);font-size:9px}
+.storage-graph-node>progress{width:100%;height:7px;accent-color:var(--vn-blue)}
+.storage-graph-node>.storage-graph-children{grid-column:1/-1;margin-left:18px}
+
+.ro-hero{margin-bottom:14px}
+.ro-history-head>small,.vn-trend-head>small{color:var(--vn-muted);font:9px ui-monospace,SFMono-Regular,Menlo,monospace}
+.ro-process-columns section{border:1px solid var(--vn-line);border-radius:12px;background:rgba(255,255,255,.02);padding:13px}
+.ro-process-columns h3{font-size:12px;color:var(--vn-ink)}
+
+.fine{color:var(--vn-muted);font-size:10px;line-height:1.55}
+
+@media(max-width:760px){
+  .vn-process-row{grid-template-columns:minmax(100px,.8fr) minmax(90px,1fr) 46px;gap:8px;padding-left:4px;padding-right:4px}
+  .storage-graph-node{grid-template-columns:1fr}
+  .storage-graph-node>.storage-graph-children{grid-column:1;margin-left:8px}
+}
