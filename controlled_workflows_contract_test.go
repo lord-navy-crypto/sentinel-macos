@@ -25,7 +25,7 @@ func TestControlledWorkflowProductContract(t *testing.T) {
 	runtime := string(runtimeRaw)
 
 	for _, want := range []string{
-		"pull\", \"--ff-only", "GIT_TERMINAL_PROMPT=0", "PULL --FF-ONLY", "before_head", "after_head",
+		`"pull", "--ff-only"`, "GIT_TERMINAL_PROMPT=0", "PULL --FF-ONLY", "before_head", "after_head",
 		"controlledDownloadMaxBytes", "512 << 20", "O_EXCL", "IsPrivate", "IsLoopback", "~/Downloads", "DOWNLOAD",
 		"controlled mutations are disabled in ephemeral mode",
 	} {
