@@ -9,7 +9,7 @@ import (
 
 func TestDesktopDistributionAssets(t *testing.T) {
 	checks := map[string][]string{
-		"desktop/SentinelDesktop.swift":        {"NSWorkspace.shared.open", "WKWebView", "Open in Browser", "Open App View", "Quit Sentinel", "Process()", "--desktop", "SENTINEL_DESKTOP_BOOTSTRAP", "2.7 Native Frontend", "config.websiteDataStore = .default()", "__sentinelNativeAppView", "WKUserScript"},
+		"desktop/SentinelDesktop.swift":        {"WKWebView", "Quit Sentinel", "Reload Sentinel", "Process()", "--desktop", "--no-browser", "SENTINEL_DESKTOP_BOOTSTRAP", "Native App", "config.websiteDataStore = .default()", "__sentinelNativeAppView", "WKUserScript", "showProduct"},
 		"build-desktop-macos.sh":               {"swiftc", "lipo -create", "-framework WebKit", "NSAllowsLocalNetworking", "Sentinel.app", "SentinelSourceCommit", "SentinelDesktopUI", "2.7 Native Frontend"},
 		"run-fresh-desktop.sh":                 {"pkill -x Sentinel", "open -n", "SentinelSourceCommit", "SentinelDesktopUI"},
 		"reinstall-macos.sh":                   {"/Applications/Sentinel.app", "SentinelSourceCommit", "SentinelDesktopUI", "2.7 Native Frontend"},
@@ -48,15 +48,20 @@ func TestDesktopDistributionAssets(t *testing.T) {
 	}
 }
 
-func TestBrowserAndNativeAppViewUseSameProduct(t *testing.T) {
+func TestNativeAppViewIsTheOnlyProductContainer(t *testing.T) {
 	swiftBytes, err := os.ReadFile("desktop/SentinelDesktop.swift")
 	if err != nil {
 		t.Fatal(err)
 	}
 	swift := string(swiftBytes)
-	for _, needle := range []string{"NSWorkspace.shared.open(productURL)", "WKWebViewConfiguration()", "websiteDataStore = .default()", "runJavaScriptConfirmPanelWithMessage", "url.host == \"127.0.0.1\"", "components.path = \"/\"", "same Sentinel 2.7 Native Frontend"} {
+	for _, needle := range []string{"WKWebViewConfiguration()", "websiteDataStore = .default()", "runJavaScriptConfirmPanelWithMessage", "url.host == \"127.0.0.1\"", "components.path = \"/\"", "showProduct(url, version: payload.version)", "window.contentView = view", "--no-browser"} {
 		if !strings.Contains(swift, needle) {
-			t.Fatalf("dual-view launcher missing %q", needle)
+			t.Fatalf("single native App View missing %q", needle)
+		}
+	}
+	for _, forbidden := range []string{"Open in Browser", "Open App View", "openBrowserProduct", "appViewWindow", "NSWorkspace.shared.open(productURL)"} {
+		if strings.Contains(swift, forbidden) {
+			t.Fatalf("desktop product returned to dual browser/native launcher pattern %q", forbidden)
 		}
 	}
 	if strings.Contains(swift, "websiteDataStore = .nonPersistent()") {
