@@ -74,6 +74,12 @@
     document.body.appendChild(script);
   }
 
+  function loadMaintenanceUltra(){
+    if(!document.querySelector('link[data-sentinel-maintenance-ultra-style]')){const link=document.createElement('link');link.rel='stylesheet';link.href='/app/maintenance-ultra.css';link.dataset.sentinelMaintenanceUltraStyle='1';document.head.appendChild(link);}
+    if(document.querySelector('script[data-sentinel-maintenance-ultra]'))return;
+    const script=document.createElement('script');script.src='/app/maintenance-ultra.js';script.dataset.sentinelMaintenanceUltra='1';script.async=true;script.addEventListener('error',()=>console.warn('Sentinel Maintenance Intelligence Ultra could not be loaded.'));document.body.appendChild(script);
+  }
+
   function loadTaskCenter(){
     if(document.querySelector('script[data-sentinel-task-center]'))return;
     const script=document.createElement('script');
@@ -93,4 +99,5 @@
   renderNavigation();navigate(LENSES[initial]?initial:'status',{push:false});
   loadTaskCenter();
   loadResourceObservatory();
+  loadMaintenanceUltra();
 })();

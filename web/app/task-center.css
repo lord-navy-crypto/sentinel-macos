@@ -16,3 +16,5 @@
 .sentinel-task-center.collapsed{width:auto;max-height:56px}.sentinel-task-center.collapsed .sentinel-task-list,.sentinel-task-center.collapsed .sentinel-task-pressure,.sentinel-task-center.collapsed .sentinel-task-clear{display:none}.sentinel-task-center.collapsed .sentinel-task-head{border-bottom:0}
 @media(max-width:720px){.sentinel-task-center{right:10px;bottom:44px;width:calc(100vw - 20px);max-height:52vh}}
 @media(prefers-reduced-motion:reduce){.sentinel-task-center *{animation:none!important;transition:none!important}}
+
+.sentinel-task.indeterminate .sentinel-task-track i{width:34%!important;min-width:34%;animation:sentinelTaskIndeterminate 1.25s ease-in-out infinite}.sentinel-task.indeterminate .sentinel-task-row strong{font-size:16px;line-height:.7}@keyframes sentinelTaskIndeterminate{0%{transform:translateX(-130%)}50%{transform:translateX(110%)}100%{transform:translateX(330%)}}
