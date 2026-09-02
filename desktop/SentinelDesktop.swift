@@ -11,7 +11,6 @@ private struct Bootstrap: Decodable {
 
 private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKUIDelegate, WKNavigationDelegate {
     private var window: NSWindow!
-    private var appViewWindow: NSWindow?
     private var webView: WKWebView?
     private var engine: Process?
     private var stdoutPipe: Pipe?
@@ -23,8 +22,6 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
 
     private var statusLabel: NSTextField!
     private var detailLabel: NSTextField!
-    private var browserButton: NSButton!
-    private var appViewButton: NSButton!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         buildMenu()
@@ -48,17 +45,20 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
 
     private func buildWindow() {
         window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 650, height: 330),
-            styleMask: [.titled, .closable, .miniaturizable],
+            contentRect: NSRect(x: 0, y: 0, width: 1440, height: 900),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
         )
-        window.title = "Sentinel Mac 2.6"
+        window.title = "Sentinel · Local Evidence"
+        window.minSize = NSSize(width: 1080, height: 700)
         window.center()
         window.delegate = self
 
         let root = NSView()
         root.translatesAutoresizingMaskIntoConstraints = false
+        root.wantsLayer = true
+        root.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
         window.contentView = root
 
         let icon = NSTextField(labelWithString: "S")
@@ -70,43 +70,32 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         icon.layer?.cornerRadius = 16
         icon.translatesAutoresizingMaskIntoConstraints = false
 
-        let title = NSTextField(labelWithString: "Sentinel Mac")
-        title.font = .systemFont(ofSize: 24, weight: .semibold)
+        let title = NSTextField(labelWithString: "Sentinel")
+        title.font = .systemFont(ofSize: 25, weight: .semibold)
 
-        let subtitle = NSTextField(labelWithString: "Local Evidence · Native Frontend")
-        subtitle.font = .systemFont(ofSize: 13, weight: .regular)
+        let subtitle = NSTextField(labelWithString: "Local Evidence · Native App")
+        subtitle.font = .systemFont(ofSize: 13)
         subtitle.textColor = .secondaryLabelColor
 
         statusLabel = NSTextField(labelWithString: "Starting local engine…")
         statusLabel.font = .systemFont(ofSize: 14, weight: .medium)
 
-        detailLabel = NSTextField(wrappingLabelWithString: "Sentinel starts one loopback-only engine and one Sentinel 2.7 product interface. Open it in your browser or inside the native App View; both containers use the same local source, session, and evidence.")
+        detailLabel = NSTextField(wrappingLabelWithString: "Sentinel is starting its architecture-matched, loopback-only local engine. The product opens directly in this native app window.")
         detailLabel.font = .systemFont(ofSize: 12)
         detailLabel.textColor = .secondaryLabelColor
         detailLabel.maximumNumberOfLines = 4
 
-        browserButton = NSButton(title: "Open in Browser", target: self, action: #selector(openBrowserProduct))
-        browserButton.bezelStyle = .rounded
-        browserButton.keyEquivalent = "\r"
-        browserButton.isEnabled = false
+        let progress = NSProgressIndicator()
+        progress.style = .spinning
+        progress.controlSize = .small
+        progress.startAnimation(nil)
 
-        appViewButton = NSButton(title: "Open App View", target: self, action: #selector(openAppView))
-        appViewButton.bezelStyle = .rounded
-        appViewButton.isEnabled = false
+        let loadingRow = NSStackView(views: [progress, statusLabel])
+        loadingRow.orientation = .horizontal
+        loadingRow.alignment = .centerY
+        loadingRow.spacing = 9
 
-        let quitButton = NSButton(title: "Quit Sentinel", target: NSApplication.shared, action: #selector(NSApplication.terminate(_:)))
-        quitButton.bezelStyle = .rounded
-
-        let buttonRow = NSStackView(views: [browserButton, appViewButton, quitButton])
-        buttonRow.orientation = .horizontal
-        buttonRow.alignment = .centerY
-        buttonRow.spacing = 10
-
-        let hint = NSTextField(labelWithString: "Browser and App View render the same Sentinel 2.7 Native Frontend; only the window container differs.")
-        hint.font = .systemFont(ofSize: 11)
-        hint.textColor = .tertiaryLabelColor
-
-        let textStack = NSStackView(views: [title, subtitle, statusLabel, detailLabel, buttonRow, hint])
+        let textStack = NSStackView(views: [title, subtitle, loadingRow, detailLabel])
         textStack.orientation = .vertical
         textStack.alignment = .leading
         textStack.spacing = 9
@@ -116,17 +105,14 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         root.addSubview(textStack)
 
         NSLayoutConstraint.activate([
-            icon.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 28),
-            icon.topAnchor.constraint(equalTo: root.topAnchor, constant: 30),
+            icon.centerYAnchor.constraint(equalTo: root.centerYAnchor, constant: -24),
+            icon.trailingAnchor.constraint(equalTo: root.centerXAnchor, constant: -18),
             icon.widthAnchor.constraint(equalToConstant: 64),
             icon.heightAnchor.constraint(equalToConstant: 64),
 
-            textStack.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 22),
-            textStack.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -28),
-            textStack.topAnchor.constraint(equalTo: root.topAnchor, constant: 28),
-            textStack.bottomAnchor.constraint(lessThanOrEqualTo: root.bottomAnchor, constant: -28),
-
-            detailLabel.widthAnchor.constraint(lessThanOrEqualToConstant: 465)
+            textStack.leadingAnchor.constraint(equalTo: root.centerXAnchor, constant: 10),
+            textStack.centerYAnchor.constraint(equalTo: root.centerYAnchor),
+            textStack.widthAnchor.constraint(lessThanOrEqualToConstant: 520)
         ])
 
         window.makeKeyAndOrderFront(nil)
@@ -138,12 +124,10 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         main.addItem(appItem)
 
         let appMenu = NSMenu()
-        appMenu.addItem(withTitle: "About Sentinel Mac", action: #selector(showAbout), keyEquivalent: "")
+        appMenu.addItem(withTitle: "About Sentinel", action: #selector(showAbout), keyEquivalent: "")
+        appMenu.addItem(withTitle: "Reload Sentinel", action: #selector(reloadProduct), keyEquivalent: "r")
         appMenu.addItem(NSMenuItem.separator())
-        appMenu.addItem(withTitle: "Open in Browser", action: #selector(openBrowserProduct), keyEquivalent: "o")
-        appMenu.addItem(withTitle: "Open App View", action: #selector(openAppView), keyEquivalent: "a")
-        appMenu.addItem(NSMenuItem.separator())
-        appMenu.addItem(withTitle: "Quit Sentinel Mac", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appMenu.addItem(withTitle: "Quit Sentinel", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appItem.submenu = appMenu
         NSApplication.shared.mainMenu = main
     }
@@ -156,38 +140,28 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         let version = bundleVersion()
         let ui = Bundle.main.object(forInfoDictionaryKey: "SentinelDesktopUI") as? String ?? "2.7 Native Frontend"
         let alert = NSAlert()
-        alert.messageText = "Sentinel Mac"
-        alert.informativeText = "Local Evidence\nVersion \(version)\n\(ui)\n\nSentinel runs one architecture-matched, loopback-only local engine. Browser and native App View render the same token-authenticated Sentinel product source."
+        alert.messageText = "Sentinel"
+        alert.informativeText = "Local Evidence\nVersion \(version)\n\(ui)\n\nSentinel is a native macOS app backed by one architecture-matched, loopback-only local engine and a token-authenticated App View."
         alert.addButton(withTitle: "OK")
         alert.runModal()
     }
 
-    @objc private func openBrowserProduct() {
+    @objc private func reloadProduct() {
         guard let productURL, isAllowedProductURL(productURL) else {
             NSSound.beep()
             return
         }
-        NSWorkspace.shared.open(productURL)
+        if let webView {
+            webView.load(URLRequest(url: productURL, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 30))
+        } else {
+            showProduct(productURL, version: bundleVersion())
+        }
     }
 
-    @objc private func openAppView() {
-        guard let productURL, isAllowedProductURL(productURL) else {
-            NSSound.beep()
-            return
-        }
-
-        if let appViewWindow, let webView {
-            if webView.url != productURL {
-                webView.load(URLRequest(url: productURL, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 30))
-            }
-            appViewWindow.makeKeyAndOrderFront(nil)
-            NSApplication.shared.activate(ignoringOtherApps: true)
-            return
-        }
-
+    private func makeWebView() -> WKWebView {
         let config = WKWebViewConfiguration()
-        // Persist Local AI artifacts and mark this container explicitly so the
-        // frontend can avoid WebWorker execution inside WKWebView when needed.
+        // Keep downloaded Local AI artifacts across launches. The native marker
+        // lets the frontend avoid worker paths that WKWebView cannot support.
         config.websiteDataStore = .default()
         config.defaultWebpagePreferences.allowsContentJavaScript = true
         let nativeMarker = WKUserScript(
@@ -198,27 +172,21 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         config.userContentController.addUserScript(nativeMarker)
 
         let view = WKWebView(frame: .zero, configuration: config)
-        view.translatesAutoresizingMaskIntoConstraints = false
+        view.autoresizingMask = [.width, .height]
         view.uiDelegate = self
         view.navigationDelegate = self
+        return view
+    }
 
-        let appWindow = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 1440, height: 900),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable],
-            backing: .buffered,
-            defer: false
-        )
-        appWindow.title = "Sentinel 2.7 · Local Evidence"
-        appWindow.minSize = NSSize(width: 1080, height: 700)
-        appWindow.isReleasedWhenClosed = false
-        appWindow.contentView = view
-        appWindow.center()
-
-        self.webView = view
-        self.appViewWindow = appWindow
-
-        view.load(URLRequest(url: productURL, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 30))
-        appWindow.makeKeyAndOrderFront(nil)
+    private func showProduct(_ url: URL, version: String) {
+        productURL = url
+        let view = webView ?? makeWebView()
+        webView = view
+        window.title = "Sentinel \(version) · Local Evidence"
+        window.contentView = view
+        view.frame = window.contentView?.bounds ?? .zero
+        view.load(URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 30))
+        window.makeKeyAndOrderFront(nil)
         NSApplication.shared.activate(ignoringOtherApps: true)
     }
 
@@ -285,7 +253,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
 
     func webView(_ webView: WKWebView, runJavaScriptAlertPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping () -> Void) {
         let alert = NSAlert()
-        alert.messageText = "Sentinel Mac"
+        alert.messageText = "Sentinel"
         alert.informativeText = message
         alert.addButton(withTitle: "OK")
         alert.runModal()
@@ -294,7 +262,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
 
     func webView(_ webView: WKWebView, runJavaScriptConfirmPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping (Bool) -> Void) {
         let alert = NSAlert()
-        alert.messageText = "Sentinel Mac"
+        alert.messageText = "Sentinel"
         alert.informativeText = message
         alert.addButton(withTitle: "Continue")
         alert.addButton(withTitle: "Cancel")
@@ -303,7 +271,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
 
     func webView(_ webView: WKWebView, runJavaScriptTextInputPanelWithPrompt prompt: String, defaultText: String?, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping (String?) -> Void) {
         let alert = NSAlert()
-        alert.messageText = "Sentinel Mac"
+        alert.messageText = "Sentinel"
         alert.informativeText = prompt
         let input = NSTextField(string: defaultText ?? "")
         input.frame = NSRect(x: 0, y: 0, width: 360, height: 24)
@@ -428,12 +396,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
 
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
-                self.productURL = url
-                self.window.title = "Sentinel Mac \(payload.version)"
-                self.statusLabel.stringValue = "Local engine ready · Sentinel \(payload.version)"
-                self.detailLabel.stringValue = "Product source: \(payload.origin)\nBrowser and App View both open the same Sentinel 2.7 Native Frontend and the same token-authenticated local evidence session."
-                self.browserButton.isEnabled = true
-                self.appViewButton.isEnabled = true
+                self.showProduct(url, version: payload.version)
             }
         }
     }
@@ -442,12 +405,10 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         if isQuitting { return }
         statusLabel?.stringValue = "Engine unavailable"
         detailLabel?.stringValue = detail
-        browserButton?.isEnabled = false
-        appViewButton?.isEnabled = false
 
         let alert = NSAlert()
         alert.alertStyle = .critical
-        alert.messageText = "Sentinel Mac could not start"
+        alert.messageText = "Sentinel could not start"
         alert.informativeText = detail
         alert.addButton(withTitle: "Quit")
         alert.runModal()

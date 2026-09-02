@@ -1,12 +1,30 @@
-SENTINEL 2.2 — SIMPLE MAC PATH
+SENTINEL — MAC RELEASE PATH
 
-1. Unzip this project on a real Mac.
-2. Double-click CHECK_MAC_RELEASE_PREREQS.command.
-3. Double-click BUILD_DESKTOP_APP.command to build/open the real native-window Sentinel.app.
-4. Test it locally.
-5. Join/use Apple Developer Program and install a Developer ID Application certificate.
-6. Run: xcrun notarytool store-credentials SentinelNotary
-7. Double-click RELEASE_DEVELOPER_ID.command.
-8. The public user download will be: dist/Sentinel-2.2.dmg
+Development / local App build
+1. Open Terminal in this repository.
+2. Run: ./build-desktop-macos.sh
+3. Test: dist/Sentinel.app
 
-End users only download the DMG. They do not run these developer commands.
+Unsigned beta DMG
+1. Make sure the current source builds and is the version you want to test.
+2. Run: SENTINEL_RELEASE_CHANNEL=beta ./package-dev-dmg-macos.sh
+3. Output uses VERSION automatically, for example: dist/Sentinel-2.7.0-beta.dmg
+4. This beta DMG is UNSIGNED / UNNOTARIZED and is for controlled testing only.
+
+Production Developer ID release
+1. Use a real Mac with Xcode command-line tools and an Apple Developer Program Developer ID Application certificate.
+2. Make sure the Git working tree is completely clean; production release refuses dirty source.
+3. Create a notary Keychain profile once if needed:
+   xcrun notarytool store-credentials SentinelNotary
+4. Run: ./CHECK_MAC_RELEASE_PREREQS.command
+5. Either run the guided helper:
+   ./RELEASE_DEVELOPER_ID.command
+   or export DEVELOPER_ID_APP and NOTARY_PROFILE, then run:
+   ./release-direct-macos.sh
+6. release-direct-macos.sh builds the native Sentinel.app, verifies native arm64/x86_64 engine capabilities, signs with Hardened Runtime, creates and signs the DMG, submits it to Apple Notary Service, staples the ticket, runs Gatekeeper/release verification, and writes a SHA-256 file.
+7. Production output uses VERSION automatically, for example:
+   dist/Sentinel-2.7.0.dmg
+   dist/Sentinel-2.7.0.dmg.sha256
+8. Upload the single production DMG and its .sha256 file to GitHub Releases / the download website.
+
+End users only need the notarized DMG. They do not run developer commands and Sentinel no longer exposes a separate local-browser product mode.

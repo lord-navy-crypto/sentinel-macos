@@ -110,6 +110,22 @@
     document.body.appendChild(script);
   }
 
+  function loadNativePolish(){
+    const modules=[
+      ['/app/workbench-dock.js','sentinelWorkbenchDock','Sentinel Workbench Dock'],
+      ['/app/task-center-placement.js','sentinelTaskCenterPlacement','Sentinel Task Center placement'],
+    ];
+    for(const [src,key,label] of modules){
+      if(document.querySelector(`script[data-${key.replace(/[A-Z]/g,m=>'-'+m.toLowerCase())}]`))continue;
+      const script=document.createElement('script');
+      script.src=src;
+      script.dataset[key]='1';
+      script.async=true;
+      script.addEventListener('error',()=>console.warn(`${label} could not be loaded.`));
+      document.body.appendChild(script);
+    }
+  }
+
   const applicationIdentity={marker:S.PRODUCT_MARKER,version:'2.6.0',architecture:'modular-app'};
   window.__SENTINEL_27__=applicationIdentity;
   window.__SENTINEL_25__=applicationIdentity;
@@ -122,4 +138,5 @@
   loadMaintenanceUltra();
   loadProductBalanceUltra();
   loadVisualNative();
+  loadNativePolish();
 })();
