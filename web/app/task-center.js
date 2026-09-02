@@ -97,8 +97,8 @@
       const detail = task.stalled && task.status === 'running'
         ? `No visible progress for ${elapsed(now() - task.lastChangeAt)} · ${task.detail || 'waiting for activity'}`
         : (task.detail || 'Working…');
-      return `<article class="sentinel-task ${esc(task.status)} ${task.stalled ? 'stalled' : ''}" data-task-id="${esc(task.id)}">
-        <div class="sentinel-task-row"><div><span>${esc(statusLabel(task))}</span><b>${esc(task.label)}</b></div><strong>${task.status === 'running' ? `${Math.round(pct)}%` : task.status === 'done' ? '100%' : `${Math.round(pct)}%`}</strong></div>
+      return `<article class="sentinel-task ${esc(task.status)} ${task.stalled ? 'stalled' : ''} ${task.indeterminate && task.status === 'running' ? 'indeterminate' : ''}" data-task-id="${esc(task.id)}">
+        <div class="sentinel-task-row"><div><span>${esc(statusLabel(task))}</span><b>${esc(task.label)}</b></div><strong>${task.status === 'running' && task.indeterminate ? '…' : task.status === 'running' ? `${Math.round(pct)}%` : task.status === 'done' ? '100%' : `${Math.round(pct)}%`}</strong></div>
         <div class="sentinel-task-track"><i style="width:${pct}%"></i></div>
         <div class="sentinel-task-meta"><small>${esc(detail)}</small><small>${esc(elapsed((task.completedAt || now()) - task.startedAt))}</small></div>
         ${task.cancellable && task.status === 'running' ? `<button type="button" class="sentinel-task-cancel" data-task-cancel="${esc(task.id)}">Cancel</button>` : ''}
@@ -115,6 +115,7 @@
       kind: options.kind || 'operation',
       status: 'running',
       progress: clamp(options.progress || 1),
+      indeterminate: Boolean(options.indeterminate),
       detail: options.detail || 'Starting…',
       cancellable: Boolean(options.cancellable),
       cancel: typeof options.cancel === 'function' ? options.cancel : null,
@@ -134,6 +135,7 @@
     if (!task) return;
     const before = `${task.progress}|${task.detail}|${task.status}`;
     if (patch.progress != null) task.progress = clamp(patch.progress);
+    if (patch.indeterminate != null) task.indeterminate = Boolean(patch.indeterminate);
     if (patch.detail != null) task.detail = String(patch.detail);
     if (patch.label != null) task.label = String(patch.label);
     if (patch.status) task.status = patch.status;
@@ -146,7 +148,7 @@
     render();
   }
 
-  function finish(id, detail = 'Completed') { update(id, {status: 'done', progress: 100, detail}); }
+  function finish(id, detail = 'Completed') { update(id, {status: 'done', progress: 100, indeterminate:false, detail}); }
   function fail(id, detail = 'Task failed') { update(id, {status: 'failed', detail}); }
   function cancelTask(id) {
     const task = tasks.get(id);

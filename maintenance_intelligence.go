@@ -30,10 +30,10 @@ type maintenanceFile struct {
 }
 
 type duplicateGroup struct {
-	SHA256               string   `json:"sha256"`
-	BytesPerFile         int64    `json:"bytes_per_file"`
-	Paths                []string `json:"paths"`
-	ReclaimableIfReviewed int64   `json:"reclaimable_if_reviewed_bytes"`
+	SHA256                string   `json:"sha256"`
+	BytesPerFile          int64    `json:"bytes_per_file"`
+	Paths                 []string `json:"paths"`
+	ReclaimableIfReviewed int64    `json:"reclaimable_if_reviewed_bytes"`
 }
 
 type appFootprintItem struct {
@@ -44,8 +44,8 @@ type appFootprintItem struct {
 }
 
 type persistentHistorySettings struct {
-	Enabled              bool `json:"enabled"`
-	AutoIntervalSeconds  int  `json:"auto_interval_seconds"`
+	Enabled             bool `json:"enabled"`
+	AutoIntervalSeconds int  `json:"auto_interval_seconds"`
 }
 
 func maintenanceAbsDir(raw string) (string, error) {
@@ -202,7 +202,10 @@ func (a *app) handleDuplicateExplorer(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 500, map[string]any{"error": walkErr.Error()})
 		return
 	}
-	type candidate struct{ size int64; path string }
+	type candidate struct {
+		size int64
+		path string
+	}
 	candidates := []candidate{}
 	for size, paths := range bySize {
 		if len(paths) < 2 {
@@ -217,7 +220,10 @@ func (a *app) handleDuplicateExplorer(w http.ResponseWriter, r *http.Request) {
 		candidates = candidates[:maxHashFiles]
 		limited = true
 	}
-	type hashKey struct{ size int64; hash string }
+	type hashKey struct {
+		size int64
+		hash string
+	}
 	byHash := map[hashKey][]string{}
 	hashed := 0
 	for _, c := range candidates {

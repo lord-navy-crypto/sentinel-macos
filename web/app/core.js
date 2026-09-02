@@ -22,7 +22,7 @@
     {id:'orient',mark:'●',label:'Orient',hint:'What matters?',lenses:['status','snapshot']},
     {id:'investigate',mark:'⌁',label:'Investigate',hint:'Build an explanation',lenses:['cases','search','relations','audit','object']},
     {id:'compare',mark:'Δ',label:'Compare',hint:'What changed?',lenses:['changes','behavior','reference']},
-    {id:'system',mark:'▦',label:'System',hint:'Everyday Mac + evidence / 日常状态与证据',lenses:['machine','tools','processes','observatory','startup','persistence','background','network','storage']},
+    {id:'system',mark:'▦',label:'System',hint:'Everyday Mac + evidence / 日常状态与证据',lenses:['machine','tools','processes','observatory','startup','persistence','background','network','storage','maintenance']},
     {id:'act',mark:'↺',label:'Act',hint:'Reversible only',lenses:['reclaim','change']},
     {id:'limits',mark:'?',label:'Limits',hint:'What can be known?',lenses:['visibility','guide']},
   ];
@@ -47,6 +47,7 @@
     background:{label:'Background',verb:'REGISTER',title:'What background registrations exist?',rule:'Modern registrations complement classic LaunchAgent and LaunchDaemon evidence.'},
     network:{label:'Network',verb:'LIVE',title:'Which processes have TCP activity now?',rule:'A public endpoint is ordinary context, not suspicion by itself.'},
     storage:{label:'Storage',verb:'MEASURE',title:'Where is storage pressure coming from?',rule:'Measure first. Exact duplicates and filename heuristics must remain separate.'},
+    maintenance:{label:'Maintenance Intelligence',verb:'MAINTAIN',title:'What can I safely understand before changing this Mac?',rule:'Measure large files, exact duplicates, app footprint and retained resource trends before considering cleanup.'},
     reclaim:{label:'Reclaim',verb:'REVIEW',title:'What space is worth reviewing?',rule:'Estimate first. Nothing is deleted automatically.'},
     change:{label:'Safe Change',verb:'RESOLVE',title:'What is the smallest reversible change supported by evidence?',rule:'Preview impact, confirm explicitly, preserve recovery.'},
     visibility:{label:'Visibility',verb:'BOUND',title:'What can Sentinel actually see?',rule:'Missing visibility lowers confidence; it must never be converted into invented evidence.'},
