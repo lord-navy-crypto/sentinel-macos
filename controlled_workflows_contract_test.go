@@ -23,22 +23,31 @@ func TestControlledWorkflowProductContract(t *testing.T) {
 	runtimeRaw, err := os.ReadFile("web/app/runtime.js")
 	if err != nil { t.Fatal(err) }
 	runtime := string(runtimeRaw)
+	docRaw, err := os.ReadFile("docs/CONTROLLED_WORKFLOWS.md")
+	if err != nil { t.Fatal(err) }
+	doc := string(docRaw)
 
 	for _, want := range []string{
 		`"pull", "--ff-only"`, "GIT_TERMINAL_PROMPT=0", "PULL --FF-ONLY", "before_head", "after_head",
 		"controlledDownloadMaxBytes", "512 << 20", "O_EXCL", "IsPrivate", "IsLoopback", "~/Downloads", "DOWNLOAD",
-		"controlled mutations are disabled in ephemeral mode",
+		"controlled mutations are disabled in ephemeral mode", "Downloads folder must already exist",
 	} {
 		if !strings.Contains(backend, want) { t.Fatalf("controlled backend missing %q", want) }
+	}
+	if strings.Contains(backend, "os.MkdirAll(downloads") {
+		t.Fatal("download preview path validation must not create the Downloads directory")
 	}
 	for _, route := range []string{"/api/workflows/git/preview", "/api/workflows/git/pull", "/api/workflows/download/preview", "/api/workflows/download/execute"} {
 		if !strings.Contains(mainText, route) { t.Fatalf("main route registration missing %q", route) }
 	}
-	for _, want := range []string{"Sentinel 3.3 Controlled Workflows Ultra", "/api/workflows/git/preview", "/api/workflows/git/pull", "/api/workflows/download/preview", "/api/workflows/download/execute", "TaskCenter"} {
+	for _, want := range []string{"Sentinel 3.3 Controlled Workflows Ultra", "/api/workflows/git/preview", "/api/workflows/git/pull", "/api/workflows/download/preview", "/api/workflows/download/execute", "TaskCenter", "Managed execution / 受控执行"} {
 		if !strings.Contains(ui, want) { t.Fatalf("controlled workflow UI missing %q", want) }
 	}
 	if !strings.Contains(runtime, "/app/controlled-workflows-ultra.js") || !strings.Contains(runtime, "loadControlledWorkflowsUltra") {
 		t.Fatal("canonical runtime must load Controlled Workflows Ultra")
+	}
+	for _, want := range []string{"Purpose / 用途", "How to use / 如何使用", "Caution / 注意", "Preview is read-only", "512 MiB", "indeterminate"} {
+		if !strings.Contains(doc, want) { t.Fatalf("controlled workflow documentation missing %q", want) }
 	}
 	for _, bad := range []string{"zsh -c", "bash -c", "sh -c", "eval("} {
 		if strings.Contains(strings.ToLower(backend), bad) || strings.Contains(strings.ToLower(ui), bad) {
