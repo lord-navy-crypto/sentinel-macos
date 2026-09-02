@@ -36,6 +36,7 @@ func TestWorkbenchUsesLayoutDockInsteadOfFloatingContext(t *testing.T) {
 	css := polishRead(t, "web/app/workbench-dock.css")
 	js := polishRead(t, "web/app/workbench-dock.js")
 	html := polishRead(t, "web/index.html")
+	runtime := polishRead(t, "web/app/runtime.js")
 	for _, want := range []string{".s24-shell.wb-dock-open", "grid-template-columns:218px 370px minmax(0,1fr)", ".s24-context.wb-docked", "position:relative!important", "grid-column:2!important", "grid-column:3!important", "wb-dock-wide"} {
 		if !strings.Contains(css, want) {
 			t.Fatalf("Workbench dock CSS missing %q", want)
@@ -46,13 +47,18 @@ func TestWorkbenchUsesLayoutDockInsteadOfFloatingContext(t *testing.T) {
 			t.Fatalf("Workbench dock behavior missing %q", want)
 		}
 	}
-	for _, want := range []string{"/app/workbench-dock.css", "/app/workbench-dock.js", "/app/task-center-placement.js"} {
-		if !strings.Contains(html, want) {
-			t.Fatalf("canonical app missing polish asset %q", want)
+	if !strings.Contains(html, "/app/workbench-dock.css") {
+		t.Fatal("canonical app must load Workbench dock layout CSS")
+	}
+	for _, want := range []string{"loadNativePolish", "/app/workbench-dock.js", "/app/task-center-placement.js"} {
+		if !strings.Contains(runtime, want) {
+			t.Fatalf("canonical runtime missing dynamic polish module %q", want)
 		}
 	}
-	if strings.Index(html, "/app/workbench-dock.js") < strings.Index(html, "/app/workbench.js") {
-		t.Fatal("Workbench dock must load after the Workbench behavior it adapts")
+	for _, bad := range []string{"<script src=\"/app/workbench-dock.js\"", "<script src=\"/app/task-center-placement.js\""} {
+		if strings.Contains(html, bad) {
+			t.Fatalf("polish module must not break canonical static script-count contract: %q", bad)
+		}
 	}
 }
 
@@ -75,7 +81,7 @@ func TestNativePolishJavaScriptSyntaxWhenNodeAvailable(t *testing.T) {
 	if err != nil {
 		t.Skip("node is not available")
 	}
-	for _, path := range []string{"web/app/workbench-dock.js", "web/app/task-center-placement.js"} {
+	for _, path := range []string{"web/app/workbench-dock.js", "web/app/task-center-placement.js", "web/app/runtime.js"} {
 		cmd := exec.Command(node, "--check", path)
 		if out, err := cmd.CombinedOutput(); err != nil {
 			t.Fatalf("%s syntax failed: %v\n%s", path, err, out)
