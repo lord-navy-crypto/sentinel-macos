@@ -6,7 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"os/exec"
+	"regexp"
 	"runtime"
 	"sort"
 	"strconv"
@@ -378,10 +378,10 @@ func resourceExplanation(sample resourceSample, mode string) map[string]any {
 		contributors = contributors[:6]
 	}
 	return map[string]any{
-		"mode": mode,
-		"observed": observed,
-		"interpretation": interpretation,
-		"contributors": contributors,
+		"mode":            mode,
+		"observed":        observed,
+		"interpretation":  interpretation,
+		"contributors":    contributors,
 		"not_established": "These observations alone do not establish hardware failure, malware, or a definitive root cause.",
 	}
 }

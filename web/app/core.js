@@ -22,7 +22,7 @@
     {id:'orient',mark:'●',label:'Orient',hint:'What matters?',lenses:['status','snapshot']},
     {id:'investigate',mark:'⌁',label:'Investigate',hint:'Build an explanation',lenses:['cases','search','relations','audit','object']},
     {id:'compare',mark:'Δ',label:'Compare',hint:'What changed?',lenses:['changes','behavior','reference']},
-    {id:'system',mark:'▦',label:'System',hint:'Everyday Mac + evidence / 日常状态与证据',lenses:['machine','tools','processes','startup','persistence','background','network','storage']},
+    {id:'system',mark:'▦',label:'System',hint:'Everyday Mac + evidence / 日常状态与证据',lenses:['machine','tools','processes','observatory','startup','persistence','background','network','storage']},
     {id:'act',mark:'↺',label:'Act',hint:'Reversible only',lenses:['reclaim','change']},
     {id:'limits',mark:'?',label:'Limits',hint:'What can be known?',lenses:['visibility','guide']},
   ];
@@ -39,6 +39,7 @@
     behavior:{label:'Behavior',verb:'COMPARE',title:'What differs from the previous observation?',rule:'Difference is evidence pressure, not danger.'},
     reference:{label:'Reference',verb:'REFERENCE',title:'What differs from my approved reference?',rule:'Reference membership is context, not a permanent safety certificate.'},
     machine:{label:'Machine',verb:'CONTEXT',title:'What machine is producing this evidence?',rule:'Hardware and runtime explain capability and compatibility.'},
+    observatory:{label:'Resource Observatory',verb:'OBSERVE',title:'What is using this Mac right now, and how is it changing?',rule:'Measure CPU, memory, disk, network and battery together. Trends and contributors are evidence, not a health score.'},
     tools:{label:'Terminal Tools / 终端工具',verb:'TOOLS',title:'Which macOS command-line capability do I need without memorising Terminal syntax?',rule:'Only allowlisted, typed, bounded tools are exposed. No arbitrary shell / 仅开放白名单、类型化、有边界的工具，不提供任意 shell。'},
     processes:{label:'Processes',verb:'LIVE',title:'What is running right now?',rule:'Treat a process as an identity connected to an executable and current activity.'},
     startup:{label:'Auto-start',verb:'DECLARE',title:'What is configured to launch automatically?',rule:'Persistence is common in legitimate software; configuration needs context.'},
