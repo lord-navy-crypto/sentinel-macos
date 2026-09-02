@@ -1,0 +1,70 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+/* Sentinel 3.4 Workbench Dock — Workbench is a layout region, never a floating modal. */
+
+.s24-context.wb-docked .s24-context-head{background:rgba(255,255,255,.018)}
+.s24-context.wb-docked .s24-context-head>div{min-width:0}
+.s24-context.wb-docked .s24-context-head strong{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wb-dock-controls{display:flex;align-items:center;gap:5px}
+.wb-dock-expand{width:30px;height:30px;border:1px solid var(--vn-line,var(--line));border-radius:8px;background:transparent;color:var(--vn-muted,var(--muted));cursor:pointer}
+.wb-dock-expand:hover{background:rgba(111,220,255,.06);color:var(--vn-blue,var(--focus))}
+
+@media(min-width:901px){
+  .s24-shell.wb-dock-open{
+    grid-template-columns:218px 370px minmax(0,1fr)!important;
+    grid-template-rows:68px 42px minmax(0,1fr)!important;
+  }
+  .s24-shell.wb-dock-open.wb-dock-wide{
+    grid-template-columns:218px min(520px,42vw) minmax(0,1fr)!important;
+  }
+  .s24-shell.wb-dock-open .s24-command{grid-column:1/4!important}
+  .s24-shell.wb-dock-open .s24-missions{grid-column:1!important;grid-row:2/4!important}
+  .s24-shell.wb-dock-open .s24-lenses{grid-column:3!important;grid-row:2!important}
+  .s24-shell.wb-dock-open .s24-stage{grid-column:3!important;grid-row:3!important}
+  .s24-shell.wb-dock-open .s24-context.wb-docked{
+    position:relative!important;
+    grid-column:2!important;
+    grid-row:2/4!important;
+    z-index:45!important;
+    top:auto!important;
+    right:auto!important;
+    bottom:auto!important;
+    left:auto!important;
+    width:auto!important;
+    max-width:none!important;
+    min-width:0!important;
+    height:auto!important;
+    border:0!important;
+    border-left:1px solid var(--vn-line,var(--line))!important;
+    border-right:1px solid var(--vn-line,var(--line))!important;
+    border-radius:0!important;
+    background:rgba(8,19,29,.76)!important;
+    box-shadow:none!important;
+    backdrop-filter:blur(18px) saturate(135%);
+    overflow:hidden;
+  }
+  .s24-shell.wb-dock-open .s24-context.wb-docked .s24-context-body{padding:15px;overflow:auto}
+}
+
+@media(max-width:900px){
+  .s24-shell.wb-dock-open{
+    grid-template-columns:minmax(0,1fr)!important;
+    grid-template-rows:52px 50px 38px minmax(240px,46vh) minmax(0,1fr)!important;
+  }
+  .s24-shell.wb-dock-open .s24-command{grid-column:1!important;grid-row:1!important}
+  .s24-shell.wb-dock-open .s24-missions{grid-column:1!important;grid-row:2!important}
+  .s24-shell.wb-dock-open .s24-lenses{grid-column:1!important;grid-row:3!important}
+  .s24-shell.wb-dock-open .s24-context.wb-docked{
+    position:relative!important;
+    grid-column:1!important;
+    grid-row:4!important;
+    top:auto!important;right:auto!important;bottom:auto!important;left:auto!important;
+    width:auto!important;height:auto!important;max-width:none!important;
+    border:0!important;border-bottom:1px solid var(--vn-line,var(--line))!important;
+    box-shadow:none!important;
+    overflow:hidden;
+  }
+  .s24-shell.wb-dock-open .s24-stage{grid-column:1!important;grid-row:5!important}
+  .wb-dock-expand{display:none}
+}
+
+@media(prefers-reduced-motion:reduce){.wb-dock-expand{transition:none!important}}
