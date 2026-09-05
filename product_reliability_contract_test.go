@@ -23,6 +23,7 @@ func TestProductReliabilityRoutesAreAuthenticated(t *testing.T) {
 		`mux.HandleFunc("/api/self/health", a.auth(a.handleSelfHealth))`,
 		`mux.HandleFunc("/api/update/status", a.auth(a.handleUpdateStatus))`,
 	} {
+		want = strings.ReplaceAll(want, `\"`, `"`)
 		if !strings.Contains(mainSource, want) {
 			t.Fatalf("Product Reliability route missing or not authenticated: %s", want)
 		}
@@ -38,6 +39,7 @@ func TestUpdateIntelligenceRemainsDiscoveryOnly(t *testing.T) {
 		"AutomaticDownload: false",
 		"channel must be stable or beta",
 		"releaseLooksPrerelease",
+		"io.LimitReader(resp.Body, 2<<20)",
 	} {
 		if !strings.Contains(backend, want) {
 			t.Fatalf("update discovery boundary missing %q", want)
@@ -103,7 +105,6 @@ func TestMachineIntegratesSelfHealthAndManualUpdateCheck(t *testing.T) {
 func TestProductionTrustManifestIsGeneratedAfterFailClosedVerification(t *testing.T) {
 	script := reliabilityRead(t, "release-direct-macos.sh")
 	verifyCommand := `SENTINEL_EXPECTED_SOURCE_SHA="$SOURCE_SHA" ./verify-release-macos.sh "$DMG"`
-	// Raw shell source contains normal quote characters, not Go escape syntax.
 	verifyCommand = strings.ReplaceAll(verifyCommand, `\"`, `"`)
 	manifestCommand := `cat > "$TRUST"`
 	manifestCommand = strings.ReplaceAll(manifestCommand, `\"`, `"`)
