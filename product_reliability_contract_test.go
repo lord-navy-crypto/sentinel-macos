@@ -102,6 +102,11 @@ func TestMachineIntegratesSelfHealthAndManualUpdateCheck(t *testing.T) {
 
 func TestProductionTrustManifestIsGeneratedAfterFailClosedVerification(t *testing.T) {
 	script := reliabilityRead(t, "release-direct-macos.sh")
+	verifyCommand := `SENTINEL_EXPECTED_SOURCE_SHA="$SOURCE_SHA" ./verify-release-macos.sh "$DMG"`
+	// Raw shell source contains normal quote characters, not Go escape syntax.
+	verifyCommand = strings.ReplaceAll(verifyCommand, `\"`, `"`)
+	manifestCommand := `cat > "$TRUST"`
+	manifestCommand = strings.ReplaceAll(manifestCommand, `\"`, `"`)
 	for _, want := range []string{
 		"release-trust.json",
 		`"developer_id_signed": true`,
@@ -109,14 +114,14 @@ func TestProductionTrustManifestIsGeneratedAfterFailClosedVerification(t *testin
 		`"notarized": true`,
 		`"stapled": true`,
 		`"gatekeeper_verified": true`,
-		`SENTINEL_EXPECTED_SOURCE_SHA="$SOURCE_SHA" ./verify-release-macos.sh "$DMG"`,
+		verifyCommand,
 	} {
 		if !strings.Contains(script, want) {
 			t.Fatalf("production release trust contract missing %q", want)
 		}
 	}
-	verifyAt := strings.Index(script, `SENTINEL_EXPECTED_SOURCE_SHA="$SOURCE_SHA" ./verify-release-macos.sh "$DMG"`)
-	manifestAt := strings.Index(script, `cat > "$TRUST"`)
+	verifyAt := strings.Index(script, verifyCommand)
+	manifestAt := strings.Index(script, manifestCommand)
 	if verifyAt < 0 || manifestAt < 0 || manifestAt <= verifyAt {
 		t.Fatal("production trust manifest must be emitted only after exact-artifact verification")
 	}
