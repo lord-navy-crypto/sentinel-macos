@@ -153,6 +153,16 @@
     document.body.appendChild(script);
   }
 
+  function loadQueueReadinessExtension(){
+    if(document.querySelector('script[data-sentinel-engineering-queue-readiness]'))return;
+    const script=document.createElement('script');
+    script.src='/app/engineering-queue-readiness.js';
+    script.dataset.sentinelEngineeringQueueReadiness='1';
+    script.async=true;
+    script.addEventListener('error',()=>console.warn('Sentinel Queue & Capacity Model Readiness could not be loaded.'));
+    document.body.appendChild(script);
+  }
+
   injectStyle();
   const observer=new MutationObserver(()=>ensure());
   observer.observe(document.getElementById('evidenceStage')||document.body,{childList:true,subtree:true});
@@ -163,4 +173,5 @@
   window.__SENTINEL_ENGINEERING_OPERATIONS__={marker:MARKER};
   loadBaselineExtension();
   loadQualityExperimentExtension();
+  loadQueueReadinessExtension();
 })();
