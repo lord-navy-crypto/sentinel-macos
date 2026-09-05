@@ -8,6 +8,7 @@
   const MARKER='Sentinel 3.6 Engineering Operations Intelligence';
   const HOST_ID='engineeringOperationsBand';
   const MIN_RATE_WINDOW_MS=60000;
+  let lastRenderSignature='';
 
   function esc(value){return S.esc?S.esc(String(value??'')):String(value??'');}
   function tasks(){return S.TaskCenter?.tasks?[...S.TaskCenter.tasks.values()]:[];}
@@ -25,6 +26,12 @@
     return rows.length%2?rows[mid]:(rows[mid-1]+rows[mid])/2;
   }
   function pct(part,total){return total>0?`${(part/total*100).toFixed(0)}%`:'—';}
+  function renderSignature(){
+    return tasks().map(t=>[
+      t.id,t.status,Number(t.progress)||0,Boolean(t.indeterminate),t.detail||'',t.source||'',t.kind||'',
+      Number(t.startedAt)||0,Number(t.completedAt)||0,Boolean(t.stalled),Number(t.signalCount)||1,
+    ].join('~')).sort().join('|');
+  }
 
   function summarize(){
     const rows=tasks(),now=Date.now();
@@ -103,11 +110,18 @@
     if(S.state?.lens!=='observatory')return;
     const stage=document.getElementById('evidenceStage');
     if(!stage)return;
+    const signature=renderSignature();
     let host=document.getElementById(HOST_ID);
-    if(!host){stage.insertAdjacentHTML('beforeend',render());return;}
+    if(!host){
+      stage.insertAdjacentHTML('beforeend',render());
+      lastRenderSignature=signature;
+      return;
+    }
+    if(signature===lastRenderSignature)return;
     const replacement=document.createElement('div');
     replacement.innerHTML=render();
     host.replaceWith(replacement.firstElementChild);
+    lastRenderSignature=signature;
   }
 
   function injectStyle(){
@@ -125,6 +139,6 @@
   setInterval(ensure,2000);
   ensure();
 
-  S.EngineeringOperations={marker:MARKER,summarize,render};
+  S.EngineeringOperations={marker:MARKER,summarize,render,renderSignature};
   window.__SENTINEL_ENGINEERING_OPERATIONS__={marker:MARKER};
 })();
