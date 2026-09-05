@@ -16,11 +16,11 @@ import (
 )
 
 const (
-	persistentHistoryWriteMarker      = "Sentinel 2.9 Resource History Write Cap"
-	persistentHistoryWriteLimitBytes  = int64(12 * 1024 * 1024)
-	persistentHistoryCompactToBytes   = int64(8 * 1024 * 1024)
-	persistentHistoryMaxSampleBytes   = 256 * 1024
-	persistentHistoryScannerMaxBytes  = 1024 * 1024
+	persistentHistoryWriteMarker     = "Sentinel 2.9 Resource History Write Cap"
+	persistentHistoryWriteLimitBytes = int64(12 * 1024 * 1024)
+	persistentHistoryCompactToBytes  = int64(8 * 1024 * 1024)
+	persistentHistoryMaxSampleBytes  = 256 * 1024
+	persistentHistoryScannerMaxBytes = 1024 * 1024
 )
 
 var persistentHistoryWriteMu sync.Mutex
@@ -167,7 +167,11 @@ func appendPersistentSampleBounded(sample resourceSample, limitBytes, targetByte
 		return status, err
 	}
 	status.Path = historyPath
-	if err := os.MkdirAll(filepath.Dir(historyPath), 0700); err != nil {
+	stateDir := filepath.Dir(historyPath)
+	if err := os.MkdirAll(stateDir, 0700); err != nil {
+		return status, err
+	}
+	if err := os.Chmod(stateDir, 0700); err != nil {
 		return status, err
 	}
 
