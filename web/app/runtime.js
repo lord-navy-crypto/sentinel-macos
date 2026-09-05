@@ -80,6 +80,16 @@
     const script=document.createElement('script');script.src='/app/maintenance-ultra.js';script.dataset.sentinelMaintenanceUltra='1';script.async=true;script.addEventListener('error',()=>console.warn('Sentinel Maintenance Intelligence Ultra could not be loaded.'));document.body.appendChild(script);
   }
 
+  function loadStorageReviewWorkbench(){
+    if(document.querySelector('script[data-sentinel-storage-review-workbench]'))return;
+    const script=document.createElement('script');
+    script.src='/app/storage-review-workbench.js';
+    script.dataset.sentinelStorageReviewWorkbench='1';
+    script.async=true;
+    script.addEventListener('error',()=>console.warn('Sentinel Storage Review Workbench could not be loaded.'));
+    document.body.appendChild(script);
+  }
+
   function loadTaskCenter(){
     if(document.querySelector('script[data-sentinel-task-center]'))return;
     const script=document.createElement('script');
@@ -153,6 +163,7 @@
   loadTaskCenter();
   loadResourceObservatory();
   loadMaintenanceUltra();
+  loadStorageReviewWorkbench();
   loadProductBalanceUltra();
   loadVisualNative();
   loadNativePolish();
