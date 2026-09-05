@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -66,25 +67,25 @@ type updateStatusResponse struct {
 }
 
 type selfHealthResponse struct {
-	Marker                    string   `json:"marker"`
-	CapturedAt                string   `json:"captured_at"`
-	Version                   string   `json:"version"`
-	PID                       int      `json:"pid"`
-	UptimeSeconds             float64  `json:"uptime_seconds"`
-	ProcessCPUPercent         float64  `json:"process_cpu_percent,omitempty"`
-	ProcessRSSBytes           int64    `json:"process_rss_bytes,omitempty"`
-	GoHeapAllocBytes          uint64   `json:"go_heap_alloc_bytes"`
-	GoHeapSysBytes            uint64   `json:"go_heap_sys_bytes"`
-	GoSysBytes                uint64   `json:"go_sys_bytes"`
-	GoRoutines                int      `json:"goroutines"`
-	CompletedGC               uint32   `json:"completed_gc"`
-	SampleDurationMS          float64  `json:"sample_duration_ms"`
-	IdleCPUTargetPercent      float64  `json:"idle_cpu_target_percent"`
-	MonitoringCPUTargetPercent float64 `json:"monitoring_cpu_target_percent"`
-	AboveIdleTarget           bool     `json:"above_idle_target"`
-	AboveMonitoringTarget     bool     `json:"above_monitoring_target"`
-	Limited                   []string `json:"limited,omitempty"`
-	Note                      string   `json:"note"`
+	Marker                     string   `json:"marker"`
+	CapturedAt                 string   `json:"captured_at"`
+	Version                    string   `json:"version"`
+	PID                        int      `json:"pid"`
+	UptimeSeconds              float64  `json:"uptime_seconds"`
+	ProcessCPUPercent          float64  `json:"process_cpu_percent,omitempty"`
+	ProcessRSSBytes            int64    `json:"process_rss_bytes,omitempty"`
+	GoHeapAllocBytes           uint64   `json:"go_heap_alloc_bytes"`
+	GoHeapSysBytes             uint64   `json:"go_heap_sys_bytes"`
+	GoSysBytes                 uint64   `json:"go_sys_bytes"`
+	GoRoutines                 int      `json:"goroutines"`
+	CompletedGC                uint32   `json:"completed_gc"`
+	SampleDurationMS           float64  `json:"sample_duration_ms"`
+	IdleCPUTargetPercent       float64  `json:"idle_cpu_target_percent"`
+	MonitoringCPUTargetPercent float64  `json:"monitoring_cpu_target_percent"`
+	AboveIdleTarget            bool     `json:"above_idle_target"`
+	AboveMonitoringTarget      bool     `json:"above_monitoring_target"`
+	Limited                    []string `json:"limited,omitempty"`
+	Note                       string   `json:"note"`
 }
 
 func parseSentinelVersion(raw string) (semanticVersion, bool) {
@@ -231,7 +232,7 @@ func (a *app) handleUpdateStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var releases []githubRelease
-	dec := json.NewDecoder(http.MaxBytesReader(w, resp.Body, 2<<20))
+	dec := json.NewDecoder(io.LimitReader(resp.Body, 2<<20))
 	if err := dec.Decode(&releases); err != nil {
 		writeJSON(w, http.StatusBadGateway, map[string]any{"error": "update source returned invalid release metadata"})
 		return
