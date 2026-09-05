@@ -57,12 +57,13 @@ func TestUpdateIntelligenceRemainsDiscoveryOnly(t *testing.T) {
 	}
 	for _, bad := range []string{
 		"os.WriteFile(",
-		"exec.Command(\"/usr/bin/open\"",
-		"exec.Command(\"/usr/bin/curl\"",
-		"exec.Command(\"curl\"",
-		"exec.Command(\"installer\"",
-		"exec.Command(\"ditto\"",
+		`exec.Command("/usr/bin/open"`,
+		`exec.Command("/usr/bin/curl"`,
+		`exec.Command("curl"`,
+		`exec.Command("installer"`,
+		`exec.Command("ditto"`,
 	} {
+		bad = strings.ReplaceAll(bad, `\"`, `"`)
 		if strings.Contains(backend, bad) {
 			t.Fatalf("update backend contains prohibited installation/mutation pattern %q", bad)
 		}
