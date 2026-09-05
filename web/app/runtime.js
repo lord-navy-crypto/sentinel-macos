@@ -74,6 +74,16 @@
     document.body.appendChild(script);
   }
 
+  function loadEngineeringOperations(){
+    if(document.querySelector('script[data-sentinel-engineering-operations]'))return;
+    const script=document.createElement('script');
+    script.src='/app/engineering-operations.js';
+    script.dataset.sentinelEngineeringOperations='1';
+    script.async=true;
+    script.addEventListener('error',()=>console.warn('Sentinel Engineering Operations Intelligence could not be loaded.'));
+    document.body.appendChild(script);
+  }
+
   function loadMaintenanceUltra(){
     if(!document.querySelector('link[data-sentinel-maintenance-ultra-style]')){const link=document.createElement('link');link.rel='stylesheet';link.href='/app/maintenance-ultra.css';link.dataset.sentinelMaintenanceUltraStyle='1';document.head.appendChild(link);}
     if(document.querySelector('script[data-sentinel-maintenance-ultra]'))return;
@@ -162,6 +172,7 @@
   renderNavigation();navigate(LENSES[initial]?initial:'status',{push:false});
   loadTaskCenter();
   loadResourceObservatory();
+  loadEngineeringOperations();
   loadMaintenanceUltra();
   loadStorageReviewWorkbench();
   loadProductBalanceUltra();
