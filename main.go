@@ -113,6 +113,8 @@ func main() {
 	mux.HandleFunc("/api/maintenance/large-files", a.auth(a.work.wrap("large-file-explorer", a.handleLargeFiles)))
 	mux.HandleFunc("/api/maintenance/duplicates", a.auth(a.work.wrap("duplicate-explorer", a.handleDuplicateExplorer)))
 	mux.HandleFunc("/api/maintenance/app-footprint", a.auth(a.work.wrap("app-footprint", a.handleAppFootprint)))
+	mux.HandleFunc("/api/maintenance/old-files", a.auth(a.work.wrap("old-file-explorer", a.handleOldFileExplorer)))
+	mux.HandleFunc("/api/maintenance/downloads", a.auth(a.work.wrap("downloads-intelligence", a.handleDownloadsIntelligence)))
 	mux.HandleFunc("/api/maintenance/history/settings", a.auth(a.handlePersistentHistorySettings))
 	mux.HandleFunc("/api/maintenance/history/sample", a.auth(a.work.wrap("persistent-resource-sample", a.handlePersistentHistorySampleV2)))
 	mux.HandleFunc("/api/maintenance/history/read", a.auth(a.handlePersistentHistoryRead))
