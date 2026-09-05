@@ -1,7 +1,7 @@
 # Current release line
 
-**Sentinel 2.7 — Resilient Local Intelligence**
+**Sentinel 2.8 — Product Reliability**
 
-Version: `2.7.0`
+Version: `2.8.0`
 
-Detailed notes: `RELEASE_NOTES_v2.7.md`
+Detailed notes: `RELEASE_NOTES_v2.8.md`

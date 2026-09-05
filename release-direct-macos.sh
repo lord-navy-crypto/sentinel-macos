@@ -28,6 +28,7 @@ VERSION="$(tr -d '[:space:]' < VERSION)"
 BUNDLE_ID="${SENTINEL_BUNDLE_ID:-io.github.lord-navy-crypto.sentinel}"
 APP="$HERE/dist/Sentinel.app"
 DMG="$HERE/dist/Sentinel-${VERSION}.dmg"
+TRUST="$HERE/dist/Sentinel-${VERSION}.release-trust.json"
 ROOT="$HERE/dist/release-dmg-root"
 FEATURES="$HERE/dist/BUILD_FEATURES.txt"
 
@@ -68,7 +69,7 @@ codesign --force --timestamp --options runtime --sign "$DEVELOPER_ID_APP" "$APP"
 # A malformed signature is a hard release failure before notarization.
 codesign --verify --deep --strict --verbose=2 "$APP"
 
-rm -rf "$ROOT" "$DMG" "$DMG.sha256"
+rm -rf "$ROOT" "$DMG" "$DMG.sha256" "$TRUST"
 mkdir -p "$ROOT"
 ditto "$APP" "$ROOT/Sentinel.app"
 ln -s /Applications "$ROOT/Applications"
@@ -88,10 +89,36 @@ xcrun stapler validate "$DMG"
 SENTINEL_EXPECTED_SOURCE_SHA="$SOURCE_SHA" ./verify-release-macos.sh "$DMG"
 
 shasum -a 256 "$DMG" > "$DMG.sha256"
+ARTIFACT_SHA="$(awk '{print $1}' "$DMG.sha256")"
+GENERATED_AT="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+cat > "$TRUST" <<EOF
+{
+  "schema": 1,
+  "product": "Sentinel",
+  "version": "$VERSION",
+  "channel": "stable",
+  "source_commit": "$SOURCE_SHA",
+  "artifact": "$(basename "$DMG")",
+  "artifact_sha256": "$ARTIFACT_SHA",
+  "universal_app": true,
+  "native_fsevents": true,
+  "security_framework": true,
+  "developer_id_signed": true,
+  "hardened_runtime": true,
+  "notarized": true,
+  "stapled": true,
+  "gatekeeper_verified": true,
+  "generated_at": "$GENERATED_AT",
+  "note": "Generated only after Sentinel's fail-closed production verifier passes the exact DMG."
+}
+EOF
+chmod 600 "$TRUST"
+
 cat "$DMG.sha256"
 printf '%s\n' \
   "Release ready: $DMG" \
   "Source commit: $SOURCE_SHA" \
+  "Trust manifest: $TRUST" \
   "Engine features: native FSEvents + Security.framework on arm64 and x86_64" \
   "Verification: clean source + provenance + native capabilities + signature + notarization + Gatekeeper + mounted app + universal engines PASS" \
-  "Upload this single DMG and its .sha256 file to GitHub Releases / your download website."
+  "Upload the DMG, its .sha256, and release-trust.json to GitHub Releases / your download website."

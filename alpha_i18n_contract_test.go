@@ -56,8 +56,9 @@ func TestAlphaCenterIsReadOnlyCapabilitySurface(t *testing.T) {
 }
 func TestProductSnapshotReplacesRetiredEasyPortal(t *testing.T) {
 	html := readAlphaContractFile(t, "web/index.html")
+	version := strings.TrimSpace(readAlphaContractFile(t, "VERSION"))
 	js := requireProductScript(t, "web/app/lenses/orient-investigate.js")
-	for _, want := range []string{"Sentinel 2.7", "renderSnapshot", "/api/quick-check", "/api/review-queue", "Attention index", "Review queue"} {
+	for _, want := range []string{"Sentinel " + version, "renderSnapshot", "/api/quick-check", "/api/review-queue", "Attention index", "Review queue"} {
 		if !strings.Contains(html+js, want) {
 			t.Fatalf("snapshot missing %q", want)
 		}

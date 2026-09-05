@@ -100,12 +100,29 @@
     document.body.appendChild(script);
   }
 
+  function loadProductReliability(){
+    if(!S.VisualNative)return;
+    if(document.querySelector('script[data-sentinel-product-reliability]'))return;
+    const script=document.createElement('script');
+    script.src='/app/product-reliability.js';
+    script.dataset.sentinelProductReliability='1';
+    script.async=true;
+    script.addEventListener('error',()=>console.warn('Sentinel Product Reliability could not be loaded.'));
+    document.body.appendChild(script);
+  }
+
   function loadVisualNative(){
-    if(document.querySelector('script[data-sentinel-visual-native]'))return;
+    const existing=document.querySelector('script[data-sentinel-visual-native]');
+    if(existing){
+      if(S.VisualNative)loadProductReliability();
+      else existing.addEventListener('load',loadProductReliability,{once:true});
+      return;
+    }
     const script=document.createElement('script');
     script.src='/app/visual-native.js';
     script.dataset.sentinelVisualNative='1';
     script.async=true;
+    script.addEventListener('load',loadProductReliability,{once:true});
     script.addEventListener('error',()=>console.warn('Sentinel Visual Native could not be loaded.'));
     document.body.appendChild(script);
   }

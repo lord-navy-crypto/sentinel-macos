@@ -12,9 +12,14 @@ func TestOneClickCheckIsNativeProductSnapshot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	versionBytes, err := os.ReadFile("VERSION")
+	if err != nil {
+		t.Fatal(err)
+	}
+	productLabel := "Sentinel " + strings.TrimSpace(string(versionBytes))
 	js := requireProductScript(t, "web/app/lenses/orient-investigate.js")
 	all := string(html) + "\n" + js
-	for _, want := range []string{"Sentinel 2.7", "missionRibbon", "evidenceStage", "renderSnapshot", "Run Snapshot", "/api/quick-check", "/api/review-queue", "Attention index", "Evidence boundary"} {
+	for _, want := range []string{productLabel, "missionRibbon", "evidenceStage", "renderSnapshot", "Run Snapshot", "/api/quick-check", "/api/review-queue", "Attention index", "Evidence boundary"} {
 		if !strings.Contains(all, want) {
 			t.Fatalf("snapshot missing %q", want)
 		}
