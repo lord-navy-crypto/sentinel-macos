@@ -46,7 +46,7 @@ func TestTaskCenterCoalescingIsOptIn(t *testing.T) {
 	raw, err := os.ReadFile("web/app/task-center.js")
 	if err != nil { t.Fatal(err) }
 	source := string(raw)
-	if strings.Contains(source, `normalizeKey(options.dedupeKey || `${`) {
+	if strings.Contains(source, "options.dedupeKey || `${") {
 		t.Fatal("Task Center must not synthesize a default dedupe key from label/kind; coalescing must remain caller-controlled")
 	}
 	if !strings.Contains(source, `normalizeKey(options.dedupeKey || '')`) {
