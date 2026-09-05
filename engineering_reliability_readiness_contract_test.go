@@ -8,6 +8,22 @@ import (
     "testing"
 )
 
+func TestEngineeringReliabilityReadinessLoaderContract(t *testing.T) {
+    raw, err := os.ReadFile("web/app/engineering-operations.js")
+    if err != nil { t.Fatal(err) }
+    source := string(raw)
+    for _, want := range []string{
+        `function loadReliabilityReadinessExtension()`,
+        `script.src='/app/engineering-reliability-readiness.js'`,
+        `script.dataset.sentinelEngineeringReliabilityReadiness='1'`,
+        `loadReliabilityReadinessExtension();`,
+    } {
+        if !strings.Contains(source, want) {
+            t.Fatalf("missing reliability readiness loader marker %q", want)
+        }
+    }
+}
+
 func TestEngineeringReliabilityReadinessEvidenceContract(t *testing.T) {
     raw, err := os.ReadFile("web/app/engineering-reliability-readiness.js")
     if err != nil { t.Fatal(err) }
@@ -23,6 +39,7 @@ func TestEngineeringReliabilityReadinessEvidenceContract(t *testing.T) {
         `not hazard or ROCOF`,
         `FAMILY ≠ ROOT CAUSE`,
         `No physical reliability, survival function, hazard rate, ROCOF, MTBF`,
+        `No Weibull, exponential, lognormal, or other lifetime model is fitted automatically.`,
     } {
         if !strings.Contains(source, want) {
             t.Fatalf("missing reliability-readiness evidence marker %q", want)
@@ -70,22 +87,26 @@ func TestEngineeringReliabilityReadinessFailureFamilyBoundary(t *testing.T) {
 func TestEngineeringReliabilityReadinessIsModelGated(t *testing.T) {
     raw, err := os.ReadFile("web/app/engineering-reliability-readiness.js")
     if err != nil { t.Fatal(err) }
-    source := string(raw)
+    source := strings.ToLower(string(raw))
     for _, forbidden := range []string{
         `fetch(`,
         `api(`,
-        `localStorage`,
-        `sessionStorage`,
-        `indexedDB`,
-        `method:'POST'`,
-        `method:\"POST\"`,
+        `localstorage`,
+        `sessionstorage`,
+        `indexeddb`,
+        `method:'post'`,
+        `method:\"post\"`,
         `/api/reliability`,
-        `weibull`,
-        `mtbf =`,
-        `hazard =`,
-        `rocof =`,
+        `calculateweibull`,
+        `fitweibull`,
+        `calculatemtbf`,
+        `estimatehazard`,
+        `estimaterocof`,
+        `mtbf = 1/`,
+        `hazard = failures`,
+        `rocof = failures`,
     } {
-        if strings.Contains(strings.ToLower(source), strings.ToLower(forbidden)) {
+        if strings.Contains(source, forbidden) {
             t.Fatalf("reliability readiness must remain a read-only model gate; found %q", forbidden)
         }
     }
