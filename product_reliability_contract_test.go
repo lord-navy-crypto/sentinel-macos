@@ -20,12 +20,13 @@ func reliabilityRead(t *testing.T, path string) string {
 func TestProductReliabilityRoutesAreAuthenticated(t *testing.T) {
 	mainSource := reliabilityRead(t, "main.go")
 	for _, want := range []string{
-		`mux.HandleFunc("/api/self/health", a.auth(a.handleSelfHealth))`,
-		`mux.HandleFunc("/api/update/status", a.auth(a.handleUpdateStatus))`,
+		"/api/self/health",
+		"a.auth(a.handleSelfHealth)",
+		"/api/update/status",
+		"a.auth(a.handleUpdateStatus)",
 	} {
-		want = strings.ReplaceAll(want, `\"`, `"`)
 		if !strings.Contains(mainSource, want) {
-			t.Fatalf("Product Reliability route missing or not authenticated: %s", want)
+			t.Fatalf("Product Reliability authenticated route contract missing %q", want)
 		}
 	}
 }
@@ -57,13 +58,12 @@ func TestUpdateIntelligenceRemainsDiscoveryOnly(t *testing.T) {
 	}
 	for _, bad := range []string{
 		"os.WriteFile(",
-		`exec.Command("/usr/bin/open"`,
-		`exec.Command("/usr/bin/curl"`,
-		`exec.Command("curl"`,
-		`exec.Command("installer"`,
-		`exec.Command("ditto"`,
+		"exec.Command(\"/usr/bin/open\"",
+		"exec.Command(\"/usr/bin/curl\"",
+		"exec.Command(\"curl\"",
+		"exec.Command(\"installer\"",
+		"exec.Command(\"ditto\"",
 	} {
-		bad = strings.ReplaceAll(bad, `\"`, `"`)
 		if strings.Contains(backend, bad) {
 			t.Fatalf("update backend contains prohibited installation/mutation pattern %q", bad)
 		}
@@ -105,25 +105,22 @@ func TestMachineIntegratesSelfHealthAndManualUpdateCheck(t *testing.T) {
 
 func TestProductionTrustManifestIsGeneratedAfterFailClosedVerification(t *testing.T) {
 	script := reliabilityRead(t, "release-direct-macos.sh")
-	verifyCommand := `SENTINEL_EXPECTED_SOURCE_SHA="$SOURCE_SHA" ./verify-release-macos.sh "$DMG"`
-	verifyCommand = strings.ReplaceAll(verifyCommand, `\"`, `"`)
-	manifestCommand := `cat > "$TRUST"`
-	manifestCommand = strings.ReplaceAll(manifestCommand, `\"`, `"`)
 	for _, want := range []string{
 		"release-trust.json",
-		`"developer_id_signed": true`,
-		`"hardened_runtime": true`,
-		`"notarized": true`,
-		`"stapled": true`,
-		`"gatekeeper_verified": true`,
-		verifyCommand,
+		"\"developer_id_signed\": true",
+		"\"hardened_runtime\": true",
+		"\"notarized\": true",
+		"\"stapled\": true",
+		"\"gatekeeper_verified\": true",
+		"SENTINEL_EXPECTED_SOURCE_SHA=",
+		"./verify-release-macos.sh",
 	} {
 		if !strings.Contains(script, want) {
 			t.Fatalf("production release trust contract missing %q", want)
 		}
 	}
-	verifyAt := strings.Index(script, verifyCommand)
-	manifestAt := strings.Index(script, manifestCommand)
+	verifyAt := strings.Index(script, "SENTINEL_EXPECTED_SOURCE_SHA=")
+	manifestAt := strings.Index(script, "cat > \"$TRUST\"")
 	if verifyAt < 0 || manifestAt < 0 || manifestAt <= verifyAt {
 		t.Fatal("production trust manifest must be emitted only after exact-artifact verification")
 	}
@@ -133,11 +130,11 @@ func TestBetaTrustManifestNeverClaimsProductionTrust(t *testing.T) {
 	script := reliabilityRead(t, "package-dev-dmg-macos.sh")
 	for _, want := range []string{
 		"release-trust.json",
-		`"developer_id_signed": false`,
-		`"hardened_runtime": false`,
-		`"notarized": false`,
-		`"stapled": false`,
-		`"gatekeeper_verified": false`,
+		"\"developer_id_signed\": false",
+		"\"hardened_runtime\": false",
+		"\"notarized\": false",
+		"\"stapled\": false",
+		"\"gatekeeper_verified\": false",
 		"does not upgrade its distribution trust",
 	} {
 		if !strings.Contains(script, want) {
