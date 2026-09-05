@@ -42,6 +42,7 @@ type app struct {
 	changes        *changeManager
 	incidents      *incidentManager
 	networkHistory *networkHistoryManager
+	storageHistory *storageHistoryManager
 	logs           *runtimeLogBuffer
 }
 
@@ -83,14 +84,16 @@ func main() {
 	logs := newRuntimeLogBuffer()
 	log.SetOutput(runtimeLogOutput(logs, os.Stderr))
 	intel := newIntelligenceManager()
+	storageHistory := newStorageHistoryManager(*ephemeral)
 	a := &app{
 		token: token, startedAt: time.Now(), ephemeral: *ephemeral, instanceLock: instanceLock,
 		work: newWorkGate(2), jobs: newScanManager(), intel: intel,
 		behavior: newBehaviorManager(*ephemeral), trust: newTrustManager(*ephemeral),
 		persistence: newPersistenceManager(), actions: newActionManager(*ephemeral),
 		changes: newChangeManager(intel, *ephemeral), incidents: newIncidentManager(*ephemeral),
-		networkHistory: newNetworkHistoryManager(*ephemeral), logs: logs,
+		networkHistory: newNetworkHistoryManager(*ephemeral), storageHistory: storageHistory, logs: logs,
 	}
+	a.startStorageHistoryBridge()
 
 	mux := http.NewServeMux()
 	staticFS, err := fs.Sub(webFS, "web")
@@ -105,6 +108,7 @@ func main() {
 	mux.HandleFunc("/api/health/live", a.auth(a.handleMacHealth))
 	mux.HandleFunc("/api/resource/current", a.auth(a.handleResourceCurrent))
 	mux.HandleFunc("/api/resource/history", a.auth(a.handleResourceHistory))
+	mux.HandleFunc("/api/history/what-changed", a.auth(a.handleWhatChanged))
 	mux.HandleFunc("/api/resource/explain", a.auth(a.handleResourceExplain))
 	mux.HandleFunc("/api/maintenance/large-files", a.auth(a.work.wrap("large-file-explorer", a.handleLargeFiles)))
 	mux.HandleFunc("/api/maintenance/duplicates", a.auth(a.work.wrap("duplicate-explorer", a.handleDuplicateExplorer)))
