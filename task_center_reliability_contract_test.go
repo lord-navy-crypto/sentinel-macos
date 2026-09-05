@@ -32,7 +32,7 @@ func TestTaskCenterReliabilityCoreContract(t *testing.T) {
 		`retryAction: typeof options.retryAction === 'function' ? options.retryAction : null`,
 		`data-task-result`,
 		`data-task-retry`,
-		`task.indeterminate && task.status === 'running' ? '…'`,
+		`task.status === 'running' && task.indeterminate ? '…'`,
 		`if (task.status === 'running' && t - task.lastChangeAt >= STALL_MS) task.stalled = true;`,
 		`limits:{visible:MAX_VISIBLE,retained:MAX_RETAINED,dedupeWindowMs:DEDUPE_WINDOW_MS}`,
 	} {
