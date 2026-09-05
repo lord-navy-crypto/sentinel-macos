@@ -143,6 +143,16 @@
     document.body.appendChild(script);
   }
 
+  function loadQualityExperimentExtension(){
+    if(document.querySelector('script[data-sentinel-engineering-quality-experiment]'))return;
+    const script=document.createElement('script');
+    script.src='/app/engineering-quality-experiment.js';
+    script.dataset.sentinelEngineeringQualityExperiment='1';
+    script.async=true;
+    script.addEventListener('error',()=>console.warn('Sentinel Engineering Quality & Experiment Readiness could not be loaded.'));
+    document.body.appendChild(script);
+  }
+
   injectStyle();
   const observer=new MutationObserver(()=>ensure());
   observer.observe(document.getElementById('evidenceStage')||document.body,{childList:true,subtree:true});
@@ -152,4 +162,5 @@
   S.EngineeringOperations={marker:MARKER,summarize,render,renderSignature};
   window.__SENTINEL_ENGINEERING_OPERATIONS__={marker:MARKER};
   loadBaselineExtension();
+  loadQualityExperimentExtension();
 })();
