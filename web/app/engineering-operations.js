@@ -133,6 +133,16 @@
     document.head.appendChild(link);
   }
 
+  function loadBaselineExtension(){
+    if(document.querySelector('script[data-sentinel-engineering-operations-baseline]'))return;
+    const script=document.createElement('script');
+    script.src='/app/engineering-operations-baseline.js';
+    script.dataset.sentinelEngineeringOperationsBaseline='1';
+    script.async=true;
+    script.addEventListener('error',()=>console.warn('Sentinel Engineering Operations Baseline could not be loaded.'));
+    document.body.appendChild(script);
+  }
+
   injectStyle();
   const observer=new MutationObserver(()=>ensure());
   observer.observe(document.getElementById('evidenceStage')||document.body,{childList:true,subtree:true});
@@ -141,4 +151,5 @@
 
   S.EngineeringOperations={marker:MARKER,summarize,render,renderSignature};
   window.__SENTINEL_ENGINEERING_OPERATIONS__={marker:MARKER};
+  loadBaselineExtension();
 })();
