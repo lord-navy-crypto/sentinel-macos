@@ -8,6 +8,22 @@ import (
     "testing"
 )
 
+func TestEngineeringQueueReadinessLoaderContract(t *testing.T) {
+    raw, err := os.ReadFile("web/app/engineering-operations.js")
+    if err != nil { t.Fatal(err) }
+    source := string(raw)
+    for _, want := range []string{
+        `function loadQueueReadinessExtension()`,
+        `script.src='/app/engineering-queue-readiness.js'`,
+        `script.dataset.sentinelEngineeringQueueReadiness='1'`,
+        `loadQueueReadinessExtension();`,
+    } {
+        if !strings.Contains(source, want) {
+            t.Fatalf("missing queue readiness loader marker %q", want)
+        }
+    }
+}
+
 func TestEngineeringQueueReadinessEvidenceContract(t *testing.T) {
     raw, err := os.ReadFile("web/app/engineering-queue-readiness.js")
     if err != nil { t.Fatal(err) }
