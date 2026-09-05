@@ -8,6 +8,22 @@ import (
     "testing"
 )
 
+func TestEngineeringQualityExperimentLoaderContract(t *testing.T) {
+    raw, err := os.ReadFile("web/app/engineering-operations.js")
+    if err != nil { t.Fatal(err) }
+    source := string(raw)
+    for _, want := range []string{
+        `function loadQualityExperimentExtension()`,
+        `script.src='/app/engineering-quality-experiment.js'`,
+        `script.dataset.sentinelEngineeringQualityExperiment='1'`,
+        `loadQualityExperimentExtension();`,
+    } {
+        if !strings.Contains(source, want) {
+            t.Fatalf("missing Engineering Quality/Experiment loader marker %q", want)
+        }
+    }
+}
+
 func TestEngineeringQualityExperimentEvidenceContract(t *testing.T) {
     raw, err := os.ReadFile("web/app/engineering-quality-experiment.js")
     if err != nil { t.Fatal(err) }
