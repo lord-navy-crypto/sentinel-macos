@@ -5,6 +5,7 @@
   if (!S) return;
   const {api,esc,bytes,question,band,empty,table,registerLens,notice,activity} = S;
   const MARKER = 'Sentinel 3.1 Maintenance Intelligence Ultra';
+  const STORAGE_REVIEW_MARKER = 'Sentinel 3.2 Storage Review Intelligence';
   let persistentTimer = 0;
   let persistentSettings = {enabled:false,auto_interval_seconds:60};
 
@@ -30,6 +31,17 @@
       const weight=Math.max(12,Math.round(Number(node.bytes||0)/max*100));
       return `<button type="button" class="maintenance-heat" style="--heat-weight:${weight}" data-maintenance-heat-path="${esc(node.path)}" title="${esc(node.path)}"><b>${esc(node.name)}</b><span>${bytes(node.bytes)}</span><small>${Number(node.percent||0).toFixed(1)}%</small></button>`;
     }).join('')}</div>`;
+  }
+
+  function reviewBoundary(d) {
+    const definition=d?.definition?`<div class="maintenance-note"><b>Definition</b><br>${esc(d.definition)}</div>`:'';
+    const unknown=d?.not_established?`<div class="maintenance-note"><b>Not established</b><br>${esc(d.not_established)}</div>`:'';
+    return definition+unknown;
+  }
+
+  function aggregateTable(title,rows=[]) {
+    if(!rows.length)return `<section><h3>${esc(title)}</h3>${empty('No completed rows in this bounded read.')}</section>`;
+    return `<section><h3>${esc(title)}</h3>${table(['Group','Files','Observed bytes'],rows.map(x=>[esc(x.name),Number(x.count||0).toLocaleString(),bytes(x.bytes)]))}</section>`;
   }
 
   async function loadSettings() {
@@ -61,6 +73,9 @@
         <div class="maintenance-grid">
           <form class="maintenance-card" data-maintenance-form="heatmap"><h3>Storage Heatmap</h3><p>Reuses the bounded Lazy Storage Graph. Rectangle weight represents measured child size.</p><label>Folder<input name="path" placeholder="Defaults to Home"></label><label>Top children<input name="limit" type="number" min="6" max="60" value="24"></label><button>Generate Heatmap</button></form>
           <form class="maintenance-card" data-maintenance-form="large"><h3>Large File Explorer</h3><p>Read-only, bounded walk. Large does not mean safe to delete.</p><label>Folder<input name="path" placeholder="Defaults to Home"></label><label>Minimum MB<input name="min_mb" type="number" min="1" max="102400" value="500"></label><button>Find Large Files</button></form>
+          <form class="maintenance-card" data-maintenance-form="aging"><h3>Existing Scan Aging</h3><p>Reuses the latest completed Storage Intelligence large-file evidence. This view starts no new filesystem scan.</p><button>Show Retained Aging</button></form>
+          <form class="maintenance-card" data-maintenance-form="old"><h3>Old File Explorer</h3><p>Find regular files by modification age. Modified long ago does not mean unused or safe to delete.</p><label>Folder<input name="path" placeholder="Defaults to Home"></label><label>Modified at least (days)<input name="days" type="number" min="30" max="3650" value="180"></label><label>Minimum MB<input name="min_mb" type="number" min="0" max="102400" value="10"></label><button>Review Modified-Age Files</button></form>
+          <form class="maintenance-card" data-maintenance-form="downloads"><h3>Downloads Intelligence</h3><p>Reviews ~/Downloads by modification age, size, and extension-derived type. No duplicate or cleanup claim is made.</p><button>Analyze Downloads</button></form>
           <form class="maintenance-card" data-maintenance-form="duplicates"><h3>Exact Duplicate Explorer</h3><p>Same size only creates candidates. Sentinel labels duplicate only after full-file SHA-256 equality.</p><label>Folder<input name="path" placeholder="Defaults to Home"></label><label>Minimum MB<input name="min_mb" type="number" min="1" max="102400" value="10"></label><button>Find Exact Duplicates</button></form>
           <form class="maintenance-card" data-maintenance-form="app"><h3>App Footprint</h3><p>Combines the .app bundle with user-Library locations linked by bundle ID or exact-name evidence.</p><label>Application path<input name="app" placeholder="/Applications/Example.app" required></label><button>Measure App Footprint</button></form>
         </div><div id="maintenanceStorageOutput" class="maintenance-output">${empty('Choose one storage analysis. No user files are modified.')}</div>`,
@@ -73,8 +88,8 @@
       band(3,'Measured throughput',`
         <div class="maintenance-rate-row"><button type="button" data-maintenance-rates>Calculate from retained counters</button><span>Requires at least two retained observations. Counter resets are reported unavailable.</span></div><div id="maintenanceRatesOutput" class="maintenance-output"></div>`,
         'Rates are counter deltas divided by measured elapsed time, not estimates from one cumulative value.') +
-      band(4,'Interpretation boundary',`<div class="maintenance-boundary"><b>No automatic cleanup.</b><span>Large files are candidates for review, exact duplicates require hash equality, App Footprint reports its association evidence, and persistent history writes only Sentinel-owned telemetry after opt-in.</span></div>`,
-        MARKER);
+      band(4,'Interpretation boundary',`<div class="maintenance-boundary"><b>No automatic cleanup.</b><span>Large/old/download files are review evidence, not deletion recommendations. Exact duplicates require hash equality, App Footprint reports its association evidence, and persistent history writes only Sentinel-owned telemetry after opt-in.</span></div>`,
+        `${MARKER} · ${STORAGE_REVIEW_MARKER}`);
   }
 
   async function runHeatmap(form,pathOverride='') {
@@ -95,6 +110,40 @@
       const rows=d.files||[];
       document.getElementById('maintenanceStorageOutput').innerHTML=`<div class="maintenance-summary"><b>${rows.length} large file(s)</b><span>${Number(d.visited_entries||0).toLocaleString()} entries visited${d.limited?' · scan bound reached':''}</span></div>${rows.length?table(['Size','Modified','File','Path'],rows.map(x=>[bytes(x.bytes),esc(new Date(x.modified_at).toLocaleString()),esc(x.name),`<code>${esc(x.path)}</code>`])):empty('No files above the selected threshold were found inside the bounded scan.')}`;
       taskDone(id,`Visited ${Number(d.visited_entries||0).toLocaleString()} entries · ${rows.length} results`);
+    } catch(err){ taskFail(id,err); throw err; }
+  }
+
+  async function runAging() {
+    const id=task('Existing Storage Aging','Reading retained large-file evidence; no new scan…',true);
+    try {
+      const d=await api('/api/storage/aging'), rows=d.oldest_large_files||[], buckets=d.buckets||[];
+      const bucketView=buckets.length?table(['Age band','Files','Observed bytes'],buckets.map(x=>[esc(x.label),Number(x.files||0).toLocaleString(),bytes(x.bytes)])):empty('No retained age buckets are available.');
+      const fileView=rows.length?table(['Age','Size','Modified','File','Path'],rows.map(x=>[`${Number(x.age_days||0)} days`,bytes(x.size),esc(new Date(Number(x.modified_at||0)*1000).toLocaleString()),esc(x.name),`<code>${esc(x.path)}</code>`])):empty('No retained large-file modification timestamps are available from the latest completed Storage Intelligence scan.');
+      const limitations=(d.limitations||[]).map(x=>`<div class="maintenance-note">Limitation: ${esc(x)}</div>`).join('');
+      document.getElementById('maintenanceStorageOutput').innerHTML=`<div class="maintenance-summary"><b>Existing scan aging</b><span>${Number(d.files_considered||0).toLocaleString()} retained large file(s) · ${bytes(d.bytes_considered)} observed</span></div><h3>Age distribution</h3>${bucketView}<h3>Oldest retained large files</h3>${fileView}${limitations}<div class="maintenance-note">${esc(d.note||'This view reuses the latest completed Storage Intelligence evidence and does not start a new scan.')}</div>`;
+      taskDone(id,`Read ${Number(d.files_considered||0).toLocaleString()} retained large-file observations`);
+    } catch(err){ taskFail(id,err); throw err; }
+  }
+
+  async function runOld(form) {
+    const fd=new FormData(form), path=String(fd.get('path')||''), days=Number(fd.get('days')||180), min=Number(fd.get('min_mb')||10);
+    const id=task('Old File Explorer','Bounded read-only walk · modification age is not last-used time',true);
+    try {
+      const d=await api(`/api/maintenance/old-files?path=${encodeURIComponent(path)}&days=${encodeURIComponent(days)}&min_mb=${encodeURIComponent(min)}`), rows=d.files||[];
+      const result=rows.length?table(['Age','Size','Modified','File','Path'],rows.map(x=>[`${Number(x.age_days||0)} days`,bytes(x.bytes),esc(new Date(x.modified_at).toLocaleString()),esc(x.name),`<code>${esc(x.path)}</code>`])):empty('No files matched the selected modification-age and size thresholds inside this bounded scan.');
+      document.getElementById('maintenanceStorageOutput').innerHTML=`<div class="maintenance-summary"><b>${Number(d.matched_files||0).toLocaleString()} modified-age candidate(s)</b><span>${Number(d.visited_entries||0).toLocaleString()} entries visited${d.limited?' · bounded result':''}</span></div>${result}${reviewBoundary(d)}`;
+      taskDone(id,`Visited ${Number(d.visited_entries||0).toLocaleString()} entries · ${Number(d.matched_files||0)} matched`);
+    } catch(err){ taskFail(id,err); throw err; }
+  }
+
+  async function runDownloads() {
+    const id=task('Downloads Intelligence','Bounded read-only review of ~/Downloads · no cleanup or duplicate hashing',true);
+    try {
+      const d=await api('/api/maintenance/downloads'), largest=d.largest_files||[], oldest=d.oldest_files||[];
+      const largestView=largest.length?table(['Size','Age','Type','Modified','File'],largest.map(x=>[bytes(x.bytes),`${Number(x.age_days||0)} days`,esc(x.category),esc(new Date(x.modified_at).toLocaleString()),`<code>${esc(x.path)}</code>`])):empty('No regular files completed this bounded Downloads read.');
+      const oldestView=oldest.length?table(['Age','Size','Type','File'],oldest.map(x=>[`${Number(x.age_days||0)} days`,bytes(x.bytes),esc(x.category),`<code>${esc(x.path)}</code>`])):empty('No oldest-file rows are available.');
+      document.getElementById('maintenanceStorageOutput').innerHTML=`<div class="maintenance-summary"><b>${Number(d.regular_files||0).toLocaleString()} Downloads file(s)</b><span>${bytes(d.visible_file_bytes)} observed · ${Number(d.visited_entries||0).toLocaleString()} entries visited${d.limited?' · bounded result':''}</span></div><div class="maintenance-grid">${aggregateTable('By type',d.by_category||[])}${aggregateTable('By modification age',d.by_age||[])}${aggregateTable('By file size',d.by_size||[])}</div><h3>Largest observed files</h3>${largestView}<h3>Oldest by modification time</h3>${oldestView}${reviewBoundary(d)}`;
+      taskDone(id,`${Number(d.regular_files||0).toLocaleString()} regular Downloads files reviewed`);
     } catch(err){ taskFail(id,err); throw err; }
   }
 
@@ -152,6 +201,9 @@
     try {
       if(form.dataset.maintenanceForm==='heatmap')await runHeatmap(form);
       if(form.dataset.maintenanceForm==='large')await runLarge(form);
+      if(form.dataset.maintenanceForm==='aging')await runAging();
+      if(form.dataset.maintenanceForm==='old')await runOld(form);
+      if(form.dataset.maintenanceForm==='downloads')await runDownloads();
       if(form.dataset.maintenanceForm==='duplicates')await runDuplicates(form);
       if(form.dataset.maintenanceForm==='app')await runApp(form);
       if(form.dataset.maintenanceForm==='history-settings')await saveHistory(form);
@@ -168,5 +220,5 @@
   });
 
   registerLens('maintenance',renderMaintenance);
-  S.MaintenanceUltra={marker:MARKER,render:renderMaintenance};
+  S.MaintenanceUltra={marker:MARKER,storageReviewMarker:STORAGE_REVIEW_MARKER,render:renderMaintenance};
 })();
