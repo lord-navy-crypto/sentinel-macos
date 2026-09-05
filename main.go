@@ -174,6 +174,8 @@ func main() {
 	mux.HandleFunc("/api/diagnostics/export", a.auth(a.work.wrap("diagnostics-export", a.handleDiagnosticsExport)))
 	mux.HandleFunc("/api/integrity/inspect", a.auth(a.work.wrap("integrity-inspect", a.handleIntegrityInspectAPI)))
 	mux.HandleFunc("/api/self/integrity", a.auth(a.work.wrap("self-integrity", a.handleSelfIntegrity)))
+	mux.HandleFunc("/api/self/health", a.auth(a.handleSelfHealth))
+	mux.HandleFunc("/api/update/status", a.auth(a.handleUpdateStatus))
 	mux.HandleFunc("/api/persistence", a.auth(a.handlePersistence))
 	mux.HandleFunc("/api/actions/status", a.auth(a.handleActionStatus))
 	mux.HandleFunc("/api/actions/health", a.auth(a.handleActionHealth))
