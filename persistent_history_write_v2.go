@@ -3,6 +3,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -180,7 +181,7 @@ func appendPersistentSampleBounded(sample resourceSample, limitBytes, targetByte
 	}
 
 	before := int64(0)
-	if st, statErr := os.Lstat(historyPath); statErr == nil {
+	if _, statErr := os.Lstat(historyPath); statErr == nil {
 		regular, regularErr := persistentHistoryRegularFile(historyPath)
 		if regularErr != nil {
 			return status, regularErr
