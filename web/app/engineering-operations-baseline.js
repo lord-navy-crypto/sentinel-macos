@@ -8,6 +8,7 @@
   const PANEL_ID='engineeringOperationsBaseline';
   const MIN_RATE_WINDOW_MS=60000;
   let baseline=null;
+  let lastPanelSignature='';
 
   function esc(value){return S.esc?S.esc(String(value??'')):String(value??'');}
   function rows(){return S.TaskCenter?.tasks?[...S.TaskCenter.tasks.values()]:[];}
@@ -22,6 +23,11 @@
     const seconds=Math.round(ms/1000);
     if(seconds<60)return `${seconds}s`;
     return `${Math.floor(seconds/60)}m ${seconds%60}s`;
+  }
+  function signedDuration(ms){
+    if(!Number.isFinite(ms))return '—';
+    const sign=ms>0?'+':ms<0?'−':'';
+    return `${sign}${duration(Math.abs(ms))}`;
   }
   function percent(part,total){return total>0?part/total:null;}
   function fmtPct(value){return value==null?'—':`${(value*100).toFixed(0)}%`;}
@@ -69,29 +75,39 @@
   function captureBaseline(){
     const retained=rows();
     baseline={capturedAt:Date.now(),reference:summarize(retained),retainedTaskIds:new Set(retained.map(t=>t.id))};
+    lastPanelSignature='';
     ensure();
     S.notice?.(`Engineering Operations baseline captured from ${retained.length} retained task record(s).`);
   }
 
   function clearBaseline(){
     baseline=null;
+    lastPanelSignature='';
     ensure();
     S.notice?.('Engineering Operations baseline cleared.');
   }
 
   function afterRows(){
     if(!baseline)return [];
-    return rows().filter(task=>Number(task.startedAt)>baseline.capturedAt&&!baseline.retainedTaskIds.has(task.id));
+    return rows().filter(task=>Number(task.startedAt)>=baseline.capturedAt&&!baseline.retainedTaskIds.has(task.id));
+  }
+
+  function panelSignature(){
+    if(!baseline)return 'no-baseline';
+    const after=afterRows().map(t=>[
+      t.id,t.status,Number(t.startedAt)||0,Number(t.completedAt)||0,t.source||'',t.kind||'',Boolean(t.stalled),
+    ].join('~')).sort().join('|');
+    return `${baseline.capturedAt}|${after}`;
   }
 
   function sourceShift(reference,after){
     if(!after.sources.length)return '<p>No post-baseline source evidence is available yet.</p>';
-    const ref=new Map(reference.sources);
+    const ref=new Map(reference.sources),post=new Map(after.sources);
     const totalAfter=Math.max(1,after.taskCount),totalRef=Math.max(1,reference.taskCount);
     const names=[...new Set([...reference.sources.map(x=>x[0]),...after.sources.map(x=>x[0])])];
-    const rows=names.map(name=>({name,ref:(ref.get(name)||0)/totalRef,after:(new Map(after.sources).get(name)||0)/totalAfter}))
+    const data=names.map(name=>({name,ref:(ref.get(name)||0)/totalRef,after:(post.get(name)||0)/totalAfter}))
       .sort((a,b)=>Math.abs(b.after-b.ref)-Math.abs(a.after-a.ref)).slice(0,6);
-    return `<div class="eob-source-shift">${rows.map(row=>`<div><b>${esc(row.name)}</b><span>${fmtPct(row.ref)} → ${fmtPct(row.after)}</span><small>${fmtDelta(row.after-row.ref,v=>`${(v*100).toFixed(0)} pp`)}</small></div>`).join('')}</div>`;
+    return `<div class="eob-source-shift">${data.map(row=>`<div><b>${esc(row.name)}</b><span>${fmtPct(row.ref)} → ${fmtPct(row.after)}</span><small>${fmtDelta(row.after-row.ref,v=>`${(v*100).toFixed(0)} pp`)}</small></div>`).join('')}</div>`;
   }
 
   function comparisonTable(reference,after){
@@ -101,7 +117,7 @@
     return `<div class="eo-table-wrap"><table class="eo-table"><thead><tr><th>Measure</th><th>Reference phase</th><th>After baseline</th><th>Directional delta</th></tr></thead><tbody>
       <tr><td>Retained task records</td><td>${reference.taskCount}</td><td>${after.taskCount}</td><td>${fmtDelta(after.taskCount-reference.taskCount)}</td></tr>
       <tr><td>Terminal observations</td><td>${reference.terminal}</td><td>${after.terminal}</td><td>${fmtDelta(after.terminal-reference.terminal)}</td></tr>
-      <tr><td>Median terminal cycle</td><td>${duration(reference.medianCycle)}</td><td>${duration(after.medianCycle)}</td><td>${fmtDelta(cycleDelta,duration)}</td></tr>
+      <tr><td>Median terminal cycle</td><td>${duration(reference.medianCycle)}</td><td>${duration(after.medianCycle)}</td><td>${cycleDelta==null?'—':signedDuration(cycleDelta)}</td></tr>
       <tr><td>Observed throughput</td><td>${reference.throughput==null?'—':`${reference.throughput.toFixed(2)} done/min`}</td><td>${after.throughput==null?'—':`${after.throughput.toFixed(2)} done/min`}</td><td>${fmtDelta(throughputDelta,v=>`${v.toFixed(2)} done/min`)}</td></tr>
       <tr><td>Done share of terminal outcomes</td><td>${fmtPct(reference.doneShare)}</td><td>${fmtPct(after.doneShare)}</td><td>${fmtDelta(doneDelta,v=>`${(v*100).toFixed(0)} pp`)}</td></tr>
       <tr><td>Failed / cancelled</td><td>${reference.failed} / ${reference.cancelled}</td><td>${after.failed} / ${after.cancelled}</td><td>Review separately</td></tr>
@@ -137,14 +153,23 @@
     if(S.state?.lens!=='observatory')return;
     const parent=document.getElementById('engineeringOperationsBand');
     if(!parent)return;
+    const signature=panelSignature();
     const existing=document.getElementById(PANEL_ID);
-    if(existing){
-      const holder=document.createElement('div');
-      holder.innerHTML=render();
-      existing.replaceWith(holder.firstElementChild);
-      return;
-    }
-    parent.insertAdjacentHTML('beforeend',render());
+    if(existing&&signature===lastPanelSignature)return;
+    const holder=document.createElement('div');
+    holder.innerHTML=render();
+    if(existing)existing.replaceWith(holder.firstElementChild);
+    else parent.appendChild(holder.firstElementChild);
+    lastPanelSignature=signature;
+  }
+
+  function injectStyle(){
+    if(document.querySelector('link[data-sentinel-engineering-operations-baseline-style]'))return;
+    const link=document.createElement('link');
+    link.rel='stylesheet';
+    link.href='/app/engineering-operations-baseline.css';
+    link.dataset.sentinelEngineeringOperationsBaselineStyle='1';
+    document.head.appendChild(link);
   }
 
   document.addEventListener('click',event=>{
@@ -152,11 +177,12 @@
     if(event.target.closest('[data-eob-clear]')){event.preventDefault();clearBaseline();}
   });
 
+  injectStyle();
   const observer=new MutationObserver(()=>ensure());
   observer.observe(document.getElementById('evidenceStage')||document.body,{childList:true,subtree:true});
   setInterval(ensure,2000);
   ensure();
 
-  S.EngineeringOperationsBaseline={marker:MARKER,captureBaseline,clearBaseline,summarize,afterRows,get baseline(){return baseline;}};
+  S.EngineeringOperationsBaseline={marker:MARKER,captureBaseline,clearBaseline,summarize,afterRows,panelSignature,get baseline(){return baseline;}};
   window.__SENTINEL_ENGINEERING_OPERATIONS_BASELINE__={marker:MARKER};
 })();
