@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: MPL-2.0
 package main
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"time"
+)
 
 // directHistoryCorrelationEvidence returns true only for observations emitted
 // directly by History Fusion's retained-source adapters. Global Timeline and
@@ -41,10 +44,22 @@ func directHistoryCorrelationRows(rows []HistoryFusionObservation) []HistoryFusi
 // MarshalJSON is the API boundary for WhatChangedResponse. Recompute
 // correlations from direct retained-source observations immediately before
 // serialization so a derived presentation row can never count as a second
-// evidence source even if future Global Timeline coverage expands.
+// evidence source even if future Global Timeline coverage expands. Persistent
+// History 2.0 is attached here as a read-only extension of the same API instead
+// of creating another history endpoint or collection pipeline.
 func (r WhatChangedResponse) MarshalJSON() ([]byte, error) {
 	type wire WhatChangedResponse
 	clean := r
 	clean.Correlated = correlateHistoryObservations(directHistoryCorrelationRows(r.Observed), historyFusionCorrelationWindow)
-	return json.Marshal(wire(clean))
+	now := time.Now()
+	envelope := struct {
+		wire
+		PersistentHistory      PersistentHistoryV2Summary `json:"persistent_history"`
+		StorageChangeOverTime StorageChangeOverTimeV2    `json:"storage_change_over_time"`
+	}{
+		wire:                  wire(clean),
+		PersistentHistory:     buildPersistentHistoryV2SummaryAccurate(clean.Hours, now),
+		StorageChangeOverTime: buildStorageChangeOverTimeV2(clean.Hours, now, persistentStorageEnabledFromSources(clean.Sources)),
+	}
+	return json.Marshal(envelope)
 }

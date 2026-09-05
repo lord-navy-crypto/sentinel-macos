@@ -5,7 +5,7 @@
   const {$,api,busy,activity,esc,bytes,fmt,sev,badge,question,band,empty,ledger,primitiveRows,registerLens}=S;
 
   function historyWindowControls(active){
-    return `<div class="question-actions">${[[1,'1h'],[6,'6h'],[24,'24h'],[168,'7d']].map(([hours,label])=>`<button class="s24-action ${Number(active)===hours?'primary':''}" type="button" data-history-hours="${hours}">${label}</button>`).join('')}<button class="s24-action" type="button" data-history-workbench="1">Open Workbench</button></div>`;
+    return `<div class="question-actions">${[[1,'1h'],[6,'6h'],[24,'24h'],[168,'7d'],[720,'30d']].map(([hours,label])=>`<button class="s24-action ${Number(active)===hours?'primary':''}" type="button" data-history-hours="${hours}">${label}</button>`).join('')}<button class="s24-action" type="button" data-history-workbench="1">Open Workbench</button></div>`;
   }
 
   function sourceCoverage(sources){
@@ -30,6 +30,66 @@
     return `<div class="s24-split"><div class="s24-note good"><b>INTERPRETATION</b>${interpreted}</div><div class="s24-note"><b>NOT ESTABLISHED</b>${unknown}</div></div>${limits?`<div class="s24-note warn"><b>LIMITATIONS</b>${limits}</div>`:''}`;
   }
 
+  function signedBytes(value){
+    const n=Number(value||0);
+    if(!Number.isFinite(n)||n===0)return '0 B';
+    return `${n>0?'+':'−'}${bytes(Math.abs(n))}`;
+  }
+
+  function signedNumber(value,digits=1,suffix=''){
+    const n=Number(value||0);
+    if(!Number.isFinite(n))return '—';
+    return `${n>0?'+':''}${n.toFixed(digits)}${suffix}`;
+  }
+
+  function resourceComparisonRow(x){
+    if(!x?.available){
+      return `<div class="s24-feed-item"><span>COMPARE</span><div><h3>${esc(x?.label||'Period comparison')}</h3><p>${esc(x?.reason||'Not enough retained samples in both periods.')}</p></div><div class="meta">${badge('NOT ESTABLISHED','warn')}</div></div>`;
+    }
+    const before=x.before||{},after=x.after||{};
+    const facts=[
+      `CPU avg ${Number(before.average_cpu_percent||0).toFixed(1)}% → ${Number(after.average_cpu_percent||0).toFixed(1)}% (${signedNumber(x.average_cpu_percent_delta,1,'%')})`,
+      `Memory free avg ${Number(before.average_memory_free_percent||0).toFixed(1)}% → ${Number(after.average_memory_free_percent||0).toFixed(1)}% (${signedNumber(x.average_memory_free_percent_delta,1,'%')})`,
+      `Max swap ${bytes(Number(before.max_swap_used_bytes||0))} → ${bytes(Number(after.max_swap_used_bytes||0))} (${signedBytes(x.max_swap_used_bytes_delta)})`
+    ];
+    if(x.battery_delta_available)facts.push(`Battery end ${Number(before.battery_end_percent||0)}% → ${Number(after.battery_end_percent||0)}% (${signedNumber(x.battery_percent_delta,0,'%')})`);
+    return `<div class="s24-feed-item"><span>COMPARE</span><div><h3>${esc(x.label||'Period comparison')}</h3><p>${esc(facts.join(' · '))}</p><code>${esc(`${Number(before.sample_count||0)} before samples · ${Number(after.sample_count||0)} after samples`)}</code></div><div class="meta">${badge('RETAINED','good')}</div></div>`;
+  }
+
+  function persistentHistoryPanel(p){
+    if(!p)return empty('Persistent resource-history summary was not returned.');
+    const coverage=ledger([
+      ['Recording',p.enabled?'Opt-in enabled':'Disabled'],
+      ['Retained samples',p.sample_count||0],
+      ['First retained',p.first_at?fmt(p.first_at):'—'],
+      ['Latest retained',p.last_at?fmt(p.last_at):'—'],
+      ['Expected cadence',`${Number(p.expected_interval_seconds||60)} s`],
+      ['Missing windows',(p.missing_windows||[]).length],
+      ['Tail read bounded',p.read_limited?'YES':'No']
+    ]);
+    const comparisons=`<div class="s24-feed">${[p.now_vs_previous_hour,p.today_vs_yesterday,p.window_before_after].map(resourceComparisonRow).join('')}</div>`;
+    const gaps=(p.missing_windows||[]).length?`<div class="s24-feed">${p.missing_windows.slice(-8).reverse().map(g=>`<div class="s24-feed-item"><span>GAP</span><div><h3>${esc(`${Math.round(Number(g.seconds||0)/60)} min without a retained sample`)}</h3><p>${esc(`${fmt(g.from)} → ${fmt(g.to)}`)}</p></div><div class="meta">${badge('MISSING EVIDENCE','warn')}</div></div>`).join('')}</div>`:'';
+    return `${coverage}${comparisons}${gaps}<div class="s24-note"><b>BOUNDARY</b><p>${esc(p.boundary||'Missing samples are missing evidence, not proof that nothing happened.')}</p></div>`;
+  }
+
+  function storageChangePanel(s){
+    if(!s)return empty('Storage change-over-time summary was not returned.');
+    const summary=ledger([
+      ['Mode',s.persistent?'persistent-local':'session / unavailable'],
+      ['Retained snapshots',s.snapshot_count||0],
+      ['Snapshots in window',s.window_snapshot_count||0],
+      ['Adjacent comparisons',(s.comparisons||[]).length],
+      ['Partial',s.partial?'YES':'No']
+    ]);
+    const rows=(s.comparisons||[]).slice().reverse();
+    const feed=rows.length?`<div class="s24-feed">${rows.map(c=>{
+      const changes=(c.directory_changes||[]).slice(0,3).map(d=>`${d.name}: ${signedBytes(d.delta_bytes)}`).join(' · ');
+      return `<div class="s24-feed-item"><time>${esc(fmt(c.after_at))}</time><div><h3>${esc(`Visible storage ${signedBytes(c.delta_bytes)}`)}</h3><p>${esc(changes||'No category delta was retained for this pair.')}</p><code>${esc(`${fmt(c.before_at)} → ${fmt(c.after_at)}`)}</code></div><div class="meta">${badge('EXPLICIT SCANS')}${c.partial?badge('PARTIAL','warn'):''}</div></div>`;
+    }).join('')}</div>`:empty('At least two explicit completed storage-scan snapshots in the selected window are required for change-over-time comparison.');
+    const limits=(s.limitations||[]).length?`<div class="s24-note warn"><b>LIMITATIONS</b>${s.limitations.map(x=>`<p>${esc(x)}</p>`).join('')}</div>`:'';
+    return `${summary}${feed}<div class="s24-note"><b>BOUNDARY</b><p>${esc(s.boundary||'Storage delta is observed change between explicit scans, not a cause or deletion recommendation.')}</p></div>${limits}`;
+  }
+
   async function renderChanges(hours=24){
     const windowHours=Math.max(1,Math.min(720,Number(hours)||24));
     busy('Reading retained evidence',`What Changed · ${windowHours}h`);
@@ -43,7 +103,7 @@
     const feed=events.length?`<div class="s24-feed">${events.slice().reverse().map(e=>`<div class="s24-feed-item"><time>${esc(fmt(e.at))}</time><div><h3>${esc((e.path||'').split('/').pop()||e.kind||'Change')}</h3><p>${esc(e.why||e.kind||'')}</p><code>${esc(e.path||'')}</code></div><div class="meta">${badge(e.severity||'info',sev(e.severity))}${e.needs_rescan?badge('RESCAN','bad'):''}</div></div>`).join('')}</div>`:empty('No change events in this session.');
 
     const header=`<div class="s24-note"><b>${esc(history.marker||'What Changed')}</b><br>${esc(history.note||'Aggregated retained evidence only.')}</div>${historyWindowControls(windowHours)}`;
-    $('#evidenceStage').innerHTML=question()+band(1,'What changed?',header,`${windowHours} hour retained-evidence window · generated ${fmt(history.generated_at)}`)+band(2,'Source coverage',sourceCoverage(history.sources),'Availability means Sentinel has retained evidence from that source; it is not a whole-system coverage claim.')+band(3,'Observed',observedHistory(history.observed),'Directly retained or derived before/after evidence from existing Sentinel stores. No new scan is triggered by this view.')+band(4,'Correlated in time',correlatedHistory(history.correlated),'Only cross-source observations close in time are grouped. The raw observations remain authoritative.')+band(5,'Interpretation boundary',evidenceBoundaries(history))+band(6,'Change Monitor',controls,'Optional live/session watch. This remains separate from retained cross-source history.')+band(7,'Monitor continuity',status,'Dropped/root-changed conditions must create rescan-required state rather than false confidence.')+band(8,'Observed changes · current watch',feed,'Current session watch evidence; retained History Fusion remains above.');
+    $('#evidenceStage').innerHTML=question()+band(1,'What changed?',header,`${windowHours} hour retained-evidence window · generated ${fmt(history.generated_at)}`)+band(2,'Source coverage',sourceCoverage(history.sources),'Availability means Sentinel has retained evidence from that source; it is not a whole-system coverage claim.')+band(3,'Persistent resource history',persistentHistoryPanel(history.persistent_history),'24h / 7d / 30d comparisons use retained opt-in samples only. Missing windows are shown instead of interpolated.')+band(4,'Storage change over time',storageChangePanel(history.storage_change_over_time),'Adjacent explicit storage-scan snapshots are compared without starting a new scan.')+band(5,'Observed',observedHistory(history.observed),'Directly retained or derived before/after evidence from existing Sentinel stores. No new scan is triggered by this view.')+band(6,'Correlated in time',correlatedHistory(history.correlated),'Only cross-source observations close in time are grouped. The raw observations remain authoritative.')+band(7,'Interpretation boundary',evidenceBoundaries(history))+band(8,'Change Monitor',controls,'Optional live/session watch. This remains separate from retained cross-source history.')+band(9,'Monitor continuity',status,'Dropped/root-changed conditions must create rescan-required state rather than false confidence.')+band(10,'Observed changes · current watch',feed,'Current session watch evidence; retained History Fusion remains above.');
     activity('Ready',100,`What Changed loaded · ${windowHours}h`);
   }
 
