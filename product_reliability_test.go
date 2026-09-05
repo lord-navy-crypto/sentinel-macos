@@ -40,6 +40,14 @@ func TestCompareSemanticVersionStableOutranksPrerelease(t *testing.T) {
 	}
 }
 
+func TestCompareSemanticVersionOrdersNumericPrereleaseIdentifiers(t *testing.T) {
+	beta2, _ := parseSentinelVersion("2.9.0-beta.2")
+	beta10, _ := parseSentinelVersion("2.9.0-beta.10")
+	if compareSemanticVersion(beta10, beta2) <= 0 {
+		t.Fatal("beta.10 must outrank beta.2 using numeric prerelease comparison")
+	}
+}
+
 func TestStableChannelRejectsMislabelledBetaRelease(t *testing.T) {
 	releases := []githubRelease{
 		{TagName: "v2.9.0-beta.1", Name: "Sentinel 2.9 Beta", Prerelease: false},
@@ -53,11 +61,12 @@ func TestStableChannelRejectsMislabelledBetaRelease(t *testing.T) {
 
 func TestBetaChannelCanSeePrerelease(t *testing.T) {
 	releases := []githubRelease{
-		{TagName: "v2.9.0-beta.1", Name: "Sentinel 2.9 Beta", Prerelease: true},
+		{TagName: "v2.9.0-beta.10", Name: "Sentinel 2.9 Beta 10", Prerelease: true},
+		{TagName: "v2.9.0-beta.2", Name: "Sentinel 2.9 Beta 2", Prerelease: true},
 		{TagName: "v2.8.0", Name: "Sentinel 2.8.0"},
 	}
 	r, v, ok := selectReleaseForChannel(releases, "beta")
-	if !ok || r.TagName != "v2.9.0-beta.1" || versionDisplay(v) != "2.9.0-beta.1" {
+	if !ok || r.TagName != "v2.9.0-beta.10" || versionDisplay(v) != "2.9.0-beta.10" {
 		t.Fatalf("beta channel selected %#v %q", r, versionDisplay(v))
 	}
 }
