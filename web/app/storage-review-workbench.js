@@ -4,7 +4,8 @@
   const S=window.SentinelApp;
   if(!S)return;
   const {api,esc,bytes,table,empty,notice}=S;
-  const MARKER='Sentinel 3.5 Storage Review Task Adoption';
+  const MARKER='Sentinel 3.3 Storage Review Workbench';
+  const TASK_ADOPTION_MARKER='Sentinel 3.5 Storage Review Task Adoption';
   const REVIEW_FORMS=new Set(['old','downloads','duplicates','app']);
   const TASK_SOURCE='Maintenance → Storage Review';
   const activeReviews=new Map();
@@ -160,6 +161,6 @@
     catch(error){notice(error.message||String(error));}
   });
 
-  S.StorageReviewWorkbench={marker:MARKER,openInWorkbench,evidenceFrame};
-  window.__SENTINEL_STORAGE_REVIEW_WORKBENCH__={marker:MARKER};
+  S.StorageReviewWorkbench={marker:MARKER,taskAdoptionMarker:TASK_ADOPTION_MARKER,openInWorkbench,evidenceFrame};
+  window.__SENTINEL_STORAGE_REVIEW_WORKBENCH__={marker:MARKER,taskAdoptionMarker:TASK_ADOPTION_MARKER};
 })();
