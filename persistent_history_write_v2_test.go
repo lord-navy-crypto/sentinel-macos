@@ -48,6 +48,13 @@ func TestBoundedPersistentWriterCompactsAndKeepsNewestSample(t *testing.T) {
 	if st.Mode().Perm() != 0600 {
 		t.Fatalf("history permissions=%#o want 0600", st.Mode().Perm())
 	}
+	dirInfo, err := os.Stat(filepath.Dir(historyPath))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if dirInfo.Mode().Perm() != 0700 {
+		t.Fatalf("history directory permissions=%#o want 0700", dirInfo.Mode().Perm())
+	}
 	f, err := os.Open(historyPath)
 	if err != nil {
 		t.Fatal(err)
