@@ -36,7 +36,7 @@ func TestEngineeringOperationsEvidenceContract(t *testing.T) {
 		`Number(t.completedAt)-Number(t.startedAt)`,
 		`done.length/(observedSpan/60000)`,
 		`task.source||task.kind||'Unspecified source'`,
-		`Cancellation is not treated as failure`,
+		`cancellation is not treated as failure`,
 		`Little’s Law or optimization claims are therefore not inferred`,
 		`not a measured cognitive-workload score`,
 		`not a reliability certificate`,
