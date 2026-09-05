@@ -58,7 +58,7 @@ func (r WhatChangedResponse) MarshalJSON() ([]byte, error) {
 		StorageChangeOverTime StorageChangeOverTimeV2    `json:"storage_change_over_time"`
 	}{
 		wire:                  wire(clean),
-		PersistentHistory:     buildPersistentHistoryV2Summary(clean.Hours, now),
+		PersistentHistory:     buildPersistentHistoryV2SummaryAccurate(clean.Hours, now),
 		StorageChangeOverTime: buildStorageChangeOverTimeV2(clean.Hours, now, persistentStorageEnabledFromSources(clean.Sources)),
 	}
 	return json.Marshal(envelope)
