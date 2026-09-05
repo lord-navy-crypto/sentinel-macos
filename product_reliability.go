@@ -103,6 +103,55 @@ func parseSentinelVersion(raw string) (semanticVersion, bool) {
 	return semanticVersion{Major: major, Minor: minor, Patch: patch, Prerelease: strings.TrimSpace(m[4]), Raw: raw}, true
 }
 
+func comparePrerelease(a, b string) int {
+	if a == b {
+		return 0
+	}
+	if a == "" {
+		return 1
+	}
+	if b == "" {
+		return -1
+	}
+	aa := strings.Split(a, ".")
+	bb := strings.Split(b, ".")
+	limit := len(aa)
+	if len(bb) < limit {
+		limit = len(bb)
+	}
+	for i := 0; i < limit; i++ {
+		av, aErr := strconv.Atoi(aa[i])
+		bv, bErr := strconv.Atoi(bb[i])
+		switch {
+		case aErr == nil && bErr == nil:
+			if av < bv {
+				return -1
+			}
+			if av > bv {
+				return 1
+			}
+		case aErr == nil && bErr != nil:
+			return -1
+		case aErr != nil && bErr == nil:
+			return 1
+		default:
+			if aa[i] < bb[i] {
+				return -1
+			}
+			if aa[i] > bb[i] {
+				return 1
+			}
+		}
+	}
+	if len(aa) < len(bb) {
+		return -1
+	}
+	if len(aa) > len(bb) {
+		return 1
+	}
+	return 0
+}
+
 func compareSemanticVersion(a, b semanticVersion) int {
 	for _, pair := range [][2]int{{a.Major, b.Major}, {a.Minor, b.Minor}, {a.Patch, b.Patch}} {
 		if pair[0] < pair[1] {
@@ -112,20 +161,7 @@ func compareSemanticVersion(a, b semanticVersion) int {
 			return 1
 		}
 	}
-	// For the same numeric version, the stable build outranks a prerelease.
-	if a.Prerelease == "" && b.Prerelease != "" {
-		return 1
-	}
-	if a.Prerelease != "" && b.Prerelease == "" {
-		return -1
-	}
-	if a.Prerelease < b.Prerelease {
-		return -1
-	}
-	if a.Prerelease > b.Prerelease {
-		return 1
-	}
-	return 0
+	return comparePrerelease(a.Prerelease, b.Prerelease)
 }
 
 func releaseLooksPrerelease(r githubRelease) bool {
