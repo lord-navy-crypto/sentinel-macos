@@ -174,7 +174,7 @@ func main() {
 	mux.HandleFunc("/api/trust/restore", a.auth(a.handleTrustRestore))
 	mux.HandleFunc("/api/trust/export", a.auth(a.handleTrustExport))
 
-	// Diagnostics, integrity, persistence, reversible actions, and changes.
+	// Diagnostics, integrity, persistence, reversible actions, changes, and optional local AI infrastructure.
 	mux.HandleFunc("/api/doctor", a.auth(a.handleDoctor))
 	mux.HandleFunc("/api/runtime/logs", a.auth(a.handleRuntimeLogs))
 	mux.HandleFunc("/api/diagnostics/export", a.auth(a.work.wrap("diagnostics-export", a.handleDiagnosticsExport)))
@@ -206,6 +206,8 @@ func main() {
 	mux.HandleFunc("/api/advanced-sensor/status", a.auth(a.handleAdvancedSensorStatus))
 	mux.HandleFunc("/api/readiness", a.auth(a.work.wrap("readiness", a.handleReadiness)))
 	mux.HandleFunc("/api/pre-regression", a.auth(a.handleRegressionGate))
+	mux.HandleFunc("/api/ai/openguin/status", a.auth(a.handleOpenPenguinStatus))
+	mux.HandleFunc("/api/ai/openguin/advisory", a.auth(a.handleOpenPenguinAdvisory))
 
 	// Sentinel 2.7 serves the product source directly. There is no runtime DOM
 	// rewrite, legacy dashboard injection, or desktop-only enhancement layer.
