@@ -183,6 +183,33 @@ pub fn sentinel_service_read(key: String, service: State<'_, SentinelService>) -
     serde_json::from_slice(&data).map_err(|_|"Sentinel response was not valid JSON".into())
 }
 
+
+/// Reuse Sentinel's original bounded search endpoint. Query parameters are URL-encoded
+/// by the HTTP client, never concatenated into a path or command.
+#[tauri::command]
+pub fn sentinel_service_search(query: String, service: State<'_, SentinelService>) -> Result<serde_json::Value,String> {
+    let query=query.trim();
+    if query.is_empty() || query.chars().count()>120 || query.chars().any(|c| c.is_control()) {
+        return Err("Search must contain 1–120 printable characters".into());
+    }
+    let (origin,token)={
+        let mut guard=service.0.lock().map_err(|_| "Sentinel service lock poisoned")?;
+        check_exit(&mut guard);
+        let engine=guard.as_ref().ok_or("Start Sentinel first")?;
+        (engine.origin.clone(),engine.token.clone())
+    };
+    let agent=ureq::AgentBuilder::new().timeout_connect(Duration::from_secs(2))
+        .timeout_read(Duration::from_secs(20)).redirects(0).build();
+    let response=agent.get(&format!("{}/api/search",origin))
+        .query("q",query).set("X-Sentinel-Token",&token)
+        .call().map_err(|e|format!("Sentinel search failed: {e}"))?;
+    let mut data=Vec::new();
+    response.into_reader().take(MAX_REPLY+1).read_to_end(&mut data)
+        .map_err(|e|format!("Reading Sentinel search failed: {e}"))?;
+    if data.len() as u64>MAX_REPLY{return Err("Search response is too large".into());}
+    serde_json::from_slice(&data).map_err(|_|"Sentinel search returned invalid JSON".into())
+}
+
 /// Preserves ALL current Sentinel Go/frontend functions until the React UI is fully migrated.
 #[tauri::command]
 pub fn sentinel_service_full_workbench(app: AppHandle, service: State<'_, SentinelService>) -> Result<(),String> {
@@ -217,6 +244,7 @@ mod tests {
         assert_eq!(allowed_read_path("actions/execute"),None);
         assert_eq!(allowed_read_path("trust/capture"),None);
         assert_eq!(allowed_read_path("../../etc/passwd"),None);
+        assert_eq!(allowed_read_path("search?q=anything"),None);
     }
     #[test]
     fn malformed_bootstrap_refused() {
