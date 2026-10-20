@@ -161,15 +161,20 @@ fn allowed_read_path(key: &str) -> Option<&'static str> {
 #[tauri::command]
 pub fn sentinel_service_read(key: String, service: State<'_, SentinelService>) -> Result<serde_json::Value, String> {
     let path=allowed_read_path(&key).ok_or("Unsupported Sentinel read-only query")?;
-    let mut guard=service.0.lock().map_err(|_| "Sentinel service lock poisoned")?;
-    check_exit(&mut guard);
-    let engine=guard.as_ref().ok_or("Start Sentinel first")?;
+    // Copy only the per-session connection metadata, then release the supervisor
+    // mutex before performing network I/O. Status/stop must not freeze during scans.
+    let (origin, token)={
+        let mut guard=service.0.lock().map_err(|_| "Sentinel service lock poisoned")?;
+        check_exit(&mut guard);
+        let engine=guard.as_ref().ok_or("Start Sentinel first")?;
+        (engine.origin.clone(),engine.token.clone())
+    };
     let agent=ureq::AgentBuilder::new()
         .timeout_connect(Duration::from_secs(2))
         .timeout_read(Duration::from_secs(20))
         .redirects(0).build();
-    let response=agent.get(&format!("{}{}", engine.origin,path))
-        .set("X-Sentinel-Token",&engine.token)
+    let response=agent.get(&format!("{}{}", origin,path))
+        .set("X-Sentinel-Token",&token)
         .call().map_err(|e|format!("Sentinel API request failed: {e}"))?;
     let mut data=Vec::new();
     response.into_reader().take(MAX_REPLY+1)
