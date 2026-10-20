@@ -60,6 +60,9 @@ jobs:
       - name: Test transplanted everyday tools
         run: npm test
 
+      - name: Smoke test bundled Go service handshake and API authentication
+        run: python3 scripts/smoke-sentinel-service.py
+
       - name: Generate Tauri icons
         run: npx tauri icon src-tauri/app-icon.svg
 
@@ -68,6 +71,13 @@ jobs:
 
       - name: Build macOS desktop bundle
         run: npm run tauri:build -- --target aarch64-apple-darwin
+
+      - name: Verify macOS app contains the original Sentinel Go engine
+        run: |
+          app_dir="$(find src-tauri/target/aarch64-apple-darwin/release/bundle/macos -maxdepth 1 -name '*.app' -print -quit)"
+          test -n "$app_dir"
+          test -x "$app_dir/Contents/Resources/sentinel/sentinel-engine"
+          file "$app_dir/Contents/Resources/sentinel/sentinel-engine"
 
       - name: Upload DMG for manual testing
         uses: actions/upload-artifact@v4
