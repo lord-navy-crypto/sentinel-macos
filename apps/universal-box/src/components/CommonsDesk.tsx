@@ -53,6 +53,10 @@ export default function CommonsDesk(){
  const [networkBusy,setNetworkBusy]=useState(false);
  const [networkStatus,setNetworkStatus]=useState("");
  const [transferProgress,setTransferProgress]=useState<LanTransferProgress|null>(null);
+ const [resumeShare,setResumeShare]=useState<LanShare|null>(null);
+ const [resumeInvite,setResumeInvite]=useState("");
+ const [resumeInput,setResumeInput]=useState("");
+ const [resumeProgress,setResumeProgress]=useState<LanTransferProgress|null>(null);
  const [nearby,setNearby]=useState<NearbyShare[]>([]);
  const [selectedNearby,setSelectedNearby]=useState<NearbyShare|null>(null);
  const [nearbyKey,setNearbyKey]=useState("");
@@ -74,7 +78,7 @@ export default function CommonsDesk(){
   void browse();
   // Discovery stops on leaving the Commons screen. No silent always-on scan.
   const timer=window.setInterval(()=>{void browse();},20000);
-  return ()=>{mounted=false;window.clearInterval(timer);void invoke("commons_lan_stop").catch(()=>{});};
+  return ()=>{mounted=false;window.clearInterval(timer);void invoke("commons_lan_stop").catch(()=>{});void invoke("commons_lan_resume_stop").catch(()=>{});};
  },[]);
  async function runP2pProbe(){
   setStunBusy(true);setStunError("");setStun(null);
@@ -92,6 +96,16 @@ export default function CommonsDesk(){
   },4000);
   return ()=>{live=false;window.clearInterval(poll);};
  },[lan?.active]);
+ useEffect(()=>{
+  if(!resumeShare?.active)return;
+  let live=true;
+  const timer=window.setInterval(()=>{
+   void invoke<LanShare>("commons_lan_resume_status").then(next=>{
+    if(live)setResumeShare(next.active?next:null);
+   }).catch(()=>{});
+  },4000);
+  return ()=>{live=false;window.clearInterval(timer);};
+ },[resumeShare?.active]);
  async function scanNearby(){
   setDiscovering(true);setDiscoveryError("");
   try{setNearby(await invoke<NearbyShare[]>("commons_lan_discover"));}
@@ -236,6 +250,52 @@ export default function CommonsDesk(){
   try{await navigator.clipboard.writeText(selectedInvite);
    setNetworkStatus("邀请已复制。它包含解密密钥，请只发给预期接收者。");}
   catch{setNetworkStatus("系统不允许自动复制，请手动选中并复制邀请。");}
+ }
+ async function startResumeShare(){
+  if(!packet)return;
+  setNetworkBusy(true);setNetworkStatus("");
+  try{
+   const zip=await exportCommonsPacket(packet);
+   const share=await invoke<LanShare>("commons_lan_resume_start",{packetBase64:binaryToLanBase64(zip)});
+   setResumeShare(share);
+   setResumeInvite(share.invites.find(link=>!link.includes("127.0.0.1"))??share.invites[0]??"");
+   setNetworkStatus("v2 加密分块共享已开启，断线重连仅补传缺失的有效数据块。");
+  }catch(e){setNetworkStatus("v2 共享启动失败："+errorText(e));}
+  finally{setNetworkBusy(false);}
+ }
+ async function stopResumeShare(){
+  setNetworkBusy(true);
+  try{
+   await invoke("commons_lan_resume_stop");
+   setResumeShare(null);setResumeInvite("");setNetworkStatus("v2 共享已停止。");
+  }catch(e){setNetworkStatus(errorText(e));}
+  finally{setNetworkBusy(false);}
+ }
+ async function receiveResume(){
+  setNetworkBusy(true);setNetworkStatus("");setResumeProgress(null);
+  let unlisten:(()=>void)|null=null;
+  try{
+   unlisten=await listen<LanTransferProgress>("commons-lan-resume-progress",event=>{
+    const p=event.payload;
+    if(p.totalBytes>0&&p.totalBytes<=30_000_000&&p.receivedBytes>=0&&p.receivedBytes<=p.totalBytes)
+     setResumeProgress(p);
+   });
+   const encoded=await invoke<string>("commons_lan_resume_receive",{invite:resumeInput.trim()});
+   const received=await importCommonsPacket(lanBase64ToBinary(encoded));
+   if(packet&&received.room.id!==packet.room.id)
+    throw Error("收到的是不同团队，请先导出并关闭当前空间。");
+   setIncoming(received);
+   setNetworkStatus("v2 数据块、完整 ZIP SHA-256 和团队包附件已校验。请手动确认导入。");
+  }catch(e){setIncoming(null);setNetworkStatus("v2 接收失败："+errorText(e)+"。可重连或索取新的 v2 邀请来恢复。");}
+  finally{unlisten?.();setNetworkBusy(false);}
+ }
+ async function clearResumeCache(){
+  setNetworkBusy(true);
+  try{
+   await invoke("commons_lan_resume_clear_cache");
+   setResumeProgress(null);setNetworkStatus("本机 v2 数据块缓存已清除。");
+  }catch(e){setNetworkStatus("清理失败："+errorText(e));}
+  finally{setNetworkBusy(false);}
  }
  async function receiveLan(){await receiveLanWithInvite(incomingInvite.trim());}
  async function receiveLanWithInvite(invite:string){
