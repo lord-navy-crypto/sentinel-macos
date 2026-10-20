@@ -377,3 +377,13 @@ Existing PDF, office, text, image, math, and AP study tools are preserved; AP Re
 - Direct entry links in File Intake, Home, navigation and All Tools.
 - New unit tests cover identical files, changed bytes, truncated files, empty files, cancellation, input limits and JSON metadata.
 - Preserve Universal Box U icon, existing Tauri identifier and ad-hoc signature (the latter is not Apple notarization). Double-architecture DMG, macOS mount and codesign tests must pass before integration. Manual real-Mac drag-drop and Save-dialog checks remain necessary.
+
+
+## Universal Box v0.33 · guided macOS File Intake
+
+- Based on Apple HIG drag-and-drop, progress, and accessibility guidance, selected files now enter a **staged preview** before hashing. The user explicitly starts processing. File contents are not read during metadata-only preflight.
+- Preflight checks the existing resource budget (80 files, 64 MB each, 160 MB total) and flags empty files, duplicate names, possible multi-suffix confusion, filename directional controls, and invalid metadata. These warnings do **not** establish file safety or malware presence. The app never executes selected files.
+- During processing, the UI displays a determinate file-count progress bar, the currently processed filename, and a **Cancel scan** control. Cancellation stops between files; browser WebCrypto SHA-256 operations cannot be interrupted mid-file. The previous completed report remains unchanged until the new batch completes.
+- The original file operations, PDF, offline Commons LAN v1, binary comparison, System Health, macOS U icon and ad-hoc signing remain unchanged.
+- Automated checks: TypeScript/Vitest, Rust, Sentinel validation, mounted signed Intel and Apple Silicon DMG. Manual macOS verification still needed for Finder drag-drop, VoiceOver, keyboard focus, save dialogs and startup behavior.
+- Security references: Apple Human Interface Guidelines for drag/drop and progress indicators; OWASP File Upload Cheat Sheet on filename, type and size validation; Tauri v2 capability scoping.

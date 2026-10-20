@@ -1,11 +1,11 @@
-import {useRef,useState,type ChangeEvent,type DragEvent} from "react";
+import {useEffect,useRef,useState,type ChangeEvent,type DragEvent} from "react";
 import {exportFile} from "../lib/output";
+import {preflightFiles} from "../lib/intakePreflight";
 import {
  compareChecksumManifest,createChecksumManifest,parseChecksumManifest,
  type ChecksumEntry,type ComparisonStatus
 } from "../lib/checksumManifest";
 import {
- INSPECT_MAX_EACH,INSPECT_MAX_FILES,INSPECT_MAX_TOTAL,
  duplicateGroups,fileKind,hexDigest,inventoryCsv,mismatchedExtension,sizeLabel,
  type FileInspection,
 } from "../lib/fileIntake";
@@ -16,6 +16,10 @@ export default function FileIntakeDesk({onOpenTool}:Props){
  const [dragging,setDragging]=useState(false);
  const [busy,setBusy]=useState(false);
  const [progress,setProgress]=useState({done:0,total:0});
+ const [currentFile,setCurrentFile]=useState("");
+ const [staged,setStaged]=useState<File[]>([]);
+ const scanController=useRef<AbortController|null>(null);
+ useEffect(()=>()=>{scanController.current?.abort();},[]);
  const [rows,setRows]=useState<FileInspection[]>([]);
  const [notice,setNotice]=useState("");
  const [filter,setFilter]=useState<"all"|"mismatch"|"duplicates">("all");
@@ -28,6 +32,7 @@ export default function FileIntakeDesk({onOpenTool}:Props){
  const duplicateNames=new Set(duplicates.flat());
  const warnings=rows.filter(row=>row.mismatch);
  const total=rows.reduce((sum,row)=>sum+row.size,0);
+ const review=preflightFiles(staged);
  const kindTotals=[...new Set(rows.map(row=>row.kind))].map(kind=>({
   kind,count:rows.filter(row=>row.kind===kind).length,
   bytes:rows.filter(row=>row.kind===kind).reduce((sum,row)=>sum+row.size,0)
@@ -36,43 +41,58 @@ export default function FileIntakeDesk({onOpenTool}:Props){
  const compareLabels:Record<ComparisonStatus,string>={
   match:"通过",changed:"内容改变",missing:"未找到",ambiguous:"文件名重复",extra:"未在清单中"
  };
- async function inspect(incoming:File[]){
-  if(!incoming.length)return;
-  setNotice("");setBusy(true);setProgress({done:0,total:incoming.length});
+ function stage(incoming:File[]){
+  if(busy||!incoming.length)return;
+  setStaged(incoming);
+  setCurrentFile("");
+  setProgress({done:0,total:incoming.length});
+  setNotice("已准备 "+incoming.length+" 个文件。请先检查文件名与大小，然后点击开始扫描。");
+ }
+ async function inspect(){
+  const incoming=staged;
+  if(!incoming.length||busy)return;
+  const preflight=preflightFiles(incoming);
+  if(!preflight.accepted){setNotice("文件预检未通过。请重新选择较小的一批文件。");return;}
+  if(!globalThis.crypto?.subtle){setNotice("此设备的 SHA-256 接口不可用。");return;}
+  const signal=new AbortController();
+  scanController.current=signal;
+  setBusy(true);setNotice("");setProgress({done:0,total:incoming.length});
   try{
-   if(incoming.length>INSPECT_MAX_FILES)throw Error("一次最多检查 "+INSPECT_MAX_FILES+" 个文件。");
-   let totalSize=0;
-   for(const file of incoming){
-    if(file.size>INSPECT_MAX_EACH)throw Error(file.name+" 超过 64 MB 单文件检查上限。");
-    totalSize+=file.size;
-    if(totalSize>INSPECT_MAX_TOTAL)throw Error("本批总大小不得超过 160 MB。");
-   }
-   if(!crypto.subtle)throw Error("当前运行环境不提供本地 SHA-256 加密接口。");
    const next:FileInspection[]=[];
    for(const [index,file] of incoming.entries()){
+    if(signal.signal.aborted)throw new DOMException("已取消扫描。","AbortError");
+    setCurrentFile(file.name);
     const magic=fileKind(new Uint8Array(await file.slice(0,16).arrayBuffer()));
-    // Read one file at a time to avoid retaining all inputs in memory.
+    if(signal.signal.aborted)throw new DOMException("已取消扫描。","AbortError");
+    // WebCrypto digest is atomic; cancellation takes effect between files.
     const sha256=hexDigest(await crypto.subtle.digest("SHA-256",await file.arrayBuffer()));
+    if(signal.signal.aborted)throw new DOMException("已取消扫描。","AbortError");
     const extension=file.name.includes(".")?(file.name.split(".").pop()??"").toLowerCase():"";
     next.push({name:file.name,size:file.size,kind:magic,sha256,extension,
      mismatch:mismatchedExtension(magic,file.name)});
     setProgress({done:index+1,total:incoming.length});
    }
-   setRows(next);
+   if(signal.signal.aborted)throw new DOMException("已取消扫描。","AbortError");
+   setRows(next);setStaged([]);
    setFilter("all");
    setNotice("检查完成。文件只在本机读取用于计算哈希；没有上传或修改原文件。");
-  }catch(error){setNotice("检查未完成："+(error instanceof Error?error.message:String(error)));}
-  finally{setBusy(false);}
+  }catch(error){
+   if(signal.signal.aborted||(error instanceof Error&&error.name==="AbortError"))
+    setNotice("已取消：保留原有扫描结果，尚未完成的这批文件不会加入清单。");
+   else setNotice("检查未完成："+(error instanceof Error?error.message:String(error)));
+  }finally{
+   if(scanController.current===signal)scanController.current=null;
+   setBusy(false);setCurrentFile("");
+  }
  }
  function selectFiles(event:ChangeEvent<HTMLInputElement>){
   const selected=Array.from(event.currentTarget.files??[]);
   event.currentTarget.value="";
-  void inspect(selected);
+  stage(selected);
  }
  function dropFiles(event:DragEvent<HTMLDivElement>){
   event.preventDefault();setDragging(false);
-  if(busy)return;
-  void inspect(Array.from(event.dataTransfer.files));
+  stage(Array.from(event.dataTransfer.files));
  }
  async function exportManifest(){
   try{
@@ -118,16 +138,42 @@ export default function FileIntakeDesk({onOpenTool}:Props){
    onDragLeave={event=>{if(!event.currentTarget.contains(event.relatedTarget as Node))setDragging(false);}}
    onDrop={dropFiles}>
    <div className="ub-intake-dropicon" aria-hidden="true">⇪</div>
-   <h3>拖入多个文件，或从 Mac 中选择</h3>
-   <p className="subtle">最多 80 个 · 每个不超过 64 MB · 单批总计不超过 160 MB</p>
+   <h3>拖入文件，先预检，再开始扫描</h3>
+   <p className="subtle">只读取你选择的文件 · 最多 80 个 · 每个 ≤64 MB · 单批 ≤160 MB</p>
    <input ref={inputRef} type="file" multiple className="sr-only"
     aria-label="选择文件进行本地格式与哈希检查" onChange={selectFiles} tabIndex={-1}/>
    <button type="button" className="primary-button" disabled={busy}
     onClick={()=>inputRef.current?.click()}>选择文件</button>
   </div>
+  {staged.length>0&&!busy&&<div className="ub-intake-review" aria-label="Scan review">
+   <div className="ub-intake-review-heading">
+    <div><p className="eyebrow">STEP 1 / 2 · 导入前确认</p>
+     <h3>已选择 {review.files} 个文件 · {sizeLabel(review.totalBytes)}</h3>
+     <p className="subtle">{review.accepted?"容量预检通过。请核对异常提示，确认后开始哈希扫描。":"文件数量或大小超出上限，请重新选择。"} 文件内容尚未被扫描。</p></div>
+    <div className="actions">
+     <button type="button" className="primary-button" disabled={!review.accepted} onClick={()=>void inspect()}>开始本机扫描 →</button>
+     <button type="button" className="secondary-button" onClick={()=>{setStaged([]);setNotice("已取消本次选择，原有文件清单未改变。");}}>取消选择</button>
+    </div>
+   </div>
+   <div className="ub-intake-stage-list" role="list" aria-label="Files pending local scan">
+    {staged.slice(0,10).map((file,index)=><div key={index} role="listitem" dir="auto">
+     <span>{file.name}</span><small>{sizeLabel(file.size)}</small>
+    </div>)}
+    {staged.length>10&&<p className="subtle">另有 {staged.length-10} 个文件未展开显示。</p>}
+   </div>
+   {review.issues.length>0&&<div className="ub-intake-review-warnings" role="status">
+    <strong>请检查以下提示（并非病毒检测结果）</strong>
+    {review.issues.slice(0,10).map((issue,index)=><p key={index} dir="auto">{issue.name?"「"+issue.name+"」：":""}{issue.message}</p>)}
+    {review.issues.length>10&&<p>其余 {review.issues.length-10} 条提醒未展开。</p>}
+   </div>}
+  </div>}
   {busy&&<div className="ub-intake-progress" role="status">
-   <span>本地计算 SHA-256：{progress.done} / {progress.total}</span>
+   <span>STEP 2 / 2 · 计算 SHA-256：{progress.done} / {progress.total}
+    {currentFile&&<small dir="auto" className="ub-intake-current">正在处理：{currentFile}</small>}
+    <small className="ub-intake-current">取消会在当前文件哈希计算结束后生效。</small>
+   </span>
    <progress value={progress.done} max={progress.total||1} aria-label="Local file inspection progress"/>
+   <button type="button" className="secondary-button" onClick={()=>scanController.current?.abort()}>取消扫描</button>
   </div>}
   {notice&&<p className="subtle" role="status">{notice}</p>}
   <div className="ub-intake-metrics" aria-label="Inspection summary">
