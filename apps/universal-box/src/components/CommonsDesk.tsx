@@ -9,6 +9,7 @@ import {
 
 type View="files"|"chat"|"tasks"|"members";
 type LanShare={active:boolean;invites:string[];secondsRemaining:number;message:string};
+type NearbyShare={instance:string;label:string;ip:string;port:number};
 const B64_BLOCK=49152;
 export function binaryToLanBase64(bytes:Uint8Array):string{
  const chunks:string[]=[];
@@ -47,7 +48,50 @@ export default function CommonsDesk(){
  const [incoming,setIncoming]=useState<CommonsPacket|null>(null);
  const [networkBusy,setNetworkBusy]=useState(false);
  const [networkStatus,setNetworkStatus]=useState("");
- useEffect(()=>()=>{void invoke("commons_lan_stop").catch(()=>{});},[]);
+ const [nearby,setNearby]=useState<NearbyShare[]>([]);
+ const [selectedNearby,setSelectedNearby]=useState<NearbyShare|null>(null);
+ const [nearbyKey,setNearbyKey]=useState("");
+ const [discovering,setDiscovering]=useState(false);
+ const [discoveryError,setDiscoveryError]=useState("");
+ useEffect(()=>{
+  let mounted=true;
+  async function browse(){
+   try{
+    const peers=await invoke<NearbyShare[]>("commons_lan_discover");
+    if(mounted){setNearby(peers);setDiscoveryError("");}
+   }catch(e){if(mounted)setDiscoveryError(errorText(e));}
+   finally{if(mounted)setDiscovering(false);}
+  }
+  setDiscovering(true);
+  void browse();
+  // Discovery stops on leaving the Commons screen. No silent always-on scan.
+  const timer=window.setInterval(()=>{void browse();},20000);
+  return ()=>{mounted=false;window.clearInterval(timer);void invoke("commons_lan_stop").catch(()=>{});};
+ },[]);
+ async function scanNearby(){
+  setDiscovering(true);setDiscoveryError("");
+  try{setNearby(await invoke<NearbyShare[]>("commons_lan_discover"));}
+  catch(e){setDiscoveryError(errorText(e));}
+  finally{setDiscovering(false);}
+ }
+ function chooseNearby(peer:NearbyShare){
+  setSelectedNearby(peer);
+  setNetworkStatus("已选择附近设备。还需要发送方私下提供的一次性密钥；自动发现不会广播密钥。");
+ }
+ async function pasteNearbyKey(){
+  try{
+   const pasted=(await navigator.clipboard.readText()).trim();
+   const key=pasted.includes("uboxlan://")?pasted.split("/").pop()??"":pasted;
+   if(!/^[A-Za-z0-9_-]{43}$/.test(key))throw Error("Clipboard does not contain a valid one-time key");
+   setNearbyKey(key);
+   setNetworkStatus("已提取邀请密钥。点击接收即可从选中的附近设备传输。");
+  }catch(e){setNetworkStatus("无法读取邀请密钥："+errorText(e));}
+ }
+ async function receiveNearby(){
+  if(!selectedNearby||!(/^[A-Za-z0-9_-]{43}$/.test(nearbyKey.trim())))return;
+  const {ip,port}=selectedNearby;
+  await receiveLanWithInvite("uboxlan://"+ip+":"+port+"/"+nearbyKey.trim());
+ }
  const room=packet?.room??null;
  const attachments=useMemo(()=>new Map((packet?.attachments??[]).map(f=>[f.id,f.bytes])),[packet]);
  const totalBytes=room?.files.reduce((total,f)=>total+f.size,0)??0;
@@ -169,10 +213,11 @@ export default function CommonsDesk(){
    setNetworkStatus("邀请已复制。它包含解密密钥，请只发给预期接收者。");}
   catch{setNetworkStatus("系统不允许自动复制，请手动选中并复制邀请。");}
  }
- async function receiveLan(){
+ async function receiveLan(){await receiveLanWithInvite(incomingInvite.trim());}
+ async function receiveLanWithInvite(invite:string){
   setNetworkBusy(true);setNetworkStatus("");
   try{
-   const encoded=await invoke<string>("commons_lan_receive",{invite:incomingInvite.trim()});
+   const encoded=await invoke<string>("commons_lan_receive",{invite});
    const received=await importCommonsPacket(lanBase64ToBinary(encoded));
    if(packet&&received.room.id!==packet.room.id)
     throw Error("收到的是不同团队。请先导出当前团队，再关闭当前空间以接收另一团队。");
@@ -302,6 +347,32 @@ export default function CommonsDesk(){
      <p className="subtle">仅私下发给预期接收者；邀请内含解密密钥。5 分钟后到期，完成一次有效传输后自动关闭。</p>
     </>}
    </div>}
+   <div className="panel">
+    <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+     <h4 style={{margin:0}}>附近正在共享的 Universal Box 设备</h4>
+     <button type="button" className="secondary-button" disabled={discovering} onClick={()=>void scanNearby()}>{discovering?"搜索中…":"刷新附近设备"}</button>
+    </div>
+    <p className="subtle">打开此页面会自动通过 Bonjour/mDNS 搜索同一局域网内**主动开启了共享**的电脑，每 20 秒刷新一次。未开启共享的电脑不会被广播或显示。</p>
+    {discoveryError&&<p role="alert" className="subtle">设备发现暂时不可用：{discoveryError}。可以使用下方手动邀请。</p>}
+    {nearby.length===0?<p className="subtle">{discovering?"搜索附近设备中…":"没有发现正在共享的设备。请让发送方先点击「开启 5 分钟一次性加密发送」。"}</p>:
+     nearby.map(peer=><div className="task-row" key={peer.instance+"-"+peer.ip+":"+peer.port}>
+      <div className="task-copy"><strong>{peer.label}</strong><div className="subtle">局域网 · {peer.ip}:{peer.port} · 身份尚未验证</div></div>
+      <button type="button" className="secondary-button" onClick={()=>chooseNearby(peer)} disabled={networkBusy}>
+       {selectedNearby?.instance===peer.instance&&selectedNearby.ip===peer.ip?"已选择":"选择设备"}
+      </button>
+     </div>)}
+    {selectedNearby&&<div style={{border:"1px solid var(--line,#cbd5e1)",borderRadius:12,padding:12,marginTop:12}}>
+      <strong>已选择：{selectedNearby.label}</strong>
+      <p className="subtle">附近设备名称可以伪造。为避免陌生设备读取共享内容，发送方的一次性密钥**不会通过局域网自动发现广播**。请从发送方私下取得邀请并粘贴密钥。</p>
+      <label className="field-label">一次性密钥（或粘贴完整邀请后提取密钥）
+       <input className="field" type="password" autoComplete="off" maxLength={180} value={nearbyKey} onChange={e=>setNearbyKey(e.target.value)} placeholder="43 位一次性密钥"/>
+      </label>
+      <div className="actions">
+       <button type="button" className="secondary-button" onClick={()=>void pasteNearbyKey()}>从剪贴板提取邀请密钥</button>
+       <button type="button" className="primary-button" disabled={networkBusy||!(/^[A-Za-z0-9_-]{43}$/.test(nearbyKey.trim()))} onClick={()=>void receiveNearby()}>向该设备请求加密传输</button>
+      </div>
+     </div>}
+   </div>
    <div className="panel">
     <h4>接收团队空间</h4>
     <label className="field-label">粘贴发送者提供的 uboxlan:// 邀请
