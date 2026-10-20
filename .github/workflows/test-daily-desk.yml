@@ -91,6 +91,15 @@ jobs:
           [[ "$ICON" == *.icns ]] || ICON="$ICON.icns"
           test -x "$APP/Contents/MacOS/$EXECUTABLE"
           test -s "$APP/Contents/Resources/$ICON"
+          # Ad-hoc signing is essential for local Apple Silicon builds,
+          # but it is NOT Apple Developer ID notarization.
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          SIGNATURE_DETAILS="$(codesign -dv --verbose=4 "$APP" 2>&1)"
+          echo "$SIGNATURE_DETAILS" | grep -F 'Signature=adhoc'
+          echo "$SIGNATURE_DETAILS" | grep -F 'Identifier=com.lordnavycrypto.dailydesk'
+          echo "Ad-hoc application signature verified for ${{ matrix.target }}"
+          # Gatekeeper may still reject an unnotarized app downloaded from the Internet.
+          # We deliberately do not mark this as a successful Apple notarization.
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleName' "$PLIST")" = "Universal Box" || true
           echo "Validated app executable: $EXECUTABLE"
           echo "Validated macOS app icon: $ICON"
