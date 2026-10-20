@@ -1,6 +1,33 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="116" fill="#293c63"/>
-  <rect x="86" y="100" width="340" height="310" rx="54" fill="#edf4ff"/>
-  <path d="M151 174h80c97 0 142 41 142 98s-45 98-142 98h-80V174zm80 142c62 0 85-14 85-44s-23-44-85-44h-23v88h23z" fill="#293c63"/>
-  <circle cx="392" cy="128" r="34" fill="#63bea5"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+ <defs>
+  <linearGradient id="bg" x1="0" y1="1" x2="1" y2="0">
+   <stop stop-color="#071c65"/><stop offset=".51" stop-color="#084ac3"/><stop offset="1" stop-color="#2cf2e3"/>
+  </linearGradient>
+  <linearGradient id="top" x1=".12" y1="1" x2=".87" y2="0">
+   <stop stop-color="#137bec"/><stop offset=".52" stop-color="#28b5f8"/><stop offset="1" stop-color="#6cf5ee"/>
+  </linearGradient>
+  <linearGradient id="left" x1="0" y1=".2" x2="1" y2="1">
+   <stop stop-color="#197aea"/><stop offset="1" stop-color="#092b8e"/>
+  </linearGradient>
+  <linearGradient id="right" x1="0" y1=".6" x2="1" y2=".25">
+   <stop stop-color="#064cbd"/><stop offset="1" stop-color="#2be7dc"/>
+  </linearGradient>
+  <linearGradient id="u" x1=".18" y1=".24" x2=".74" y2="1">
+   <stop stop-color="#ffffff"/><stop offset=".6" stop-color="#f1f7ff"/><stop offset="1" stop-color="#b2d5f9"/>
+  </linearGradient>
+  <filter id="shadow"><feGaussianBlur stdDeviation="21"/></filter>
+  <clipPath id="squircle"><rect x="24" y="24" width="976" height="976" rx="230"/></clipPath>
+ </defs>
+ <g clip-path="url(#squircle)">
+  <rect width="1024" height="1024" rx="230" fill="url(#bg)"/>
+  <path d="M0 630C177 410 441 140 1024 93V1024H0Z" fill="#07165f" opacity=".23"/>
+  <path d="M0 940C347 604 703 905 1024 441V1024H0Z" fill="#3cc7fd" opacity=".12"/>
+  <ellipse cx="512" cy="863" rx="310" ry="52" fill="#00124f" opacity=".7" filter="url(#shadow)"/>
+  <path d="M217 325L478 191Q510 174 544 190L810 322Q833 334 830 360L830 691Q829 721 802 735L547 877Q514 893 480 875L220 735Q194 722 194 690L194 360Q194 337 217 325Z" fill="#052777" stroke="#78ebff" stroke-width="10" stroke-opacity=".65"/>
+  <path d="M193 360L510 528V890L217 732Q193 716 193 683Z" fill="url(#left)"/>
+  <path d="M831 360L510 528V890L803 732Q831 716 831 683Z" fill="url(#right)"/>
+  <path d="M214 327L478 190Q512 173 546 190L810 327Q833 339 807 357L542 498Q513 515 485 498L214 357Q190 344 214 327Z" fill="url(#top)" stroke="#b6ffff" stroke-opacity=".7" stroke-width="6"/>
+  <path d="M250 374Q230 354 215 366Q196 379 217 399L298 462Q318 481 318 512V671Q318 735 359 777Q414 832 512 838Q606 833 662 778Q704 735 704 671V512Q704 481 725 462L806 399Q824 379 808 365Q795 354 774 374L665 445Q629 469 629 512V663Q628 722 601 744Q571 768 513 769Q451 768 425 744Q395 718 395 663V512Q395 469 359 445Z" fill="url(#u)" stroke="#ffffff" stroke-opacity=".5" stroke-width="6"/>
+ </g>
+ <rect x="24" y="24" width="976" height="976" rx="230" fill="none" stroke="#c1ffff" stroke-opacity=".55" stroke-width="7"/>
 </svg>
