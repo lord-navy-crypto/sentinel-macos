@@ -1,5 +1,6 @@
 import {useEffect,useMemo,useState,type ChangeEvent} from "react";
 import {invoke} from "@tauri-apps/api/core";
+import {listen} from "@tauri-apps/api/event";
 import {exportFile} from "../lib/output";
 import {
  createCommonsRoom,commonsMessage,commonsTask,commonsToggleTask,commonsFile,
@@ -9,6 +10,7 @@ import {
 
 type View="files"|"chat"|"tasks"|"members";
 type LanShare={active:boolean;invites:string[];secondsRemaining:number;message:string};
+type LanTransferProgress={receivedBytes:number;totalBytes:number};
 type NearbyShare={instance:string;label:string;ip:string;port:number};
 type StunSample={server:string;result:string|null;error:string|null};
 type StunObservation={server:string;localEndpoint:string;observedPublicEndpoint:string;samples:StunSample[];mappingConsistent:boolean|null;note:string};
@@ -50,6 +52,7 @@ export default function CommonsDesk(){
  const [incoming,setIncoming]=useState<CommonsPacket|null>(null);
  const [networkBusy,setNetworkBusy]=useState(false);
  const [networkStatus,setNetworkStatus]=useState("");
+ const [transferProgress,setTransferProgress]=useState<LanTransferProgress|null>(null);
  const [nearby,setNearby]=useState<NearbyShare[]>([]);
  const [selectedNearby,setSelectedNearby]=useState<NearbyShare|null>(null);
  const [nearbyKey,setNearbyKey]=useState("");
@@ -79,6 +82,16 @@ export default function CommonsDesk(){
   catch(e){setStunError(errorText(e));}
   finally{setStunBusy(false);}
  }
+ useEffect(()=>{
+  if(!lan?.active)return;
+  let live=true;
+  const poll=window.setInterval(()=>{
+   void invoke<LanShare>("commons_lan_status").then(result=>{
+    if(live)setLan(result.active?result:null);
+   }).catch(()=>{});
+  },4000);
+  return ()=>{live=false;window.clearInterval(poll);};
+ },[lan?.active]);
  async function scanNearby(){
   setDiscovering(true);setDiscoveryError("");
   try{setNearby(await invoke<NearbyShare[]>("commons_lan_discover"));}
@@ -226,8 +239,16 @@ export default function CommonsDesk(){
  }
  async function receiveLan(){await receiveLanWithInvite(incomingInvite.trim());}
  async function receiveLanWithInvite(invite:string){
-  setNetworkBusy(true);setNetworkStatus("");
+  setNetworkBusy(true);setNetworkStatus("");setTransferProgress(null);
+  let unlisten:(()=>void)|null=null;
   try{
+   unlisten=await listen<LanTransferProgress>("commons-lan-progress",event=>{
+    const progress=event.payload;
+    if(progress.totalBytes>0&&progress.totalBytes<=30_000_016
+       &&progress.receivedBytes>=0&&progress.receivedBytes<=progress.totalBytes){
+      setTransferProgress(progress);
+    }
+   });
    const encoded=await invoke<string>("commons_lan_receive",{invite});
    const received=await importCommonsPacket(lanBase64ToBinary(encoded));
    if(packet&&received.room.id!==packet.room.id)
@@ -235,7 +256,7 @@ export default function CommonsDesk(){
    setIncoming(received);
    setNetworkStatus("已完成加密传输、解密和附件 SHA-256 校验。请检查团队名称与文件列表，然后手动确认导入。");
   }catch(e){setIncoming(null);setNetworkStatus("接收失败："+errorText(e));}
-  finally{setNetworkBusy(false);}
+  finally{unlisten?.();setNetworkBusy(false);}
  }
  function approveIncoming(){
   if(!incoming)return;
@@ -403,6 +424,14 @@ export default function CommonsDesk(){
      </div>
     </div>}
    </div>
+   {networkBusy&&transferProgress&&<div style={{padding:10,border:"1px solid var(--line,#cbd5e1)",borderRadius:9}}>
+    <strong>正在接收加密数据</strong>
+    <progress style={{width:"100%"}} aria-label="Encrypted LAN packet received" max={100}
+     value={Math.round(transferProgress.receivedBytes/transferProgress.totalBytes*100)}/>
+    <p className="subtle">{sizeText(transferProgress.receivedBytes)} / {sizeText(transferProgress.totalBytes)}
+     （{Math.round(transferProgress.receivedBytes/transferProgress.totalBytes*100)}%）。传输百分比不等于校验成功；接收结束后仍需验证加密认证及 ZIP 文件哈希。</p>
+   </div>}
+   {lan?.active&&<p className="subtle">此一次性共享预计剩余约 {lan.secondsRemaining} 秒；成功发送或过期后会自动停止。</p>}
    {networkBusy&&<p role="status">正在进行局域网加密操作…</p>}
    {networkStatus&&<p className="subtle" role="status">{networkStatus}</p>}
   </div>
