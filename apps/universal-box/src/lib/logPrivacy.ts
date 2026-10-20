@@ -18,6 +18,7 @@ export function scrubDiagnosticText(source:string,opts:LogPrivacyOptions=DEFAULT
   apply("private keys",/-----BEGIN ((?:RSA |EC |OPENSSH )?PRIVATE KEY)-----[\s\S]*?-----END \1-----/gi,
    ()=>"[PRIVATE KEY REMOVED]");
   apply("authorization headers",/(\b(?:authorization|proxy-authorization)\s*:\s*)[^\r\n]+/gi,(_whole,prefix)=>prefix+"[REDACTED]");
+  apply("authorization JSON",/("(?:authorization|proxy-authorization)"\s*:\s*)"[^"\r\n]{1,3000}"/gi,(_whole,prefix)=>prefix+'"[REDACTED]"');
   apply("credentials",/((?:["']?)(?:x-sentinel-token|x-api-key|api[_-]?key|access[_-]?token|refresh[_-]?token|password|secret)(?:["']?)\s*[:=]\s*)("[^"\r\n]{1,500}"|'[^'\r\n]{1,500}'|[^\s,}\]\r\n]{1,500})/gi,
    (_whole,prefix,value)=>prefix+(value.startsWith('"')?'"[REDACTED]"':value.startsWith("'")?"'[REDACTED]'":"[REDACTED]"));
   apply("cookies",/(\b(?:set-cookie|cookie)\s*:\s*)[^\r\n]+/gi,(_whole,prefix)=>prefix+"[REDACTED]");
