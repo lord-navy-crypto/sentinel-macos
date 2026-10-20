@@ -1,3 +1,4 @@
+mod sentinel_service;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -128,6 +129,7 @@ fn write_output_file(path: String, bytes: Vec<u8>) -> Result<(), String> {
         .map_err(|error| format!("Could not save output file: {error}"))
 }
 
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -160,12 +162,24 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .manage(sentinel_service::SentinelService::default())
+        .on_window_event(|window, event| {
+            if window.label() == "main" && matches!(event, tauri::WindowEvent::Destroyed) {
+                window.state::<sentinel_service::SentinelService>().stop();
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             load_workspace,
             save_workspace,
             export_backup,
             read_backup,
-            write_output_file
+            write_output_file,
+            sentinel_service::sentinel_service_status,
+            sentinel_service::sentinel_service_start,
+            sentinel_service::sentinel_service_stop,
+            sentinel_service::sentinel_service_read,
+            sentinel_service::sentinel_service_search,
+            sentinel_service::sentinel_service_full_workbench
         ])
         .run(tauri::generate_context!())
         .expect("error while running Daily Desk");

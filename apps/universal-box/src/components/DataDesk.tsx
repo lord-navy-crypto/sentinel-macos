@@ -4,17 +4,20 @@ import {exportFile} from "../lib/output";
 import {mergeCsvSources,mergedCsvExport,type MergedCsv} from "../lib/csvMerge";
 import {filterSortTable,makeDataTable,tableToCsv,tableToJson,tableToMarkdown,type DataTable} from "../lib/tableTools";
 
-export default function DataDesk(){
-  const [source,setSource]=useState("Name,Score,Class\nAda,95,A\nBob,88,B\nCara,96,A");
+export default function DataDesk({initialSource}:{initialSource?:string}={}){
+  const [source,setSource]=useState(initialSource??"Name,Score,Class\nAda,95,A\nBob,88,B\nCara,96,A");
   const [delimiter,setDelimiter]=useState<","|"\t">(",");
   const [header,setHeader]=useState(true);
-  const [table,setTable]=useState<DataTable|null>(null);
+  const [table,setTable]=useState<DataTable|null>(()=>{
+    if(!initialSource)return null;
+    try {return makeDataTable(csvRows(initialSource),true);} catch{return null;}
+  });
   const [filter,setFilter]=useState("");
   const [filterColumn,setFilterColumn]=useState(-1);
   const [sortColumn,setSortColumn]=useState(-1);
   const [descending,setDescending]=useState(false);
   const [unique,setUnique]=useState(false);
-  const [status,setStatus]=useState("");
+  const [status,setStatus]=useState(initialSource?"Imported Sentinel evidence into this in-memory table. Original Go data unchanged.":"");
   const [merged,setMerged]=useState<MergedCsv|null>(null);
   const [mergeNames,setMergeNames]=useState<string[]>([]);
 

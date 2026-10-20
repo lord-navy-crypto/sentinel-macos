@@ -3,6 +3,7 @@ import Flashcards from "./components/Flashcards";
 import FocusTimer from "./components/FocusTimer";
 import EverydayTools, {type Utility} from "./components/EverydayTools";
 import ToolLaunchpad, {LOCAL_TOOLS} from "./components/ToolLaunchpad";
+import SentinelCenter from "./components/SentinelCenter";
 import UniversalDesk, {type UniversalMode} from "./components/UniversalDesk";
 import UniversalBoxDesk, {type UniversalBoxMode} from "./components/UniversalBoxDesk";
 import UniversalLabDesk, {type UniversalLabMode} from "./components/UniversalLabDesk";
@@ -40,10 +41,11 @@ import {
   persistWorkspace,
 } from "./lib/nativeStorage";
 
-type View = "local-ai" | "access" | "pdf-mini" | "charts" | "free-formats" | "workflows" | "office-privacy" | "media-files" | "universal-lab" | "universal-box" | "universal" | "quick-tools" | "external" | "all-tools" | "code" | "tables" | "overview" | "tasks" | "cards" | "focus" | "notes" | "utilities" | "data" | "files" | "math" | "learning" | "writing" | "drawing" | "reading" | "presets";
+type View = "sentinel" | "local-ai" | "access" | "pdf-mini" | "charts" | "free-formats" | "workflows" | "office-privacy" | "media-files" | "universal-lab" | "universal-box" | "universal" | "quick-tools" | "external" | "all-tools" | "code" | "tables" | "overview" | "tasks" | "cards" | "focus" | "notes" | "utilities" | "data" | "files" | "math" | "learning" | "writing" | "drawing" | "reading" | "presets";
 
 const menu: { id: View; name: string; symbol: string; description: string }[] = [
   { id: "overview", name: "Overview", symbol: "◫", description: "Your workspace at a glance" },
+  { id: "sentinel", name: "Sentinel / Mac 系统中心", symbol: "◉", description: "Mac diagnostics, evidence, network and storage center" },
   { id: "all-tools", name: "All tools / 全部工具", symbol: "▦", description: "Search and open every available tool" },
   { id: "quick-tools", name: "Quick Tools / 快捷小工具", symbol: "✂", description: "Text cleaning, cleaner links, dates and grades" },
   { id: "universal", name: "Universal Tools / 综合工具", symbol: "◈", description: "JSON conversion, timezones, hashes, passwords and photo privacy" },
@@ -76,7 +78,7 @@ const menu: { id: View; name: string; symbol: string; description: string }[] = 
 ];
 
 const navigationGroups:{title:string;items:View[]}[]=[
-  {title:"DISCOVER",items:["overview","access","all-tools","charts"]},
+  {title:"DISCOVER",items:["overview","sentinel","access","all-tools","charts"]},
   {title:"FILES & CREATION",items:["files","pdf-mini","free-formats","writing","drawing","tables"]},
   {title:"UNIVERSAL BOX",items:["quick-tools","universal","universal-box","universal-lab","media-files","office-privacy","workflows","utilities","external"]},
   {title:"STUDY & SCIENCE",items:["local-ai","math","learning","reading","cards","focus"]},
@@ -112,6 +114,7 @@ export default function App() {
       return Array.isArray(v)?v.filter((x):x is View=>typeof x==="string"&&menu.some(i=>i.id===x)).slice(0,8):[];}
     catch{return [];}
   });
+  const [sentinelHandoff,setSentinelHandoff]=useState<{kind:"table"|"log";text:string;id:number}|null>(null);
   const [commandOpen,setCommandOpen]=useState(false);
   const [commandQuery,setCommandQuery]=useState("");
   const [accessPreferences,setAccessPreferences]=useState<AccessPreferences>(readAccessPreferences);
@@ -120,7 +123,7 @@ export default function App() {
   function openTool(target: string, module?: string) {
     if (!menu.some(item => item.id === target)) return;
     const id=target as View;
-    setToolMode(module ?? "");setView(id);setCommandOpen(false);setCommandQuery("");
+    setToolMode(module ?? "");setView(id);setCommandOpen(false);setCommandQuery("");setSentinelHandoff(null);
     setRecentViews(previous=>[id,...previous.filter(v=>v!==id)].slice(0,8));
   }
   function toggleFavorite(id:View){
@@ -448,8 +451,12 @@ export default function App() {
           {view === "cards" && <Flashcards cards={workspace.cards} onChange={(cards) => setWorkspace((current) => ({ ...current, cards }))} />}
           <div hidden={view !== "focus"}><FocusTimer /></div>
           {view === "notes" && <section className="panel"><p className="eyebrow">LOCAL NOTES</p><h2>Keep ideas close at hand.</h2><p className="subtle">Your notes are automatically saved in this application. Export backups in Backup & privacy.</p><label className="field-label" htmlFor="my-notes">My notebook</label><textarea id="my-notes" className="field text-editor" rows={20} maxLength={50000} placeholder="Capture a thought, write a draft or summarise a concept…" value={workspace.notes} onChange={(event) => setWorkspace((current) => ({ ...current, notes: event.target.value }))}/><p className="subtle">{workspace.notes.length.toLocaleString()} characters</p></section>}
+          {view === "sentinel" && <SentinelCenter
+            onSendToTables={csv=>{openTool("tables");setSentinelHandoff({kind:"table",text:csv,id:Date.now()});}}
+            onSendToPrivacy={text=>{openTool("quick-tools","log-privacy");setSentinelHandoff({kind:"log",text,id:Date.now()});}}
+          />}
           {view === "all-tools" && <ToolLaunchpad onLaunch={openTool} />}
-          {view === "quick-tools" && <QuickKitDesk key={toolMode} initialMode={(toolMode||"text") as QuickKitMode} />}
+          {view === "quick-tools" && <QuickKitDesk key={toolMode+"-"+(sentinelHandoff?.kind==="log"?sentinelHandoff.id:"base")} initialMode={(toolMode||"text") as QuickKitMode} initialLogText={sentinelHandoff?.kind==="log"?sentinelHandoff.text:""} />}
           {view === "universal" && <UniversalDesk key={toolMode} initialMode={(toolMode||"json-csv") as UniversalMode} onOpenCsv={()=>openTool("tables")}/> }
           {view === "universal-box" && <UniversalBoxDesk key={toolMode} initialMode={(toolMode||"qr") as UniversalBoxMode}/> }
           {view === "universal-lab" && <UniversalLabDesk key={toolMode} initialMode={(toolMode||"lines") as UniversalLabMode}/> }
@@ -463,7 +470,7 @@ export default function App() {
           {view === "pdf-mini" && <PdfEverydayDesk key={toolMode} initialMode={(toolMode||"metadata") as PdfEverydayMode} /> }
           {view === "external" && <ExternalTools onOpenPresets={()=>openTool("presets")} />}
           {view === "code" && <CodeDesk snippets={workspace.snippets??[]} onChange={snippets=>setWorkspace(current=>({...current,snippets}))} />}
-          {view === "tables" && <DataDesk />}
+          {view === "tables" && <DataDesk key={sentinelHandoff?.kind==="table"?sentinelHandoff.id:"base"} initialSource={sentinelHandoff?.kind==="table"?sentinelHandoff.text:undefined} />}
           {view === "utilities" && <EverydayTools key={toolMode} initial={(toolMode || "stats") as Utility} />}
           {view === "files" && <FileDesk key={toolMode} initialPdfMode={toolMode === "organize" ? "organize" : toolMode === "decorate" ? "decorate" : toolMode === "convert" ? "convert" : "merge"} initialTab={(toolMode === "organize" || toolMode === "decorate" || toolMode === "convert" ? "pdf" : toolMode || "pdf") as FileTab} onSendToWriting={markdown => {setWorkspace(current => ({...current, documentMarkdown: markdown})); setView("writing");}} />}
           {view === "math" && <MathDesk key={toolMode} initialTab={(toolMode||"calculator") as MathTab} />}
