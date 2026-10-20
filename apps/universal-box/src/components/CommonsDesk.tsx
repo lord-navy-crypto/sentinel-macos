@@ -53,6 +53,10 @@ export default function CommonsDesk(){
  const [networkBusy,setNetworkBusy]=useState(false);
  const [networkStatus,setNetworkStatus]=useState("");
  const [transferProgress,setTransferProgress]=useState<LanTransferProgress|null>(null);
+ const [resumeShare,setResumeShare]=useState<LanShare|null>(null);
+ const [resumeInvite,setResumeInvite]=useState("");
+ const [resumeInput,setResumeInput]=useState("");
+ const [resumeProgress,setResumeProgress]=useState<LanTransferProgress|null>(null);
  const [nearby,setNearby]=useState<NearbyShare[]>([]);
  const [selectedNearby,setSelectedNearby]=useState<NearbyShare|null>(null);
  const [nearbyKey,setNearbyKey]=useState("");
@@ -74,7 +78,7 @@ export default function CommonsDesk(){
   void browse();
   // Discovery stops on leaving the Commons screen. No silent always-on scan.
   const timer=window.setInterval(()=>{void browse();},20000);
-  return ()=>{mounted=false;window.clearInterval(timer);void invoke("commons_lan_stop").catch(()=>{});};
+  return ()=>{mounted=false;window.clearInterval(timer);void invoke("commons_lan_stop").catch(()=>{});void invoke("commons_lan_resume_stop").catch(()=>{});};
  },[]);
  async function runP2pProbe(){
   setStunBusy(true);setStunError("");setStun(null);
@@ -92,6 +96,16 @@ export default function CommonsDesk(){
   },4000);
   return ()=>{live=false;window.clearInterval(poll);};
  },[lan?.active]);
+ useEffect(()=>{
+  if(!resumeShare?.active)return;
+  let live=true;
+  const timer=window.setInterval(()=>{
+   void invoke<LanShare>("commons_lan_resume_status").then(next=>{
+    if(live)setResumeShare(next.active?next:null);
+   }).catch(()=>{});
+  },4000);
+  return ()=>{live=false;window.clearInterval(timer);};
+ },[resumeShare?.active]);
  async function scanNearby(){
   setDiscovering(true);setDiscoveryError("");
   try{setNearby(await invoke<NearbyShare[]>("commons_lan_discover"));}
@@ -236,6 +250,52 @@ export default function CommonsDesk(){
   try{await navigator.clipboard.writeText(selectedInvite);
    setNetworkStatus("邀请已复制。它包含解密密钥，请只发给预期接收者。");}
   catch{setNetworkStatus("系统不允许自动复制，请手动选中并复制邀请。");}
+ }
+ async function startResumeShare(){
+  if(!packet)return;
+  setNetworkBusy(true);setNetworkStatus("");
+  try{
+   const zip=await exportCommonsPacket(packet,true);
+   const share=await invoke<LanShare>("commons_lan_resume_start",{packetBase64:binaryToLanBase64(zip)});
+   setResumeShare(share);
+   setResumeInvite(share.invites.find(link=>!link.includes("127.0.0.1"))??share.invites[0]??"");
+   setNetworkStatus("v2 加密分块共享已开启，断线重连仅补传缺失的有效数据块。");
+  }catch(e){setNetworkStatus("v2 共享启动失败："+errorText(e));}
+  finally{setNetworkBusy(false);}
+ }
+ async function stopResumeShare(){
+  setNetworkBusy(true);
+  try{
+   await invoke("commons_lan_resume_stop");
+   setResumeShare(null);setResumeInvite("");setNetworkStatus("v2 共享已停止。");
+  }catch(e){setNetworkStatus(errorText(e));}
+  finally{setNetworkBusy(false);}
+ }
+ async function receiveResume(){
+  setNetworkBusy(true);setNetworkStatus("");setResumeProgress(null);
+  let unlisten:(()=>void)|null=null;
+  try{
+   unlisten=await listen<LanTransferProgress>("commons-lan-resume-progress",event=>{
+    const p=event.payload;
+    if(p.totalBytes>0&&p.totalBytes<=30_000_000&&p.receivedBytes>=0&&p.receivedBytes<=p.totalBytes)
+     setResumeProgress(p);
+   });
+   const encoded=await invoke<string>("commons_lan_resume_receive",{invite:resumeInput.trim()});
+   const received=await importCommonsPacket(lanBase64ToBinary(encoded));
+   if(packet&&received.room.id!==packet.room.id)
+    throw Error("收到的是不同团队，请先导出并关闭当前空间。");
+   setIncoming(received);
+   setNetworkStatus("v2 数据块、完整 ZIP SHA-256 和团队包附件已校验。请手动确认导入。");
+  }catch(e){setIncoming(null);setNetworkStatus("v2 接收失败："+errorText(e)+"。可重连或索取新的 v2 邀请来恢复。");}
+  finally{unlisten?.();setNetworkBusy(false);}
+ }
+ async function clearResumeCache(){
+  setNetworkBusy(true);
+  try{
+   await invoke("commons_lan_resume_clear_cache");
+   setResumeProgress(null);setNetworkStatus("本机 v2 数据块缓存已清除。");
+  }catch(e){setNetworkStatus("清理失败："+errorText(e));}
+  finally{setNetworkBusy(false);}
  }
  async function receiveLan(){await receiveLanWithInvite(incomingInvite.trim());}
  async function receiveLanWithInvite(invite:string){
@@ -434,6 +494,49 @@ export default function CommonsDesk(){
    {lan?.active&&<p className="subtle">此一次性共享预计剩余约 {lan.secondsRemaining} 秒；成功发送或过期后会自动停止。</p>}
    {networkBusy&&<p role="status">正在进行局域网加密操作…</p>}
    {networkStatus&&<p className="subtle" role="status">{networkStatus}</p>}
+  </div>
+  <div className="panel" style={{marginTop:16}}>
+   <p className="eyebrow">COMMONS LAN V2 · VERIFIED RESUME</p>
+   <h3>加密数据块断点续传（试验版）</h3>
+   <p className="subtle">v2 与旧版 uboxlan:// 独立运行。每 256 KB 分块进行 XChaCha20-Poly1305 认证及 SHA-256 校验，断线后只请求尚未验证的数据块。两台电脑均需要包含 v2 的 Universal Box。</p>
+   <p className="subtle">当前上限仍为 30 MB 的 Commons ZIP，不是任意超大文件。接收端会暂时在本机应用数据目录存储未加密的已验证块；下次接收时清除超过 24 小时的旧缓存，也可手动清理。敏感资料请谨慎使用。</p>
+   {room&&<div className="actions">
+    <button type="button" className="primary-button" disabled={busy||networkBusy||!!resumeShare?.active}
+     onClick={()=>void startResumeShare()}>开启 v2 可恢复发送</button>
+    <button type="button" className="secondary-button" disabled={networkBusy||!resumeShare?.active}
+     onClick={()=>void stopResumeShare()}>停止 v2 发送</button>
+   </div>}
+   {resumeShare?.active&&<div style={{marginTop:12}}>
+    <p className="subtle">剩余约 {resumeShare.secondsRemaining} 秒。传输中断不会消耗本次分享，完整校验并回执后才关闭。</p>
+    <label className="field-label">选择局域网 IP
+     <select className="field" value={resumeInvite} onChange={e=>setResumeInvite(e.target.value)}>
+      {resumeShare.invites.map((invite,i)=><option value={invite} key={invite}>{i+1}. {invite.split("/")[2]?.split(":")[0]??"本机"}</option>)}
+     </select>
+    </label>
+    <label className="field-label">私密 v2 邀请
+     <textarea className="field text-editor" readOnly rows={2} value={resumeInvite}/>
+    </label>
+    <button type="button" className="secondary-button" onClick={()=>void navigator.clipboard.writeText(resumeInvite)
+     .then(()=>setNetworkStatus("v2 私密邀请已复制。")).catch(()=>setNetworkStatus("请手动复制 v2 邀请。"))}>
+     复制 v2 邀请
+    </button>
+   </div>}
+   <label className="field-label">粘贴发送者的 uboxlan2:// 邀请
+    <textarea className="field text-editor" rows={2} maxLength={180} value={resumeInput}
+     onChange={e=>setResumeInput(e.target.value)} placeholder="uboxlan2://192.168.1.20:49152/私密密钥"/>
+   </label>
+   <div className="actions">
+    <button type="button" className="primary-button" disabled={networkBusy||!resumeInput.trim()}
+     onClick={()=>void receiveResume()}>接收或恢复数据块</button>
+    <button type="button" className="secondary-button" disabled={networkBusy}
+     onClick={()=>void clearResumeCache()}>清除本机暂存块</button>
+   </div>
+   {networkBusy&&resumeProgress&&<div style={{marginTop:10}}>
+    <progress style={{width:"100%"}} max={resumeProgress.totalBytes} value={resumeProgress.receivedBytes}
+     aria-label="v2 verified chunk progress"/>
+    <p className="subtle">已验证 {sizeText(resumeProgress.receivedBytes)} / {sizeText(resumeProgress.totalBytes)}（包含缓存中的完整块）。</p>
+   </div>}
+   <p className="subtle">尚未支持跨公网传输或后台实时同步。真实 Mac 间断线重连测试通过前，此功能应视为实验版本。</p>
   </div>
   <div className="panel" style={{marginTop:16}}>
    <p className="eyebrow">P2P RESEARCH · OPT-IN</p>

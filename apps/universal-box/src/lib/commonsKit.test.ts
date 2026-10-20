@@ -24,6 +24,16 @@ describe("Universal Commons offline team exchange",()=>{
   expect(decoded.room.files[0].name).toBe("notes.txt");
   expect(new TextDecoder().decode(decoded.attachments[0].bytes)).toBe("draft version 1");
  });
+ it("produces byte-identical resumable ZIPs across independent exports",async()=>{
+  const room=createCommonsRoom("Stable resumed handoff","Alex");
+  const packet:CommonsPacket={room,attachments:[]};
+  const first=await exportCommonsPacket(packet,true);
+  const second=await exportCommonsPacket(packet,true);
+  expect(second).toEqual(first);
+  const zip=await JSZip.loadAsync(first);
+  expect(zip.file("commons.json")!.date.getFullYear()).toBe(1980);
+  expect((await importCommonsPacket(first)).room.id).toBe(room.id);
+ });
  it("rejects content modified after the manifest SHA256 was computed",async()=>{
   const room=createCommonsRoom("Archive","Alex");
   const added=await commonsFile(room,"paper.txt","Alex",bytes("original"));

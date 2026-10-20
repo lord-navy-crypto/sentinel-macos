@@ -1,5 +1,6 @@
 mod commons_p2p;
 mod commons_lan;
+mod commons_lan_resumable;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -165,9 +166,11 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(commons_lan::CommonsLanState::default())
+        .manage(commons_lan_resumable::ResumeLanState::default())
         .on_window_event(|window, event| {
             if matches!(event, tauri::WindowEvent::Destroyed) {
                 window.state::<commons_lan::CommonsLanState>().stop();
+                window.state::<commons_lan_resumable::ResumeLanState>().stop();
             }
         })
         .invoke_handler(tauri::generate_handler![
@@ -181,7 +184,12 @@ pub fn run() {
             commons_lan::commons_lan_status,
             commons_lan::commons_lan_discover,
             commons_p2p::commons_p2p_stun_probe,
-            commons_lan::commons_lan_receive
+            commons_lan::commons_lan_receive,
+            commons_lan_resumable::commons_lan_resume_start,
+            commons_lan_resumable::commons_lan_resume_stop,
+            commons_lan_resumable::commons_lan_resume_status,
+            commons_lan_resumable::commons_lan_resume_receive,
+            commons_lan_resumable::commons_lan_resume_clear_cache
         ])
         .run(tauri::generate_context!())
         .expect("error while running Daily Desk");

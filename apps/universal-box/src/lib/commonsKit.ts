@@ -117,14 +117,17 @@ function attachmentMap(room:CommonsRoom,files:CommonsAttachment[]):Map<string,Ui
  if(found.size!==room.files.length||room.files.some(f=>!found.has(f.id)))fail("Every listed attachment must have its bytes.");
  return found;
 }
-export async function exportCommonsPacket(packet:CommonsPacket):Promise<Uint8Array>{
+export async function exportCommonsPacket(packet:CommonsPacket,stable=false):Promise<Uint8Array>{
  const room=validateRoom(packet.room), attachments=attachmentMap(room,packet.attachments);
  const zip=new JSZip();
- zip.file("commons.json",JSON.stringify(room,null,2));
+ // Deterministic timestamps are essential for resuming across separately started
+ // v2 shares. Otherwise JSZip uses "now" and changes the archive SHA-256.
+ const options=stable?{date:new Date(1980,0,1)}:undefined;
+ zip.file("commons.json",JSON.stringify(room,null,2),options);
  for(const item of room.files){
   const bytes=attachments.get(item.id)!;
   if(bytes.length!==item.size||await sha256(bytes)!==item.sha256)fail("Attachment integrity mismatch: "+item.name);
-  zip.file("files/"+item.id+".bin",bytes);
+  zip.file("files/"+item.id+".bin",bytes,options);
  }
  const bytes=await zip.generateAsync({type:"uint8array",compression:"DEFLATE",compressionOptions:{level:5}});
  if(bytes.byteLength>MAX_PACKET_BYTES)fail("Export exceeds 30 MB.");
