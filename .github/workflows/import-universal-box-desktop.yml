@@ -20,7 +20,12 @@ jobs:
         with:
           persist-credentials: true
       - name: Import the complete desktop source without touching Sentinel
-        run: bash scripts/import-universal-box-desktop.sh
+        run: |
+          if [[ ! -f apps/universal-box/IMPORT_SOURCE_COMMIT ]]; then
+            bash scripts/import-universal-box-desktop.sh
+          else
+            echo "Imported source already exists; validating and cleaning tracked build artifacts."
+          fi
       - name: Confirm both products are present
         run: |
           test -f go.mod
@@ -35,6 +40,10 @@ jobs:
           npm run typecheck
           npm run test
           npm run build
+      - name: Remove generated caches and build output before committing
+        run: |
+          rm -rf apps/universal-box/node_modules apps/universal-box/dist apps/universal-box/src-tauri/target
+          find apps/universal-box -type d \( -name .vite -o -name .turbo -o -name coverage \) -prune -exec rm -rf {} +
       - name: Commit imported source to migration branch
         run: |
           git config user.name "github-actions[bot]"
