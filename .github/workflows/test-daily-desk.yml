@@ -24,8 +24,12 @@ permissions:
 
 jobs:
   build-macos:
-    name: Type-check and build macOS DMG
+    name: Build macOS DMG (${{ matrix.target }})
     runs-on: macos-14
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [aarch64-apple-darwin, x86_64-apple-darwin]
     defaults:
       run:
         working-directory: apps/universal-box
@@ -41,7 +45,7 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-apple-darwin
+          targets: ${{ matrix.target }}
 
       - name: Install dependencies
         run: npm install
@@ -59,12 +63,12 @@ jobs:
         run: cargo test --manifest-path src-tauri/Cargo.toml
 
       - name: Build macOS desktop bundle
-        run: npm run tauri:build -- --target aarch64-apple-darwin
+        run: npm run tauri:build -- --target ${{ matrix.target }}
 
       - name: Upload DMG for manual testing
         uses: actions/upload-artifact@v4
         with:
-          name: UniversalBox-macOS-AppleSilicon
-          path: apps/universal-box/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
+          name: UniversalBox-${{ matrix.target }}
+          path: apps/universal-box/src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
           if-no-files-found: error
           retention-days: 14
