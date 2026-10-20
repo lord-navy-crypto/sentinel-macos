@@ -3,6 +3,7 @@ import Flashcards from "./components/Flashcards";
 import FocusTimer from "./components/FocusTimer";
 import EverydayTools, {type Utility} from "./components/EverydayTools";
 import ToolLaunchpad, {LOCAL_TOOLS} from "./components/ToolLaunchpad";
+import CommonsDesk from "./components/CommonsDesk";
 import UniversalDesk, {type UniversalMode} from "./components/UniversalDesk";
 import UniversalBoxDesk, {type UniversalBoxMode} from "./components/UniversalBoxDesk";
 import UniversalLabDesk, {type UniversalLabMode} from "./components/UniversalLabDesk";
@@ -40,10 +41,11 @@ import {
   persistWorkspace,
 } from "./lib/nativeStorage";
 
-type View = "local-ai" | "access" | "pdf-mini" | "charts" | "free-formats" | "workflows" | "office-privacy" | "media-files" | "universal-lab" | "universal-box" | "universal" | "quick-tools" | "external" | "all-tools" | "code" | "tables" | "overview" | "tasks" | "cards" | "focus" | "notes" | "utilities" | "data" | "files" | "math" | "learning" | "writing" | "drawing" | "reading" | "presets";
+type View = "commons" | "local-ai" | "access" | "pdf-mini" | "charts" | "free-formats" | "workflows" | "office-privacy" | "media-files" | "universal-lab" | "universal-box" | "universal" | "quick-tools" | "external" | "all-tools" | "code" | "tables" | "overview" | "tasks" | "cards" | "focus" | "notes" | "utilities" | "data" | "files" | "math" | "learning" | "writing" | "drawing" | "reading" | "presets";
 
 const menu: { id: View; name: string; symbol: string; description: string }[] = [
   { id: "overview", name: "Overview", symbol: "◫", description: "Your workspace at a glance" },
+  { id: "commons", name: "Universal Commons / 免费团队共享", symbol: "◎", description: "Offline team rooms: file handoff, messages, tasks and verified ZIP packages" },
   { id: "all-tools", name: "All tools / 全部工具", symbol: "▦", description: "Search and open every available tool" },
   { id: "quick-tools", name: "Quick Tools / 快捷小工具", symbol: "✂", description: "Text cleaning, cleaner links, dates and grades" },
   { id: "universal", name: "Universal Tools / 综合工具", symbol: "◈", description: "JSON conversion, timezones, hashes, passwords and photo privacy" },
@@ -76,7 +78,7 @@ const menu: { id: View; name: string; symbol: string; description: string }[] = 
 ];
 
 const navigationGroups:{title:string;items:View[]}[]=[
-  {title:"DISCOVER",items:["overview","access","all-tools","charts"]},
+  {title:"DISCOVER",items:["overview","commons","access","all-tools","charts"]},
   {title:"FILES & CREATION",items:["files","pdf-mini","free-formats","writing","drawing","tables"]},
   {title:"UNIVERSAL BOX",items:["quick-tools","universal","universal-box","universal-lab","media-files","office-privacy","workflows","utilities","external"]},
   {title:"STUDY & SCIENCE",items:["local-ai","math","learning","reading","cards","focus"]},
@@ -426,7 +428,7 @@ export default function App() {
               <button className="secondary-button" type="button" onClick={()=>openTool("all-tools")}>All tools ↗</button>
             </div>
             <div className="tool-grid overview-grid">
-              {(favoriteViews.length?favoriteViews:["files","workflows","free-formats","charts","office-privacy","universal-box"] as View[]).map(id=>{
+              {(favoriteViews.length?favoriteViews:["commons","files","workflows","free-formats","charts","office-privacy"] as View[]).map(id=>{
                 const item=menu.find(m=>m.id===id)!;
                 return <button key={id} type="button" className="tool-card" onClick={()=>openTool(id)}>
                   <span className="tool-icon">{item.symbol}</span><strong>{item.name}</strong>
@@ -448,6 +450,7 @@ export default function App() {
           {view === "cards" && <Flashcards cards={workspace.cards} onChange={(cards) => setWorkspace((current) => ({ ...current, cards }))} />}
           <div hidden={view !== "focus"}><FocusTimer /></div>
           {view === "notes" && <section className="panel"><p className="eyebrow">LOCAL NOTES</p><h2>Keep ideas close at hand.</h2><p className="subtle">Your notes are automatically saved in this application. Export backups in Backup & privacy.</p><label className="field-label" htmlFor="my-notes">My notebook</label><textarea id="my-notes" className="field text-editor" rows={20} maxLength={50000} placeholder="Capture a thought, write a draft or summarise a concept…" value={workspace.notes} onChange={(event) => setWorkspace((current) => ({ ...current, notes: event.target.value }))}/><p className="subtle">{workspace.notes.length.toLocaleString()} characters</p></section>}
+          {view === "commons" && <CommonsDesk />}
           {view === "all-tools" && <ToolLaunchpad onLaunch={openTool} />}
           {view === "quick-tools" && <QuickKitDesk key={toolMode} initialMode={(toolMode||"text") as QuickKitMode} />}
           {view === "universal" && <UniversalDesk key={toolMode} initialMode={(toolMode||"json-csv") as UniversalMode} onOpenCsv={()=>openTool("tables")}/> }
