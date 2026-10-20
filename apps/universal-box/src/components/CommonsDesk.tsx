@@ -255,7 +255,7 @@ export default function CommonsDesk(){
   if(!packet)return;
   setNetworkBusy(true);setNetworkStatus("");
   try{
-   const zip=await exportCommonsPacket(packet);
+   const zip=await exportCommonsPacket(packet,true);
    const share=await invoke<LanShare>("commons_lan_resume_start",{packetBase64:binaryToLanBase64(zip)});
    setResumeShare(share);
    setResumeInvite(share.invites.find(link=>!link.includes("127.0.0.1"))??share.invites[0]??"");
