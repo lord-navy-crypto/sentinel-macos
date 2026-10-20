@@ -1,6 +1,6 @@
-# Daily Desk
+# Universal Box · macOS desktop
 
-Daily Desk is the standalone desktop product in the Knowledge-Explorer repository. It is separate from the AP ReasonLab Next.js website and is not deployed by Vercel.
+Universal Box is the standalone local-first desktop toolbox in the sentinel-macos repository. It is separate from the AP ReasonLab Next.js website and is not deployed by Vercel.
 
 ## Stack
 
@@ -347,3 +347,16 @@ Universal Box now has a dedicated **Easy Local AI / 本地 AI** workspace built 
 **macOS Tauri uses system WKWebView.** Whether WebGPU / WebLLM actually works inside the app depends on the OS, GPU drivers and WebView; a green TypeScript/CI/DMG build does not demonstrate hardware WebGPU support. If GPU is unavailable, use the AP Website in a compatible external browser (Chrome/Edge etc.). The two browser engines use separate caches. Model downloads can be hundreds of megabytes or more; there is no bundled model in the small DMG. AI outputs can be wrong and should be checked, especially for application materials.
 
 Existing PDF, office, text, image, math, and AP study tools are preserved; AP ReasonLab website code remains unchanged.
+
+
+## Universal Box v0.30 · local File Intake and installer testing
+
+- Home now offers guided flows: inspect files, repair PDF links, share locally.
+- New File Intake inspects file signatures, computes SHA-256 entirely on the local machine, reports duplicate contents and suspicious extension mismatches, and exports a formula-safe CSV inventory. **File headers are indicators only, not a malware scanner or proof a DOCX/ZIP is safe**.
+- Safety limits: max 80 files, 64 MB per file, 160 MB total per inspection. The inspector reads and hashes one selected file at a time and does not write or upload the source files.
+- Existing PDF batch hyperlink editor (#50) and LAN v1 progress (#51) were integrated into main after full automated CI.
+- Experimental resumable LAN v2 lives separately in draft PR #52 until two real Macs confirm interruption, reconnection and verified cache behavior.
+- Tauri product name is now Universal Box; the previous application identifier `com.lordnavycrypto.dailydesk` stays unchanged to preserve existing local workspace storage paths. Back up important data from within the app before replacing a test build.
+- Desktop CI generates distinct artifacts for **Apple Silicon** (`aarch64-apple-darwin`) and **Intel** (`x86_64-apple-darwin`) Macs. These are unsigned/unnotarized developer test installers, not a signed public release.
+- For a test DMG, open the latest successful `Universal Box Desktop CI` run in the GitHub Actions tab, download the ZIP artifact matching your Mac CPU, unzip and open its DMG. Test a copy of your own files, not the only originals.
+- Manual acceptance: inspect PDF + ZIP + PNG by drag/drop, export the CSV, check dark/light layout at narrow width, open all three home workflows, validate a PDF batch change and a Commons LAN handoff between two real Macs.
