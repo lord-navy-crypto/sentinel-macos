@@ -16,9 +16,10 @@ describe("local diagnostic privacy cleaner",()=>{
   expect(x.replacements).toBeGreaterThanOrEqual(5);
  });
  it("hides home usernames and emails by default and keeps IPv4 on opt-in",()=>{
-  const before="See /Users/Jane Doe/report.json and jane@example.org from 192.168.1.8";
+  const before="See /Users/jane/report.json and jane@example.org from 192.168.1.8";
   const out=scrubDiagnosticText(before);
   expect(out.text).not.toContain("jane@example.org");
+  expect(out.text).toContain("/Users/[USER]/report.json");
   expect(out.text).toContain("192.168.1.8");
   expect(scrubDiagnosticText(before,{...DEFAULT_LOG_PRIVACY,ipv4:true}).text).toContain("[IPV4]");
  });
