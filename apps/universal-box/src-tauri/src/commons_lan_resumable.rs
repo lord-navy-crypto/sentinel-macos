@@ -18,6 +18,8 @@ use std::{
     time::{Duration, Instant, SystemTime},
 };
 use tauri::{Emitter, Manager, State};
+#[cfg(unix)]
+use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 
 const MARKER: &[u8] = b"UBLAN2";
 const CHUNK: usize = 256 * 1024;
@@ -171,6 +173,16 @@ fn cache_root(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     let base = app.path().app_data_dir().map_err(|e| e.to_string())?;
     Ok(base.join("commons-verified-chunks-v2"))
 }
+fn prepare_cache_root(root: &Path) -> Result<(), String> {
+    fs::create_dir_all(root).map_err(|e| format!("Cannot create private cache: {e}"))?;
+    if !fs::symlink_metadata(root).map_err(|e| e.to_string())?.file_type().is_dir() {
+        return Err("Resumable cache root must not be a symlink".into());
+    }
+    #[cfg(unix)]
+    fs::set_permissions(root, fs::Permissions::from_mode(0o700))
+        .map_err(|e| format!("Cannot secure local resume cache: {e}"))?;
+    Ok(())
+}
 fn purge_expired(root: &Path) -> Result<(), String> {
     if !root.exists() { return Ok(()); }
     let mut active = Vec::new();
@@ -215,15 +227,22 @@ fn store_chunk(root: &Path, m: &Manifest, index: usize, bytes: &[u8]) -> Result<
     }
     let destination = chunk_path(root, m, index);
     let directory = destination.parent().ok_or("Invalid cache directory")?;
+    prepare_cache_root(root)?;
     fs::create_dir_all(directory).map_err(|e| format!("Cannot create resume cache: {e}"))?;
     if !fs::symlink_metadata(directory).map_err(|e| e.to_string())?.file_type().is_dir() {
         return Err("Unsafe resume cache directory".into());
     }
+    #[cfg(unix)]
+    fs::set_permissions(directory, fs::Permissions::from_mode(0o700))
+        .map_err(|e| format!("Cannot secure resume session cache: {e}"))?;
     // Avoid following a pre-existing symlink or overwriting a stale .partial file.
     let mut nonce = [0u8; 8]; OsRng.fill_bytes(&mut nonce);
     let temporary = directory.join(format!("{index}-{}.partial", URL_SAFE_NO_PAD.encode(nonce)));
-    let mut file = OpenOptions::new().write(true).create_new(true).open(&temporary)
-        .map_err(|e| e.to_string())?;
+    let mut options = OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    options.mode(0o600);
+    let mut file = options.open(&temporary).map_err(|e| e.to_string())?;
     file.write_all(bytes).map_err(|e| e.to_string())?;
     file.sync_all().map_err(|e| e.to_string())?;
     fs::rename(temporary, destination).map_err(|e| e.to_string())?;
@@ -233,6 +252,7 @@ fn receive_cached<F: FnMut(usize, usize)>(
     invite: &str, root: &Path, mut report: F,
 ) -> Result<String, String> {
     let (address, key) = parse_invite(invite)?;
+    prepare_cache_root(root)?;
     purge_expired(root)?;
     let mut socket = TcpStream::connect_timeout(&address.into(), TIMEOUT)
         .map_err(|e| format!("Cannot reach the sender: {e}"))?;
