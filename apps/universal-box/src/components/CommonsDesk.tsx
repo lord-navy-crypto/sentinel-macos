@@ -2,6 +2,7 @@ import {useEffect,useMemo,useState,type ChangeEvent} from "react";
 import {invoke} from "@tauri-apps/api/core";
 import {listen} from "@tauri-apps/api/event";
 import {exportFile} from "../lib/output";
+import NearbyPairDesk from "./NearbyPairDesk";
 import {
  createCommonsRoom,commonsMessage,commonsTask,commonsToggleTask,commonsFile,
  exportCommonsPacket,importCommonsPacket,mergeCommonsPackets,safeAttachmentName,
@@ -292,6 +293,15 @@ export default function CommonsDesk(){
    <strong>本版是离线协作包，不是实时群聊。</strong>
    <p className="subtle">消息只会在导出文件并由对方导入后传递。当前页面不会长期保存附件；离开或关闭前请导出。团队成员名字只是标签，不是经过身份认证的权限。</p>
   </div>
+  <NearbyPairDesk room={packet} onImport={received=>{
+    if(packet&&packet.room.id!==received.room.id)
+     throw Error("这是另一个团队空间。请先导出并关闭当前团队空间，再确认导入。");
+    const next=packet?mergeCommonsPackets(packet,received):received;
+    setPacket(next);
+    setTab("files");
+    if(!packet)setMyName(received.room.members[0]??"");
+    setStatus("附近传输已导入当前团队，请在 Files 文件列表点击保存文件，或导出 ZIP 以持久保存。");
+   }}/>
   {!room?<div className="panel">
    <h3>创建共享空间 · Create a room</h3>
    <div className="tools-pair">
@@ -355,9 +365,9 @@ export default function CommonsDesk(){
    </div>}
   </>}
   <div className="panel" style={{marginTop:16}}>
-   <p className="eyebrow">LOCAL NETWORK · NO CLOUD · ENCRYPTED</p>
-   <h3>局域网加密传输 · LAN Transfer</h3>
-   <p className="subtle">同一 Wi-Fi 或有线网络下，发送者开启临时原生 TCP 端口，文件使用 XChaCha20-Poly1305 端到端加密。不依赖外部服务器或账号。</p>
+   <p className="eyebrow">ADVANCED / LEGACY LAN INVITE · NO CLOUD · ENCRYPTED</p>
+   <h3>高级方式 · 旧版手动邀请兼容</h3>
+   <p className="subtle">优先使用页面上方“附近传文件”的软件内请求与同意流程。这里保留旧版 uboxlan:// 手动邀请，供使用旧版本 Universal Box 的设备互通。使用同一局域网，不需要云服务。</p>
    <p className="subtle">双方都需安装包含局域网功能的 Universal Box。Mac 防火墙可能询问是否允许入站连接；访客 Wi-Fi 或 AP 隔离可能阻止设备互通。</p>
    {room&&<div className="panel">
     <h4>发送当前团队空间</h4>
