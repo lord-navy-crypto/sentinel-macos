@@ -22,6 +22,7 @@ var canonicalProductScripts = []string{
 	"web/app/action-dock.js",
 	"web/app/runtime-logs.js",
 	"web/app/ai.js",
+	"web/app/openguin-bridge.js",
 	"web/app/ai-reliability.js",
 	"web/app/manual.js",
 	"web/app/manual-entry.js",
