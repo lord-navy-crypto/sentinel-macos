@@ -172,7 +172,7 @@ jobs:
           test "$(grep -nF '<script src="/app/ai-reliability.js"></script>' web/index.html | cut -d: -f1)" -lt "$(grep -nF '<script src="/app/manual.js"></script>' web/index.html | cut -d: -f1)"
           test "$(grep -nF '<script src="/app/manual.js"></script>' web/index.html | cut -d: -f1)" -lt "$(grep -nF '<script src="/app/manual-entry.js"></script>' web/index.html | cut -d: -f1)"
           test "$(grep -nF '<script src="/app/manual-entry.js"></script>' web/index.html | cut -d: -f1)" -lt "$(grep -nF '<script src="/app/runtime.js"></script>' web/index.html | cut -d: -f1)"
-          test "$(grep -c '<script src=' web/index.html)" -eq 17
+          test "$(grep -c '<script src=' web/index.html)" -eq 18
           test "$(grep -c '<script>' web/index.html || true)" -eq 0
 
       - name: Auxiliary workspace JavaScript syntax
