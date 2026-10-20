@@ -2,6 +2,7 @@ import {useEffect,useMemo,useState} from "react";
 
 export type LocalTool = {id:string;name:string;area:string;view:string;module?:string};
 export const LOCAL_TOOLS:LocalTool[] = [
+ {id:"sentinel-macos-center",name:"Sentinel Mac System Center · 系统分析与诊断",area:"Mac",view:"sentinel"},
  {id:"easy-local-ai",name:"Easy Local AI · WebGPU + WebLLM Model Chat",area:"AI",view:"local-ai"},
  {id:"local-ai-models",name:"Local AI Model Manager · Download, Check & Remove",area:"AI",view:"local-ai"},
  {id:"charts",name:"Data Chart Studio · CSV 柱状图和折线图",area:"Data",view:"charts"},
