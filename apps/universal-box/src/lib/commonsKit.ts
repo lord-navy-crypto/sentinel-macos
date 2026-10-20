@@ -122,7 +122,7 @@ export async function exportCommonsPacket(packet:CommonsPacket,stable=false):Pro
  const zip=new JSZip();
  // Deterministic timestamps are essential for resuming across separately started
  // v2 shares. Otherwise JSZip uses "now" and changes the archive SHA-256.
- const options=stable?{date:new Date("1980-01-01T00:00:00.000Z")}:undefined;
+ const options=stable?{date:new Date(1980,0,1)}:undefined;
  zip.file("commons.json",JSON.stringify(room,null,2),options);
  for(const item of room.files){
   const bytes=attachments.get(item.id)!;
