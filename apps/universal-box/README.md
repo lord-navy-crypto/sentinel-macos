@@ -368,3 +368,12 @@ Existing PDF, office, text, image, math, and AP study tools are preserved; AP Re
 - This release preserves the previously fixed Universal Box macOS icon, application identifier, Tauri application shell and ad-hoc signing. Both Apple Silicon and Intel DMGs must pass mounted-bundle `codesign --verify` checks before shipping.
 - Test checklist: inspect three files, export a manifest, scan copies and verify all match; edit one copied file and check it changes; delete another and check missing; include a second file with the same filename and confirm ambiguous; export the report and use dark mode/narrow window. Confirm that PDF and Commons remain operational.
 - Release limitations: unsigned Apple Developer ID / not notarized; ad-hoc signing improves signature integrity but is not a substitute for Apple's trusted distribution. Important documents should be backed up separately.
+
+## Universal Box v0.32 · exact local Binary Compare
+
+- A new **Binary Compare** workspace accepts two chosen files (drag/drop or native picker) and compares every byte using 256 KiB chunks without reading both entire files into memory. Maximum size: 256 MB per file, with progress and cancellation. This is a full byte comparison, not hash-only comparison or sampling.
+- A difference heatmap groups the file into up to 64 sections and shows changed sections, exact changed byte count, first changed byte offset, changed chunk count, and file size differences.
+- Optional local JSON report contains filenames and numerical comparison metadata, **not** file contents. No originals are modified or uploaded; filenames may still be sensitive and should only be shared intentionally.
+- Direct entry links in File Intake, Home, navigation and All Tools.
+- New unit tests cover identical files, changed bytes, truncated files, empty files, cancellation, input limits and JSON metadata.
+- Preserve Universal Box U icon, existing Tauri identifier and ad-hoc signature (the latter is not Apple notarization). Double-architecture DMG, macOS mount and codesign tests must pass before integration. Manual real-Mac drag-drop and Save-dialog checks remain necessary.
