@@ -6,6 +6,7 @@ use chacha20poly1305::{
     Key, XChaCha20Poly1305, XNonce,
 };
 use serde::Serialize;
+use mdns_sd::{ServiceDaemon, ServiceEvent, ServiceInfo};
 use std::{
     io::{Read, Write},
     net::{IpAddr, Ipv4Addr, SocketAddrV4, TcpListener, TcpStream},
@@ -20,6 +21,8 @@ const REQUEST_TEXT: &[u8] = b"REQUEST";
 const MAX_ZIP_BYTES: usize = 30_000_000;
 const SHARE_LIFETIME: Duration = Duration::from_secs(300);
 const NETWORK_TIMEOUT: Duration = Duration::from_secs(8);
+const DISCOVERY_TYPE: &str = "_uboxcom._tcp.local.";
+const DISCOVERY_PERIOD: Duration = Duration::from_secs(3);
 
 #[derive(Default)]
 pub struct CommonsLanState(Mutex<Option<ActiveShare>>);
@@ -28,6 +31,7 @@ struct ActiveShare {
     closed: Arc<AtomicBool>,
     expiry: Instant,
     addresses: Vec<String>,
+    instance: String,
 }
 
 #[derive(Serialize)]
@@ -74,6 +78,90 @@ fn local_addresses() -> Vec<Ipv4Addr> {
     // Same-machine testing remains possible without sending anything over the internet.
     addresses.push(Ipv4Addr::LOCALHOST);
     addresses
+}
+
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NearbyShare {
+    instance: String,
+    label: String,
+    ip: String,
+    port: u16,
+}
+
+/// Does not contain any invitation key. Advertised only while an explicit
+/// one-time transfer is active, not while the user merely runs Universal Box.
+fn advertise_nearby(port: u16, instance: &str) -> Option<ServiceDaemon> {
+    let addresses: Vec<IpAddr> = local_addresses().into_iter()
+        .filter(|ip| !ip.is_loopback()).map(IpAddr::V4).collect();
+    if addresses.is_empty() { return None; }
+    let daemon = ServiceDaemon::new().ok()?;
+    let info = ServiceInfo::new(
+        DISCOVERY_TYPE,
+        instance,
+        "uboxcommons.local.",
+        &addresses[..],
+        port,
+        None,
+    ).ok()?;
+    if daemon.register(info).is_err() {
+        let _ = daemon.shutdown();
+        return None;
+    }
+    Some(daemon)
+}
+
+fn browse_nearby(exclude: &str) -> Result<Vec<NearbyShare>, String> {
+    let daemon = ServiceDaemon::new().map_err(|e| format!("Nearby discovery unavailable: {e}"))?;
+    let browser = match daemon.browse(DISCOVERY_TYPE) {
+        Ok(receiver) => receiver,
+        Err(e) => {
+            let _ = daemon.shutdown();
+            return Err(format!("Cannot browse nearby Universal Box devices: {e}"));
+        }
+    };
+    let expiry = Instant::now() + DISCOVERY_PERIOD;
+    let mut found = std::collections::BTreeMap::<String, NearbyShare>::new();
+    while Instant::now() < expiry {
+        let left = expiry.saturating_duration_since(Instant::now());
+        if left.is_zero() { break; }
+        match browser.recv_timeout(left.min(Duration::from_millis(350))) {
+            Ok(ServiceEvent::ServiceResolved(info)) => {
+                let instance = info.get_fullname().split('.').next().unwrap_or("").to_string();
+                if instance == exclude || !instance.starts_with("Commons-") || instance.len() > 65 {
+                    continue;
+                }
+                let port=info.get_port();
+                if port==0 { continue; }
+                for addr in info.get_addresses_v4() {
+                    if !(addr.is_private() || addr.is_link_local()) || addr.is_loopback() {continue;}
+                    let key=format!("{instance}-{addr}:{port}");
+                    found.entry(key).or_insert_with(|| NearbyShare{
+                        instance:instance.clone(),
+                        label:format!("Universal Box · {}", &instance[8..]),
+                        ip:addr.to_string(),
+                        port
+                    });
+                }
+            }
+            Ok(_) => {},
+            Err(_) => {
+                // Receivers normally time out between multicast announcements.
+            }
+        }
+    }
+    let _=daemon.stop_browse(DISCOVERY_TYPE);
+    let _=daemon.shutdown();
+    Ok(found.into_values().take(32).collect())
+}
+
+#[tauri::command]
+pub async fn commons_lan_discover(state: State<'_, CommonsLanState>) -> Result<Vec<NearbyShare>, String> {
+    let exclude=state.0.lock().map_err(|_|"LAN state unavailable")?
+        .as_ref().map(|share|share.instance.clone()).unwrap_or_default();
+    tauri::async_runtime::spawn_blocking(move || browse_nearby(&exclude))
+        .await.map_err(|_|"Nearby discovery task failed".to_string())?
 }
 
 fn parse_invite(invite: &str) -> Result<(SocketAddrV4, [u8; 32]), String> {
@@ -172,6 +260,12 @@ pub async fn commons_lan_start(
     OsRng.fill_bytes(&mut key);
     let text_key = URL_SAFE_NO_PAD.encode(key);
     let invites: Vec<String> = local_addresses().iter().map(|ip| format!("uboxlan://{}:{port}/{text_key}", ip)).collect();
+    // Bonjour publishes ONLY an ephemeral device label, IPv4 and port.
+    // The 256-bit invitation key stays out of multicast advertisements.
+    let mut instance_seed=[0_u8; 4];
+    OsRng.fill_bytes(&mut instance_seed);
+    let instance=format!("Commons-{}", URL_SAFE_NO_PAD.encode(instance_seed));
+    let mdns=advertise_nearby(port,&instance);
     let expiry = Instant::now() + SHARE_LIFETIME;
     let closed = Arc::new(AtomicBool::new(false));
     let flag = closed.clone();
@@ -191,8 +285,9 @@ pub async fn commons_lan_start(
             }
         }
         flag.store(true, Ordering::SeqCst);
+        if let Some(daemon)=mdns { let _=daemon.shutdown(); }
     });
-    *current = Some(ActiveShare {closed, expiry, addresses:invites.clone()});
+    *current = Some(ActiveShare {closed, expiry, addresses:invites.clone(), instance});
     Ok(LanInfo {active:true,invites,seconds_remaining:300,
         message:"Encrypted one-time LAN share started; receiver needs the private invitation".into()})
 }
