@@ -59,12 +59,42 @@ jobs:
       - name: Generate Tauri icons
         run: npx tauri icon src-tauri/app-icon.svg
 
+      - name: Verify generated app icon assets
+        run: |
+          test -s src-tauri/icons/icon.icns
+          test -s src-tauri/icons/128x128.png
+          test -s src-tauri/icons/32x32.png
+
       - name: Rust storage validation tests
         run: cargo test --manifest-path src-tauri/Cargo.toml
 
       - name: Build macOS desktop bundle
         run: npm run tauri:build -- --target ${{ matrix.target }}
 
+      - name: Verify DMG opens and contains a launchable app with an icon
+        shell: bash
+        run: |
+          set -euo pipefail
+          DMG="$(find src-tauri/target/${{ matrix.target }}/release/bundle/dmg -maxdepth 1 -name '*.dmg' -print -quit)"
+          test -n "$DMG" && test -s "$DMG"
+          hdiutil verify "$DMG"
+          MOUNT="$RUNNER_TEMP/universal-box-mount-${{ matrix.target }}"
+          mkdir -p "$MOUNT"
+          hdiutil attach -readonly -nobrowse -mountpoint "$MOUNT" "$DMG"
+          trap 'hdiutil detach "$MOUNT" -quiet || true' EXIT
+          APP="$MOUNT/Universal Box.app"
+          test -d "$APP/Contents/MacOS"
+          PLIST="$APP/Contents/Info.plist"
+          test -s "$PLIST"
+          EXECUTABLE=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$PLIST")
+          ICON=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconFile' "$PLIST")
+          [[ "$ICON" == *.icns ]] || ICON="$ICON.icns"
+          test -x "$APP/Contents/MacOS/$EXECUTABLE"
+          test -s "$APP/Contents/Resources/$ICON"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleName' "$PLIST")" = "Universal Box" || true
+          echo "Validated app executable: $EXECUTABLE"
+          echo "Validated macOS app icon: $ICON"
+          echo "Verified DMG and mounted application for ${{ matrix.target }}"
       - name: Upload DMG for manual testing
         uses: actions/upload-artifact@v4
         with:
