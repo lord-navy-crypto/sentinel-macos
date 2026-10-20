@@ -9,7 +9,7 @@ use chacha20poly1305::{
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
-    fs::{self, File},
+    fs::{self, File, OpenOptions},
     io::{Read, Write},
     net::{IpAddr, Ipv4Addr, SocketAddrV4, TcpListener, TcpStream},
     path::{Path, PathBuf},
@@ -25,6 +25,7 @@ const MAX_ZIP: usize = 30_000_000;
 const TIMEOUT: Duration = Duration::from_secs(15);
 const LIFETIME: Duration = Duration::from_secs(300);
 const CACHE_AGE: Duration = Duration::from_secs(24 * 3600);
+const MAX_CACHED_TRANSFERS: usize = 4; // At most ~120 MB of verified ZIP bytes.
 
 #[derive(Default)]
 pub struct ResumeLanState(Mutex<Option<Active>>);
@@ -172,14 +173,26 @@ fn cache_root(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 }
 fn purge_expired(root: &Path) -> Result<(), String> {
     if !root.exists() { return Ok(()); }
+    let mut active = Vec::new();
     for entry in fs::read_dir(root).map_err(|e| e.to_string())?.flatten() {
         let path = entry.path();
-        if !path.is_dir() { continue; }
-        let expired = entry.metadata().ok()
-            .and_then(|info| info.modified().ok())
-            .and_then(|time| SystemTime::now().duration_since(time).ok())
-            .is_some_and(|age| age > CACHE_AGE);
-        if expired { let _ = fs::remove_dir_all(path); }
+        let Some(name) = entry.file_name().to_str().map(ToString::to_string) else { continue; };
+        // Only touch our own digest-named directories, never arbitrary files.
+        if !is_digest(&name) { continue; }
+        let Ok(info) = fs::symlink_metadata(&path) else { continue; };
+        if !info.file_type().is_dir() { continue; } // Refuse symlink traversal.
+        let modified = info.modified().unwrap_or(SystemTime::UNIX_EPOCH);
+        let expired = SystemTime::now().duration_since(modified).is_ok_and(|age| age > CACHE_AGE);
+        if expired {
+            let _ = fs::remove_dir_all(path);
+        } else {
+            active.push((modified, path));
+        }
+    }
+    active.sort_by_key(|(modified, _)| *modified);
+    let excess = active.len().saturating_sub(MAX_CACHED_TRANSFERS);
+    for (_, path) in active.into_iter().take(excess) {
+        let _ = fs::remove_dir_all(path);
     }
     Ok(())
 }
@@ -191,7 +204,8 @@ fn chunk_length(m: &Manifest, index: usize) -> usize {
 }
 fn cached_chunk(root: &Path, m: &Manifest, index: usize) -> Option<Vec<u8>> {
     let path = chunk_path(root, m, index);
-    if fs::metadata(&path).ok()?.len() != chunk_length(m, index) as u64 { return None; }
+    let metadata = fs::symlink_metadata(&path).ok()?;
+    if !metadata.file_type().is_file() || metadata.len() != chunk_length(m, index) as u64 { return None; }
     let content = fs::read(path).ok()?;
     (sha256(&content) == m.chunk_hashes[index]).then_some(content)
 }
@@ -202,8 +216,14 @@ fn store_chunk(root: &Path, m: &Manifest, index: usize, bytes: &[u8]) -> Result<
     let destination = chunk_path(root, m, index);
     let directory = destination.parent().ok_or("Invalid cache directory")?;
     fs::create_dir_all(directory).map_err(|e| format!("Cannot create resume cache: {e}"))?;
-    let temporary = destination.with_extension("partial");
-    let mut file = File::create(&temporary).map_err(|e| e.to_string())?;
+    if !fs::symlink_metadata(directory).map_err(|e| e.to_string())?.file_type().is_dir() {
+        return Err("Unsafe resume cache directory".into());
+    }
+    // Avoid following a pre-existing symlink or overwriting a stale .partial file.
+    let mut nonce = [0u8; 8]; OsRng.fill_bytes(&mut nonce);
+    let temporary = directory.join(format!("{index}-{}.partial", URL_SAFE_NO_PAD.encode(nonce)));
+    let mut file = OpenOptions::new().write(true).create_new(true).open(&temporary)
+        .map_err(|e| e.to_string())?;
     file.write_all(bytes).map_err(|e| e.to_string())?;
     file.sync_all().map_err(|e| e.to_string())?;
     fs::rename(temporary, destination).map_err(|e| e.to_string())?;
