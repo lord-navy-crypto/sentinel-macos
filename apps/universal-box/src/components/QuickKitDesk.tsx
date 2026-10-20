@@ -6,16 +6,18 @@ import {
 import {exportFile} from "../lib/output";
 import {replaceTextLiteral} from "../lib/quickBatchText";
 import {addClip,combineClips} from "../lib/multiCopy";
+import {DEFAULT_LOG_PRIVACY,scrubDiagnosticText,type LogPrivacyOptions} from "../lib/logPrivacy";
 
-export type QuickKitMode="text"|"links"|"dates"|"grades"|"multi-copy"|"replace";
+export type QuickKitMode="text"|"links"|"dates"|"grades"|"multi-copy"|"replace"|"log-privacy";
 const title:Record<QuickKitMode,string>={
   text:"Text cleaner · 文本整理",links:"Tracking-link cleaner · 链接净化",
   dates:"Date planner · 日期计算",grades:"Weighted grades · 成绩规划",
   "multi-copy":"Multi-copy · 多段合并复制",
   replace:"Literal replace · 批量查找替换",
+  "log-privacy":"Log privacy cleaner · 日志脱敏",
 };
 const number=(n:number)=>String(Number(n.toFixed(6)));
-export default function QuickKitDesk({initialMode="text"}:{initialMode?:QuickKitMode}){
+export default function QuickKitDesk({initialMode="text",initialLogText=""}:{initialMode?:QuickKitMode;initialLogText?:string}){
   const [mode,setMode]=useState<QuickKitMode>(initialMode);
   const [source,setSource]=useState("  Copy   from a PDF\nLine two\nLine two");
   const [options,setOptions]=useState<CleanupOptions>(DEFAULT_CLEANUP);
@@ -27,6 +29,8 @@ export default function QuickKitDesk({initialMode="text"}:{initialMode?:QuickKit
   const [gradeData,setGradeData]=useState("Homework,25,90\nTests,25,80\nFinal exam,50,?");
   const [target,setTarget]=useState("90");
   const [status,setStatus]=useState("");
+  const [logText,setLogText]=useState(initialLogText.slice(0,200000));
+  const [privacyOptions,setPrivacyOptions]=useState<LogPrivacyOptions>(DEFAULT_LOG_PRIVACY);
   const [findLiteral,setFindLiteral]=useState("");
   const [replacement,setReplacement]=useState("");
   const [clipDraft,setClipDraft]=useState("");
@@ -51,7 +55,9 @@ export default function QuickKitDesk({initialMode="text"}:{initialMode?:QuickKit
     catch(e){return {value:null,error:String(e instanceof Error?e.message:e)};}
   },[gradeData,target]);
   const replaceResult=useMemo(()=>{try{return {...replaceTextLiteral(source,findLiteral,replacement),error:""};}catch(e){return {text:"",count:0,error:String(e instanceof Error?e.message:e)};}},[source,findLiteral,replacement]);
-  const output=mode==="text"?textResult.value:mode==="links"?linkResult.text:mode==="replace"?replaceResult.text:"";
+  const privacyResult=useMemo(()=>{try{return {...scrubDiagnosticText(logText,privacyOptions),error:""};}catch(e){return {text:"",replacements:0,categories:[],error:String(e)};}},[logText,privacyOptions]);
+  const output=mode==="text"?textResult.value:mode==="links"?linkResult.text:mode==="replace"?replaceResult.text:mode==="log-privacy"?privacyResult.text:"";
+  const outputError=mode==="text"?textResult.error:mode==="links"?linkResult.error:mode==="replace"?replaceResult.error:privacyResult.error;
   async function copyResult(){
     try{
       await navigator.clipboard.writeText(output);
@@ -60,7 +66,7 @@ export default function QuickKitDesk({initialMode="text"}:{initialMode?:QuickKit
   }
   async function saveResult(){
     try{
-      const saved=await exportFile(mode==="links"?"clean-links.txt":mode==="replace"?"replaced-text.txt":"clean-text.txt",output);
+      const saved=await exportFile(mode==="links"?"clean-links.txt":mode==="replace"?"replaced-text.txt":mode==="log-privacy"?"reviewed-diagnostic-log.txt":"clean-text.txt",output);
       setStatus(saved?"Saved locally.":"Save cancelled.");
     }catch(e){setStatus(String(e instanceof Error?e.message:e));}
   }
@@ -68,9 +74,9 @@ export default function QuickKitDesk({initialMode="text"}:{initialMode?:QuickKit
   return <section className="panel">
     <p className="eyebrow">QUICKKIT · 轻量快捷工具 · OFFLINE</p>
     <h2>Quick Tools / 快捷小工具</h2>
-    <p className="subtle">Four tiny tasks without accounts or online uploads. Local input stays in this window; text/links are exported only when you click. Date calculations use calendar days, not elapsed 24-hour periods.</p>
+    <p className="subtle">Offline utilities without accounts or online uploads. Local input stays in this window; text/links are exported only when you click. Date calculations use calendar days, not elapsed 24-hour periods.</p>
     <div className="pill-row" role="group" aria-label="Quick tool">
-      {(["text","links","replace","multi-copy","dates","grades"] as const).map(key=><button type="button" key={key}
+      {(["text","links","replace","log-privacy","multi-copy","dates","grades"] as const).map(key=><button type="button" key={key}
         className={mode===key?"pill active-pill":"pill"} onClick={()=>{setMode(key);setStatus("");}}>{title[key]}</button>)}
     </div>
     {mode==="text"&&<>
@@ -99,14 +105,24 @@ export default function QuickKitDesk({initialMode="text"}:{initialMode?:QuickKit
       </div>
       {!replaceResult.error&&<p className="subtle">{replaceResult.count} matches</p>}
     </>}
-    {(mode==="text"||mode==="links"||mode==="replace")&&<>
+    {mode==="log-privacy"&&<>
+      <p className="subtle">本地日志预览脱敏：自动检查常见令牌、Cookie、邮箱和用户主目录。可选遮盖 IPv4。并非完整匿名化；分享前必须人工核对输出。</p>
+      <label className="field-label" htmlFor="privacy-log-source">诊断文本或 Sentinel 结果</label>
+      <textarea id="privacy-log-source" className="field text-editor" rows={7} maxLength={200000} value={logText} onChange={e=>setLogText(e.target.value)}/>
+      <div className="actions">
+        {([["secrets","令牌、API 密钥、Cookie 与私钥"],["userPaths","用户主目录路径"],["emails","电子邮箱"],["ipv4","IPv4 地址（可选）"]] as const).map(([key,label])=>
+          <label key={key}><input type="checkbox" checked={privacyOptions[key]} onChange={e=>setPrivacyOptions(current=>({...current,[key]:e.target.checked}))}/>{label}</label>)}
+      </div>
+      <p className="subtle">预览处理 {privacyResult.replacements} 处匹配；类别：{privacyResult.categories.join("、")||"无匹配"}。原始 Sentinel 数据保持不变。</p>
+    </>}
+    {(mode==="text"||mode==="links"||mode==="replace"||mode==="log-privacy")&&<>
       <label className="field-label" htmlFor="quick-result">Processed output</label>
       <textarea id="quick-result" className="field text-editor" rows={6} value={output} readOnly aria-label="Quick Tool output"/>
       <div className="actions">
-        <button className="primary-button" type="button" disabled={!!(mode==="text"?textResult.error:mode==="links"?linkResult.error:replaceResult.error)} onClick={()=>{void copyResult();}}>Copy result</button>
+        <button className="primary-button" type="button" disabled={!!outputError} onClick={()=>{void copyResult();}}>Copy result</button>
         <button className="secondary-button" type="button" disabled={!!(mode==="text"?textResult.error:mode==="links"?linkResult.error:replaceResult.error)} onClick={()=>{void saveResult();}}>Save as TXT</button>
       </div>
-      {(mode==="text"?textResult.error:mode==="links"?linkResult.error:replaceResult.error)&&<p role="alert" className="subtle">{mode==="text"?textResult.error:mode==="links"?linkResult.error:replaceResult.error}</p>}
+      {outputError&&<p role="alert" className="subtle">{outputError}</p>}
     </>}
     {mode==="multi-copy"&&<>
       <p className="subtle">Collect up to 30 text snippets in this window, reorder by removal, then copy them as one. No background clipboard monitoring; no saved history or cloud sync. Passwords and private data should not be collected.</p>
