@@ -134,8 +134,7 @@ fn browse_nearby(exclude: &str) -> Result<Vec<NearbyShare>, String> {
                 }
                 let port=info.get_port();
                 if port==0 { continue; }
-                for ip in info.get_addresses() {
-                    let IpAddr::V4(addr)=ip else { continue };
+                for addr in info.get_addresses_v4() {
                     if !(addr.is_private() || addr.is_link_local()) || addr.is_loopback() {continue;}
                     let key=format!("{instance}-{addr}:{port}");
                     found.entry(key).or_insert_with(|| NearbyShare{
