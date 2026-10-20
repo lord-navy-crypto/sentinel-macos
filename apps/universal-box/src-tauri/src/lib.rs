@@ -178,6 +178,7 @@ pub fn run() {
             commons_lan::commons_lan_start,
             commons_lan::commons_lan_stop,
             commons_lan::commons_lan_status,
+            commons_lan::commons_lan_discover,
             commons_lan::commons_lan_receive
         ])
         .run(tauri::generate_context!())
