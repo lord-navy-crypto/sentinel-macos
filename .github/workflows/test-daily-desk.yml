@@ -64,7 +64,7 @@ jobs:
       - name: Upload DMG for manual testing
         uses: actions/upload-artifact@v4
         with:
-          name: DailyDesk-macOS-AppleSilicon
+          name: UniversalBox-macOS-AppleSilicon
           path: apps/universal-box/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
           if-no-files-found: error
           retention-days: 14
