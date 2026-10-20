@@ -2,6 +2,7 @@ import {useEffect,useMemo,useState} from "react";
 
 export type LocalTool = {id:string;name:string;area:string;view:string;module?:string};
 export const LOCAL_TOOLS:LocalTool[] = [
+ {id:"binary-compare",name:"Binary Compare · 精确逐字节文件差异检测 / 热力图",area:"Files",view:"binary-compare"},
  {id:"system-health",name:"System Health · 本地启动与功能自检 / 导出诊断报告",area:"System",view:"system-health"},
  {id:"file-integrity",name:"File Integrity · SHA-256 清单导出、跨电脑比对与异常提醒",area:"Files",view:"file-intake"},
  {id:"file-intake",name:"File Intake · 文件识别、拖放 SHA-256、重复检查、CSV 清单",area:"Files",view:"file-intake"},

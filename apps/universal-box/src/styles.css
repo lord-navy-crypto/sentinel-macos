@@ -785,3 +785,63 @@ pre { white-space:pre-wrap; word-break:break-word; }
  .ub-intake-verify-row{grid-template-columns:90px minmax(0,1fr);}
 }
 @media(prefers-reduced-motion:reduce){.ub-intake-type-track>span{transition:none;}}
+
+
+/* v0.32 — exact local binary comparison, scalable even in narrow macOS windows */
+.ub-compare-home {
+ display:flex;gap:15px;align-items:center;padding:16px 19px;margin:0 0 23px;
+ border-radius:16px;border:1px solid var(--ub-border);background:var(--ub-tint);
+}
+.ub-compare-home>span {font-size:29px;font-weight:800;display:grid;place-items:center;flex-shrink:0;
+ color:var(--ub-primary);width:53px;height:53px;border-radius:13px;background:var(--ub-panel);}
+.ub-compare-home>div {min-width:0;flex:1;}
+.ub-compare-home strong {color:var(--ub-text);font-size:14px;}
+.ub-compare-home p {margin:5px 0 0;font-size:12px;}
+.ub-compare-home button {white-space:nowrap;}
+.ub-compare-pair {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:20px 0;}
+.ub-compare-drop {display:flex;flex-direction:column;align-items:center;gap:12px;min-width:0;
+ min-height:275px;padding:20px;border:2px dashed var(--ub-ring);border-radius:18px;background:var(--ub-subtle);}
+.ub-compare-drop[data-dragging="true"] {background:var(--ub-tint);border-color:var(--ub-primary);}
+.ub-compare-drop-heading {display:flex;align-self:stretch;align-items:center;gap:12px;font-size:14px;}
+.ub-compare-drop-heading span {font-size:14px;display:grid;place-items:center;width:30px;height:30px;
+ flex-shrink:0;border-radius:10px;background:var(--ub-primary);color:white;font-weight:850;}
+.ub-compare-drop-heading strong {font-size:14px;}
+.ub-compare-symbol {font-size:34px;color:var(--ub-primary);line-height:1;}
+.ub-compare-file-name {font-size:13px;max-width:100%;overflow-wrap:anywhere;text-align:center;}
+.ub-compare-drop>.subtle {font-size:11px;}
+.ub-compare-drop input {max-width:100%;font-size:12px;padding:7px;}
+.ub-compare-controls {display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:15px 0;}
+.ub-compare-progress {background:var(--ub-subtle);padding:15px;border:1px solid var(--ub-border);
+ border-radius:13px;margin:12px 0;}
+.ub-compare-progress>div {display:flex;justify-content:space-between;gap:8px;align-items:center;
+ margin-bottom:9px;font-size:12px;}
+.ub-compare-progress progress {width:100%;height:15px;accent-color:var(--ub-primary);}
+.ub-compare-results {margin:20px 0;border:1px solid var(--ub-border);background:var(--ub-panel);
+ padding:20px;border-radius:17px;}
+.ub-compare-results h3 {font-size:15px;margin:20px 0 7px;}
+.ub-compare-results .subtle {font-size:12px;}
+.ub-compare-banner {display:flex;gap:14px;align-items:center;padding:16px;border-radius:13px;
+ border:1px solid var(--ub-border);background:var(--ub-tint);margin-bottom:18px;}
+.ub-compare-banner[data-status="different"] {background:var(--ub-subtle);}
+.ub-compare-banner>span {font-size:25px;font-weight:800;display:grid;place-items:center;border-radius:10px;
+ background:var(--ub-panel);width:44px;height:44px;flex-shrink:0;color:var(--ub-primary);}
+.ub-compare-banner strong {font-size:15px;}
+.ub-compare-banner p {margin:4px 0 0;}
+.ub-compare-map {display:grid;grid-template-columns:repeat(32,minmax(0,1fr));gap:3px;margin:15px 0 10px;}
+.ub-compare-map>span {display:block;min-width:0;height:22px;border-radius:4px;}
+.ub-compare-map>span.same,.ub-compare-legend i.same {background:#4b91dc;}
+.ub-compare-map>span.changed,.ub-compare-legend i.changed {background:#e6a34a;}
+.ub-compare-legend {display:flex;gap:16px;align-items:center;font-size:12px;color:var(--ub-muted);}
+.ub-compare-legend span {display:flex;align-items:center;gap:7px;}
+.ub-compare-legend i {display:inline-block;width:12px;height:12px;border-radius:3px;}
+.ub-compare-summary {display:flex;flex-wrap:wrap;gap:10px;margin:14px 0 18px;}
+.ub-compare-summary span {padding:8px 12px;font-size:12px;border-radius:10px;
+ background:var(--ub-subtle);border:1px solid var(--ub-border);color:var(--ub-text);}
+@media(max-width:760px) {
+ .ub-compare-pair {grid-template-columns:1fr;}
+ .ub-compare-home {flex-wrap:wrap;}
+ .ub-compare-home button {width:100%;}
+ .ub-compare-map {grid-template-columns:repeat(16,minmax(0,1fr));}
+ .ub-compare-results {padding:13px;}
+}
+@media(prefers-reduced-motion:reduce) {.ub-compare-map>span{transition:none;}}

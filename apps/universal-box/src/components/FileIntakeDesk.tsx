@@ -222,6 +222,7 @@ export default function FileIntakeDesk({onOpenTool}:Props){
     <button type="button" onClick={()=>onOpenTool("files","images")}><span>▧</span><strong>处理图片</strong><small>缩放 · 裁剪 · 格式转换</small></button>
     <button type="button" onClick={()=>onOpenTool("workflows","zip-selective")}><span>▤</span><strong>ZIP 文件工具</strong><small>查看 · 安全提取 · 重新打包</small></button>
     <button type="button" onClick={()=>onOpenTool("commons")}><span>⇄</span><strong>加密发送与团队协作</strong><small>局域网 · 离线空间</small></button>
+    <button type="button" onClick={()=>onOpenTool("binary-compare")}><span>≠</span><strong>精确比较两个文件</strong><small>逐字节核对 · 差异分布图 · JSON 报告</small></button>
    </div>
    <p className="subtle">进入下一工具后，请在那里重新选择原文件；本工作台不会跨工具保存或传递原文件内容，以避免意外暴露。</p>
   </div>
