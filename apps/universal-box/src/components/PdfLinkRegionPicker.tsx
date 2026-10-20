@@ -79,7 +79,7 @@ export default function PdfLinkRegionPicker({file,pageNumber,onChoose}:{
   const end=location(e);
   const info=viewportRef.current;
   try{
-   const rect=pdfLinkRectangleFromDrag({...info.viewport,view:info.view},drag.start,end);
+   const rect=pdfLinkRectangleFromDrag({convertToPdfPoint:(x,y)=>info.viewport.convertToPdfPoint(x,y),view:info.view},drag.start,end);
    onChoose(rect);
    setStatus("已框选位置并填入 PDF 坐标；确认 URL 后点击「添加可点击区域」，原文件不变。");
   }catch(err){setStatus(err instanceof Error?err.message:String(err));}
