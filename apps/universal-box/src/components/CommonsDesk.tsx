@@ -496,6 +496,49 @@ export default function CommonsDesk(){
    {networkStatus&&<p className="subtle" role="status">{networkStatus}</p>}
   </div>
   <div className="panel" style={{marginTop:16}}>
+   <p className="eyebrow">COMMONS LAN V2 · VERIFIED RESUME</p>
+   <h3>加密数据块断点续传（试验版）</h3>
+   <p className="subtle">v2 与旧版 uboxlan:// 独立运行。每 256 KB 分块进行 XChaCha20-Poly1305 认证及 SHA-256 校验，断线后只请求尚未验证的数据块。两台电脑均需要包含 v2 的 Universal Box。</p>
+   <p className="subtle">当前上限仍为 30 MB 的 Commons ZIP，不是任意超大文件。接收端会暂时在本机应用数据目录存储未加密的已验证块；下次接收时清除超过 24 小时的旧缓存，也可手动清理。敏感资料请谨慎使用。</p>
+   {room&&<div className="actions">
+    <button type="button" className="primary-button" disabled={busy||networkBusy||!!resumeShare?.active}
+     onClick={()=>void startResumeShare()}>开启 v2 可恢复发送</button>
+    <button type="button" className="secondary-button" disabled={networkBusy||!resumeShare?.active}
+     onClick={()=>void stopResumeShare()}>停止 v2 发送</button>
+   </div>}
+   {resumeShare?.active&&<div style={{marginTop:12}}>
+    <p className="subtle">剩余约 {resumeShare.secondsRemaining} 秒。传输中断不会消耗本次分享，完整校验并回执后才关闭。</p>
+    <label className="field-label">选择局域网 IP
+     <select className="field" value={resumeInvite} onChange={e=>setResumeInvite(e.target.value)}>
+      {resumeShare.invites.map((invite,i)=><option value={invite} key={invite}>{i+1}. {invite.split("/")[2]?.split(":")[0]??"本机"}</option>)}
+     </select>
+    </label>
+    <label className="field-label">私密 v2 邀请
+     <textarea className="field text-editor" readOnly rows={2} value={resumeInvite}/>
+    </label>
+    <button type="button" className="secondary-button" onClick={()=>void navigator.clipboard.writeText(resumeInvite)
+     .then(()=>setNetworkStatus("v2 私密邀请已复制。")).catch(()=>setNetworkStatus("请手动复制 v2 邀请。"))}>
+     复制 v2 邀请
+    </button>
+   </div>}
+   <label className="field-label">粘贴发送者的 uboxlan2:// 邀请
+    <textarea className="field text-editor" rows={2} maxLength={180} value={resumeInput}
+     onChange={e=>setResumeInput(e.target.value)} placeholder="uboxlan2://192.168.1.20:49152/私密密钥"/>
+   </label>
+   <div className="actions">
+    <button type="button" className="primary-button" disabled={networkBusy||!resumeInput.trim()}
+     onClick={()=>void receiveResume()}>接收或恢复数据块</button>
+    <button type="button" className="secondary-button" disabled={networkBusy}
+     onClick={()=>void clearResumeCache()}>清除本机暂存块</button>
+   </div>
+   {networkBusy&&resumeProgress&&<div style={{marginTop:10}}>
+    <progress style={{width:"100%"}} max={resumeProgress.totalBytes} value={resumeProgress.receivedBytes}
+     aria-label="v2 verified chunk progress"/>
+    <p className="subtle">已验证 {sizeText(resumeProgress.receivedBytes)} / {sizeText(resumeProgress.totalBytes)}（包含缓存中的完整块）。</p>
+   </div>}
+   <p className="subtle">尚未支持跨公网传输或后台实时同步。真实 Mac 间断线重连测试通过前，此功能应视为实验版本。</p>
+  </div>
+  <div className="panel" style={{marginTop:16}}>
    <p className="eyebrow">P2P RESEARCH · OPT-IN</p>
    <h3>跨局域网直连可行性探测</h3>
    <p className="subtle">研究阶段：可使用公开 STUN 服务器观察你的 UDP 公网映射。只有主动点击才联系外部服务器；该服务器能看到本次连接的公网 IP。**这不是已经建立了 P2P 文件连接**，也不会上传任何团队文件。</p>
