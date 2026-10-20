@@ -1,3 +1,4 @@
+mod commons_lan;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -109,15 +110,17 @@ fn supports_output_extension(extension: &str) -> bool {
 
 #[tauri::command]
 fn write_output_file(path: String, bytes: Vec<u8>) -> Result<(), String> {
-    if bytes.len() > 20_000_000 {
-        return Err("The output file exceeds the 20 MB limit".into());
-    }
     let location = PathBuf::from(path);
     let extension = location
         .extension()
         .and_then(|ext| ext.to_str())
         .unwrap_or("")
         .to_ascii_lowercase();
+    // Commons ZIP packets may be up to 30 MB; all other tool outputs stay at 20 MB.
+    let max_bytes = if extension == "zip" { 30_000_000 } else { 20_000_000 };
+    if bytes.len() > max_bytes {
+        return Err(format!("The output file exceeds the {} MB limit", max_bytes / 1_000_000));
+    }
     if !supports_output_extension(&extension) {
         return Err("Unsupported output file extension".into());
     }
@@ -160,12 +163,22 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .manage(commons_lan::CommonsLanState::default())
+        .on_window_event(|window, event| {
+            if matches!(event, tauri::WindowEvent::Destroyed) {
+                window.state::<commons_lan::CommonsLanState>().stop();
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             load_workspace,
             save_workspace,
             export_backup,
             read_backup,
-            write_output_file
+            write_output_file,
+            commons_lan::commons_lan_start,
+            commons_lan::commons_lan_stop,
+            commons_lan::commons_lan_status,
+            commons_lan::commons_lan_receive
         ])
         .run(tauri::generate_context!())
         .expect("error while running Daily Desk");
