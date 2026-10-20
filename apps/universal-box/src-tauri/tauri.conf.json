@@ -31,6 +31,12 @@
     ],
     "category": "Productivity",
     "shortDescription": "Private, free file tools and productivity workspace",
-    "longDescription": "An offline-first desktop toolbox for local file workflows, PDF editing, encrypted LAN transfers and productivity."
+    "longDescription": "An offline-first desktop toolbox for local file workflows, PDF editing, encrypted LAN transfers and productivity.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns"
+    ]
   }
 }
