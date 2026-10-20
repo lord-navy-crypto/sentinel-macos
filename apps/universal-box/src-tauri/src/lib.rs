@@ -128,6 +128,48 @@ fn write_output_file(path: String, bytes: Vec<u8>) -> Result<(), String> {
         .map_err(|error| format!("Could not save output file: {error}"))
 }
 
+
+#[cfg(target_os = "macos")]
+fn sentinel_readonly_command(program: &str, args: &[&str]) -> Result<String, String> {
+    use std::process::Command;
+    let output = Command::new(program).args(args).output()
+        .map_err(|error| format!("System query failed: {error}"))?;
+    if !output.status.success() {
+        return Err("The system query was not available".into());
+    }
+    let text = String::from_utf8_lossy(&output.stdout);
+    Ok(text.chars().take(16000).collect())
+}
+
+#[tauri::command]
+fn sentinel_system_snapshot() -> Result<serde_json::Value, String> {
+    #[cfg(target_os = "macos")]
+    {
+        let os = sentinel_readonly_command("/usr/bin/sw_vers", &["-productVersion"])?;
+        let model = sentinel_readonly_command("/usr/sbin/sysctl", &["-n", "hw.model"])?;
+        let cpu = sentinel_readonly_command("/usr/sbin/sysctl", &["-n", "hw.ncpu"])?;
+        let memory = sentinel_readonly_command("/usr/sbin/sysctl", &["-n", "hw.memsize"])?;
+        let disk = sentinel_readonly_command("/bin/df", &["-k", "/"])?;
+        let processes = sentinel_readonly_command("/bin/ps", &["-A", "-o", "pid=,comm="])?;
+        let count = processes.lines().filter(|line| !line.trim().is_empty()).count();
+        Ok(serde_json::json!({
+            "platform":"macOS",
+            "os_version":os.trim(),
+            "machine_model":model.trim(),
+            "logical_cpus":cpu.trim().parse::<u32>().ok(),
+            "physical_memory_bytes":memory.trim().parse::<u64>().ok(),
+            "root_volume_df_kib":disk.trim(),
+            "observed_process_lines":count,
+            "source":"macOS built-in read-only tools",
+            "mutating_actions_enabled":false
+        }))
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        Err("Sentinel system snapshot is supported on macOS only".into())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -165,7 +207,8 @@ pub fn run() {
             save_workspace,
             export_backup,
             read_backup,
-            write_output_file
+            write_output_file,
+            sentinel_system_snapshot
         ])
         .run(tauri::generate_context!())
         .expect("error while running Daily Desk");
