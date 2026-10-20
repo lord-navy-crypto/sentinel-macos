@@ -5,12 +5,13 @@ describe("local diagnostic privacy cleaner",()=>{
   const text=[
    "X-Sentinel-Token: abcdef12345",
    "Authorization: Bearer abc.def",
+   '{ "Authorization": "Bearer secretBearer42" }',
    'password="very-secret"',
    "Cookie: sid=abc; x=def",
    "http://127.0.0.1:3241/#token=abc123",
   ].join("\n");
   const x=scrubDiagnosticText(text);
-  for(const secret of ["abcdef12345","abc.def","very-secret","sid=abc","token=abc123"]){
+  for(const secret of ["abcdef12345","abc.def","secretBearer42","very-secret","sid=abc","token=abc123"]){
    expect(x.text).not.toContain(secret);
   }
   expect(x.replacements).toBeGreaterThanOrEqual(5);
