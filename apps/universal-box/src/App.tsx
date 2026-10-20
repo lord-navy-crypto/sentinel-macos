@@ -390,7 +390,7 @@ export default function App() {
             </button>
             <button className="topbar-control topbar-access" type="button" onClick={()=>openTool("access")}
               aria-label="Open Universal Access: larger text, contrast and help" title="Accessibility & help">Aa <span>无障碍</span></button>
-            <span className="version-pill">v0.29</span>
+            <span className="version-pill">v0.30</span>
           </div>
         </header>
         <div id="main-content" className="content" tabIndex={-1}>
