@@ -10,7 +10,8 @@ import {
 type View="files"|"chat"|"tasks"|"members";
 type LanShare={active:boolean;invites:string[];secondsRemaining:number;message:string};
 type NearbyShare={instance:string;label:string;ip:string;port:number};
-type StunObservation={server:string;localEndpoint:string;observedPublicEndpoint:string;note:string};
+type StunSample={server:string;result:string|null;error:string|null};
+type StunObservation={server:string;localEndpoint:string;observedPublicEndpoint:string;samples:StunSample[];mappingConsistent:boolean|null;note:string};
 const B64_BLOCK=49152;
 export function binaryToLanBase64(bytes:Uint8Array):string{
  const chunks:string[]=[];
@@ -410,12 +411,19 @@ export default function CommonsDesk(){
    <h3>跨局域网直连可行性探测</h3>
    <p className="subtle">研究阶段：可使用公开 STUN 服务器观察你的 UDP 公网映射。只有主动点击才联系外部服务器；该服务器能看到本次连接的公网 IP。**这不是已经建立了 P2P 文件连接**，也不会上传任何团队文件。</p>
    <button type="button" className="secondary-button" disabled={stunBusy} onClick={()=>void runP2pProbe()}>
-    {stunBusy?"探测中…":"尝试一次免费 STUN 网络探测"}
+    {stunBusy?"探测中…":"尝试两处免费 STUN 映射对比"}
    </button>
    {stunError&&<p role="alert" className="subtle">STUN 探测不可用：{stunError}</p>}
    {stun&&<div style={{padding:12,marginTop:10,border:"1px solid var(--line,#cbd5e1)",borderRadius:12}}>
     <p><strong>本机 UDP 地址：</strong>{stun.localEndpoint}</p>
     <p><strong>STUN 观察到的公网地址：</strong>{stun.observedPublicEndpoint}</p>
+    <div style={{marginTop:10}}>
+     <strong>两个服务器的映射对比（复用同一 UDP 本地端口）</strong>
+     {stun.samples.map(item=><div key={item.server} className="task-row">
+       <div className="task-copy"><strong>{item.server}</strong><div className="subtle">{item.result??("探测失败："+(item.error??"未知错误"))}</div></div>
+      </div>)}
+     <p className="subtle">{stun.mappingConsistent===true?"两处观测相同；这仍不能证明能够异地直连。":stun.mappingConsistent===false?"两处观测不同，可能存在目标相关的 NAT 映射；异地打洞更难，但不能由此确定 NAT 类型。":"只有一处或没有可比较的观测，无法判断映射是否一致。"}</p>
+    </div>
     <p className="subtle">{stun.note}</p>
     <p className="subtle">观测服务器：{stun.server}。此结果不能预测真实 NAT 穿透成功率；跨网打洞、信令和端到端传输还没有实现。</p>
    </div>}
