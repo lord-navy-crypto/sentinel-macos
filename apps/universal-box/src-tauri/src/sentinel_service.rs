@@ -53,7 +53,7 @@ fn check_exit(engine: &mut Option<RunningEngine>) {
     }
 }
 impl SentinelService {
-    fn stop(&self) {
+    pub fn stop(&self) {
         if let Ok(mut guard) = self.0.lock() {
             if let Some(mut engine) = guard.take() {
                 // Send SIGTERM so the original Go engine can close its jobs and state.
