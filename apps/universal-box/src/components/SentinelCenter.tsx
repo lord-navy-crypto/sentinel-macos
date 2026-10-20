@@ -2,6 +2,7 @@ import {useEffect,useMemo,useState} from "react";
 import {invoke} from "@tauri-apps/api/core";
 import {exportFile} from "../lib/output";
 import {sentinelTable,sentinelSummary,sentinelCsv,filteredSentinelRows,sentinelDiff} from "../lib/sentinelPresentation";
+import {quickCheckMetrics,reviewQueueMetrics} from "../lib/sentinelDashboard";
 
 type EngineStatus = {running:boolean;version:string|null;message:string};
 type ReadOperation = {id:string;name:string;description:string};
@@ -50,11 +51,25 @@ export default function SentinelCenter(){
  const [descending,setDescending]=useState(false);
  const [presentation,setPresentation]=useState<"table"|"json"|"compare">("table");
  const [exportMessage,setExportMessage]=useState("");
+ const [dashboard,setDashboard]=useState<{quick:unknown;queue:unknown}|null>(null);
+ const [dashboardLoading,setDashboardLoading]=useState(false);
+ const [dashboardError,setDashboardError]=useState("");
  const group=useMemo(()=>LENSES.find(x=>x.id===lens)??LENSES[0],[lens]);
  const table=useMemo(()=>sentinelTable(result),[result]);
  const filtered=useMemo(()=>table?filteredSentinelRows(table,query,sortColumn,descending):[],[table,query,sortColumn,descending]);
  const changes=useMemo(()=>previous===null?[]:sentinelDiff(previous,result),[previous,result]);
  const summary=useMemo(()=>sentinelSummary(result),[result]);
+ async function loadDashboard(){
+  setDashboardLoading(true);setDashboardError("");
+  try{
+   const [quick,queue]=await Promise.all([
+    invoke<unknown>("sentinel_service_read",{key:"quick-check"}),
+    invoke<unknown>("sentinel_service_read",{key:"review"}),
+   ]);
+   setDashboard({quick,queue});
+  }catch(e){setDashboardError(String(e));}
+  finally{setDashboardLoading(false);}
+ }
  async function exportReading(format:"json"|"csv"){
   if(!selected||result===null)return;
   try{
@@ -81,7 +96,7 @@ export default function SentinelCenter(){
   setWorking(true);setError("");
   try {
    setEngine(await invoke<EngineStatus>("sentinel_service_stop"));
-   setResult(null);setSelected(null);setPrevious(null);
+   setResult(null);setSelected(null);setPrevious(null);setDashboard(null);
   }catch(e){setError(String(e));}
   finally{setWorking(false);}
  }
@@ -116,6 +131,26 @@ export default function SentinelCenter(){
    <p className="subtle">启动仅开启本机服务，不会自动运行完整扫描。完整工作台在 Universal Box 内另开窗口，原 Sentinel 操作与确认流程保持不变。</p>
   </div>
   {error&&<p role="alert" style={{whiteSpace:"pre-wrap"}}>{error}</p>}
+  <div style={{marginTop:16,marginBottom:16}}>
+   <div className="actions">
+    <button className="secondary-button" type="button" disabled={!engine?.running||dashboardLoading} onClick={()=>void loadDashboard()}>
+     {dashboardLoading?"读取 Sentinel 系统摘要中…":"加载 Quick Check + Review Queue"}
+    </button>
+   </div>
+   {dashboardError&&<p role="alert">系统摘要读取失败：{dashboardError}</p>}
+   {dashboard&&<div>
+    <h3>Sentinel 实时系统摘要</h3>
+    <p className="subtle">数值全部来自原 Go 引擎，仅用于排列审查优先级。Attention 不是恶意软件概率。</p>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(145px,1fr))",gap:10}}>
+     {[...quickCheckMetrics(dashboard.quick),...reviewQueueMetrics(dashboard.queue)].map((metric,i)=>
+      <div key={metric.label+i} style={{padding:14,border:"1px solid var(--line, #cbd5e1)",borderRadius:12}}>
+       <div className="subtle" style={{fontSize:12}}>{metric.label}</div>
+       <div style={{fontSize:22,fontWeight:700}}>{metric.value}</div>
+       {metric.detail&&<div className="subtle" style={{fontSize:11}}>{metric.detail}</div>}
+      </div>)}
+    </div>
+   </div>}
+  </div>
   <div className="pill-row" role="group" aria-label="Sentinel modules">
    {LENSES.map(x=><button key={x.id} type="button" className={lens===x.id?"pill active-pill":"pill"} onClick={()=>{setLens(x.id);setSelected(null);setResult(null);setPrevious(null);setError("");}}>{x.title}</button>)}
   </div>
