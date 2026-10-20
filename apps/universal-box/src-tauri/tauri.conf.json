@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Daily Desk",
+  "productName": "Universal Box",
   "version": "0.29.0",
   "identifier": "com.lordnavycrypto.dailydesk",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Daily Desk",
+        "title": "Universal Box",
         "width": 1180,
         "height": 780,
         "minWidth": 760,
@@ -30,8 +30,8 @@
       "dmg"
     ],
     "category": "Productivity",
-    "shortDescription": "A local-first study and productivity desk",
-    "longDescription": "A standalone desktop workspace for planning, study tools, and lightweight office utilities.",
+    "shortDescription": "Universal Box with built-in Sentinel macOS system intelligence",
+    "longDescription": "A local-first desktop toolkit integrating the original authenticated Sentinel Go engine, system evidence, privacy tools, office utilities and optional local AI.",
     "resources": {
       "resources/sentinel/sentinel-engine": "sentinel/sentinel-engine"
     }
