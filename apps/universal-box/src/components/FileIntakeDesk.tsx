@@ -6,7 +6,6 @@ import {
  type ChecksumEntry,type ComparisonStatus
 } from "../lib/checksumManifest";
 import {
- INSPECT_MAX_EACH,INSPECT_MAX_FILES,INSPECT_MAX_TOTAL,
  duplicateGroups,fileKind,hexDigest,inventoryCsv,mismatchedExtension,sizeLabel,
  type FileInspection,
 } from "../lib/fileIntake";
