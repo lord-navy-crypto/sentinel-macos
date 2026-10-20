@@ -14,7 +14,7 @@ use sha2::Sha256;
 use std::{
     io::{Read, Write},
     net::{IpAddr, Ipv4Addr, SocketAddrV4, TcpListener, TcpStream},
-    sync::{atomic::{AtomicBool, Ordering}, mpsc, Arc, Mutex},
+    sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, mpsc, Arc, Mutex},
     thread,
     time::{Duration, Instant},
 };
@@ -147,7 +147,7 @@ fn handle_pair(mut stream:TcpStream,zip:&[u8],peer:String,pending:Arc<Mutex<Vec<
     stream.set_read_timeout(Some(SOCKET_TIMEOUT)).map_err(|e|e.to_string())?;
     stream.set_write_timeout(Some(SOCKET_TIMEOUT)).map_err(|e|e.to_string())?;
     let mut marker=[0u8;6];stream.read_exact(&mut marker).map_err(|e|e.to_string())?;
-    if marker!=*PAIR_MARKER{return Err("Unknown local pairing protocol".into());}
+    if marker.as_slice()!=PAIR_MARKER{return Err("Unknown local pairing protocol".into());}
     let mut remote=[0u8;32];stream.read_exact(&mut remote).map_err(|e|e.to_string())?;
     let mut count=[0u8;1];stream.read_exact(&mut count).map_err(|e|e.to_string())?;
     if count[0]==0||count[0]>60{return Err("Invalid nearby device label".into());}
@@ -223,15 +223,22 @@ pub async fn commons_pair_start(packet_base64:String,state:State<'_,PairState>)-
     let mdns=advertise(port,&instance);
     if mdns.is_none(){return Err("No active private IPv4 adapter supports Bonjour discovery".into());}
     let flag=closed.clone();let queue=pending.clone();
+    let inflight=Arc::new(AtomicUsize::new(0));
     thread::spawn(move||{
         while !flag.load(Ordering::SeqCst)&&Instant::now()<expiry {
             match listener.accept(){
                 Ok((socket,peer))=>{
+                    if inflight.fetch_add(1,Ordering::SeqCst)>=4 {
+                        inflight.fetch_sub(1,Ordering::SeqCst);
+                        continue;
+                    }
                     let data=zip.clone();let requests=queue.clone();let done=flag.clone();
+                    let current=inflight.clone();
                     thread::spawn(move||{
                         if handle_pair(socket,&data,peer.ip().to_string(),requests,done.clone()).is_ok(){
                             done.store(true,Ordering::SeqCst);
                         }
+                        current.fetch_sub(1,Ordering::SeqCst);
                     });
                 }
                 Err(e) if e.kind()==std::io::ErrorKind::WouldBlock=>thread::sleep(Duration::from_millis(100)),
@@ -323,7 +330,8 @@ fn paired_receive<F:FnMut(usize,usize),G:FnMut(String)>(
     let mut sealed=Vec::with_capacity(len);let mut buf=[0u8;256*1024];
     let mut last_report=0;
     while sealed.len()<len {
-        let n=socket.read(&mut buf[..buf.len().min(len-sealed.len())]).map_err(|e|format!("Pair transfer interrupted: {e}"))?;
+        let next=buf.len().min(len-sealed.len());
+        let n=socket.read(&mut buf[..next]).map_err(|e|format!("Pair transfer interrupted: {e}"))?;
         if n==0{return Err("Sender disconnected before transfer completed".into());}
         sealed.extend_from_slice(&buf[..n]);
         if sealed.len()-last_report>=256*1024||sealed.len()==len{
