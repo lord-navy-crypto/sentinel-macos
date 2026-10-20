@@ -1,0 +1,48 @@
+name: Import Universal Box Desktop Into Sentinel
+on:
+  push:
+    branches:
+      - migration/import-universal-box-desktop-20261020
+    paths:
+      - scripts/import-universal-box-desktop.sh
+      - .github/workflows/import-universal-box-desktop.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  import-desktop:
+    if: github.repository == 'lord-navy-crypto/sentinel-macos'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Import the complete desktop source without touching Sentinel
+        run: bash scripts/import-universal-box-desktop.sh
+      - name: Confirm both products are present
+        run: |
+          test -f go.mod
+          test -f apps/universal-box/package.json
+          test -f apps/universal-box/src/App.tsx
+          test -f apps/universal-box/src-tauri/tauri.conf.json
+          test -s apps/universal-box/IMPORT_SOURCE_COMMIT
+      - name: Verify imported React app builds
+        working-directory: apps/universal-box
+        run: |
+          npm install --no-audit --no-fund
+          npm run typecheck
+          npm run test
+          npm run build
+      - name: Commit imported source to migration branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/universal-box
+          if git diff --cached --quiet; then
+            echo "No new desktop files to commit."
+          else
+            git commit -m "feat: import Universal Box desktop source into Sentinel [skip ci]"
+            git push origin HEAD:refs/heads/migration/import-universal-box-desktop-20261020
+          fi
