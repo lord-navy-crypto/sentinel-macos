@@ -1,4 +1,5 @@
-import {useMemo,useState,type ChangeEvent} from "react";
+import {useEffect,useMemo,useState,type ChangeEvent} from "react";
+import {invoke} from "@tauri-apps/api/core";
 import {exportFile} from "../lib/output";
 import {
  createCommonsRoom,commonsMessage,commonsTask,commonsToggleTask,commonsFile,
@@ -7,6 +8,21 @@ import {
 } from "../lib/commonsKit";
 
 type View="files"|"chat"|"tasks"|"members";
+type LanShare={active:boolean;invites:string[];secondsRemaining:number;message:string};
+const B64_BLOCK=49152;
+export function binaryToLanBase64(bytes:Uint8Array):string{
+ const chunks:string[]=[];
+ for(let i=0;i<bytes.length;i+=B64_BLOCK)
+  chunks.push(btoa(String.fromCharCode(...bytes.subarray(i,i+B64_BLOCK))));
+ return chunks.join("").replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+}
+export function lanBase64ToBinary(input:string):Uint8Array{
+ if(!/^[A-Za-z0-9_-]+$/.test(input)||input.length>40_000_000)throw Error("Received LAN packet encoding is invalid.");
+ const raw=atob(input.replace(/-/g,"+").replace(/_/g,"/"));
+ const bytes=new Uint8Array(raw.length);
+ for(let i=0;i<raw.length;i++)bytes[i]=raw.charCodeAt(i);
+ return bytes;
+}
 const tabs:{key:View;name:string}[]=[
  {key:"files",name:"Files · 文件"},{key:"chat",name:"Messages · 留言"},
  {key:"tasks",name:"Tasks · 任务"},{key:"members",name:"Team · 成员"},
@@ -25,6 +41,13 @@ export default function CommonsDesk(){
  const [memberDraft,setMemberDraft]=useState("");
  const [busy,setBusy]=useState(false);
  const [status,setStatus]=useState("");
+ const [lan,setLan]=useState<LanShare|null>(null);
+ const [selectedInvite,setSelectedInvite]=useState("");
+ const [incomingInvite,setIncomingInvite]=useState("");
+ const [incoming,setIncoming]=useState<CommonsPacket|null>(null);
+ const [networkBusy,setNetworkBusy]=useState(false);
+ const [networkStatus,setNetworkStatus]=useState("");
+ useEffect(()=>()=>{void invoke("commons_lan_stop").catch(()=>{});},[]);
  const room=packet?.room??null;
  const attachments=useMemo(()=>new Map((packet?.attachments??[]).map(f=>[f.id,f.bytes])),[packet]);
  const totalBytes=room?.files.reduce((total,f)=>total+f.size,0)??0;
@@ -112,6 +135,62 @@ export default function CommonsDesk(){
   }catch(e){setStatus("Import refused: "+errorText(e));}
   finally{setBusy(false);}
  }
+
+ async function startLan(){
+  if(!packet)return;
+  setNetworkBusy(true);setNetworkStatus("");
+  try{
+   const zipped=await exportCommonsPacket(packet);
+   const output=await invoke<LanShare>("commons_lan_start",{packetBase64:binaryToLanBase64(zipped)});
+   setLan(output);
+   setSelectedInvite(output.invites.find(link=>!link.includes("127.0.0.1"))??output.invites[0]??"");
+   setNetworkStatus("一次性加密共享已开启。仅在可信局域网中私下发送邀请；有效期最多 5 分钟。");
+  }catch(e){setNetworkStatus("无法开启局域网共享："+errorText(e));}
+  finally{setNetworkBusy(false);}
+ }
+ async function stopLan(){
+  setNetworkBusy(true);
+  try{
+   await invoke("commons_lan_stop");
+   setLan(null);setSelectedInvite("");
+   setNetworkStatus("局域网共享已停止。");
+  }catch(e){setNetworkStatus(errorText(e));}
+  finally{setNetworkBusy(false);}
+ }
+ async function refreshLan(){
+  try{
+   const next=await invoke<LanShare>("commons_lan_status");
+   setLan(next.active?next:null);
+   if(!next.active)setNetworkStatus("临时共享已结束或到期。");
+  }catch(e){setNetworkStatus(errorText(e));}
+ }
+ async function copyLanInvite(){
+  try{await navigator.clipboard.writeText(selectedInvite);
+   setNetworkStatus("邀请已复制。它包含解密密钥，请只发给预期接收者。");}
+  catch{setNetworkStatus("系统不允许自动复制，请手动选中并复制邀请。");}
+ }
+ async function receiveLan(){
+  setNetworkBusy(true);setNetworkStatus("");
+  try{
+   const encoded=await invoke<string>("commons_lan_receive",{invite:incomingInvite.trim()});
+   const received=await importCommonsPacket(lanBase64ToBinary(encoded));
+   if(packet&&received.room.id!==packet.room.id)
+    throw Error("收到的是不同团队。请先导出当前团队，再关闭当前空间以接收另一团队。");
+   setIncoming(received);
+   setNetworkStatus("已完成加密传输、解密和附件 SHA-256 校验。请检查团队名称与文件列表，然后手动确认导入。");
+  }catch(e){setIncoming(null);setNetworkStatus("接收失败："+errorText(e));}
+  finally{setNetworkBusy(false);}
+ }
+ function approveIncoming(){
+  if(!incoming)return;
+  try{
+   const next=packet?mergeCommonsPackets(packet,incoming):incoming;
+   setPacket(next);
+   if(!packet)setMyName(next.room.members[0]??"");
+   setIncoming(null);setNetworkStatus("团队包已导入内存。导出 ZIP 才能长期保存或转交。");
+  }catch(e){setNetworkStatus("合并被拒绝："+errorText(e));}
+ }
+
  function downloadAttachment(id:string,name:string){
   const bytes=attachments.get(id);
   if(!bytes){setStatus("Attachment bytes are unavailable.");return;}
@@ -198,6 +277,53 @@ export default function CommonsDesk(){
     <ul>{room.members.map(name=><li key={name}>{name}</li>)}</ul>
    </div>}
   </>}
+  <div className="panel" style={{marginTop:16}}>
+   <p className="eyebrow">LOCAL NETWORK · NO CLOUD · ENCRYPTED</p>
+   <h3>局域网加密传输 · LAN Transfer</h3>
+   <p className="subtle">同一 Wi-Fi 或有线网络下，发送者开启临时原生 TCP 端口，文件使用 XChaCha20-Poly1305 端到端加密。不依赖外部服务器或账号。</p>
+   <p className="subtle">双方都需安装包含局域网功能的 Universal Box。Mac 防火墙可能询问是否允许入站连接；访客 Wi-Fi 或 AP 隔离可能阻止设备互通。</p>
+   {room&&<div className="panel">
+    <h4>发送当前团队空间</h4>
+    <div className="actions">
+     <button className="primary-button" type="button" disabled={busy||networkBusy||!!lan?.active} onClick={()=>void startLan()}>开启 5 分钟一次性加密发送</button>
+     <button className="secondary-button" type="button" disabled={networkBusy||!lan?.active} onClick={()=>void stopLan()}>停止共享</button>
+     <button className="secondary-button" type="button" disabled={networkBusy||!lan} onClick={()=>void refreshLan()}>刷新状态</button>
+    </div>
+    {lan?.active&&<>
+     <label className="field-label">选择发送设备的局域网 IP
+      <select className="field" value={selectedInvite} onChange={e=>setSelectedInvite(e.target.value)}>
+       {lan.invites.map((invite,i)=><option key={invite} value={invite}>{i+1}. {invite.split("/")[2]?.split(":")[0]??"本机"}{invite.includes("127.0.0.1")?" · 仅本机测试":""}</option>)}
+      </select>
+     </label>
+     <label className="field-label">一次性邀请（包含保密密钥）
+      <textarea className="field text-editor" readOnly rows={3} value={selectedInvite} aria-label="Private LAN transfer invitation"/>
+     </label>
+     <button className="secondary-button" type="button" onClick={()=>void copyLanInvite()}>复制加密邀请</button>
+     <p className="subtle">仅私下发给预期接收者；邀请内含解密密钥。5 分钟后到期，完成一次有效传输后自动关闭。</p>
+    </>}
+   </div>}
+   <div className="panel">
+    <h4>接收团队空间</h4>
+    <label className="field-label">粘贴发送者提供的 uboxlan:// 邀请
+     <textarea className="field text-editor" rows={3} maxLength={180} value={incomingInvite} onChange={e=>setIncomingInvite(e.target.value)}
+      placeholder="uboxlan://192.168.1.20:49152/保密密钥"/>
+    </label>
+    <button className="primary-button" type="button" disabled={networkBusy||!incomingInvite.trim()} onClick={()=>void receiveLan()}>
+     接收并校验加密团队包
+    </button>
+    {incoming&&<div style={{border:"1px solid var(--line,#cbd5e1)",borderRadius:12,padding:14,marginTop:12}}>
+     <h4>请确认接收内容：{incoming.room.name}</h4>
+     <p className="subtle">{incoming.room.files.length} 个文件 · {incoming.room.messages.length} 条留言 · {incoming.room.tasks.length} 项任务</p>
+     <ul>{incoming.room.files.slice(0,20).map(f=><li key={f.id}>{f.name} · {sizeText(f.size)}</li>)}</ul>
+     <div className="actions">
+      <button className="primary-button" type="button" onClick={approveIncoming}>确认导入{packet?"并合并":""}</button>
+      <button className="secondary-button" type="button" onClick={()=>{setIncoming(null);setNetworkStatus("收到的内容已放弃，没有导入到团队空间。");}}>拒绝</button>
+     </div>
+    </div>}
+   </div>
+   {networkBusy&&<p role="status">正在进行局域网加密操作…</p>}
+   {networkStatus&&<p className="subtle" role="status">{networkStatus}</p>}
+  </div>
   <div className="panel" style={{marginTop:16}}>
    <h3>接收团队包 · Import / Merge</h3>
    <input className="field" type="file" accept=".zip,application/zip" aria-label="Import team ZIP" disabled={busy} onChange={e=>void receiveTeam(e)}/>
