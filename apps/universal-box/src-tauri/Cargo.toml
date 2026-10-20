@@ -26,3 +26,8 @@ if-addrs = "0.13"
 
 # Bonjour/mDNS advertising and browsing of opt-in active LAN shares.
 mdns-sd = "0.21"
+
+# In-app pairing: ephemeral key agreement, domain-separated key derivation.
+x25519-dalek = "2"
+hkdf = "0.12"
+sha2 = "0.10"
