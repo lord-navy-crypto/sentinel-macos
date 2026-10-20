@@ -1,6 +1,6 @@
 [package]
 name = "daily-desk"
-version = "0.31.0"
+version = "0.32.0"
 description = "Daily Desk study and productivity desktop application"
 authors = ["Daily Desk contributors"]
 edition = "2021"
