@@ -178,6 +178,7 @@ pub fn run() {
             sentinel_service::sentinel_service_start,
             sentinel_service::sentinel_service_stop,
             sentinel_service::sentinel_service_read,
+            sentinel_service::sentinel_service_search,
             sentinel_service::sentinel_service_full_workbench
         ])
         .run(tauri::generate_context!())
