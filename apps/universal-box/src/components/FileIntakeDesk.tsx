@@ -1,4 +1,4 @@
-import {useRef,useState,type ChangeEvent,type DragEvent} from "react";
+import {useEffect,useRef,useState,type ChangeEvent,type DragEvent} from "react";
 import {exportFile} from "../lib/output";
 import {preflightFiles} from "../lib/intakePreflight";
 import {
@@ -20,6 +20,7 @@ export default function FileIntakeDesk({onOpenTool}:Props){
  const [currentFile,setCurrentFile]=useState("");
  const [staged,setStaged]=useState<File[]>([]);
  const scanController=useRef<AbortController|null>(null);
+ useEffect(()=>()=>{scanController.current?.abort();},[]);
  const [rows,setRows]=useState<FileInspection[]>([]);
  const [notice,setNotice]=useState("");
  const [filter,setFilter]=useState<"all"|"mismatch"|"duplicates">("all");
