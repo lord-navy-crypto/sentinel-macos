@@ -50,7 +50,7 @@ pub struct ShareStatus {
     seconds_remaining: u64,
     message: String,
 }
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct Progress {
     received_bytes: usize,
