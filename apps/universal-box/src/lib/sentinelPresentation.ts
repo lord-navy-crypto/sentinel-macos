@@ -45,7 +45,7 @@ export function sentinelTable(value:unknown):SentinelTable|null{
 }
 function csvCell(value:string):string{
  const safe=/^[\s\uFEFF]*[=+\-@\t\r]/.test(value)?"'"+value:value;
- return '"'+safe.replaceAll('"','""')+'"';
+ return '"'+safe.replace(/"/g,'""')+'"';
 }
 export function sentinelCsv(table:SentinelTable,rows=table.rows):string{
  return "\uFEFF"+[table.columns,...rows].map(row=>row.map(csvCell).join(",")).join("\r\n")+"\r\n";
@@ -85,5 +85,5 @@ export function sentinelDiff(previous:unknown,next:unknown):SentinelChange[]{
 export function sentinelSummary(value:unknown):{name:string;value:string}[]{
  if(!isObject(value))return [];
  return Object.entries(value).filter(([k,v])=>k.length<48&&(typeof v==="string"||typeof v==="number"||typeof v==="boolean"||Array.isArray(v)))
-  .slice(0,12).map(([name,item])=>({name:name.replaceAll("_"," "),value:display(item)}));
+  .slice(0,12).map(([name,item])=>({name:name.replace(/_/g," "),value:display(item)}));
 }
