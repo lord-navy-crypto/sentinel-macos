@@ -170,6 +170,27 @@ fn sentinel_system_snapshot() -> Result<serde_json::Value, String> {
     }
 }
 
+
+/// A fixed allowlist of observational macOS commands. No user-controlled command paths or arguments.
+#[tauri::command]
+fn sentinel_diagnostic(kind: String) -> Result<String, String> {
+    #[cfg(target_os = "macos")]
+    {
+        match kind.as_str() {
+            "processes" => sentinel_readonly_command("/bin/ps", &["-A", "-o", "pid=,ppid=,%cpu=,%mem=,comm="]),
+            "login_items" => sentinel_readonly_command("/bin/launchctl", &["list"]),
+            "tcp_sockets" => sentinel_readonly_command("/usr/sbin/netstat", &["-an", "-p", "tcp"]),
+            "disk_volumes" => sentinel_readonly_command("/bin/df", &["-k"]),
+            _ => Err("Unknown diagnostic; operation refused".into())
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = kind;
+        Err("Sentinel diagnostics are available on macOS only".into())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -208,7 +229,8 @@ pub fn run() {
             export_backup,
             read_backup,
             write_output_file,
-            sentinel_system_snapshot
+            sentinel_system_snapshot,
+            sentinel_diagnostic
         ])
         .run(tauri::generate_context!())
         .expect("error while running Daily Desk");
