@@ -14,7 +14,7 @@ use std::{
     thread,
     time::{Duration, Instant},
 };
-use tauri::State;
+use tauri::{Emitter, State};
 
 const MARKER: &[u8; 6] = b"UBLAN1";
 const REQUEST_TEXT: &[u8] = b"REQUEST";
@@ -208,7 +208,16 @@ fn transmit(mut socket: TcpStream, key: &[u8; 32], zip: &[u8]) -> Result<(), Str
     Ok(())
 }
 
-fn receive(invite: &str) -> Result<String, String> {
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LanTransferProgress {
+    received_bytes: usize,
+    total_bytes: usize,
+}
+fn receive_with_progress<F: FnMut(usize, usize)>(
+    invite: &str,
+    mut report: F,
+) -> Result<String, String> {
     let (address, key) = parse_invite(invite)?;
     let mut socket = TcpStream::connect_timeout(&address.into(), NETWORK_TIMEOUT)
         .map_err(|e| format!("Cannot connect to sender on local network: {e}"))?;
@@ -229,14 +238,28 @@ fn receive(invite: &str) -> Result<String, String> {
     if length < 17 || length > MAX_ZIP_BYTES + 16 {
         return Err("Encrypted packet exceeded configured 30 MB limit".into());
     }
-    let mut sealed = vec![0_u8; length];
-    socket.read_exact(&mut sealed).map_err(|e| format!("Encrypted transfer was incomplete: {e}"))?;
+    // Read the encrypted packet in bounded 256 KiB chunks. Progress is
+    // informative only: it is NOT a claim that the file is verified yet.
+    let mut sealed = Vec::with_capacity(length);
+    let mut chunk = [0_u8; 256 * 1024];
+    while sealed.len() < length {
+        let next = chunk.len().min(length - sealed.len());
+        let n = socket.read(&mut chunk[..next])
+            .map_err(|e| format!("Encrypted transfer was incomplete: {e}"))?;
+        if n == 0 { return Err("Sender disconnected before the encrypted packet was complete".into()); }
+        sealed.extend_from_slice(&chunk[..n]);
+        report(sealed.len(), length);
+    }
     let clear = cipher.decrypt(XNonce::from_slice(&header[6..30]), sealed.as_ref())
         .map_err(|_| "Transfer authentication failed; packet not accepted".to_string())?;
     if clear.len() > MAX_ZIP_BYTES || !clear.starts_with(b"PK\x03\x04") {
         return Err("Received packet is not a Commons ZIP".into());
     }
     Ok(URL_SAFE_NO_PAD.encode(clear))
+}
+#[cfg(test)]
+fn receive(invite: &str) -> Result<String, String> {
+    receive_with_progress(invite, |_received, _total| {})
 }
 
 #[tauri::command]
@@ -313,9 +336,15 @@ pub async fn commons_lan_status(state: State<'_, CommonsLanState>) -> Result<Lan
 }
 
 #[tauri::command]
-pub async fn commons_lan_receive(invite: String) -> Result<String, String> {
-    tauri::async_runtime::spawn_blocking(move || receive(&invite))
-        .await.map_err(|_| "LAN receive task did not finish".to_string())?
+pub async fn commons_lan_receive(invite: String, app: tauri::AppHandle) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        receive_with_progress(&invite, |received, total| {
+            let _ = app.emit("commons-lan-progress", LanTransferProgress {
+                received_bytes: received,
+                total_bytes: total,
+            });
+        })
+    }).await.map_err(|_| "LAN receive task did not finish".to_string())?
 }
 
 #[cfg(test)]
@@ -331,6 +360,35 @@ mod tests {
         ] {
             assert!(parse_invite(invite).is_err(), "unexpectedly accepted {invite}");
         }
+    }
+    #[test]
+    fn encrypted_packet_progress_is_monotonic_and_complete() {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let address = listener.local_addr().unwrap();
+        let key = [71_u8; 32];
+        let payload = {
+            let mut p = b"PK\x03\x04".to_vec();
+            p.extend(vec![42_u8; 750_000]);
+            p
+        };
+        let expected = payload.clone();
+        let sender = thread::spawn(move || {
+            let (socket, _) = listener.accept().unwrap();
+            transmit(socket, &key, &payload).unwrap();
+        });
+        let invitation = format!("uboxlan://{}/{}", address, URL_SAFE_NO_PAD.encode(key));
+        let mut previous = 0;
+        let mut calls = 0;
+        let data = receive_with_progress(&invitation, |received, total| {
+            assert!(received >= previous);
+            assert!(received <= total);
+            previous = received;
+            calls += 1;
+        }).unwrap();
+        assert!(calls > 1);
+        assert_eq!(URL_SAFE_NO_PAD.decode(data).unwrap(), expected);
+        assert_eq!(previous, expected.len() + 16);
+        sender.join().unwrap();
     }
     #[test]
     fn authenticated_encrypted_local_roundtrip() {
