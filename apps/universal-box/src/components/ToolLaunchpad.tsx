@@ -9,6 +9,7 @@ export const LOCAL_TOOLS:LocalTool[] = [
  {id:"universal-helper",name:"Universal Helper · 用一句话找到现有本地工具",area:"Access",view:"access"},
  {id:"universal-access",name:"Reading Size, Contrast & Simple Mode / 无障碍设置",area:"Access",view:"access"},
  {id:"pdf-properties",name:"PDF Properties & Metadata Editor · 文件属性",area:"Files",view:"pdf-mini",module:"metadata"},
+ {id:"pdf-hyperlinks",name:"PDF Hyperlink Editor · 检查、更换、移除、新增可点击网址",area:"Files",view:"pdf-mini",module:"links"},
  {id:"pdf-crop",name:"PDF Crop Margins · 页面裁边",area:"Files",view:"pdf-mini",module:"crop"},
  {id:"pdf-add-blank",name:"Insert Blank Pages into PDF · 添加空白页",area:"Files",view:"pdf-mini",module:"blank"},
  {id:"pdf-fill-form",name:"Basic PDF Text Form Filler · 填写PDF表单",area:"Office",view:"pdf-mini",module:"form"},
