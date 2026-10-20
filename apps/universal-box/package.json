@@ -12,7 +12,10 @@
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepare:sentinel": "bash scripts/build-sentinel-engine.sh",
+    "pretauri:dev": "npm run prepare:sentinel",
+    "pretauri:build": "npm run prepare:sentinel"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.5.0",
