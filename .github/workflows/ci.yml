@@ -123,6 +123,7 @@ jobs:
           node --check web/app/action-dock.js
           node --check web/app/runtime-logs.js
           node --check web/app/ai.js
+          node --check web/app/openguin-bridge.js
           node --check web/app/ai-reliability.js
           node --check web/app/ai-worker.js
           node --check web/app/manual.js
