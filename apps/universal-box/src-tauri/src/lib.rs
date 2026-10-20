@@ -1,3 +1,4 @@
+mod commons_p2p;
 mod commons_lan;
 use std::fs;
 use std::io::Write;
@@ -179,6 +180,7 @@ pub fn run() {
             commons_lan::commons_lan_stop,
             commons_lan::commons_lan_status,
             commons_lan::commons_lan_discover,
+            commons_p2p::commons_p2p_stun_probe,
             commons_lan::commons_lan_receive
         ])
         .run(tauri::generate_context!())
