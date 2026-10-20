@@ -31,6 +31,9 @@
     ],
     "category": "Productivity",
     "shortDescription": "A local-first study and productivity desk",
-    "longDescription": "A standalone desktop workspace for planning, study tools, and lightweight office utilities."
+    "longDescription": "A standalone desktop workspace for planning, study tools, and lightweight office utilities.",
+    "resources": {
+      "resources/sentinel/sentinel-engine": "sentinel/sentinel-engine"
+    }
   }
 }
