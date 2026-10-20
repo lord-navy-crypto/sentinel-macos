@@ -651,3 +651,80 @@ pre { white-space:pre-wrap; word-break:break-word; }
  .local-ai-control-actions {flex-direction:column;align-items:stretch;}
  .local-ai-message {max-width:100%;}
 }
+
+
+/* v0.30 · unified File Intake and guided landing-page flows.
+   Uses shared theme variables; no external fonts or third-party assets. */
+.ub-home-fast-track { margin:30px 0 26px; }
+.ub-home-fast-heading h2 { margin:4px 0 5px; font-size:clamp(20px,2.4vw,27px); }
+.ub-home-fast-heading p { margin:4px 0 13px; }
+.ub-home-fast-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; }
+.ub-home-fast-grid button {
+ display:grid; grid-template-columns:36px minmax(0,1fr) 20px; grid-template-rows:24px auto auto;
+ gap:3px 13px; align-items:center; min-height:136px; text-align:left; padding:19px;
+ color:var(--ub-text); background:var(--ub-panel); border:1px solid var(--ub-border);
+ border-radius:17px;box-shadow:var(--ub-shadow);
+ transition:transform .14s ease,border-color .14s ease;
+}
+.ub-home-fast-grid button:hover { transform:translateY(-2px);border-color:var(--ub-ring); }
+.ub-home-fast-grid button:focus-visible {outline:3px solid var(--ub-ring);outline-offset:3px;}
+.ub-home-fast-number {grid-column:2;grid-row:1;letter-spacing:1.5px;font-weight:800;font-size:10px;color:var(--ub-primary);}
+.ub-home-fast-icon {grid-column:1;grid-row:2/4;font-size:25px;border-radius:12px;width:42px;height:44px;display:grid;place-items:center;background:var(--ub-tint);color:var(--ub-primary);}
+.ub-home-fast-grid strong {grid-column:2;grid-row:2;font-size:15px;letter-spacing:-.2px;}
+.ub-home-fast-grid small {grid-column:2;grid-row:3;color:var(--ub-muted);font-size:11px;line-height:1.5;}
+.ub-home-fast-arrow {grid-column:3;grid-row:2;font-weight:850;color:var(--ub-primary);}
+.ub-intake {min-width:0;}
+.ub-intake-heading {display:flex;align-items:flex-start;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-bottom:20px;}
+.ub-intake-heading h2 {font-size:clamp(23px,2.8vw,32px);margin:4px 0 10px;}
+.ub-intake-heading .subtle {max-width:670px;margin:0;}
+.ub-intake-lock {background:var(--ub-tint);color:var(--ub-primary);border:1px solid var(--ub-border);border-radius:30px;padding:7px 12px;font-size:12px;font-weight:750;white-space:nowrap;}
+.ub-intake-dropzone {
+ display:flex; flex-direction:column;align-items:center;justify-content:center;gap:9px;
+ text-align:center;min-height:238px;padding:28px 15px;
+ border:2px dashed var(--ub-ring);border-radius:20px;
+ background:var(--ub-subtle);transition:background .15s,border-color .15s;
+}
+.ub-intake-dropzone[data-dragging="true"] {background:var(--ub-tint);border-color:var(--ub-primary);}
+.ub-intake-dropzone h3 {font-size:18px;margin:3px 0;}
+.ub-intake-dropzone p {margin:0 0 7px;}
+.ub-intake-dropicon {display:grid;place-items:center;background:var(--ub-tint);border-radius:15px;width:54px;height:54px;color:var(--ub-primary);font-size:32px;}
+.ub-intake-progress {padding:13px 4px;display:flex;gap:12px;align-items:center;color:var(--ub-muted);font-size:13px;}
+.ub-intake-progress progress {flex:1;accent-color:var(--ub-primary);}
+.ub-intake-metrics {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:18px 0 22px;}
+.ub-intake-metrics>div {border:1px solid var(--ub-border);border-radius:13px;background:var(--ub-subtle);padding:14px 15px;display:flex;flex-direction:column;gap:4px;min-width:0;}
+.ub-intake-metrics span {font-size:11px;color:var(--ub-muted);}
+.ub-intake-metrics strong {font-size:clamp(16px,2vw,23px);font-variant-numeric:tabular-nums;overflow-wrap:anywhere;}
+.ub-intake-bar {display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:10px;}
+.ub-intake-bar .pill-row {margin:0;}
+.ub-intake-bar .actions {margin:0;}
+.ub-intake-warning {border:1px solid #d8af6c;background:#fff6e8;color:#704512;border-radius:11px;padding:10px 13px;font-size:13px;}
+.app-shell.theme-dark .ub-intake-warning {background:#382d1a;color:#ffdfab;border-color:#8a6635;}
+.ub-intake-results {display:flex;flex-direction:column;gap:8px;margin-bottom:22px;max-height:550px;overflow-y:auto;padding-right:3px;}
+.ub-intake-file {display:flex;align-items:center;gap:14px;border:1px solid var(--ub-border);background:var(--ub-panel);border-radius:13px;padding:13px;min-width:0;}
+.ub-intake-file-icon {width:41px;height:41px;display:grid;place-items:center;flex-shrink:0;border-radius:11px;background:var(--ub-tint);color:var(--ub-primary);font-size:20px;}
+.ub-intake-file-main {flex:1;min-width:0;}
+.ub-intake-file-main strong {font-size:13px;display:block;overflow-wrap:anywhere;}
+.ub-intake-file-main p {font-size:11px;margin:4px 0 5px;}
+.ub-intake-file-main code {display:block;font:10px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--ub-muted);overflow-wrap:anywhere;}
+.ub-intake-actions {border-top:1px solid var(--ub-border);padding-top:20px;}
+.ub-intake-action-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:13px 0 12px;}
+.ub-intake-action-grid button {display:grid;grid-template-columns:45px 1fr;gap:3px 10px;text-align:left;border:1px solid var(--ub-border);background:var(--ub-subtle);color:var(--ub-text);padding:14px;border-radius:13px;}
+.ub-intake-action-grid button:hover {border-color:var(--ub-ring);background:var(--ub-tint);}
+.ub-intake-action-grid button>span {grid-row:1/3;display:grid;place-items:center;background:var(--ub-panel);color:var(--ub-primary);width:40px;height:40px;border-radius:10px;font-size:22px;}
+.ub-intake-action-grid button strong {font-size:13px;}
+.ub-intake-action-grid button small {font-size:11px;color:var(--ub-muted);}
+@media(max-width:1050px) {
+ .ub-home-fast-grid {grid-template-columns:1fr;}
+ .ub-home-fast-grid button {min-height:100px;}
+}
+@media(max-width:680px) {
+ .ub-intake-metrics {grid-template-columns:repeat(2,minmax(0,1fr));}
+ .ub-intake-file {flex-wrap:wrap;}
+ .ub-intake-file>.secondary-button {margin-left:auto;}
+ .ub-intake-action-grid {grid-template-columns:1fr;}
+ .ub-intake-progress {flex-direction:column;align-items:stretch;}
+}
+@media(prefers-reduced-motion:reduce) {
+ .ub-home-fast-grid button,.ub-intake-dropzone {transition:none;}
+ .ub-home-fast-grid button:hover {transform:none;}
+}
