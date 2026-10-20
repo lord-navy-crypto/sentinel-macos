@@ -54,11 +54,22 @@ export default function SentinelCenter(){
  const [dashboard,setDashboard]=useState<{quick:unknown;queue:unknown}|null>(null);
  const [dashboardLoading,setDashboardLoading]=useState(false);
  const [dashboardError,setDashboardError]=useState("");
+ const [searchQuery,setSearchQuery]=useState("");
  const group=useMemo(()=>LENSES.find(x=>x.id===lens)??LENSES[0],[lens]);
  const table=useMemo(()=>sentinelTable(result),[result]);
  const filtered=useMemo(()=>table?filteredSentinelRows(table,query,sortColumn,descending):[],[table,query,sortColumn,descending]);
  const changes=useMemo(()=>previous===null?[]:sentinelDiff(previous,result),[previous,result]);
  const summary=useMemo(()=>sentinelSummary(result),[result]);
+ async function searchSentinel(){
+  const term=searchQuery.trim();
+  if(!term||term.length>120)return;
+  setLoading(true);setError("");setExportMessage("");setPrevious(null);
+  setSelected({id:"search",name:"Sentinel 搜索："+term,description:"原 Go 引擎搜索结果"});
+  setResult(null);setPresentation("table");setQuery("");setSortColumn("");
+  try{setResult(await invoke<unknown>("sentinel_service_search",{query:term}));}
+  catch(e){setError(String(e));}
+  finally{setLoading(false);}
+ }
  async function loadDashboard(){
   setDashboardLoading(true);setDashboardError("");
   try{
@@ -130,6 +141,13 @@ export default function SentinelCenter(){
    </div>
    <p className="subtle">启动仅开启本机服务，不会自动运行完整扫描。完整工作台在 Universal Box 内另开窗口，原 Sentinel 操作与确认流程保持不变。</p>
   </div>
+  <form onSubmit={e=>{e.preventDefault();void searchSentinel();}} style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"end",marginTop:14}}>
+   <label style={{flex:"1 1 260px"}}>Sentinel 全局证据搜索
+    <input type="search" className="field" value={searchQuery} onChange={e=>setSearchQuery(e.target.value)}
+     maxLength={120} placeholder="搜索本机进程、服务和已有 Sentinel 证据…" />
+   </label>
+   <button className="primary-button" type="submit" disabled={!engine?.running||loading||!searchQuery.trim()}>使用原 Go 引擎搜索</button>
+  </form>
   {error&&<p role="alert" style={{whiteSpace:"pre-wrap"}}>{error}</p>}
   <div style={{marginTop:16,marginBottom:16}}>
    <div className="actions">
