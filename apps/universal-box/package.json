@@ -1,7 +1,7 @@
 {
   "name": "daily-desk",
   "private": true,
-  "version": "0.30.0",
+  "version": "0.30.1",
   "type": "module",
   "description": "A standalone local-first study and productivity desktop application.",
   "scripts": {
