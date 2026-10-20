@@ -63,7 +63,8 @@ export default function SentinelCenter(){
  async function searchSentinel(){
   const term=searchQuery.trim();
   if(!term||term.length>120)return;
-  setLoading(true);setError("");setExportMessage("");setPrevious(null);
+  setLoading(true);setError("");setExportMessage("");
+  setPrevious(selected?.name==="Sentinel 搜索："+term?result:null);
   setSelected({id:"search",name:"Sentinel 搜索："+term,description:"原 Go 引擎搜索结果"});
   setResult(null);setPresentation("table");setQuery("");setSortColumn("");
   try{setResult(await invoke<unknown>("sentinel_service_search",{query:term}));}
@@ -185,7 +186,7 @@ export default function SentinelCenter(){
   {selected&&<div className="panel" style={{marginTop:16}}>
    <h3>{selected.name} · 来自原 Sentinel Go 引擎</h3>
    <div className="actions">
-    <button type="button" className="secondary-button" disabled={loading||!engine?.running} onClick={()=>void read(selected)}>刷新并比较</button>
+    <button type="button" className="secondary-button" disabled={loading||!engine?.running} onClick={()=>void (selected.id==="search"?searchSentinel():read(selected))}>刷新并比较</button>
     <button type="button" className="secondary-button" disabled={loading||result===null} onClick={()=>void exportReading("json")}>导出原始 JSON</button>
     <button type="button" className="secondary-button" disabled={loading||!table} onClick={()=>void exportReading("csv")}>导出筛选结果 CSV</button>
    </div>
