@@ -38,6 +38,11 @@ jobs:
         with:
           node-version: 22
 
+      - name: Set up Go for bundled Sentinel service
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -45,6 +50,9 @@ jobs:
 
       - name: Install dependencies
         run: npm install
+
+      - name: Build original Sentinel Go engine into Tauri resources
+        run: npm run prepare:sentinel
 
       - name: Check TypeScript and build frontend
         run: npm run build
