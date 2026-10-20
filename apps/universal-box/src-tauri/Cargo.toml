@@ -26,3 +26,5 @@ if-addrs = "0.13"
 
 # Bonjour/mDNS advertising and browsing of opt-in active LAN shares.
 mdns-sd = "0.21"
+# SHA-256 verification for persistent, resumable encrypted LAN chunks.
+sha2 = "0.10"
