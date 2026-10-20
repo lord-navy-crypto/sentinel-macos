@@ -147,9 +147,8 @@ fn browse_nearby(exclude: &str) -> Result<Vec<NearbyShare>, String> {
                 }
             }
             Ok(_) => {},
-            Err(flume_error) => {
-                // Timeout is expected while waiting for multicast announcements.
-                if !flume_error.is_timeout() { break; }
+            Err(_) => {
+                // Receivers normally time out between multicast announcements.
             }
         }
     }
