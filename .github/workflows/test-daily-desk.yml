@@ -24,8 +24,12 @@ permissions:
 
 jobs:
   build-macos:
-    name: Type-check and build macOS DMG
+    name: Build macOS DMG (${{ matrix.target }})
     runs-on: macos-14
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [aarch64-apple-darwin, x86_64-apple-darwin]
     defaults:
       run:
         working-directory: apps/universal-box
@@ -41,7 +45,7 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-apple-darwin
+          targets: ${{ matrix.target }}
 
       - name: Install dependencies
         run: npm install
@@ -55,16 +59,46 @@ jobs:
       - name: Generate Tauri icons
         run: npx tauri icon src-tauri/app-icon.svg
 
+      - name: Verify generated app icon assets
+        run: |
+          test -s src-tauri/icons/icon.icns
+          test -s src-tauri/icons/128x128.png
+          test -s src-tauri/icons/32x32.png
+
       - name: Rust storage validation tests
         run: cargo test --manifest-path src-tauri/Cargo.toml
 
       - name: Build macOS desktop bundle
-        run: npm run tauri:build -- --target aarch64-apple-darwin
+        run: npm run tauri:build -- --target ${{ matrix.target }}
 
+      - name: Verify DMG opens and contains a launchable app with an icon
+        shell: bash
+        run: |
+          set -euo pipefail
+          DMG="$(find src-tauri/target/${{ matrix.target }}/release/bundle/dmg -maxdepth 1 -name '*.dmg' -print -quit)"
+          test -n "$DMG" && test -s "$DMG"
+          hdiutil verify "$DMG"
+          MOUNT="$RUNNER_TEMP/universal-box-mount-${{ matrix.target }}"
+          mkdir -p "$MOUNT"
+          hdiutil attach -readonly -nobrowse -mountpoint "$MOUNT" "$DMG"
+          trap 'hdiutil detach "$MOUNT" -quiet || true' EXIT
+          APP="$MOUNT/Universal Box.app"
+          test -d "$APP/Contents/MacOS"
+          PLIST="$APP/Contents/Info.plist"
+          test -s "$PLIST"
+          EXECUTABLE=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$PLIST")
+          ICON=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconFile' "$PLIST")
+          [[ "$ICON" == *.icns ]] || ICON="$ICON.icns"
+          test -x "$APP/Contents/MacOS/$EXECUTABLE"
+          test -s "$APP/Contents/Resources/$ICON"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleName' "$PLIST")" = "Universal Box" || true
+          echo "Validated app executable: $EXECUTABLE"
+          echo "Validated macOS app icon: $ICON"
+          echo "Verified DMG and mounted application for ${{ matrix.target }}"
       - name: Upload DMG for manual testing
         uses: actions/upload-artifact@v4
         with:
-          name: DailyDesk-macOS-AppleSilicon
-          path: apps/universal-box/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
+          name: UniversalBox-${{ matrix.target }}
+          path: apps/universal-box/src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
           if-no-files-found: error
           retention-days: 14

@@ -4,6 +4,7 @@ import FocusTimer from "./components/FocusTimer";
 import EverydayTools, {type Utility} from "./components/EverydayTools";
 import ToolLaunchpad, {LOCAL_TOOLS} from "./components/ToolLaunchpad";
 import CommonsDesk from "./components/CommonsDesk";
+import FileIntakeDesk from "./components/FileIntakeDesk";
 import UniversalDesk, {type UniversalMode} from "./components/UniversalDesk";
 import UniversalBoxDesk, {type UniversalBoxMode} from "./components/UniversalBoxDesk";
 import UniversalLabDesk, {type UniversalLabMode} from "./components/UniversalLabDesk";
@@ -41,10 +42,11 @@ import {
   persistWorkspace,
 } from "./lib/nativeStorage";
 
-type View = "commons" | "local-ai" | "access" | "pdf-mini" | "charts" | "free-formats" | "workflows" | "office-privacy" | "media-files" | "universal-lab" | "universal-box" | "universal" | "quick-tools" | "external" | "all-tools" | "code" | "tables" | "overview" | "tasks" | "cards" | "focus" | "notes" | "utilities" | "data" | "files" | "math" | "learning" | "writing" | "drawing" | "reading" | "presets";
+type View = "file-intake" | "commons" | "local-ai" | "access" | "pdf-mini" | "charts" | "free-formats" | "workflows" | "office-privacy" | "media-files" | "universal-lab" | "universal-box" | "universal" | "quick-tools" | "external" | "all-tools" | "code" | "tables" | "overview" | "tasks" | "cards" | "focus" | "notes" | "utilities" | "data" | "files" | "math" | "learning" | "writing" | "drawing" | "reading" | "presets";
 
 const menu: { id: View; name: string; symbol: string; description: string }[] = [
   { id: "overview", name: "Overview", symbol: "◫", description: "Your workspace at a glance" },
+  { id: "file-intake", name: "File Intake / 统一文件工作台", symbol: "⇪", description: "Drop files, inspect true formats, SHA-256 hashes, duplicates and safe CSV inventory" },
   { id: "commons", name: "Universal Commons / 免费团队共享", symbol: "◎", description: "Offline team rooms: file handoff, messages, tasks and verified ZIP packages" },
   { id: "all-tools", name: "All tools / 全部工具", symbol: "▦", description: "Search and open every available tool" },
   { id: "quick-tools", name: "Quick Tools / 快捷小工具", symbol: "✂", description: "Text cleaning, cleaner links, dates and grades" },
@@ -78,7 +80,7 @@ const menu: { id: View; name: string; symbol: string; description: string }[] = 
 ];
 
 const navigationGroups:{title:string;items:View[]}[]=[
-  {title:"DISCOVER",items:["overview","commons","access","all-tools","charts"]},
+  {title:"DISCOVER",items:["overview","file-intake","commons","access","all-tools","charts"]},
   {title:"FILES & CREATION",items:["files","pdf-mini","free-formats","writing","drawing","tables"]},
   {title:"UNIVERSAL BOX",items:["quick-tools","universal","universal-box","universal-lab","media-files","office-privacy","workflows","utilities","external"]},
   {title:"STUDY & SCIENCE",items:["local-ai","math","learning","reading","cards","focus"]},
@@ -134,7 +136,7 @@ export default function App() {
       ...menu.map(item=>({id:"view-"+item.id,name:item.name,description:item.description,view:item.id as string,module:undefined as string|undefined})),
       ...LOCAL_TOOLS.map(item=>({id:"tool-"+item.id,name:item.name,description:item.area,view:item.view,module:item.module})),
     ];
-    return (term?values.filter(item=>(item.name+" "+item.description).toLocaleLowerCase().includes(term)):values.filter(item=>["all-tools","workflows","files","charts","office-privacy","free-formats"].includes(item.view))).slice(0,12);
+    return (term?values.filter(item=>(item.name+" "+item.description).toLocaleLowerCase().includes(term)):values.filter(item=>["file-intake","all-tools","workflows","files","charts","office-privacy","free-formats"].includes(item.view))).slice(0,12);
   },[commandQuery]);
   useEffect(()=>{
     try{localStorage.setItem("universal-box-theme",theme);}catch{/* preferences are optional */}
@@ -388,7 +390,7 @@ export default function App() {
             </button>
             <button className="topbar-control topbar-access" type="button" onClick={()=>openTool("access")}
               aria-label="Open Universal Access: larger text, contrast and help" title="Accessibility & help">Aa <span>无障碍</span></button>
-            <span className="version-pill">v0.29</span>
+            <span className="version-pill">v0.30</span>
           </div>
         </header>
         <div id="main-content" className="content" tabIndex={-1}>
@@ -416,6 +418,26 @@ export default function App() {
                 <div className="visual-chip chip-bottom">▥ &nbsp; Visualize</div>
               </div>
             </div>
+            <div className="ub-home-fast-track" aria-label="Quick start workflows">
+              <div className="ub-home-fast-heading">
+                <div><p className="eyebrow">QUICK START · 常用工作流</p><h2>从文件开始，快速完成工作</h2>
+                 <p className="subtle">先检查文件，再编辑、转换或分享。核心操作都在本机。</p></div>
+              </div>
+              <div className="ub-home-fast-grid">
+                <button type="button" onClick={()=>openTool("file-intake")}>
+                  <span className="ub-home-fast-number">01</span><span className="ub-home-fast-icon">⇪</span>
+                  <strong>拖入并检查文件</strong><small>识别格式 · 检查重复 · SHA-256</small><span className="ub-home-fast-arrow">→</span>
+                </button>
+                <button type="button" onClick={()=>openTool("pdf-mini","links")}>
+                  <span className="ub-home-fast-number">02</span><span className="ub-home-fast-icon">▣</span>
+                  <strong>PDF 可视化编辑</strong><small>链接批量修复 · 鼠标框选</small><span className="ub-home-fast-arrow">→</span>
+                </button>
+                <button type="button" onClick={()=>openTool("commons")}>
+                  <span className="ub-home-fast-number">03</span><span className="ub-home-fast-icon">⇄</span>
+                  <strong>安全分享与协作</strong><small>免费加密局域网传输 · 离线团队空间</small><span className="ub-home-fast-arrow">→</span>
+                </button>
+              </div>
+            </div>
             <div className="overview-insights">
               <div className="insight-card"><span>READY TO USE</span><strong>{LOCAL_TOOLS.length}</strong><small>searchable tool entries</small></div>
               <div className="insight-card"><span>YOUR MOMENTUM</span><strong>{progress}%</strong><small>tasks completed</small>
@@ -428,7 +450,7 @@ export default function App() {
               <button className="secondary-button" type="button" onClick={()=>openTool("all-tools")}>All tools ↗</button>
             </div>
             <div className="tool-grid overview-grid">
-              {(favoriteViews.length?favoriteViews:["commons","files","workflows","free-formats","charts","office-privacy"] as View[]).map(id=>{
+              {(favoriteViews.length?favoriteViews:["file-intake","commons","files","workflows","charts","office-privacy"] as View[]).map(id=>{
                 const item=menu.find(m=>m.id===id)!;
                 return <button key={id} type="button" className="tool-card" onClick={()=>openTool(id)}>
                   <span className="tool-icon">{item.symbol}</span><strong>{item.name}</strong>
@@ -451,6 +473,7 @@ export default function App() {
           <div hidden={view !== "focus"}><FocusTimer /></div>
           {view === "notes" && <section className="panel"><p className="eyebrow">LOCAL NOTES</p><h2>Keep ideas close at hand.</h2><p className="subtle">Your notes are automatically saved in this application. Export backups in Backup & privacy.</p><label className="field-label" htmlFor="my-notes">My notebook</label><textarea id="my-notes" className="field text-editor" rows={20} maxLength={50000} placeholder="Capture a thought, write a draft or summarise a concept…" value={workspace.notes} onChange={(event) => setWorkspace((current) => ({ ...current, notes: event.target.value }))}/><p className="subtle">{workspace.notes.length.toLocaleString()} characters</p></section>}
           {view === "commons" && <CommonsDesk />}
+          {view === "file-intake" && <FileIntakeDesk onOpenTool={openTool}/> }
           {view === "all-tools" && <ToolLaunchpad onLaunch={openTool} />}
           {view === "quick-tools" && <QuickKitDesk key={toolMode} initialMode={(toolMode||"text") as QuickKitMode} />}
           {view === "universal" && <UniversalDesk key={toolMode} initialMode={(toolMode||"json-csv") as UniversalMode} onOpenCsv={()=>openTool("tables")}/> }
