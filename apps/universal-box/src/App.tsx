@@ -5,6 +5,7 @@ import EverydayTools, {type Utility} from "./components/EverydayTools";
 import ToolLaunchpad, {LOCAL_TOOLS} from "./components/ToolLaunchpad";
 import CommonsDesk from "./components/CommonsDesk";
 import FileIntakeDesk from "./components/FileIntakeDesk";
+import BinaryCompareDesk from "./components/BinaryCompareDesk";
 import SystemHealthDesk from "./components/SystemHealthDesk";
 import UniversalDesk, {type UniversalMode} from "./components/UniversalDesk";
 import UniversalBoxDesk, {type UniversalBoxMode} from "./components/UniversalBoxDesk";
@@ -43,11 +44,12 @@ import {
   persistWorkspace,
 } from "./lib/nativeStorage";
 
-type View = "system-health" | "file-intake" | "commons" | "local-ai" | "access" | "pdf-mini" | "charts" | "free-formats" | "workflows" | "office-privacy" | "media-files" | "universal-lab" | "universal-box" | "universal" | "quick-tools" | "external" | "all-tools" | "code" | "tables" | "overview" | "tasks" | "cards" | "focus" | "notes" | "utilities" | "data" | "files" | "math" | "learning" | "writing" | "drawing" | "reading" | "presets";
+type View = "binary-compare" | "system-health" | "file-intake" | "commons" | "local-ai" | "access" | "pdf-mini" | "charts" | "free-formats" | "workflows" | "office-privacy" | "media-files" | "universal-lab" | "universal-box" | "universal" | "quick-tools" | "external" | "all-tools" | "code" | "tables" | "overview" | "tasks" | "cards" | "focus" | "notes" | "utilities" | "data" | "files" | "math" | "learning" | "writing" | "drawing" | "reading" | "presets";
 
 const menu: { id: View; name: string; symbol: string; description: string }[] = [
   { id: "overview", name: "Overview", symbol: "◫", description: "Your workspace at a glance" },
   { id: "system-health", name: "System Health / 启动与功能自检", symbol: "✚", description: "Test local app capabilities and export a private diagnostic report" },
+  { id: "binary-compare", name: "Binary Compare / 双文件差异分析", symbol: "≠", description: "Exact local byte-by-byte file comparison with visual difference map" },
   { id: "file-intake", name: "File Intake / 统一文件工作台", symbol: "⇪", description: "Drop files, inspect true formats, SHA-256 hashes, duplicates and safe CSV inventory" },
   { id: "commons", name: "Universal Commons / 免费团队共享", symbol: "◎", description: "Offline team rooms: file handoff, messages, tasks and verified ZIP packages" },
   { id: "all-tools", name: "All tools / 全部工具", symbol: "▦", description: "Search and open every available tool" },
@@ -83,7 +85,7 @@ const menu: { id: View; name: string; symbol: string; description: string }[] = 
 
 const navigationGroups:{title:string;items:View[]}[]=[
   {title:"DISCOVER",items:["overview","file-intake","commons","access","all-tools","charts"]},
-  {title:"FILES & CREATION",items:["files","pdf-mini","free-formats","writing","drawing","tables"]},
+  {title:"FILES & CREATION",items:["files","binary-compare","pdf-mini","free-formats","writing","drawing","tables"]},
   {title:"UNIVERSAL BOX",items:["quick-tools","universal","universal-box","universal-lab","media-files","office-privacy","workflows","utilities","external"]},
   {title:"STUDY & SCIENCE",items:["local-ai","math","learning","reading","cards","focus"]},
   {title:"PERSONAL WORKSPACE",items:["tasks","notes","code","presets","data","system-health"]},
@@ -138,7 +140,7 @@ export default function App() {
       ...menu.map(item=>({id:"view-"+item.id,name:item.name,description:item.description,view:item.id as string,module:undefined as string|undefined})),
       ...LOCAL_TOOLS.map(item=>({id:"tool-"+item.id,name:item.name,description:item.area,view:item.view,module:item.module})),
     ];
-    return (term?values.filter(item=>(item.name+" "+item.description).toLocaleLowerCase().includes(term)):values.filter(item=>["system-health","file-intake","all-tools","workflows","files","charts","office-privacy","free-formats"].includes(item.view))).slice(0,12);
+    return (term?values.filter(item=>(item.name+" "+item.description).toLocaleLowerCase().includes(term)):values.filter(item=>["binary-compare","system-health","file-intake","all-tools","workflows","files","charts","office-privacy","free-formats"].includes(item.view))).slice(0,12);
   },[commandQuery]);
   useEffect(()=>{
     try{localStorage.setItem("universal-box-theme",theme);}catch{/* preferences are optional */}
@@ -392,7 +394,7 @@ export default function App() {
             </button>
             <button className="topbar-control topbar-access" type="button" onClick={()=>openTool("access")}
               aria-label="Open Universal Access: larger text, contrast and help" title="Accessibility & help">Aa <span>无障碍</span></button>
-            <span className="version-pill">v0.31</span>
+            <span className="version-pill">v0.32</span>
           </div>
         </header>
         <div id="main-content" className="content" tabIndex={-1}>
@@ -440,6 +442,12 @@ export default function App() {
                 </button>
               </div>
             </div>
+            <div className="ub-compare-home">
+             <span aria-hidden="true">≠</span>
+             <div><strong>新功能 · 双文件差异分析</strong>
+              <p className="subtle">可视化定位文件被修改的位置，支持 PDF、图片、压缩包与任意二进制文件</p></div>
+             <button type="button" className="primary-button" onClick={()=>openTool("binary-compare")}>开始对比 →</button>
+            </div>
             <div className="ub-home-reliability">
               <div><strong>文件传输完整性验证</strong><p className="subtle">跨设备 SHA-256 校验清单 · 快速发现文件是否改变</p></div>
               <button className="secondary-button" type="button" onClick={()=>openTool("file-intake")}>打开校验工作台 →</button>
@@ -482,6 +490,7 @@ export default function App() {
           {view === "notes" && <section className="panel"><p className="eyebrow">LOCAL NOTES</p><h2>Keep ideas close at hand.</h2><p className="subtle">Your notes are automatically saved in this application. Export backups in Backup & privacy.</p><label className="field-label" htmlFor="my-notes">My notebook</label><textarea id="my-notes" className="field text-editor" rows={20} maxLength={50000} placeholder="Capture a thought, write a draft or summarise a concept…" value={workspace.notes} onChange={(event) => setWorkspace((current) => ({ ...current, notes: event.target.value }))}/><p className="subtle">{workspace.notes.length.toLocaleString()} characters</p></section>}
           {view === "commons" && <CommonsDesk />}
           {view === "file-intake" && <FileIntakeDesk onOpenTool={openTool}/> }
+          {view === "binary-compare" && <BinaryCompareDesk onOpenTool={openTool}/> }
           {view === "system-health" && <SystemHealthDesk onOpenTool={openTool}/> }
           {view === "all-tools" && <ToolLaunchpad onLaunch={openTool} />}
           {view === "quick-tools" && <QuickKitDesk key={toolMode} initialMode={(toolMode||"text") as QuickKitMode} />}
