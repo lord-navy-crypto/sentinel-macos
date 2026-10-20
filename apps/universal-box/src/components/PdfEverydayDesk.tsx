@@ -5,8 +5,10 @@ import {
   inspectPdfEveryday,savePdfMetadata,cropPdfPages,insertBlankPdfPages,inspectPdfTextFields,fillPdfTextFields,exportSelectedPdfPages,
 } from "../lib/pdfEveryday";
 import PdfPagePreview from "./PdfPagePreview";
+import PdfLinkRegionPicker from "./PdfLinkRegionPicker";
 import {
  type PdfExternalLink,inspectPdfExternalLinks,editPdfExternalLink,addPdfExternalLink,
+ parseBatchPdfPages,previewPdfBatchLinks,batchEditPdfExternalLinks,pdfLinkInventoryCsv,
 } from "../lib/pdfLinks";
 
 export type PdfEverydayMode="metadata"|"crop"|"blank"|"form"|"pages"|"links";
@@ -38,8 +40,13 @@ export default function PdfEverydayDesk({initialMode="metadata"}:{initialMode?:P
   const [linkTarget,setLinkTarget]=useState("");
   const [linkSelection,setLinkSelection]=useState("");
   const [linkNewPage,setLinkNewPage]=useState(1);
+  const [showLinkPicker,setShowLinkPicker]=useState(false);
   const [linkRect,setLinkRect]=useState({x:36,y:36,width:170,height:25});
   const [linkNewUrl,setLinkNewUrl]=useState("https://example.com/");
+  const [batchFrom,setBatchFrom]=useState("");
+  const [batchTo,setBatchTo]=useState("");
+  const [batchPages,setBatchPages]=useState("all");
+  const [batchAction,setBatchAction]=useState<"replace"|"remove">("replace");
   const [linkDirty,setLinkDirty]=useState(false);
   const [linkPreview,setLinkPreview]=useState<File|null>(null);
   const [formValues,setFormValues]=useState<Record<string,string>>({});
@@ -49,6 +56,7 @@ export default function PdfEverydayDesk({initialMode="metadata"}:{initialMode?:P
     const selected=event.target.files?.[0];event.target.value="";
     setFile(null);setBytes(null);setInfo(null);setFields(null);setFormValues({});
     setLinks(null);setLinkSelection("");setLinkDirty(false);setLinkPreview(null);
+    setBatchFrom("");setBatchTo("");setBatchPages("all");setShowLinkPicker(false);
     setMetadata(EMPTY_METADATA);setPageExpression("1");setStatus("");
     if(!selected)return;
     setBusy(true);
@@ -117,6 +125,34 @@ export default function PdfEverydayDesk({initialMode="metadata"}:{initialMode?:P
       if(saved)setLinkDirty(false);
     }catch(e){setStatus("Saving edited links failed: "+err(e));}
     finally{setBusy(false);}
+  }
+  async function exportLinkInventory(){
+    if(!links||busy)return;
+    try{
+      const saved=await exportFile("universal-box-pdf-links-report.csv",pdfLinkInventoryCsv(links));
+      setStatus(saved?"PDF link inventory exported locally as CSV.":"Export cancelled.");
+    }catch(e){setStatus("Could not save link inventory: "+err(e));}
+  }
+  function getBatchPlan(){
+    if(!info||!links)throw Error("Inspect the PDF's existing links first.");
+    const pages=parseBatchPdfPages(batchPages,info.pages);
+    const plan={action:batchAction,sourceUrl:batchFrom,targetUrl:batchTo,pages};
+    const matches=previewPdfBatchLinks(links,plan);
+    return {plan,matches};
+  }
+  async function applyBatch(){
+    if(!bytes)return;
+    let plan:ReturnType<typeof getBatchPlan>["plan"];
+    try{
+      const current=getBatchPlan();
+      if(!current.matches.length)throw Error("No matching links in the selected pages.");
+      plan=current.plan;
+    }catch(e){setStatus("Batch edit not applied: "+err(e));return;}
+    await stageLinkEdit(async()=>{
+      const output=await batchEditPdfExternalLinks(bytes,plan);
+      if(output.changed===0)throw Error("No links were changed.");
+      return output.bytes;
+    });
   }
   const pageCount=info?.pages??0;
   return <section className="panel pdf-everyday-desk">
@@ -209,6 +245,45 @@ export default function PdfEverydayDesk({initialMode="metadata"}:{initialMode?:P
         </div>
         {links&&<>
           <p className="subtle">检测到 {links.length} 条可编辑的外部链接。非 HTTP(S) 链接会标为「不安全/不支持」，仍可移除或替换，但不会执行它们。所有修改在本地内存累积；离开前请另存。</p>
+          <div className="actions">
+            <button type="button" className="secondary-button" disabled={busy} onClick={()=>void exportLinkInventory()}>
+              导出全部链接清单 CSV（含页码和坐标）
+            </button>
+          </div>
+          <details className="panel" open>
+            <summary><strong>批量修改或删除重复超链接</strong></summary>
+            <p className="subtle">对完全相同的旧网址执行批量操作，可限制页面。修改前会预览命中数量；不会修改 PDF 正文、内部页码跳转或表单。</p>
+            <label className="field-label">已有目标网址（精确匹配）
+              <select className="field" value={batchFrom} onChange={e=>setBatchFrom(e.target.value)}>
+                <option value="">选择要查找的旧网址…</option>
+                {[...new Set(links.map(l=>l.url))].map(url=><option key={url} value={url}>{url.slice(0,170)}</option>)}
+              </select>
+            </label>
+            <div className="tools-pair">
+              <label className="field-label">操作
+                <select className="field" value={batchAction} onChange={e=>setBatchAction(e.target.value as "replace"|"remove")}>
+                  <option value="replace">全部替换目标 URL</option>
+                  <option value="remove">删除选中范围的可点击链接</option>
+                </select>
+              </label>
+              <label className="field-label">作用页面（all 或 1,3,5）
+                <input className="field" value={batchPages} maxLength={500} onChange={e=>setBatchPages(e.target.value)}/>
+              </label>
+            </div>
+            {batchAction==="replace"&&<label className="field-label">新网址
+              <input className="field" type="url" maxLength={2048} value={batchTo} onChange={e=>setBatchTo(e.target.value)} placeholder="https://new.example.com/path"/>
+            </label>}
+            {(()=>{
+              if(!batchFrom)return <p className="subtle">先选择一个现有网址。</p>;
+              try{
+                const {matches}=getBatchPlan();
+                return <p className="subtle" role="status">预计匹配 {matches.length} 条可点击注释，涉及 {[...new Set(matches.map(x=>x.page))].length} 页。</p>;
+              }catch(e){return <p className="subtle" role="alert">{err(e)}</p>;}
+            })()}
+            <button type="button" className="primary-button" disabled={busy||!batchFrom} onClick={()=>void applyBatch()}>
+              预览命中后在工作副本中执行批量操作
+            </button>
+          </details>
           <label className="field-label">选择要编辑的超链接
             <select className="field" value={linkSelection} onChange={e=>{
               setLinkSelection(e.target.value);
@@ -245,6 +320,16 @@ export default function PdfEverydayDesk({initialMode="metadata"}:{initialMode?:P
               <input className="field" type="number" min={0} step={1} value={linkRect[key]} onChange={e=>setLinkRect(old=>({...old,[key]:Number(e.target.value)}))}/>
             </label>)}
           </div>
+          <div className="actions">
+            <button type="button" className="secondary-button" disabled={busy}
+              onClick={()=>setShowLinkPicker(current=>!current)}>
+              {showLinkPicker?"关闭可视化框选":"在 PDF 页面上拖拽框选链接区域"}
+            </button>
+          </div>
+          {showLinkPicker&&file&&<PdfLinkRegionPicker
+            file={linkPreview??file} pageNumber={linkNewPage}
+            onChoose={rect=>setLinkRect(rect)}
+          />}
           <label className="field-label">新超链接网址（HTTPS / HTTP）
             <input className="field" type="url" maxLength={2048} value={linkNewUrl} onChange={e=>setLinkNewUrl(e.target.value)}/>
           </label>

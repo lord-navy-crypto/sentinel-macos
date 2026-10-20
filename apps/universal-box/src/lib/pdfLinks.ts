@@ -143,3 +143,80 @@ export async function addPdfExternalLink(bytes:Uint8Array,box:PdfLinkBox):Promis
  page.node.addAnnot(doc.context.register(item));
  return doc.save({updateFieldAppearances:false});
 }
+
+
+/** Exact-match batch editing across explicitly chosen pages. The preview count
+ * is derived from the same predicate used by the write operation.
+ */
+export type PdfBatchLinkEdit={
+ action:"replace"|"remove";
+ sourceUrl:string;
+ targetUrl?:string;
+ pages:"all"|number[];
+};
+export function parseBatchPdfPages(expression:string,total:number):"all"|number[]{
+ if(!Number.isSafeInteger(total)||total<1||total>MAX_PAGES)
+  throw Error("PDF must have between 1 and 200 pages.");
+ const value=expression.trim();
+ if(value.toLowerCase()==="all")return "all";
+ if(!/^\d+(?:\s*,\s*\d+)*$/u.test(value)||value.length>500)
+  throw Error("Use all or a comma-separated list such as 1,3,5.");
+ const pages=[...new Set(value.split(",").map(x=>Number(x.trim())))];
+ if(pages.some(x=>!Number.isSafeInteger(x)||x<1||x>total))
+  throw Error("One or more selected pages are outside the PDF.");
+ return pages.sort((a,b)=>a-b);
+}
+function matchingPdfLinks(links:PdfExternalLink[],options:PdfBatchLinkEdit):PdfExternalLink[]{
+ if(options.sourceUrl.length===0||options.sourceUrl.length>2048)
+  throw Error("Choose an exact existing URL (up to 2,048 characters).");
+ if(options.pages!=="all"&&(!Array.isArray(options.pages)||options.pages.length>MAX_PAGES
+  ||options.pages.some(page=>!Number.isSafeInteger(page)||page<1||page>MAX_PAGES)))
+  throw Error("Selected page filter is invalid.");
+ if(options.action==="replace")normalizePdfLinkUrl(options.targetUrl??"");
+ else if(options.action!=="remove")throw Error("Unknown batch link operation.");
+ return links.filter(x=>x.url===options.sourceUrl&&
+  (options.pages==="all"||options.pages.includes(x.page)));
+}
+export function previewPdfBatchLinks(links:PdfExternalLink[],options:PdfBatchLinkEdit):PdfExternalLink[]{
+ return matchingPdfLinks(links,options);
+}
+export async function batchEditPdfExternalLinks(
+ bytes:Uint8Array,options:PdfBatchLinkEdit
+):Promise<{bytes:Uint8Array;changed:number}>{
+ const links=await inspectPdfExternalLinks(bytes);
+ const selected=matchingPdfLinks(links,options);
+ if(selected.length===0)throw Error("No matching link annotations. Nothing was changed.");
+ if(selected.length>MAX_LINKS)throw Error("Too many matching link annotations.");
+ const doc=await openPdf(bytes);
+ const target=options.action==="replace"?normalizePdfLinkUrl(options.targetUrl??""):"";
+ // Group modifications by page and descend annotation indexes. This avoids
+ // the index-shifting bug when removing multiple annotations from a page.
+ const byPage=new Map<number,number[]>();
+ for(const link of selected)byPage.set(link.page,[...(byPage.get(link.page)??[]),link.annotationIndex]);
+ for(const [page,indexes] of byPage){
+  for(const index of indexes.sort((a,b)=>b-a)){
+   const {annotation,annots}=getUriAnnotation(doc,page,index);
+   if(readUri(annotation)!==options.sourceUrl)
+    throw Error("PDF annotations changed while staging; refusing partial edits.");
+   if(options.action==="remove")annots.remove(index);
+   else annotation.set(name("A"),doc.context.obj({
+    Type:"Action",S:"URI",URI:PDFString.of(target),
+   }));
+  }
+ }
+ return {bytes:await doc.save({updateFieldAppearances:false}),changed:selected.length};
+}
+
+/** Inventory never accesses the internet. Escape CSV formulas even if the PDF
+ * embeds attacker-supplied strings.
+ */
+export function pdfLinkInventoryCsv(links:PdfExternalLink[]):string{
+ const escape=(value:string)=>'"'+
+  (/^[\s\uFEFF]*[=+\-@\t\r]/u.test(value)?"'"+value:value).replace(/"/g,'""')+'"';
+ const header=["page","annotation_index","url","allowed_http","x","y","width","height"];
+ return "\uFEFF"+[
+  header,
+  ...links.map(l=>[String(l.page),String(l.annotationIndex),l.url,
+   l.permitted?"yes":"no",String(l.rect.x),String(l.rect.y),String(l.rect.width),String(l.rect.height)])
+ ].map(row=>row.map(escape).join(",")).join("\r\n")+"\r\n";
+}
