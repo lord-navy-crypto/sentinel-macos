@@ -10,6 +10,7 @@ import {
 type View="files"|"chat"|"tasks"|"members";
 type LanShare={active:boolean;invites:string[];secondsRemaining:number;message:string};
 type NearbyShare={instance:string;label:string;ip:string;port:number};
+type StunObservation={server:string;localEndpoint:string;observedPublicEndpoint:string;note:string};
 const B64_BLOCK=49152;
 export function binaryToLanBase64(bytes:Uint8Array):string{
  const chunks:string[]=[];
@@ -53,6 +54,9 @@ export default function CommonsDesk(){
  const [nearbyKey,setNearbyKey]=useState("");
  const [discovering,setDiscovering]=useState(false);
  const [discoveryError,setDiscoveryError]=useState("");
+ const [stun,setStun]=useState<StunObservation|null>(null);
+ const [stunBusy,setStunBusy]=useState(false);
+ const [stunError,setStunError]=useState("");
  useEffect(()=>{
   let mounted=true;
   async function browse(){
@@ -68,6 +72,12 @@ export default function CommonsDesk(){
   const timer=window.setInterval(()=>{void browse();},20000);
   return ()=>{mounted=false;window.clearInterval(timer);void invoke("commons_lan_stop").catch(()=>{});};
  },[]);
+ async function runP2pProbe(){
+  setStunBusy(true);setStunError("");setStun(null);
+  try{setStun(await invoke<StunObservation>("commons_p2p_stun_probe"));}
+  catch(e){setStunError(errorText(e));}
+  finally{setStunBusy(false);}
+ }
  async function scanNearby(){
   setDiscovering(true);setDiscoveryError("");
   try{setNearby(await invoke<NearbyShare[]>("commons_lan_discover"));}
@@ -394,6 +404,21 @@ export default function CommonsDesk(){
    </div>
    {networkBusy&&<p role="status">正在进行局域网加密操作…</p>}
    {networkStatus&&<p className="subtle" role="status">{networkStatus}</p>}
+  </div>
+  <div className="panel" style={{marginTop:16}}>
+   <p className="eyebrow">P2P RESEARCH · OPT-IN</p>
+   <h3>跨局域网直连可行性探测</h3>
+   <p className="subtle">研究阶段：可使用公开 STUN 服务器观察你的 UDP 公网映射。只有主动点击才联系外部服务器；该服务器能看到本次连接的公网 IP。**这不是已经建立了 P2P 文件连接**，也不会上传任何团队文件。</p>
+   <button type="button" className="secondary-button" disabled={stunBusy} onClick={()=>void runP2pProbe()}>
+    {stunBusy?"探测中…":"尝试一次免费 STUN 网络探测"}
+   </button>
+   {stunError&&<p role="alert" className="subtle">STUN 探测不可用：{stunError}</p>}
+   {stun&&<div style={{padding:12,marginTop:10,border:"1px solid var(--line,#cbd5e1)",borderRadius:12}}>
+    <p><strong>本机 UDP 地址：</strong>{stun.localEndpoint}</p>
+    <p><strong>STUN 观察到的公网地址：</strong>{stun.observedPublicEndpoint}</p>
+    <p className="subtle">{stun.note}</p>
+    <p className="subtle">观测服务器：{stun.server}。此结果不能预测真实 NAT 穿透成功率；跨网打洞、信令和端到端传输还没有实现。</p>
+   </div>}
   </div>
   <div className="panel" style={{marginTop:16}}>
    <h3>接收团队包 · Import / Merge</h3>
