@@ -18,6 +18,11 @@ export default function SentinelCenter(){
  const [snapshot,setSnapshot]=useState<Snapshot|null>(null);
  const [loading,setLoading]=useState(false);
  const [error,setError]=useState("");
+ const [diagnostic,setDiagnostic]=useState("");
+ const [diagnosticName,setDiagnosticName]=useState("");
+ const [diagnosticError,setDiagnosticError]=useState("");
+ const [diagnosticLoading,setDiagnosticLoading]=useState(false);
+ async function runDiagnostic(kind:string){setDiagnosticLoading(true);setDiagnosticError("");setDiagnostic("");setDiagnosticName(kind);try{setDiagnostic(await invoke<string>("sentinel_diagnostic",{kind}));}catch(e){setDiagnosticError(String(e));}finally{setDiagnosticLoading(false);}}
  async function refresh(){setLoading(true);setError("");try{setSnapshot(await invoke<Snapshot>("sentinel_system_snapshot"));}catch(e){setSnapshot(null);setError(String(e));}finally{setLoading(false);}}
  const selected=useMemo(()=>LENSES.find(x=>x.id===lens)??LENSES[0],[lens]);
  return <section className="panel" aria-label="Sentinel Mac System Center">
@@ -28,6 +33,13 @@ export default function SentinelCenter(){
   {error&&<p role="alert" className="subtle">无法读取系统状态：{error}</p>}
   {snapshot&&<div className="panel" role="status"><h3>真实系统快照 · {snapshot.platform}</h3><p>macOS {snapshot.os_version} · {snapshot.machine_model}</p><p>逻辑 CPU：{snapshot.logical_cpus??"未知"} · 物理内存：{snapshot.physical_memory_bytes===null?"未知":(snapshot.physical_memory_bytes/1073741824).toFixed(1)+" GiB"}</p><p>可读取的进程条目：{snapshot.observed_process_lines}</p><details><summary>根卷磁盘数据（df KiB）</summary><pre style={{whiteSpace:"pre-wrap",overflowWrap:"anywhere"}}>{snapshot.root_volume_df_kib}</pre></details><p className="subtle">数据来源：{snapshot.source} · 不执行修改操作</p></div>}
   <p role="status" className="subtle" style={{border:"1px solid var(--line, #cbd5e1)",borderRadius:10,padding:12}}>{note}</p>
+  <h3>本机只读诊断</h3>
+  <div className="actions">
+   {([["processes","进程表"],["login_items","用户启动服务"],["tcp_sockets","TCP 连接"],["disk_volumes","磁盘卷"]] as const).map(([kind,label])=><button key={kind} className="secondary-button" type="button" disabled={diagnosticLoading} onClick={()=>void runDiagnostic(kind)}>{label}</button>)}
+  </div>
+  {diagnosticLoading&&<p role="status">读取中…</p>}
+  {diagnosticError&&<p role="alert">诊断不可用：{diagnosticError}</p>}
+  {diagnostic&&<details open><summary>诊断结果：{diagnosticName}（截断至约 16,000 字符）</summary><pre style={{maxHeight:340,overflow:"auto",whiteSpace:"pre",fontSize:12}}>{diagnostic}</pre></details>}
   <div className="pill-row" role="group" aria-label="Sentinel modules">
    {LENSES.map(x=><button key={x.id} type="button" className={lens===x.id?"pill active-pill":"pill"} onClick={()=>setLens(x.id)}>{x.title}</button>)}
   </div>
