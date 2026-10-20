@@ -41,7 +41,7 @@ const LENSES:Lens[] = [
 function prettyJson(value:unknown):string {
  try {return JSON.stringify(value,null,2)??String(value);} catch{return String(value);}
 }
-export default function SentinelCenter(){
+export default function SentinelCenter({onSendToTables,onSendToPrivacy}:{onSendToTables:(csv:string)=>void;onSendToPrivacy:(text:string)=>void}){
  const [lens,setLens]=useState("overview");
  const [engine,setEngine]=useState<EngineStatus|null>(null);
  const [working,setWorking]=useState(false);
@@ -87,6 +87,18 @@ export default function SentinelCenter(){
    setDashboard({quick,queue});
   }catch(e){setDashboardError(String(e));}
   finally{setDashboardLoading(false);}
+ }
+ function sendToTable(){
+  if(!table){setExportMessage("此结果没有可以送入表格工具的记录。");return;}
+  const csv=sentinelCsv(table,filtered);
+  if(csv.length>1_500_000){setExportMessage("数据超出 1.5 MB 安全上限；请筛选后再传输。");return;}
+  onSendToTables(csv);
+ }
+ function sendToCleaner(){
+  if(result===null){setExportMessage("没有可发送的诊断数据。");return;}
+  const text=prettyJson(result);
+  if(text.length>200_000){setExportMessage("超过 200,000 字符限制；请先在 Sentinel 工具中选取更小的结果。");return;}
+  onSendToPrivacy(text);
  }
  async function exportReading(format:"json"|"csv"){
   if(!selected||result===null)return;
@@ -195,6 +207,8 @@ export default function SentinelCenter(){
     <button type="button" className="secondary-button" disabled={loading||!engine?.running} onClick={()=>void (selected.id==="search"?searchSentinel():read(selected))}>刷新并比较</button>
     <button type="button" className="secondary-button" disabled={loading||result===null} onClick={()=>void exportReading("json")}>导出原始 JSON</button>
     <button type="button" className="secondary-button" disabled={loading||!table} onClick={()=>void exportReading("csv")}>导出筛选结果 CSV</button>
+    <button type="button" className="secondary-button" disabled={loading||!table} onClick={sendToTable}>在 Universal Box 表格工具中打开</button>
+    <button type="button" className="secondary-button" disabled={loading||result===null} onClick={sendToCleaner}>发送到本地日志隐私清理</button>
    </div>
    {exportMessage&&<p role="status" className="subtle">{exportMessage}</p>}
    {loading?<p role="status">正在从原 Sentinel API 读取…</p>:result!==null?<>
