@@ -5,6 +5,7 @@ import {
   inspectPdfEveryday,savePdfMetadata,cropPdfPages,insertBlankPdfPages,inspectPdfTextFields,fillPdfTextFields,exportSelectedPdfPages,
 } from "../lib/pdfEveryday";
 import PdfPagePreview from "./PdfPagePreview";
+import PdfLinkRegionPicker from "./PdfLinkRegionPicker";
 import {
  type PdfExternalLink,inspectPdfExternalLinks,editPdfExternalLink,addPdfExternalLink,
  parseBatchPdfPages,previewPdfBatchLinks,batchEditPdfExternalLinks,pdfLinkInventoryCsv,
@@ -39,6 +40,7 @@ export default function PdfEverydayDesk({initialMode="metadata"}:{initialMode?:P
   const [linkTarget,setLinkTarget]=useState("");
   const [linkSelection,setLinkSelection]=useState("");
   const [linkNewPage,setLinkNewPage]=useState(1);
+  const [showLinkPicker,setShowLinkPicker]=useState(false);
   const [linkRect,setLinkRect]=useState({x:36,y:36,width:170,height:25});
   const [linkNewUrl,setLinkNewUrl]=useState("https://example.com/");
   const [batchFrom,setBatchFrom]=useState("");
@@ -54,7 +56,7 @@ export default function PdfEverydayDesk({initialMode="metadata"}:{initialMode?:P
     const selected=event.target.files?.[0];event.target.value="";
     setFile(null);setBytes(null);setInfo(null);setFields(null);setFormValues({});
     setLinks(null);setLinkSelection("");setLinkDirty(false);setLinkPreview(null);
-    setBatchFrom("");setBatchTo("");setBatchPages("all");
+    setBatchFrom("");setBatchTo("");setBatchPages("all");setShowLinkPicker(false);
     setMetadata(EMPTY_METADATA);setPageExpression("1");setStatus("");
     if(!selected)return;
     setBusy(true);
@@ -318,6 +320,16 @@ export default function PdfEverydayDesk({initialMode="metadata"}:{initialMode?:P
               <input className="field" type="number" min={0} step={1} value={linkRect[key]} onChange={e=>setLinkRect(old=>({...old,[key]:Number(e.target.value)}))}/>
             </label>)}
           </div>
+          <div className="actions">
+            <button type="button" className="secondary-button" disabled={busy}
+              onClick={()=>setShowLinkPicker(current=>!current)}>
+              {showLinkPicker?"关闭可视化框选":"在 PDF 页面上拖拽框选链接区域"}
+            </button>
+          </div>
+          {showLinkPicker&&file&&<PdfLinkRegionPicker
+            file={linkPreview??file} pageNumber={linkNewPage}
+            onChoose={rect=>setLinkRect(rect)}
+          />}
           <label className="field-label">新超链接网址（HTTPS / HTTP）
             <input className="field" type="url" maxLength={2048} value={linkNewUrl} onChange={e=>setLinkNewUrl(e.target.value)}/>
           </label>
