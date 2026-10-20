@@ -9,7 +9,7 @@ use chacha20poly1305::{
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
-    fs::{self, File, OpenOptions},
+    fs::{self, OpenOptions},
     io::{Read, Write},
     net::{IpAddr, Ipv4Addr, SocketAddrV4, TcpListener, TcpStream},
     path::{Path, PathBuf},
