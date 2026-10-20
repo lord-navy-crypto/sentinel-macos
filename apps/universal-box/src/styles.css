@@ -845,3 +845,43 @@ pre { white-space:pre-wrap; word-break:break-word; }
  .ub-compare-results {padding:13px;}
 }
 @media(prefers-reduced-motion:reduce) {.ub-compare-map>span{transition:none;}}
+
+
+/* Universal Box 0.33: deliberate, keyboard-accessible file intake review */
+.ub-intake-review{
+ margin:16px 0;border:1px solid var(--ub-border);border-radius:16px;
+ background:var(--ub-subtle);padding:20px;
+}
+.ub-intake-review-heading{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:14px;}
+.ub-intake-review-heading h3{font-size:19px;margin:4px 0 6px;}
+.ub-intake-review-heading .subtle{max-width:680px;margin:0;}
+.ub-intake-review-heading .actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:0;}
+.ub-intake-stage-list{
+ display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;
+ margin:17px 0 0;padding:0;
+}
+.ub-intake-stage-list>div{
+ display:flex;align-items:center;justify-content:space-between;gap:9px;
+ border-radius:9px;background:var(--ub-panel);border:1px solid var(--ub-border);
+ padding:10px 12px;min-width:0;
+}
+.ub-intake-stage-list>div span{font-size:12px;font-weight:600;overflow-wrap:anywhere;min-width:0;}
+.ub-intake-stage-list>div small{color:var(--ub-muted);flex-shrink:0;font-size:11px;}
+.ub-intake-review-warnings{
+ margin-top:16px;padding:13px 16px;border-radius:11px;border:1px solid #d7b06c;
+ background:#fff5e7;color:#704512;
+}
+.ub-intake-review-warnings strong{font-size:12px;}
+.ub-intake-review-warnings p{font-size:12px;overflow-wrap:anywhere;margin:7px 0 0;}
+.app-shell.theme-dark .ub-intake-review-warnings{background:#392e1a;color:#ffdfab;border-color:#8a6635;}
+.ub-intake-current{display:block;margin-top:5px;font-size:11px;color:var(--ub-muted);overflow-wrap:anywhere;}
+.ub-intake-progress button{align-self:center;white-space:nowrap;}
+.ub-intake-dropzone:focus-within{outline:2px solid var(--ub-ring);outline-offset:3px;}
+@media(max-width:700px){
+ .ub-intake-stage-list{grid-template-columns:1fr;}
+ .ub-intake-review{padding:14px;}
+ .ub-intake-review-heading .actions{width:100%;}
+}
+@media(prefers-reduced-motion:reduce){
+ .ub-intake-dropzone,.ub-intake-review{transition:none;}
+}
