@@ -391,6 +391,44 @@ mod tests {
         let _ = fs::remove_dir_all(dir);
     }
     #[test]
+    fn reconnect_after_real_mid_transfer_disconnect() {
+        let zip = [&b"PK\x03\x04"[..], &vec![34u8; CHUNK * 2 + 99][..]].concat();
+        let m = manifest_for(&zip);
+        let dir = test_cache();
+        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let addr = listener.local_addr().unwrap();
+        let key = [29u8; 32];
+        let invite = format!("uboxlan2://{addr}/{}", URL_SAFE_NO_PAD.encode(key));
+        let sent_zip = zip.clone();
+        let server = thread::spawn(move || {
+            let (mut first, _) = listener.accept().unwrap();
+            first.set_read_timeout(Some(TIMEOUT)).unwrap();
+            first.set_write_timeout(Some(TIMEOUT)).unwrap();
+            assert_eq!(read_frame(&mut first, &key, b"request", 16).unwrap(), b"HELLO2");
+            write_frame(&mut first, &key, b"manifest", &serde_json::to_vec(&m).unwrap()).unwrap();
+            let need: Need = serde_json::from_slice(
+                &read_frame(&mut first, &key, b"need", 16_384).unwrap()
+            ).unwrap();
+            assert_eq!(need.indices[0], 0);
+            let mut first_packet = 0u32.to_be_bytes().to_vec();
+            first_packet.extend_from_slice(&sent_zip[..CHUNK]);
+            write_frame(&mut first, &key, b"chunk", &first_packet).unwrap();
+            drop(first); // Real connection failure after the first verified block.
+            let (second, _) = listener.accept().unwrap();
+            serve(second, &key, &sent_zip, &manifest_for(&sent_zip)).unwrap()
+        });
+        assert!(receive_cached(&invite, &dir, |_, _| {}).is_err());
+        assert!(chunk_path(&dir, &manifest_for(&zip), 0).exists());
+        let mut first_progress = None;
+        let got = receive_cached(&invite, &dir, |n, _| {
+            if first_progress.is_none() { first_progress = Some(n); }
+        }).unwrap();
+        assert_eq!(first_progress, Some(CHUNK));
+        assert_eq!(URL_SAFE_NO_PAD.decode(got).unwrap(), zip);
+        assert!(server.join().unwrap());
+        let _ = fs::remove_dir_all(dir);
+    }
+    #[test]
     fn corrupt_cached_block_is_downloaded_again() {
         let payload = [&b"PK\x03\x04"[..], &vec![71u8; CHUNK + 5][..]].concat();
         let m = manifest_for(&payload);
