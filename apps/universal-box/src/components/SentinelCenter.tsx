@@ -3,6 +3,8 @@ import {invoke} from "@tauri-apps/api/core";
 import {exportFile} from "../lib/output";
 import {sentinelTable,sentinelSummary,sentinelCsv,filteredSentinelRows,sentinelDiff} from "../lib/sentinelPresentation";
 import {quickCheckMetrics,reviewQueueMetrics} from "../lib/sentinelDashboard";
+import {projectSentinelGraph} from "../lib/sentinelGraph";
+import SentinelGraphView from "./SentinelGraphView";
 
 type EngineStatus = {running:boolean;version:string|null;message:string};
 type ReadOperation = {id:string;name:string;description:string};
@@ -49,7 +51,7 @@ export default function SentinelCenter(){
  const [query,setQuery]=useState("");
  const [sortColumn,setSortColumn]=useState("");
  const [descending,setDescending]=useState(false);
- const [presentation,setPresentation]=useState<"table"|"json"|"compare">("table");
+ const [presentation,setPresentation]=useState<"table"|"json"|"compare"|"graph">("table");
  const [exportMessage,setExportMessage]=useState("");
  const [dashboard,setDashboard]=useState<{quick:unknown;queue:unknown}|null>(null);
  const [dashboardLoading,setDashboardLoading]=useState(false);
@@ -57,6 +59,7 @@ export default function SentinelCenter(){
  const [searchQuery,setSearchQuery]=useState("");
  const group=useMemo(()=>LENSES.find(x=>x.id===lens)??LENSES[0],[lens]);
  const table=useMemo(()=>sentinelTable(result),[result]);
+ const graph=useMemo(()=>projectSentinelGraph(result),[result]);
  const filtered=useMemo(()=>table?filteredSentinelRows(table,query,sortColumn,descending):[],[table,query,sortColumn,descending]);
  const changes=useMemo(()=>previous===null?[]:sentinelDiff(previous,result),[previous,result]);
  const summary=useMemo(()=>sentinelSummary(result),[result]);
@@ -124,7 +127,7 @@ export default function SentinelCenter(){
   setPrevious(wasSame?result:null);
   setSelected(item);setResult(null);
   setQuery("");setSortColumn("");setPresentation("table");
-  try{setResult(await invoke<unknown>("sentinel_service_read",{key:item.id}));}
+  try{const data=await invoke<unknown>("sentinel_service_read",{key:item.id});setResult(data);if(projectSentinelGraph(data))setPresentation("graph");}
   catch(e){setError(String(e));}
   finally{setLoading(false);}
  }
@@ -199,6 +202,7 @@ export default function SentinelCenter(){
      </div>)}
     </div>}
     <div className="actions" role="group" aria-label="Result presentation mode" style={{marginTop:12}}>
+     {graph&&<button type="button" className="secondary-button" onClick={()=>setPresentation("graph")}>证据关系图</button>}
      <button type="button" className="secondary-button" onClick={()=>setPresentation("table")}>表格</button>
      <button type="button" className="secondary-button" onClick={()=>setPresentation("json")}>原始 JSON</button>
      <button type="button" className="secondary-button" disabled={previous===null} onClick={()=>setPresentation("compare")}>对比上次读取 {previous===null?"(未记录)":""}</button>
@@ -225,6 +229,7 @@ export default function SentinelCenter(){
       </table>
      </div>
     </>:<p className="subtle">这个 API 返回的不是记录列表，请切换到「原始 JSON」阅读。</p>)}
+    {presentation==="graph"&&<SentinelGraphView data={result}/>}
     {presentation==="json"&&<pre style={{whiteSpace:"pre-wrap",overflowWrap:"anywhere",maxHeight:500,overflow:"auto",fontSize:12}}>{prettyJson(result)}</pre>}
     {presentation==="compare"&&<div>
      <p className="subtle">仅比较本次运行中同一个 API 的前后两次读取；不修改 Sentinel 的历史基线。</p>
