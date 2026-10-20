@@ -242,13 +242,18 @@ fn receive_with_progress<F: FnMut(usize, usize)>(
     // informative only: it is NOT a claim that the file is verified yet.
     let mut sealed = Vec::with_capacity(length);
     let mut chunk = [0_u8; 256 * 1024];
+    let mut last_report = 0_usize;
     while sealed.len() < length {
         let next = chunk.len().min(length - sealed.len());
         let n = socket.read(&mut chunk[..next])
             .map_err(|e| format!("Encrypted transfer was incomplete: {e}"))?;
         if n == 0 { return Err("Sender disconnected before the encrypted packet was complete".into()); }
         sealed.extend_from_slice(&chunk[..n]);
-        report(sealed.len(), length);
+        // Throttle UI updates: tiny TCP reads must not flood the WebView.
+        if sealed.len() - last_report >= 256 * 1024 || sealed.len() == length {
+            last_report = sealed.len();
+            report(sealed.len(), length);
+        }
     }
     let clear = cipher.decrypt(XNonce::from_slice(&header[6..30]), sealed.as_ref())
         .map_err(|_| "Transfer authentication failed; packet not accepted".to_string())?;
