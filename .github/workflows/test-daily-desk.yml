@@ -72,12 +72,22 @@ jobs:
       - name: Build macOS desktop bundle
         run: npm run tauri:build -- --target aarch64-apple-darwin
 
-      - name: Verify macOS app contains the original Sentinel Go engine
+      - name: Verify DMG contains the original Sentinel Go engine
         run: |
-          app_dir="$(find src-tauri/target/aarch64-apple-darwin/release/bundle/macos -maxdepth 1 -name '*.app' -print -quit)"
+          set -euo pipefail
+          dmg="$(find src-tauri/target/aarch64-apple-darwin/release/bundle/dmg -maxdepth 1 -name '*.dmg' -print -quit)"
+          test -n "$dmg"
+          mount_dir="$(mktemp -d)"
+          cleanup() { hdiutil detach "$mount_dir" -quiet || true; rmdir "$mount_dir" || true; }
+          trap cleanup EXIT
+          hdiutil attach -readonly -nobrowse -quiet -mountpoint "$mount_dir" "$dmg"
+          app_dir="$(find "$mount_dir" -maxdepth 1 -name '*.app' -print -quit)"
           test -n "$app_dir"
-          test -x "$app_dir/Contents/Resources/sentinel/sentinel-engine"
-          file "$app_dir/Contents/Resources/sentinel/sentinel-engine"
+          engine="$app_dir/Contents/Resources/sentinel/sentinel-engine"
+          test -f "$engine"
+          test -x "$engine"
+          file "$engine"
+          echo "Verified original Sentinel Go executable inside the DISTRIBUTED DMG"
 
       - name: Upload DMG for manual testing
         uses: actions/upload-artifact@v4
