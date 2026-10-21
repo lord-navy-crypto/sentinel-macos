@@ -414,7 +414,7 @@ export default function App() {
             <div className="welcome-heading"><div>
               <p className="eyebrow">YOUR PRIVATE DIGITAL TOOLBOX</p>
               <h1>Everything useful. All in one place.</h1>
-              <p className="intro">Create, organize, convert and visualize — with real tools that run on your device. No required account, ads or pay-per-click unlocks.</p>
+              <p className="intro">Sentinel Box is a free, offline-first macOS utility suite for Word and PowerPoint creation, document and media processing, local OCR, creative design, file organization and privacy-first automation — no required account or subscriptions.</p>
             </div></div>
             <div className="hero-card">
               <div className="hero-copy">
