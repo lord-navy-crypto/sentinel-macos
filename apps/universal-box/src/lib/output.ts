@@ -19,7 +19,6 @@ const MIME: Record<string, string> = {
   xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
   zip: "application/zip",
-  epub: "application/epub+zip",
   svg: "image/svg+xml",
   ics: "text/calendar;charset=utf-8",
   srt: "application/x-subrip;charset=utf-8",
