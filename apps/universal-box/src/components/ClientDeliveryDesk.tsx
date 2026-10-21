@@ -41,7 +41,7 @@ export default function ClientDeliveryDesk(){
   if(busy||!receivedZip)return;
   setBusy(true);setReceipt(null);setReceiptError("");setReceiptProgress("Validating archive structure locally…");
   try{
-   if(!/\\.zip$/iu.test(receivedZip.name)||receivedZip.size<22||receivedZip.size>20_000_000)
+   if(!/\.zip$/iu.test(receivedZip.name)||receivedZip.size<22||receivedZip.size>20_000_000)
     throw Error("Choose a received .zip between 22 bytes and 20 MB.");
    const bytes=new Uint8Array(await receivedZip.arrayBuffer());
    const result=await verifyReceivedDelivery(bytes,(done,total)=>
