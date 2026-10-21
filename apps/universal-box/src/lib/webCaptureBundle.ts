@@ -1,4 +1,4 @@
-/** Build a user-exportable Chromium extension from assets shipped in Universal Box.
+/** Build a user-exportable Chromium extension from assets shipped in Sentinel Box.
  * No remote downloads or browser installation, no new permissions.
  */
 import JSZip from "jszip";
@@ -12,7 +12,7 @@ export function validateCompanionManifest(raw:string):void{
    background?:unknown;content_scripts?:unknown;
  };
  if(m.manifest_version!==3||m.version!==WEB_CAPTURE_VERSION)
-   throw Error("Bundled Web Capture version is inconsistent with Universal Box.");
+   throw Error("Bundled Web Capture version is inconsistent with Sentinel Box.");
  const permissions=m.permissions;
  if(!Array.isArray(permissions)||permissions.length!==3||
     !["activeTab","scripting","clipboardWrite"].every(x=>permissions.includes(x))||
