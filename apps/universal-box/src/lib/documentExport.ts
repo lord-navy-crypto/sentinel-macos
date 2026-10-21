@@ -70,8 +70,8 @@ export function docxParagraphs(markdown:string):Paragraph[]{
 }
 export async function markdownToDocx(markdown:string):Promise<Uint8Array>{
   const document=new Document({
-    creator:"Daily Desk",
-    title:"Daily Desk Document",
+    creator:"Sentinel Box",
+    title:"Sentinel Box Document",
     sections:[{properties:{},children:docxParagraphs(markdown)}],
   });
   const blob=await Packer.toBlob(document);
