@@ -2,6 +2,9 @@ import {useEffect,useMemo,useState} from "react";
 
 export type LocalTool = {id:string;name:string;area:string;view:string;module?:string};
 export const LOCAL_TOOLS:LocalTool[] = [
+ {id:"speech-timed-srt-vtt",name:"Speech Timed Subtitles · Apple Speech 音频时间戳转 SRT/VTT",area:"Media",view:"media-files",module:"speech"},
+ {id:"selected-xlsx-sheets",name:"XLSX Multi-Sheet Export · Excel 工作表选择导出 CSV",area:"Data",view:"workflows",module:"sheet-select"},
+ {id:"manual-multi-clip-basket",name:"Multi-Clip Text Basket · 手动多段收集、排序与合并",area:"Files",view:"workflows",module:"clip-basket"},
  {id:"mac-offline-voice-to-text",name:"Local Speech to Text · Apple Speech 本机音频转文字",area:"Media",view:"media-files",module:"speech"},
  {id:"voice-recorder-transcription",name:"Record & Transcribe · 麦克风录音转文字（本机）",area:"Media",view:"media-files",module:"speech"},
  {id:"offline-audio-file-to-word",name:"Audio to Word Notes · 音频转写并生成可编辑 DOCX",area:"Office",view:"media-files",module:"speech"},
