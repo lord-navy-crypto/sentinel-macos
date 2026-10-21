@@ -2,8 +2,6 @@ import {useEffect,useMemo,useState} from "react";
 
 export type LocalTool = {id:string;name:string;area:string;view:string;module?:string};
 export const LOCAL_TOOLS:LocalTool[] = [
- {id:"epub3-book-maker",name:"EPUB 3 Book Maker · TXT/Markdown to offline ebook",area:"Office",view:"workflows",module:"epub-create"},
- {id:"sha256-baseline-verify",name:"SHA-256 Baseline Verify · 文件一致性与变更检测",area:"Files",view:"workflows",module:"hash-check"},
  {id:"csv-duplicate-key-review",name:"CSV Duplicate Key Review · 重复主键和数据冲突审计",area:"Data",view:"workflows",module:"csv-key-audit"},
  {id:"epub3-text-book",name:"EPUB 3 eBook Creator · TXT/Markdown 生成可阅读电子书",area:"Office",view:"workflows",module:"epub-writer"},
  {id:"file-sha256-manifest-verify",name:"File SHA-256 Verify · 批量哈希清单与完整性验证",area:"Privacy",view:"workflows",module:"integrity-manifest"},
