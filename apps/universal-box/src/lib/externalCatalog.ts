@@ -31,7 +31,7 @@ export const EXTERNAL_TOOLS:readonly ExternalTool[]=[
    note:"External browser whiteboard; sharing/export policies belong to that service."},
   {id:"photopea",name:"Photopea",category:"Images",url:"https://www.photopea.com/",
    description:"Advanced layers, masking, PSD files and image adjustments.",
-   note:"Third-party browser editor; some features and advertising may differ from Daily Desk."},
+   note:"Third-party browser editor; some features and advertising may differ from Sentinel Box."},
 ];
 export function validatedExternalUrl(url:string):string {
   const parsed=new URL(url);
