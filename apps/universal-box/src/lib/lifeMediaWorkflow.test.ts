@@ -18,7 +18,7 @@ describe("Subtitle two-point resynchronization",()=>{
  it("refuses invalid anchors, reversed order, excessive scale and underflow",()=>{
   expect(()=>resyncSubtitleCues(source,"srt","srt",{originalMs:1000,correctedMs:0},{originalMs:2000,correctedMs:5000})).toThrow(/scaling/);
   expect(()=>resyncSubtitleCues(source,"srt","srt",{originalMs:1000,correctedMs:0},{originalMs:1000,correctedMs:0})).toThrow(/1 second/);
-  expect(()=>resyncSubtitleCues(source,"srt","srt",{originalMs:2000,correctedMs:1000},{originalMs:12000,correctedMs:11000})).toThrow(/timeline/);
+  expect(()=>resyncSubtitleCues(source,"srt","srt",{originalMs:2000,correctedMs:0},{originalMs:12000,correctedMs:10000})).toThrow(/timeline/);
   expect(()=>resyncSubtitleCues(source,"srt","srt",{originalMs:2000.25,correctedMs:1000},{originalMs:12000,correctedMs:11000})).toThrow(/integer/);
  });
  it("reports overlapping subtitles rather than silently deleting them",()=>{
