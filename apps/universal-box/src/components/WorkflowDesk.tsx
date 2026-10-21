@@ -1,5 +1,6 @@
 import {type ChangeEvent,useMemo,useState} from "react";
 import UnifiedWorkflowPanel from "./UnifiedWorkflowPanel";
+import QualityReviewDesk,{type QualityMode} from "./QualityReviewDesk";
 import OfficeDataBatchPanel, {type OfficeDataMode} from "./OfficeDataBatchPanel";
 import JSZip from "jszip";
 import {exportFile} from "../lib/output";
@@ -11,8 +12,11 @@ import {
 } from "../lib/imageWorkflow";
 import {planQuickZip} from "../lib/quickZipPack";
 
-export type WorkflowMode="unified"|"mail-merge"|"csv-key-join"|"text-file-batch"|"zip-selective"|"image-batch"|"zip-pack";
+export type WorkflowMode="word-diff"|"wav-silence"|"pdf-audit"|"unified"|"mail-merge"|"csv-key-join"|"text-file-batch"|"zip-selective"|"image-batch"|"zip-pack";
 const TABS:{id:WorkflowMode;label:string}[]=[
+ {id:"word-diff",label:"Word 文本差异对比"},
+ {id:"wav-silence",label:"WAV 自动静音裁剪"},
+ {id:"pdf-audit",label:"PDF 批量页面审计"},
  {id:"unified",label:"Unified Workflow / 多格式统一处理"},
  {id:"mail-merge",label:"CSV → 批量 Word"},
  {id:"csv-key-join",label:"CSV 关联合并"},
@@ -167,6 +171,7 @@ export default function WorkflowDesk({initialMode="zip-selective"}:{initialMode?
      {TABS.map(item=><button className={item.id===mode?"pill active-pill":"pill"} type="button" key={item.id} onClick={()=>{setMode(item.id);setStatus("");}}>{item.label}</button>)}
    </div>
    {mode==="unified"&&<UnifiedWorkflowPanel/>}
+   {(["word-diff","wav-silence","pdf-audit"] as WorkflowMode[]).includes(mode)&&<QualityReviewDesk mode={mode as QualityMode}/>}
    {(["mail-merge","csv-key-join","text-file-batch"] as WorkflowMode[]).includes(mode)&&<OfficeDataBatchPanel mode={mode as OfficeDataMode}/>}
    {mode==="zip-pack"&&<>
      <p className="subtle">Choose 1–50 files (up to 16 MB total), then pack into a new local ZIP with a filename manifest. Existing files are never deleted, overwritten or uploaded. Compressed media may not shrink much.</p>
