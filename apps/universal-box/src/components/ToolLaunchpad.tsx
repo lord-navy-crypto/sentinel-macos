@@ -2,6 +2,12 @@ import {useEffect,useMemo,useState} from "react";
 
 export type LocalTool = {id:string;name:string;area:string;view:string;module?:string};
 export const LOCAL_TOOLS:LocalTool[] = [
+ {id:"screen-image-markup",name:"Screenshot & Image Markup · 箭头、文字、方框标注",area:"Images",view:"daily-studio",module:"annotate"},
+ {id:"opaque-image-redaction",name:"Opaque Image Blackout · 本地实心遮挡敏感区域",area:"Privacy",view:"daily-studio",module:"annotate"},
+ {id:"printable-study-cards",name:"Printable Study Cards A4 · 学习卡片与活动票券",area:"Creative",view:"daily-studio",module:"print"},
+ {id:"print-label-sheet",name:"Printable Labels Sheet · A4 分类标签",area:"Creative",view:"daily-studio",module:"print"},
+ {id:"json-typescript-inference",name:"JSON to TypeScript Types · 本地类型推断与导出",area:"Code",view:"daily-studio",module:"json-types"},
+ {id:"json-path-inventory",name:"JSON Path Audit TSV · 结构路径导出",area:"Code",view:"daily-studio",module:"json-types"},
  {id:"docx-content-extract",name:"Word DOCX Inspector · 段落提取与图片 ZIP 导出",area:"Office",view:"extra-studio",module:"office"},
  {id:"pptx-content-extract",name:"PowerPoint PPTX Reader · 读取讲稿文字和媒体资源",area:"Office",view:"extra-studio",module:"office"},
  {id:"video-frame-export",name:"Video Frame Extractor · 视频单帧 PNG 截图",area:"Media",view:"extra-studio",module:"video"},
