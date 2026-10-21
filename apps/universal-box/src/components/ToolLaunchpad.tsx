@@ -2,6 +2,7 @@ import {useEffect,useMemo,useState} from "react";
 
 export type LocalTool = {id:string;name:string;area:string;view:string;module?:string};
 export const LOCAL_TOOLS:LocalTool[] = [
+ {id:"pdf-measured-optimize",name:"PDF Size Optimizer · 实测文件大小优化",area:"Files",view:"pdf-mini",module:"optimize"},
  {id:"speech-timed-srt-vtt",name:"Speech Timed Subtitles · Apple Speech 音频时间戳转 SRT/VTT",area:"Media",view:"media-files",module:"speech"},
  {id:"selected-xlsx-sheets",name:"XLSX Multi-Sheet Export · Excel 工作表选择导出 CSV",area:"Data",view:"workflows",module:"sheet-select"},
  {id:"manual-multi-clip-basket",name:"Multi-Clip Text Basket · 手动多段收集、排序与合并",area:"Files",view:"workflows",module:"clip-basket"},
@@ -20,7 +21,7 @@ export const LOCAL_TOOLS:LocalTool[] = [
  {id:"unified-audit-manifest",name:"Unified Source Audit · SHA-256, per-file conversion logs and ZIP report",area:"Privacy",view:"workflows",module:"unified"},
  {id:"unified-document-extraction",name:"Mixed Office Text Batch · extract DOCX & PPTX alongside data files",area:"Office",view:"workflows",module:"unified"},
  {id:"mac-native-vision-ocr",name:"Apple Vision OCR · Mac 本机图片文字识别与 Word 导出",area:"Office",view:"vision-workflows",module:"ocr"},
- {id:"single-frame-screen-capture",name:"Screen Frame Capture · 用户授权选屏截图 PNG",area:"Images",view:"vision-workflows",module:"capture"},
+ {id:"single-frame-screen-capture",name:"Screenshot OCR & Copy · 截图本机识字并复制",area:"Images",view:"vision-workflows",module:"capture"},
  {id:"one-click-project-pack",name:"One-Click Project Kit · Word+PPTX+SVG 项目成果 ZIP",area:"Creative",view:"vision-workflows",module:"project"},
  {id:"ocr-to-editable-word",name:"Image to Editable Word · 识别图片生成 DOCX",area:"Office",view:"vision-workflows",module:"ocr"},
  {id:"subtitles-two-point-sync",name:"Subtitle Drift Repair · 双时间锚点校准 SRT 与 VTT",area:"Media",view:"life-media",module:"subtitle"},
