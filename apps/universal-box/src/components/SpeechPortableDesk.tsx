@@ -1,6 +1,7 @@
 import {useEffect,useRef,useState,type ChangeEvent} from "react";
 import {invoke,isTauri} from "@tauri-apps/api/core";
 import {exportFile} from "../lib/output";
+import JSZip from "jszip";
 import {markdownToDocx} from "../lib/documentExport";
 import {decodeAudioToWav} from "../lib/speechAudio";
 import {speechCues,exportTimedCaptions,type SpeechTiming} from "../lib/speechCaptions";
@@ -25,6 +26,9 @@ export default function SpeechPortableDesk({mode}:{mode:SpeechPortableMode}){
  const [photos,setPhotos]=useState<File[]>([]);
  const [photoSettings,setPhotoSettings]=useState<PhotoSettings>({format:"jpeg",maxDimension:1024,targetKB:250});
  const [photoReports,setPhotoReports]=useState<PhotoReport[]>([]);
+ const [preparedPhotos,setPreparedPhotos]=useState<Awaited<ReturnType<typeof compressPhotoBatch>>|null>(null);
+ const [photoPreviewUrl,setPhotoPreviewUrl]=useState("");
+ useEffect(()=>()=>{if(photoPreviewUrl)URL.revokeObjectURL(photoPreviewUrl);},[photoPreviewUrl]);
  const [texts,setTexts]=useState<PortableInput[]>([]);
  const [textSettings,setTextSettings]=useState<PortableSettings>({source:"auto",target:"utf-8-bom",lines:"crlf"});
  const [textReports,setTextReports]=useState<{source:string;encoding:string;outputBytes:number}[]>([]);
@@ -92,16 +96,39 @@ export default function SpeechPortableDesk({mode}:{mode:SpeechPortableMode}){
    setStatus(saved?"Saved locally. Audio source was never overwritten.":"Save cancelled.");
   }catch(e){setStatus("Export error: "+err(e));}finally{setBusy(false);}
  }
- function pickPhotos(event:ChangeEvent<HTMLInputElement>){
-  setPhotos([...(event.target.files??[])]);event.target.value="";setPhotoReports([]);setStatus("");
+ function invalidatePreparedPhotos(){
+  setPreparedPhotos(null);setPhotoReports([]);setPhotoPreviewUrl("");
  }
- async function savePhotos(){
-  if(busy)return;setBusy(true);setStatus("");
+ function pickPhotos(event:ChangeEvent<HTMLInputElement>){
+  setPhotos([...(event.target.files??[])]);event.target.value="";invalidatePreparedPhotos();setStatus("");
+ }
+ function changePhotoSettings(update:Partial<PhotoSettings>){
+  setPhotoSettings(prev=>({...prev,...update}));invalidatePreparedPhotos();setStatus("");
+ }
+ async function previewPhotos(){
+  if(busy||!photos.length)return;
+  setBusy(true);setStatus("");setPhotoPreviewUrl("");setPreparedPhotos(null);setPhotoReports([]);
   try{
    const result=await compressPhotoBatch(photos,photoSettings);
+   setPreparedPhotos(result);setPhotoReports(result.reports);
+   const first=result.reports[0];
+   const zip=await JSZip.loadAsync(result.zip);
+   const file=zip.file(first.outputName);
+   if(!file)throw Error("Preview photo is missing from the generated ZIP.");
+   const data=await file.async("uint8array");
+   const mime=photoSettings.format==="jpeg"?"image/jpeg":"image/webp";
+   setPhotoPreviewUrl(URL.createObjectURL(new Blob([new Uint8Array(data)],{type:mime})));
+   setStatus("Compressed "+result.reports.length+" photos locally. Review actual bytes, image clarity and target size, then save.");
+  }catch(e){setStatus("Photo preview failed: "+err(e));invalidatePreparedPhotos();}
+  finally{setBusy(false);}
+ }
+ async function savePhotos(){
+  if(busy||!photos.length)return;setBusy(true);setStatus("");
+  try{
+   const result=preparedPhotos??await compressPhotoBatch(photos,photoSettings);
    const ok=await exportFile("sentinel-box-compressed-photos.zip",result.zip);
    setPhotoReports(result.reports);
-   setStatus(ok?"Saved actual JPEG/WebP images and their byte-for-byte sizes. Check targetMet in the report.":"Save cancelled.");
+   setStatus(ok?"Saved actual JPEG/WebP images and per-file size comparison in a ZIP. Originals unchanged.":"Save cancelled.");
   }catch(e){setStatus("Photo compression failed: "+err(e));}
   finally{setBusy(false);}
  }
@@ -176,23 +203,40 @@ export default function SpeechPortableDesk({mode}:{mode:SpeechPortableMode}){
   </>}
   {mode==="photo-target"&&<>
    <h2>照片目标体积压缩 · Local Target-size Image Compressor</h2>
-   <p className="subtle">批量选择最多 10 张 PNG/JPEG/WebP，压缩为 JPEG 或 WebP；自动迭代质量并按实际文件字节判断是否达到目标。不是只给图片改扩展名，也不能保证每张都能压到指定体积。</p>
-   <label className="field-label">选择照片（单张 ≤8 MB，总计 ≤25 MB）
-    <input className="field" data-testid="photo-files" type="file" multiple accept=".png,.jpg,.jpeg,.webp,image/*" onChange={pickPhotos}/></label>
+   <p className="subtle">批量选择最多 10 张 PNG/JPEG/WebP/HEIC，压缩为 JPEG 或 WebP；自动迭代质量并按实际文件字节判断是否达到目标。不是只给图片改扩展名，也不能保证每张都能压到指定体积。</p>
+   <label className="field-label">选择照片（包括 iPhone HEIC，单张 ≤8 MB，总计 ≤25 MB）
+    <input className="field" data-testid="photo-files" type="file" multiple accept=".png,.jpg,.jpeg,.webp,.heic,.heif,image/*" onChange={pickPhotos}/></label>
    <div className="tools-pair">
-    <label className="field-label">输出格式<select className="field" data-testid="photo-format" value={photoSettings.format} onChange={e=>setPhotoSettings(s=>({...s,format:e.target.value as PhotoSettings["format"]}))}>
+    <label className="field-label">输出格式<select className="field" data-testid="photo-format" value={photoSettings.format} onChange={e=>changePhotoSettings({format:e.target.value as PhotoSettings["format"]})}>
      <option value="jpeg">JPEG · 常见兼容格式</option><option value="webp">WebP · 现代浏览器</option></select></label>
-    <label className="field-label">最长边<select className="field" data-testid="photo-max-size" value={photoSettings.maxDimension} onChange={e=>setPhotoSettings(s=>({...s,maxDimension:Number(e.target.value) as PhotoSettings["maxDimension"]}))}>
+    <label className="field-label">最长边<select className="field" data-testid="photo-max-size" value={photoSettings.maxDimension} onChange={e=>changePhotoSettings({maxDimension:Number(e.target.value) as PhotoSettings["maxDimension"]})}>
      <option value={512}>512 px</option><option value={1024}>1024 px</option><option value={2048}>2048 px</option></select></label>
     <label className="field-label">目标 KB（40–4000）<input className="field" data-testid="photo-target-kb" type="number" min={40} max={4000} step={10} value={photoSettings.targetKB}
-     onChange={e=>setPhotoSettings(s=>({...s,targetKB:Number(e.target.value)}))}/></label>
+     onChange={e=>changePhotoSettings({targetKB:Number(e.target.value)})}/></label>
    </div>
    {photos.length>0&&<p data-testid="photo-count" className="subtle">选中 {photos.length} 张照片</p>}
    {photoError&&<p role="alert">{photoError}</p>}
-   <button type="button" className="primary-button" data-testid="photo-save" disabled={busy||!!photoError||!photos.length} onClick={()=>void savePhotos()}>压缩并保存 ZIP</button>
+   <div className="actions">
+    <button type="button" className="secondary-button" data-testid="photo-preview-run" disabled={busy||!!photoError||!photos.length} onClick={()=>void previewPhotos()}>先处理并预览实际效果</button>
+    <button type="button" className="primary-button" data-testid="photo-save" disabled={busy||!!photoError||!photos.length} onClick={()=>void savePhotos()}>{preparedPhotos?"保存已预览的 ZIP":"压缩并保存 ZIP"}</button>
+   </div>
+   {photoReports.length>0&&<div data-testid="photo-size-summary" className="metrics">
+    <span>原图合计：{photoReports.reduce((sum,r)=>sum+r.originalBytes,0).toLocaleString()} bytes</span>
+    <span>压缩合计：{photoReports.reduce((sum,r)=>sum+r.outputBytes,0).toLocaleString()} bytes</span>
+    <span>真正缩小：{photoReports.filter(r=>r.smallerThanSource).length} / {photoReports.length}</span>
+    <span>达成目标：{photoReports.filter(r=>r.targetMet).length} / {photoReports.length}</span>
+   </div>}
    {photoReports.map((r,i)=><p data-testid="photo-report" className="subtle" key={i}>
-    {r.source}: {r.originalBytes.toLocaleString()} → {r.outputBytes.toLocaleString()} bytes · 质量 {r.quality} · {r.targetMet?"达成目标":"未达成目标"}</p>)}
-   <p className="subtle">JPEG 会把透明背景填充成白色。该工具不保证文件更小；请依据输出的真实字节数判断。</p>
+    {r.source}: {r.originalBytes.toLocaleString()} → {r.outputBytes.toLocaleString()} bytes
+    · {r.width}×{r.height}px · 质量 {r.quality}
+    · {r.smallerThanSource?"节省 "+r.sizeDeltaPercent+"%":"体积增加 "+Math.abs(r.sizeDeltaPercent)+"%"}
+    · {r.targetMet?"达成目标":"未达成目标"}
+   </p>)}
+   {photoPreviewUrl&&<div data-testid="photo-actual-preview">
+    <p className="subtle">第一张已转换的真实图片预览；请检查细小文字、背景、方向与清晰度。</p>
+    <img src={photoPreviewUrl} alt="Actual first compressed output image" style={{maxWidth:"100%",maxHeight:320,objectFit:"contain"}}/>
+   </div>}
+   <p className="subtle">HEIC/HEIF 仅安装的 macOS App 调用系统本地图像解码；浏览器预览不承诺支持。JPEG 会把透明背景填充成白色。图片可能变大，报告显示真实结果；GPS/EXIF 信息不会被主动复制，但请自行检查输出。原件永不覆盖。</p>
   </>}
   {mode==="portable-text"&&<>
    <h2>Windows ↔ macOS 文本兼容转换</h2>
