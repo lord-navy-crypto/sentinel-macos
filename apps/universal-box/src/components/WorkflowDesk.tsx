@@ -1,4 +1,5 @@
 import {type ChangeEvent,useMemo,useState} from "react";
+import UnifiedWorkflowPanel from "./UnifiedWorkflowPanel";
 import JSZip from "jszip";
 import {exportFile} from "../lib/output";
 import {inspectZip,type ZipInspection} from "../lib/zipInspector";
@@ -9,8 +10,9 @@ import {
 } from "../lib/imageWorkflow";
 import {planQuickZip} from "../lib/quickZipPack";
 
-export type WorkflowMode="zip-selective"|"image-batch"|"zip-pack";
+export type WorkflowMode="unified"|"zip-selective"|"image-batch"|"zip-pack";
 const TABS:{id:WorkflowMode;label:string}[]=[
+ {id:"unified",label:"Unified Workflow / 多格式统一处理"},
  {id:"zip-selective",label:"Safe ZIP selective export / 选择性解压"},
  {id:"image-batch",label:"Image workflow / 图片批量处理"},
  {id:"zip-pack",label:"Batch ZIP pack / 一键批量压缩"},
@@ -156,10 +158,11 @@ export default function WorkflowDesk({initialMode="zip-selective"}:{initialMode?
  return <section className="panel">
    <p className="eyebrow">SENTINEL BOX · BATCH WORKFLOWS</p>
    <h2>Workflow Studio / 批处理工作室</h2>
-   <p className="subtle">Two real offline workflows: safely extract selected ZIP contents into a new ZIP, or resize → convert → rename → bundle images in one operation. No hidden server calls, automatic overwrites or background directory access.</p>
+   <p className="subtle">Process mixed Office, data, text and images in one transparent local ZIP; or use focused workflows for safe ZIP extraction, image resizing and batch archives. No hidden server calls, automatic overwrites or background directory access.</p>
    <div className="pill-row" role="group" aria-label="Batch workflow">
      {TABS.map(item=><button className={item.id===mode?"pill active-pill":"pill"} type="button" key={item.id} onClick={()=>{setMode(item.id);setStatus("");}}>{item.label}</button>)}
    </div>
+   {mode==="unified"&&<UnifiedWorkflowPanel/>}
    {mode==="zip-pack"&&<>
      <p className="subtle">Choose 1–50 files (up to 16 MB total), then pack into a new local ZIP with a filename manifest. Existing files are never deleted, overwritten or uploaded. Compressed media may not shrink much.</p>
      <label className="field-label" htmlFor="zip-pack-files">Select files for ZIP</label>

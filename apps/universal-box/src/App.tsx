@@ -71,7 +71,7 @@ const menu: { id: View; name: string; symbol: string; description: string }[] = 
   { id: "universal-lab", name: "Sentinel Box Lab / 免费工具实验室", symbol: "▤", description: "Local text, subtitles, photo sheets and URL diagnostics" },
   { id: "media-files", name: "Media & Files / 媒体文件工具", symbol: "♫", description: "Offline audio WAV trimming, ZIP safety inspection, icon sizes and photo palette" },
   { id: "office-privacy", name: "Office & Privacy / 办公与隐私工具", symbol: "▥", description: "CSV contacts, mail merge, duplicate file hashes, hidden Unicode" },
-  { id: "workflows", name: "Workflow Studio / 批处理工作室", symbol: "⇄", description: "Safe selective ZIP export and image resize → convert → rename → ZIP" },
+  { id: "workflows", name: "Unified Workflow Studio / 多格式处理与批量工作流", symbol: "⇄", description: "Combine Word/PPT, CSV, JSON, images and text into one auditable local ZIP" },
   { id: "free-formats", name: "Free Formats / 格式自由工具", symbol: "▧", description: "Offline Excel interchange, photo differences and HTML / Unicode coding" },
   { id: "charts", name: "Chart Studio / 数据可视化", symbol: "▥", description: "CSV data → bar/line charts, aggregation and SVG export" },
   { id: "pdf-mini", name: "PDF Mini Editor / PDF 日常编辑", symbol: "▣", description: "Edit PDF metadata, visually crop margins, insert blanks and fill basic text forms" },
@@ -96,8 +96,8 @@ const menu: { id: View; name: string; symbol: string; description: string }[] = 
 ];
 
 const navigationGroups:{title:string;items:View[]}[]=[
-  {title:"DISCOVER",items:["overview","vision-workflows","creative-studio","extra-studio","daily-studio","life-media","web-capture","file-intake","commons","access","all-tools","charts"]},
-  {title:"FILES & CREATION",items:["vision-workflows","creative-studio","extra-studio","daily-studio","life-media","files","binary-compare","pdf-mini","free-formats","writing","drawing","tables"]},
+  {title:"DISCOVER",items:["overview","workflows","vision-workflows","creative-studio","extra-studio","daily-studio","life-media","web-capture","file-intake","commons","access","all-tools","charts"]},
+  {title:"FILES & CREATION",items:["workflows","vision-workflows","creative-studio","extra-studio","daily-studio","life-media","files","binary-compare","pdf-mini","free-formats","writing","drawing","tables"]},
   {title:"SENTINEL BOX",items:["quick-tools","universal","universal-box","universal-lab","media-files","office-privacy","workflows","utilities","external"]},
   {title:"STUDY & SCIENCE",items:["local-ai","math","learning","reading","cards","focus"]},
   {title:"PERSONAL WORKSPACE",items:["tasks","notes","code","presets","data","system-health"]},
@@ -522,7 +522,7 @@ export default function App() {
           {view === "universal-lab" && <UniversalLabDesk key={toolMode} initialMode={(toolMode||"lines") as UniversalLabMode}/> }
           {view === "media-files" && <MediaFilesDesk key={toolMode} initialMode={(toolMode||"audio") as MediaFilesMode}/> }
           {view === "office-privacy" && <OfficePrivacyDesk key={toolMode} initialMode={(toolMode||"contacts") as OfficePrivacyMode}/> }
-          {view === "workflows" && <WorkflowDesk key={toolMode} initialMode={(toolMode||"zip-selective") as WorkflowMode}/> }
+          {view === "workflows" && <WorkflowDesk key={toolMode} initialMode={(toolMode||"unified") as WorkflowMode}/> }
           {view === "free-formats" && <FreeFormatsDesk key={toolMode} initialMode={(toolMode||"spreadsheet") as FreeFormatsMode}/> }
           {view === "charts" && <ChartDesk /> }
           {view === "access" && <UniversalAccessDesk preferences={accessPreferences} onChange={setAccessPreferences} onOpenTool={openTool}/> }
