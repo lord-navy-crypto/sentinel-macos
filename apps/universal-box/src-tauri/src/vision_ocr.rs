@@ -70,7 +70,7 @@ fn macos_vision(bytes: &[u8], fast: bool) -> Result<Vec<OcrLine>, String> {
         let mut error: *mut Object = std::ptr::null_mut();
         let ok: BOOL = msg_send![handler, performRequests: requests error: &mut error];
 
-        let result = if ok == 0 {
+        let result = if !ok {
             Err("Apple Vision could not recognize this image. Try a clear PNG or JPEG.".into())
         } else {
             let observations: *mut Object = msg_send![request, results];
