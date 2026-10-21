@@ -37,8 +37,9 @@ function pauseAtFrame(video:HTMLVideoElement,t:number):Promise<void>{
   video.addEventListener("loadeddata",onSeek);
   video.addEventListener("error",onError);
   if(video.readyState>=2&&Math.abs(video.currentTime-t)<0.015){finish();return;}
+  // Assigning currentTime changes its reported value before decoded pixels change.
+  // Do not resolve here: wait for 'seeked' or 'loadeddata' to avoid repeated stale frames.
   try{video.currentTime=t;}catch(e){finish(e instanceof Error?e:Error(String(e)));}
-  if(video.readyState>=2&&Math.abs(video.currentTime-t)<0.015)finish();
  });
 }
 export default function ExtraCreationDesk({initialMode="office"}:{initialMode?:ExtraMode}){
