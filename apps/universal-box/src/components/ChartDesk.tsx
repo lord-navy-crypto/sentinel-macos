@@ -56,7 +56,7 @@ export default function ChartDesk(){
    finally{setBusy(false);}
  }
  return <section className="panel charts-workbench">
-   <p className="eyebrow">UNIVERSAL BOX · DATA VISUALIZATION</p>
+   <p className="eyebrow">SENTINEL BOX · DATA VISUALIZATION</p>
    <h2>Data Chart Studio / 数据可视化</h2>
    <p className="subtle">Turn a small CSV into an offline chart. Choose grouping, numeric values, aggregation and visual style, then export vector SVG or the chart's CSV summary. No servers, paid chart services or tracking.</p>
    <div className="chart-controls">
