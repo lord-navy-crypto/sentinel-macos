@@ -5,6 +5,7 @@ export const LOCAL_TOOLS:LocalTool[] = [
  {id:"word-templates",name:"Word DOCX Templates · 免费邀请函、会议纪要、信件生成",area:"Office",view:"creative-studio",module:"word"},
  {id:"pptx-deck-maker",name:"PowerPoint PPTX Creator · 大纲 → 可编辑幻灯片",area:"Creative",view:"creative-studio",module:"slides"},
  {id:"poster-maker",name:"Free Poster & Invitation Maker · 海报与活动宣传",area:"Creative",view:"creative-studio",module:"design"},
+ {id:"diagram-flowchart",name:"Flowchart Maker · 免费流程图 SVG 导出",area:"Creative",view:"creative-studio",module:"flowchart"},
  {id:"certificate-maker",name:"Certificate & Social Cover Templates · 证书与封面",area:"Creative",view:"creative-studio",module:"design"},
  {id:"web-capture-workbench",name:"Web Capture Companion · 浏览器扩展 + 免费 CSV 数据清理与安全导出",area:"Office",view:"web-capture"},
  {id:"binary-compare",name:"Binary Compare · 精确逐字节文件差异检测 / 热力图",area:"Files",view:"binary-compare"},
