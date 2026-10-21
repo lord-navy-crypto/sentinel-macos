@@ -5,6 +5,7 @@ import EverydayTools, {type Utility} from "./components/EverydayTools";
 import ToolLaunchpad, {LOCAL_TOOLS} from "./components/ToolLaunchpad";
 import CommonsDesk from "./components/CommonsDesk";
 import WebCaptureHub from "./components/WebCaptureHub";
+import CreativeStudioDesk, {type CreativeMode} from "./components/CreativeStudioDesk";
 import FileIntakeDesk from "./components/FileIntakeDesk";
 import BinaryCompareDesk from "./components/BinaryCompareDesk";
 import SystemHealthDesk from "./components/SystemHealthDesk";
@@ -45,10 +46,11 @@ import {
   persistWorkspace,
 } from "./lib/nativeStorage";
 
-type View = "web-capture" | "binary-compare" | "system-health" | "file-intake" | "commons" | "local-ai" | "access" | "pdf-mini" | "charts" | "free-formats" | "workflows" | "office-privacy" | "media-files" | "universal-lab" | "universal-box" | "universal" | "quick-tools" | "external" | "all-tools" | "code" | "tables" | "overview" | "tasks" | "cards" | "focus" | "notes" | "utilities" | "data" | "files" | "math" | "learning" | "writing" | "drawing" | "reading" | "presets";
+type View = "creative-studio" | "web-capture" | "binary-compare" | "system-health" | "file-intake" | "commons" | "local-ai" | "access" | "pdf-mini" | "charts" | "free-formats" | "workflows" | "office-privacy" | "media-files" | "universal-lab" | "universal-box" | "universal" | "quick-tools" | "external" | "all-tools" | "code" | "tables" | "overview" | "tasks" | "cards" | "focus" | "notes" | "utilities" | "data" | "files" | "math" | "learning" | "writing" | "drawing" | "reading" | "presets";
 
 const menu: { id: View; name: string; symbol: string; description: string }[] = [
   { id: "overview", name: "Overview", symbol: "◫", description: "Your workspace at a glance" },
+  { id: "creative-studio", name: "Creative Studio / Word · PPT · 设计", symbol: "✺", description: "Generate real editable DOCX and PPTX files, original SVG posters and certificates offline" },
   { id: "web-capture", name: "Web Capture & CSV Workshop / 网页捕获与表格清理", symbol: "⇣", description: "Bundled free browser extension, local CSV inspection and one-click safe export" },
   { id: "system-health", name: "System Health / 启动与功能自检", symbol: "✚", description: "Test local app capabilities and export a private diagnostic report" },
   { id: "binary-compare", name: "Binary Compare / 双文件差异分析", symbol: "≠", description: "Exact local byte-by-byte file comparison with visual difference map" },
@@ -86,8 +88,8 @@ const menu: { id: View; name: string; symbol: string; description: string }[] = 
 ];
 
 const navigationGroups:{title:string;items:View[]}[]=[
-  {title:"DISCOVER",items:["overview","web-capture","file-intake","commons","access","all-tools","charts"]},
-  {title:"FILES & CREATION",items:["files","binary-compare","pdf-mini","free-formats","writing","drawing","tables"]},
+  {title:"DISCOVER",items:["overview","creative-studio","web-capture","file-intake","commons","access","all-tools","charts"]},
+  {title:"FILES & CREATION",items:["creative-studio","files","binary-compare","pdf-mini","free-formats","writing","drawing","tables"]},
   {title:"UNIVERSAL BOX",items:["quick-tools","universal","universal-box","universal-lab","media-files","office-privacy","workflows","utilities","external"]},
   {title:"STUDY & SCIENCE",items:["local-ai","math","learning","reading","cards","focus"]},
   {title:"PERSONAL WORKSPACE",items:["tasks","notes","code","presets","data","system-health"]},
@@ -473,7 +475,7 @@ export default function App() {
               <button className="secondary-button" type="button" onClick={()=>openTool("all-tools")}>All tools ↗</button>
             </div>
             <div className="tool-grid overview-grid">
-              {(favoriteViews.length?favoriteViews:["file-intake","commons","files","workflows","charts","office-privacy"] as View[]).map(id=>{
+              {(favoriteViews.length?favoriteViews:["creative-studio","file-intake","commons","files","workflows","charts"] as View[]).map(id=>{
                 const item=menu.find(m=>m.id===id)!;
                 return <button key={id} type="button" className="tool-card" onClick={()=>openTool(id)}>
                   <span className="tool-icon">{item.symbol}</span><strong>{item.name}</strong>
@@ -496,6 +498,7 @@ export default function App() {
           <div hidden={view !== "focus"}><FocusTimer /></div>
           {view === "notes" && <section className="panel"><p className="eyebrow">LOCAL NOTES</p><h2>Keep ideas close at hand.</h2><p className="subtle">Your notes are automatically saved in this application. Export backups in Backup & privacy.</p><label className="field-label" htmlFor="my-notes">My notebook</label><textarea id="my-notes" className="field text-editor" rows={20} maxLength={50000} placeholder="Capture a thought, write a draft or summarise a concept…" value={workspace.notes} onChange={(event) => setWorkspace((current) => ({ ...current, notes: event.target.value }))}/><p className="subtle">{workspace.notes.length.toLocaleString()} characters</p></section>}
           {view === "commons" && <CommonsDesk />}
+          {view === "creative-studio" && <CreativeStudioDesk key={toolMode} initialMode={(toolMode||"word") as CreativeMode}/> }
           {view === "web-capture" && <WebCaptureHub onOpenTool={openTool}/> }
           {view === "file-intake" && <FileIntakeDesk onOpenTool={openTool}/> }
           {view === "binary-compare" && <BinaryCompareDesk onOpenTool={openTool}/> }
