@@ -1,4 +1,4 @@
-name: Universal Box Desktop CI
+name: Sentinel Box Desktop CI
 
 on:
   push:
@@ -82,7 +82,7 @@ jobs:
           mkdir -p "$MOUNT"
           hdiutil attach -readonly -nobrowse -mountpoint "$MOUNT" "$DMG"
           trap 'hdiutil detach "$MOUNT" -quiet || true' EXIT
-          APP="$MOUNT/Universal Box.app"
+          APP="$MOUNT/Sentinel Box.app"
           test -d "$APP/Contents/MacOS"
           PLIST="$APP/Contents/Info.plist"
           test -s "$PLIST"
@@ -100,14 +100,14 @@ jobs:
           echo "Ad-hoc application signature verified for ${{ matrix.target }}"
           # Gatekeeper may still reject an unnotarized app downloaded from the Internet.
           # We deliberately do not mark this as a successful Apple notarization.
-          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleName' "$PLIST")" = "Universal Box" || true
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleName' "$PLIST")" = "Sentinel Box"
           echo "Validated app executable: $EXECUTABLE"
           echo "Validated macOS app icon: $ICON"
           echo "Verified DMG and mounted application for ${{ matrix.target }}"
       - name: Upload DMG for manual testing
         uses: actions/upload-artifact@v4
         with:
-          name: UniversalBox-${{ matrix.target }}
+          name: SentinelBox-${{ matrix.target }}
           path: apps/universal-box/src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
           if-no-files-found: error
           retention-days: 14
