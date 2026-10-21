@@ -2,6 +2,9 @@ import {useEffect,useMemo,useState} from "react";
 
 export type LocalTool = {id:string;name:string;area:string;view:string;module?:string};
 export const LOCAL_TOOLS:LocalTool[] = [
+ {id:"folder-space-metadata",name:"Folder Space Inspector · 本地文件夹空间统计 CSV/SVG",area:"Files",view:"workflows",module:"folder-space"},
+ {id:"wav-loudness-profile",name:"WAV Audio Levels · PCM16 峰值 RMS 削波检测",area:"Media",view:"workflows",module:"wav-levels"},
+ {id:"pptx-presenter-notes-export",name:"PPTX Presenter Notes Export · 幻灯片讲稿备注提取",area:"Office",view:"workflows",module:"pptx-notes"},
  {id:"speech-timed-srt-vtt",name:"Speech Timed Subtitles · Apple Speech 音频时间戳转 SRT/VTT",area:"Media",view:"media-files",module:"speech"},
  {id:"selected-xlsx-sheets",name:"XLSX Multi-Sheet Export · Excel 工作表选择导出 CSV",area:"Data",view:"workflows",module:"sheet-select"},
  {id:"manual-multi-clip-basket",name:"Multi-Clip Text Basket · 手动多段收集、排序与合并",area:"Files",view:"workflows",module:"clip-basket"},

@@ -1,5 +1,6 @@
 import {type ChangeEvent,useMemo,useState} from "react";
 import UnifiedWorkflowPanel from "./UnifiedWorkflowPanel";
+import ResearchToolsDesk,{type ResearchToolsMode} from "./ResearchToolsDesk";
 import SheetClipDesk,{type SheetClipMode} from "./SheetClipDesk";
 import QualityReviewDesk,{type QualityMode} from "./QualityReviewDesk";
 import OfficeDataBatchPanel, {type OfficeDataMode} from "./OfficeDataBatchPanel";
@@ -13,8 +14,11 @@ import {
 } from "../lib/imageWorkflow";
 import {planQuickZip} from "../lib/quickZipPack";
 
-export type WorkflowMode="sheet-select"|"clip-basket"|"word-diff"|"wav-silence"|"pdf-audit"|"unified"|"mail-merge"|"csv-key-join"|"text-file-batch"|"zip-selective"|"image-batch"|"zip-pack";
+export type WorkflowMode=ResearchToolsMode|"sheet-select"|"clip-basket"|"word-diff"|"wav-silence"|"pdf-audit"|"unified"|"mail-merge"|"csv-key-join"|"text-file-batch"|"zip-selective"|"image-batch"|"zip-pack";
 const TABS:{id:WorkflowMode;label:string}[]=[
+ {id:"folder-space",label:"Folder Space Inspector · 文件夹大小"},
+ {id:"wav-levels",label:"WAV Audio Level QA · 音频响度"},
+ {id:"pptx-notes",label:"PPTX Speaker Notes · 演讲备注"},
  {id:"sheet-select",label:"Excel 多工作表转 CSV"},
  {id:"clip-basket",label:"多段文字收集篮"},
  {id:"word-diff",label:"Word 文本差异对比"},
@@ -174,6 +178,7 @@ export default function WorkflowDesk({initialMode="zip-selective"}:{initialMode?
      {TABS.map(item=><button className={item.id===mode?"pill active-pill":"pill"} type="button" key={item.id} onClick={()=>{setMode(item.id);setStatus("");}}>{item.label}</button>)}
    </div>
    {mode==="unified"&&<UnifiedWorkflowPanel/>}
+   {(["folder-space","wav-levels","pptx-notes"] as WorkflowMode[]).includes(mode)&&<ResearchToolsDesk mode={mode as ResearchToolsMode}/>}
    {(["sheet-select","clip-basket"] as WorkflowMode[]).includes(mode)&&<SheetClipDesk mode={mode as SheetClipMode}/>}
    {(["word-diff","wav-silence","pdf-audit"] as WorkflowMode[]).includes(mode)&&<QualityReviewDesk mode={mode as QualityMode}/>}
    {(["mail-merge","csv-key-join","text-file-batch"] as WorkflowMode[]).includes(mode)&&<OfficeDataBatchPanel mode={mode as OfficeDataMode}/>}
