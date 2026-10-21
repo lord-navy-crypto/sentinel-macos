@@ -1,6 +1,10 @@
-# Universal Box · macOS desktop
+# Sentinel Box · Free Offline macOS Utility Suite
 
-Universal Box is the standalone local-first desktop toolbox in the sentinel-macos repository. It is separate from the AP ReasonLab Next.js website and is not deployed by Vercel.
+**Productivity Software — Sentinel Box:** a free, offline-first macOS utility suite for Word/PowerPoint creation, document and media processing, on-device OCR, creative design, file management, and privacy-first cross-tool automation.
+
+Sentinel Box is an independent desktop toolbox hosted inside the Sentinel Gateway / Sentinel `sentinel-macos` repository. It is separate from the Sentinel core service and from the AP ReasonLab Next.js website; it is not deployed by Vercel.
+
+> **Branding compatibility:** The desktop product and DMG are now named **Sentinel Box** (formerly Universal Box / Daily Desk). The source directory `apps/universal-box/`, native bundle identifier `com.lordnavycrypto.dailydesk`, Rust crate identity, release workflows, legacy v2 backup formats and existing local-storage keys remain unchanged to preserve users' data and build paths. Do not rename these internal identifiers without a tested migration. The project uses `sentinel-box-vX.Y.Z` tags for new releases, while older tag prefixes remain supported. Native OCR and display capture still need real-device acceptance tests.
 
 ## Stack
 
@@ -32,7 +36,7 @@ npm run tauri:build
 
 ## Release policy
 
-- Version and release tags use `daily-desk-vX.Y.Z`.
+- New releases use `sentinel-box-vX.Y.Z` tags; legacy `daily-desk-vX.Y.Z` and `universal-box-vX.Y.Z` remain accepted for backward compatibility.
 - The release workflow builds DMG assets and attaches them to a GitHub Release.
 - Do not commit generated `.dmg`, `.app`, `target/`, or `dist/` output to source control.
 - The AP website remains rooted at `ap-reasonlab/` in Vercel.
