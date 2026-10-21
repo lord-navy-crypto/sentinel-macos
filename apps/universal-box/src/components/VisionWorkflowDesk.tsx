@@ -171,7 +171,7 @@ export default function VisionWorkflowDesk({initialMode="ocr"}:{initialMode?:Vis
      <button data-testid="vision-save-txt" className="primary-button" type="button" disabled={busy||!edited.trim()} onClick={()=>void saveOcr("txt")}>导出 OCR TXT</button>
      <button data-testid="vision-save-docx" className="secondary-button" type="button" disabled={busy||!edited.trim()} onClick={()=>void saveOcr("docx")}>生成可编辑 Word DOCX</button>
     </div>}
-   </>}
+   </>
    {mode==="capture"&&file?.type==="image/png"&&<button data-testid="vision-save-screen" className="secondary-button" type="button" disabled={busy} onClick={()=>void saveScreenshot()}>保存 PNG 画面</button>}
   </>}
   {mode==="project"&&<>
