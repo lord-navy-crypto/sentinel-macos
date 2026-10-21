@@ -71,7 +71,7 @@ export default function UniversalDesk({
     setConfig(c=>({...c,[key]:value}));setPassword("");setStatus("");
   }
   function createPassword(){
-    try{setPassword(generatePassword(config));setShowPassword(false);setStatus("Generated using the operating system's cryptographic random source. Not stored by Daily Desk.");}
+    try{setPassword(generatePassword(config));setShowPassword(false);setStatus("Generated using the operating system's cryptographic random source. Not stored by Sentinel Box.");}
     catch(e){setPassword("");setStatus("Unable to generate: "+String(e instanceof Error?e.message:e));}
   }
   function pickPicture(event:ChangeEvent<HTMLInputElement>){
@@ -165,7 +165,7 @@ export default function UniversalDesk({
       {hash&&expected.trim()&&<p role="status" className="stat-pill">{match===null?"Check hash format (64 hexadecimal characters)":match?"Checksums match":"Checksums do not match — verify the source and file"}</p>}
     </>}
     {mode==="password"&&<>
-      <p className="subtle">Generate random passwords using the system cryptographic random source. No account or network service, and passwords are not saved to your Daily Desk workspace.</p>
+      <p className="subtle">Generate random passwords using the system cryptographic random source. No account or network service, and passwords are not saved to your Sentinel Box workspace.</p>
       <div className="tools-pair">
         <label className="field-label">Password length (8–64)
           <input type="number" min={8} max={64} step={1} className="field" value={config.length} onChange={e=>updateConfig("length",Number(e.target.value))}/>
