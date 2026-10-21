@@ -1,5 +1,6 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
+import {addRecentOutput} from "./recentOutputs";
 
 const MIME: Record<string, string> = {
   pdf: "application/pdf",
@@ -43,6 +44,9 @@ export async function exportFile(
       path: selected,
       bytes: Array.from(payload),
     });
+    // Once the user successfully saves a result, offer an optional, in-app
+    // handoff. Failure to retain an optional session copy cannot fail saving.
+    try{addRecentOutput(suggestedName,payload);}catch{/* no persistent tracking */}
     return true;
   }
   const copy = new Uint8Array(payload);
@@ -57,5 +61,6 @@ export async function exportFile(
   } finally {
     window.setTimeout(() => URL.revokeObjectURL(url), 2000);
   }
+  try{addRecentOutput(suggestedName,payload);}catch{/* optional */}
   return true;
 }
