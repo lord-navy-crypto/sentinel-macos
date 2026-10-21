@@ -1,9 +1,10 @@
 /** True local photo compression toward a target file size; no "guaranteed size" claims. */
 import JSZip from "jszip";
 import {imageWorkflowScale} from "./imageWorkflow";
+import {photoForCanvas} from "./heicPhotoInput";
 export type PhotoSettings={format:"jpeg"|"webp";maxDimension:512|1024|2048;targetKB:number};
 export type PhotoItem={name:string;file:File};
-export type PhotoReport={source:string;originalBytes:number;outputBytes:number;outputName:string;targetMet:boolean;quality:number;width:number;height:number};
+export type PhotoReport={source:string;originalBytes:number;outputBytes:number;outputName:string;targetMet:boolean;quality:number;width:number;height:number;sizeDeltaBytes:number;sizeDeltaPercent:number;smallerThanSource:boolean};
 function sanitize(n:string){return n.normalize("NFC").replace(/[\\/:*?"<>|\u0000-\u001f\u007f]/gu,"-").replace(/\.[^.]+$/u,"").slice(0,65)||"photo";}
 export function planPhotoBatch(files:readonly {name:string;size:number}[],settings:PhotoSettings){
  if(files.length<1||files.length>10)throw Error("Select 1–10 images.");
@@ -12,8 +13,8 @@ export function planPhotoBatch(files:readonly {name:string;size:number}[],settin
   throw Error("Choose JPEG/WebP, 512/1024/2048 pixels and a 40–4000 KB target.");
  let total=0;
  for(const f of files){
-  if(!/\.(png|jpe?g|webp)$/iu.test(f.name)||f.size<1||f.size>8_000_000)
-   throw Error("Choose PNG/JPEG/WebP pictures up to 8 MB.");
+  if(!/\.(png|jpe?g|webp|heic|heif)$/iu.test(f.name)||f.size<1||f.size>8_000_000)
+   throw Error("Choose PNG/JPEG/WebP/HEIC pictures up to 8 MB.");
   total+=f.size;
  }
  if(total>25_000_000)throw Error("Photo batch exceeds 25 MB combined.");
@@ -26,7 +27,8 @@ async function blobFromCanvas(canvas:HTMLCanvasElement,mime:string,quality:numbe
 }
 export async function compressOnePhoto(input:File,settings:PhotoSettings):Promise<{data:Uint8Array;report:Omit<PhotoReport,"outputName">}>{
  planPhotoBatch([{name:input.name,size:input.size}],settings);
- const sourceUrl=URL.createObjectURL(input),image=new Image();
+ const renderable=await photoForCanvas(input);
+ const sourceUrl=URL.createObjectURL(renderable),image=new Image();
  try{
   await new Promise<void>((resolve,reject)=>{
    image.onload=()=>resolve();image.onerror=()=>reject(Error("Photo decoder cannot open this picture."));
@@ -50,7 +52,9 @@ export async function compressOnePhoto(input:File,settings:PhotoSettings):Promis
   const data=new Uint8Array(await best.arrayBuffer());
   if(data.length>8_000_000)throw Error("Photo output is larger than 8 MB.");
   return {data,report:{source:input.name,originalBytes:input.size,outputBytes:data.length,
-   targetMet:data.length<=settings.targetKB*1000,quality,width:dim.width,height:dim.height}};
+   targetMet:data.length<=settings.targetKB*1000,quality,width:dim.width,height:dim.height,
+   sizeDeltaBytes:input.size-data.length,sizeDeltaPercent:Number(((input.size-data.length)*100/input.size).toFixed(2)),
+   smallerThanSource:data.length<input.size}};
  }finally{URL.revokeObjectURL(sourceUrl);}
 }
 export async function compressPhotoBatch(files:readonly File[],settings:PhotoSettings):
@@ -64,9 +68,10 @@ export async function compressPhotoBatch(files:readonly File[],settings:PhotoSet
  }
  archive.file("reports/manifest.json",JSON.stringify({
   generator:"Sentinel Box",operation:"Local target-size photo compression",settings,files:reports,
-  warnings:reports.filter(x=>!x.targetMet).map(x=>x.source+" could not reach target without more reduction")
+  warnings:[...reports.filter(x=>!x.targetMet).map(x=>x.source+" could not reach target without more reduction"),
+   ...reports.filter(x=>!x.smallerThanSource).map(x=>x.source+" result did not shrink compared with original")]
  },null,2));
- archive.file("reports/README.txt","Image optimization is approximate. The target KB may not be achievable. Compare real output bytes and inspect visual quality. PNG transparency becomes white with JPEG.\n");
+ archive.file("reports/README.txt","Image optimization is approximate. The target KB may not be achievable. Compare real output bytes and inspect visual quality. PNG transparency becomes white with JPEG. HEIC input is decoded offline by the macOS system converter only; browsers without native support reject HEIC.\n");
  const zip=await archive.generateAsync({type:"uint8array",compression:"DEFLATE"});
  if(zip.length>20_000_000)throw Error("Photo ZIP exceeds 20 MB.");
  return {zip,reports};
