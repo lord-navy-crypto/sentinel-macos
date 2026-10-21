@@ -198,3 +198,33 @@ export function renderCreativeSvg(input:PosterInput):string{
   +(footer?txt(footer,width/2,height-95,23,certificate?p.dark:p.light):"")
   +'</svg>';
 }
+
+
+export type FlowchartInput={title:string;steps:string;theme:CreativeTheme};
+/** Small, original vertically arranged flowchart. Explicit text boxes/arrows, never user-provided SVG markup. */
+export function renderFlowchartSvg(input:FlowchartInput):string{
+ assertTheme(input.theme);
+ const title=value("Diagram title",input.title,100);
+ const raw=value("Diagram steps",input.steps,2400);
+ if(!title)throw Error("Diagram title is required.");
+ const steps=raw.replace(/\r\n?/gu,"\n").split("\n").map(s=>s.trim()).filter(Boolean);
+ if(!steps.length||steps.length>12)throw Error("Diagram needs 1–12 steps.");
+ steps.forEach(s=>value("Diagram step",s,100));
+ const p=PALETTES[input.theme],width=1000,height=Math.max(450,190+steps.length*140);
+ const top=160;
+ const elements=steps.map((step,i)=>{
+  const y=top+i*140;
+  return '<rect x="170" y="'+y+'" width="660" height="80" rx="18" fill="#'+p.light
+   +'" stroke="#'+p.mid+'" stroke-width="3"/>'
+   +'<text x="500" y="'+(y+48)+'" font-size="24" fill="#'+p.dark
+   +'" font-family="Arial, sans-serif" text-anchor="middle">'+xml(step)+'</text>'
+   +(i===steps.length-1?"":'<path d="M 500 '+(y+80)+' V '+(y+129)+'" stroke="#'+p.accent
+    +'" stroke-width="5" fill="none"/><path d="M 485 '+(y+116)+' L 500 '+(y+134)+' L 515 '+(y+116)+'" fill="none" stroke="#'
+    +p.accent+'" stroke-width="5" stroke-linecap="round"/>');
+ }).join("");
+ return '<svg xmlns="http://www.w3.org/2000/svg" width="'+width+'" height="'+height
+  +'" viewBox="0 0 '+width+' '+height+'"><rect width="100%" height="100%" fill="#'+p.dark+'"/>'
+  +'<rect x="75" y="48" width="8" height="67" fill="#'+p.accent+'"/>'
+  +'<text x="110" y="96" font-size="41" fill="#'+p.light+'" font-family="Arial, sans-serif">'+xml(title)+'</text>'
+  +elements+'</svg>';
+}
