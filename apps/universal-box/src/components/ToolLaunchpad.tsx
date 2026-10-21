@@ -2,6 +2,10 @@ import {useEffect,useMemo,useState} from "react";
 
 export type LocalTool = {id:string;name:string;area:string;view:string;module?:string};
 export const LOCAL_TOOLS:LocalTool[] = [
+ {id:"mac-native-vision-ocr",name:"Apple Vision OCR · Mac 本机图片文字识别与 Word 导出",area:"Office",view:"vision-workflows",module:"ocr"},
+ {id:"single-frame-screen-capture",name:"Screen Frame Capture · 用户授权选屏截图 PNG",area:"Images",view:"vision-workflows",module:"capture"},
+ {id:"one-click-project-pack",name:"One-Click Project Kit · Word+PPTX+SVG 项目成果 ZIP",area:"Creative",view:"vision-workflows",module:"project"},
+ {id:"ocr-to-editable-word",name:"Image to Editable Word · 识别图片生成 DOCX",area:"Office",view:"vision-workflows",module:"ocr"},
  {id:"subtitles-two-point-sync",name:"Subtitle Drift Repair · 双时间锚点校准 SRT 与 VTT",area:"Media",view:"life-media",module:"subtitle"},
  {id:"file-auto-organize",name:"Smart File Organizer · 按类型分类文件到 ZIP",area:"Files",view:"life-media",module:"organize"},
  {id:"batch-calendar-events",name:"Bulk Calendar ICS Generator · 多事件日历制作",area:"Planning",view:"life-media",module:"calendar"},
