@@ -177,7 +177,7 @@ export default function CommonsDesk(){
   try{
    const data=await exportCommonsPacket(packet);
    const saved=await exportFile("universal-commons-"+safeAttachmentName(packet.room.name).replace(/\s+/g,"-")+".zip",data);
-   setStatus(saved?"Team ZIP exported successfully. The receiver can import it using Universal Box.":"Export cancelled.");
+   setStatus(saved?"Team ZIP exported successfully. The receiver can import it using Sentinel Box.":"Export cancelled.");
   }catch(e){setStatus("Export failed: "+errorText(e));}
   finally{setBusy(false);}
  }
@@ -358,7 +358,7 @@ export default function CommonsDesk(){
    <p className="eyebrow">LOCAL NETWORK · NO CLOUD · ENCRYPTED</p>
    <h3>局域网加密传输 · LAN Transfer</h3>
    <p className="subtle">同一 Wi-Fi 或有线网络下，发送者开启临时原生 TCP 端口，文件使用 XChaCha20-Poly1305 端到端加密。不依赖外部服务器或账号。</p>
-   <p className="subtle">双方都需安装包含局域网功能的 Universal Box。Mac 防火墙可能询问是否允许入站连接；访客 Wi-Fi 或 AP 隔离可能阻止设备互通。</p>
+   <p className="subtle">双方都需安装包含局域网功能的 Sentinel Box。Mac 防火墙可能询问是否允许入站连接；访客 Wi-Fi 或 AP 隔离可能阻止设备互通。</p>
    {room&&<div className="panel">
     <h4>发送当前团队空间</h4>
     <div className="actions">
@@ -381,7 +381,7 @@ export default function CommonsDesk(){
    </div>}
    <div className="panel">
     <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-     <h4 style={{margin:0}}>附近正在共享的 Universal Box 设备</h4>
+     <h4 style={{margin:0}}>附近正在共享的 Sentinel Box 设备</h4>
      <button type="button" className="secondary-button" disabled={discovering} onClick={()=>void scanNearby()}>{discovering?"搜索中…":"刷新附近设备"}</button>
     </div>
     <p className="subtle">打开此页面会自动通过 Bonjour/mDNS 搜索同一局域网内**主动开启了共享**的电脑，每 20 秒刷新一次。未开启共享的电脑不会被广播或显示。</p>
