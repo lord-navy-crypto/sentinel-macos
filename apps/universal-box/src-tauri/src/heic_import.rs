@@ -169,14 +169,14 @@ mod tests {
     #[test]
     fn reads_real_sips_dimensions_without_upscaling_small_images() {
         assert_eq!(
-            parse_sips_dimensions(b"/tmp/selected.heic\\n  pixelWidth: 32\\n  pixelHeight: 32\\n").unwrap(),
+            parse_sips_dimensions(b"/tmp/selected.heic\n  pixelWidth: 32\n  pixelHeight: 32\n").unwrap(),
             (32, 32)
         );
         assert_eq!(
-            parse_sips_dimensions(b"/tmp/selected.heic\\n  pixelWidth: 4032\\n  pixelHeight: 3024\\n").unwrap(),
+            parse_sips_dimensions(b"/tmp/selected.heic\n  pixelWidth: 4032\n  pixelHeight: 3024\n").unwrap(),
             (4032, 3024)
         );
-        assert!(parse_sips_dimensions(b"pixelWidth: 0\\npixelHeight: 20").is_err());
+        assert!(parse_sips_dimensions(b"pixelWidth: 0\npixelHeight: 20").is_err());
         assert!(parse_sips_dimensions(b"corrupt heic").is_err());
     }
     #[cfg(target_os = "macos")]
