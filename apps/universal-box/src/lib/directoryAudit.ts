@@ -22,7 +22,7 @@ export function auditDirectory(entries:readonly DirectoryEntry[]):DirectoryAudit
   const segments=path.split("/");
   const folder=segments.length===1?"(selected files)":segments.slice(0,-1).join("/");
   const parts=segments[segments.length-1].split(".");
-  const ext=parts.length>1&&parts.at(-1)? "."+parts.at(-1)!.toLowerCase():"(no extension)";
+  const ext=parts.length>1&&parts[parts.length-1]? "."+parts[parts.length-1].toLowerCase():"(no extension)";
   for(const [map,key] of [[group,folder],[extension,ext]] as const){
    const current=map.get(key)??{path:key,bytes:0,files:0};
    current.bytes+=item.size;current.files++;map.set(key,current);
