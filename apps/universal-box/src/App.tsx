@@ -5,6 +5,7 @@ import EverydayTools, {type Utility} from "./components/EverydayTools";
 import ToolLaunchpad, {LOCAL_TOOLS} from "./components/ToolLaunchpad";
 import CommonsDesk from "./components/CommonsDesk";
 import RecentResultsDesk from "./components/RecentResultsDesk";
+import IncomingTransferNotice from "./components/IncomingTransferNotice";
 import {recentOutputSnapshot,subscribeRecentOutputs} from "./lib/recentOutputs";
 import FileIntakeDesk from "./components/FileIntakeDesk";
 import BinaryCompareDesk from "./components/BinaryCompareDesk";
@@ -535,6 +536,7 @@ export default function App() {
           <footer>UNIVERSAL BOX <span>Local-first desktop toolkit · powered by Daily Desk</span></footer>
         </div>
       </section>
+      {!commandOpen&&<IncomingTransferNotice activeView={view} onOpenCommons={()=>openTool("commons")}/>}
       {commandOpen&&<div className="command-backdrop" onMouseDown={()=>setCommandOpen(false)}>
         <div className="command-dialog" ref={commandDialogRef} role="dialog" aria-modal="true" aria-label="Search all Universal Box tools"
           onMouseDown={event=>event.stopPropagation()}
