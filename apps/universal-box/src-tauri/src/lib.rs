@@ -1,5 +1,6 @@
 mod commons_p2p;
 mod commons_lan;
+mod vision_ocr;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -105,7 +106,7 @@ fn supports_output_extension(extension: &str) -> bool {
         extension,
         "pdf" | "txt" | "md" | "csv" | "json" | "png" | "jpg" | "jpeg"
             | "webp" | "gif" | "docx" | "xlsx" | "pptx" | "zip" | "svg"
-            | "ics" | "srt" | "vtt" | "wav" | "vcf"
+            | "ics" | "srt" | "vtt" | "wav" | "vcf" | "ts" | "tsv"
     )
 }
 
@@ -176,6 +177,7 @@ pub fn run() {
             export_backup,
             read_backup,
             write_output_file,
+            vision_ocr::recognize_image_text,
             commons_lan::commons_lan_start,
             commons_lan::commons_lan_stop,
             commons_lan::commons_lan_status,
