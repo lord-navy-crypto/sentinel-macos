@@ -44,7 +44,7 @@ export async function wordReviewZip(a:ReviewInput,b:ReviewInput):Promise<Uint8Ar
  zip.file("reports/word-paragraph-diff.txt",review.changes.map(x=>(x.kind==="added"?"+ ":x.kind==="removed"?"- ":"  ")+x.line).join("\n")+"\n");
  zip.file("reports/word-paragraph-diff.json",JSON.stringify({
   generator:"Sentinel Box",mode:"paragraph-level Word text comparison",a:a.name,b:b.name,
-  ...review,limitations:"Text only. Does not compare formatting, tables, images, comments, revision history or tracked changes."
+  ...review,limitations:"Text-only paragraph comparison; not Microsoft Word Track Changes. Formatting, tables, images, comments and revision history are not compared."
  },null,2));
  zip.file("reports/README.txt","Read-only DOCX text comparison: added/removed paragraphs are not Word Track Changes. No original files are included.\n");
  return zip.generateAsync({type:"uint8array",compression:"DEFLATE"});
