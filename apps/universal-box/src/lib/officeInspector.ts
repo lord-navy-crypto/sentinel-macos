@@ -63,6 +63,16 @@ export async function inspectOffice(filename:string,data:Uint8Array):Promise<Off
  const zip=await JSZip.loadAsync(data,{checkCRC32:false,createFolders:false});
  const files=Object.values(zip.files).filter(f=>!f.dir);
  if(files.length>MAX_ITEMS)throw Error("Office package contains too many items.");
+ // JSZip retains central-directory sizes on loaded members; reject suspicious expansion before inflating XML.
+ let expanded=0;
+ for(const item of files){
+  const size=(item as unknown as {_data?:{uncompressedSize?:number}})._data?.uncompressedSize;
+  if(size!==undefined){
+   if(!Number.isSafeInteger(size)||size<0||size>25_000_000)throw Error("Unsafe Office archive item size.");
+   expanded+=size;
+   if(expanded>75_000_000)throw Error("Office archive has excessive expanded size.");
+  }
+ }
  let sections:{heading:string;text:string}[]=[];
  if(ext==="docx"){
   const member=zip.file("word/document.xml");
