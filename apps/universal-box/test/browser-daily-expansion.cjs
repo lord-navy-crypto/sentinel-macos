@@ -85,6 +85,7 @@ test("opaque screenshot blackout writes changed pixels into real output PNG",{ti
   }));
   await ctx.page.locator('[data-testid="annotation-tool"]').selectOption("redact");
   const canvas=ctx.page.locator('[data-testid="annotation-canvas"]');
+  await canvas.scrollIntoViewIfNeeded();
   const b=await canvas.boundingBox();assert.ok(b);
   await ctx.page.mouse.move(b.x+b.width*0.25,b.y+b.height*0.2);
   await ctx.page.mouse.down();
