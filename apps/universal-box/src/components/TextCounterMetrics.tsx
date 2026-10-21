@@ -49,6 +49,15 @@ export default function TextCounterMetrics({text,selected,onImport}:{text:string
    onImport(content);setStatus("Text loaded locally from "+file.name+". The original file was not changed.");
   }catch(e){setStatus("Import: "+err(e));}
  }
+ async function pasteClipboard(){
+  setStatus("");
+  try{
+   if(!navigator.clipboard?.readText)throw Error("Clipboard read permission is not available in this WebView. Use keyboard paste instead.");
+   const content=await navigator.clipboard.readText();
+   if(content.length>1_000_000)throw Error("Clipboard text exceeds 1,000,000 UTF-16 characters.");
+   onImport(content);setStatus("Pasted clipboard text after your explicit click; no background clipboard monitoring.");
+  }catch(e){setStatus("Clipboard import: "+err(e)+". You can paste into the text box manually.");}
+ }
  async function copySummary(){
   try{await navigator.clipboard.writeText(textMetricsReport(text,selected));setStatus("Copied statistics to clipboard.");}
   catch{setStatus("Clipboard unavailable. You can save the statistics as TXT instead.");}
@@ -104,7 +113,7 @@ export default function TextCounterMetrics({text,selected,onImport}:{text:string
    <label className="field-label">导入 UTF-8 文本文件
     <input data-testid="counter-import" type="file" className="field" accept=".txt,.md,.csv,.srt,.vtt,.json" onChange={e=>void upload(e)}/>
    </label>
-   <button type="button" data-testid="counter-copy" onClick={()=>void copySummary()}>复制统计</button>
+   <button type="button" data-testid="counter-paste" onClick={()=>void pasteClipboard()}>主动读取剪贴板并统计</button>\n   <button type="button" data-testid="counter-copy" onClick={()=>void copySummary()}>复制统计</button>
    <button type="button" data-testid="counter-save" className="primary-button" onClick={()=>void saveSummary()}>导出 TXT 统计报告</button>
   </div>
   {status&&<p role="status" className="subtle" data-testid="counter-status">{status}</p>}
