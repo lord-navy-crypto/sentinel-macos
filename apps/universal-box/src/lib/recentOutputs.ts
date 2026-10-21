@@ -14,6 +14,10 @@ let nextId=1;
 let records:StoredOutput[]=[];
 let snapshot:RecentOutput[]=[];
 let pending:PendingHandoff|null=null;
+const compareSlots:{left:File|null;right:File|null}={left:null,right:null};
+export function getCompareSlot(side:"left"|"right"):File|null{return compareSlots[side];}
+export function setCompareSlot(side:"left"|"right",file:File|null):void{compareSlots[side]=file;}
+
 const listeners=new Set<()=>void>();
 function publish(){
  snapshot=records.map(({id,name,size,createdAt})=>({id,name,size,createdAt}));
@@ -45,7 +49,7 @@ export function removeRecentOutput(id:number):void{
  publish();
 }
 export function clearRecentOutputs():void{
- records=[];pending=null;publish();
+ records=[];pending=null;compareSlots.left=null;compareSlots.right=null;publish();
 }
 export function requestHandoff(id:number,target:HandoffTarget):boolean{
  if(!records.some(x=>x.id===id))return false;
