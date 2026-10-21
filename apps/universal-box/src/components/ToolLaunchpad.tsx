@@ -2,6 +2,10 @@ import {useEffect,useMemo,useState} from "react";
 
 export type LocalTool = {id:string;name:string;area:string;view:string;module?:string};
 export const LOCAL_TOOLS:LocalTool[] = [
+ {id:"subtitles-two-point-sync",name:"Subtitle Drift Repair · 双时间锚点校准 SRT 与 VTT",area:"Media",view:"life-media",module:"subtitle"},
+ {id:"file-auto-organize",name:"Smart File Organizer · 按类型分类文件到 ZIP",area:"Files",view:"life-media",module:"organize"},
+ {id:"batch-calendar-events",name:"Bulk Calendar ICS Generator · 多事件日历制作",area:"Planning",view:"life-media",module:"calendar"},
+ {id:"calendar-conflict-check",name:"Calendar Conflict Check · 日程时间冲突检查",area:"Planning",view:"life-media",module:"calendar"},
  {id:"screen-image-markup",name:"Screenshot & Image Markup · 箭头、文字、方框标注",area:"Images",view:"daily-studio",module:"annotate"},
  {id:"opaque-image-redaction",name:"Opaque Image Blackout · 本地实心遮挡敏感区域",area:"Privacy",view:"daily-studio",module:"annotate"},
  {id:"printable-study-cards",name:"Printable Study Cards A4 · 学习卡片与活动票券",area:"Creative",view:"daily-studio",module:"print"},
