@@ -55,7 +55,11 @@ test("Real selected client files are ZIP-packaged, SHA256/CRC verified and safel
   });
   await page.locator('[data-testid="delivery-verify-received"]').click();
   const good=page.locator('[data-testid="delivery-receive-result"]');
-  await good.waitFor({timeout:25000});
+  await page.locator('[data-testid="delivery-receive-result"], [data-testid="delivery-receive-error"]')
+   .first().waitFor({timeout:15000});
+  const detected=await page.locator('[data-testid="delivery-receive-error"]').count();
+  if(detected)throw Error("Received ZIP verifier rejected our own sender output: "+
+   await page.locator('[data-testid="delivery-receive-error"]').innerText());
   assert.match(await good.innerText(),/Content matches/);
   assert.match(await page.locator('[data-testid="delivery-receive-counts"]').innerText(),/匹配：2/);
   assert.equal(await page.locator('[data-testid="delivery-receive-check"]').count(),2);
