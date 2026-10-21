@@ -21,7 +21,7 @@ test("existing Word Counter supports real Unicode graphemes, selection, limit pr
   await page.locator('[data-testid="counter-preset"]').selectOption("custom");
   await page.locator('[data-testid="counter-custom-limit"]').fill("10");
   assert.match(await page.locator('[data-testid="counter-limit-summary"]').innerText(),/超过限制 4/u);
-  await input.evaluate(el=>{el.focus();el.setSelectionRange(0,el.value.length);el.dispatchEvent(new Event('select',{bubbles:true}));});
+  await input.evaluate(el=>{el.focus();el.setSelectionRange(0,el.value.length);el.dispatchEvent(new MouseEvent('mouseup',{bubbles:true}));});
   assert.match(await page.locator('[data-testid="counter-selection"]').innerText(),/14 可见字符/u);
   const action=page.waitForEvent("download",{timeout:25000});
   await page.locator('[data-testid="counter-save"]').click();
