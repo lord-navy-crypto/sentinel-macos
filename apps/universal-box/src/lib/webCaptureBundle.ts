@@ -13,9 +13,10 @@ export function validateCompanionManifest(raw:string):void{
  };
  if(m.manifest_version!==3||m.version!==WEB_CAPTURE_VERSION)
    throw Error("Bundled Web Capture version is inconsistent with Universal Box.");
- if(!Array.isArray(m.permissions)||m.permissions.length!==3||
-    !["activeTab","scripting","clipboardWrite"].every(x=>m.permissions?.includes(x))||
-    m.permissions.some((x:unknown)=>!["activeTab","scripting","clipboardWrite"].includes(String(x))))
+ const permissions=m.permissions;
+ if(!Array.isArray(permissions)||permissions.length!==3||
+    !["activeTab","scripting","clipboardWrite"].every(x=>permissions.includes(x))||
+    permissions.some((x:unknown)=>!["activeTab","scripting","clipboardWrite"].includes(String(x))))
    throw Error("Unexpected browser extension permissions; refusing to package.");
  if(m.host_permissions||m.background||m.content_scripts)
    throw Error("Unexpected background or broad website access in bundled extension.");
