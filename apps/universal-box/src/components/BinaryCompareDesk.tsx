@@ -5,11 +5,11 @@ import {
  type BinaryCompareResult,type CompareProgress,
 } from "../lib/binaryCompare";
 import {sizeLabel} from "../lib/fileIntake";
-import {consumeHandoff,subscribeRecentOutputs} from "../lib/recentOutputs";
+import {consumeHandoff,subscribeRecentOutputs,getCompareSlot,setCompareSlot} from "../lib/recentOutputs";
 
 export default function BinaryCompareDesk({onOpenTool}:{onOpenTool:(view:string,module?:string)=>void}){
- const [left,setLeft]=useState<File|null>(null);
- const [right,setRight]=useState<File|null>(null);
+ const [left,setLeft]=useState<File|null>(()=>getCompareSlot("left"));
+ const [right,setRight]=useState<File|null>(()=>getCompareSlot("right"));
  const [result,setResult]=useState<BinaryCompareResult|null>(null);
  const [progress,setProgress]=useState<CompareProgress>({done:0,total:0});
  const [working,setWorking]=useState(false);
@@ -19,6 +19,7 @@ export default function BinaryCompareDesk({onOpenTool}:{onOpenTool:(view:string,
  useEffect(()=>()=>{controller.current?.abort();},[]);
  function choose(side:"left"|"right",file?:File){
   setResult(null);setMessage("");
+  setCompareSlot(side,file??null);
   if(side==="left")setLeft(file??null);else setRight(file??null);
  }
  useEffect(()=>{
