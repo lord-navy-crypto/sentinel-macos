@@ -73,6 +73,27 @@ fn temporary_folder() -> Result<TemporaryImageFolder, String> {
 }
 
 #[cfg(target_os = "macos")]
+fn parse_sips_dimensions(output: &[u8]) -> Result<(u32, u32), String> {
+    let value = std::str::from_utf8(output)
+        .map_err(|_| "Invalid macOS HEIC metadata response.")?;
+    let number = |key: &str| -> Option<u32> {
+        value.lines().find_map(|line| {
+            line.trim().strip_prefix(key)
+                .and_then(|raw| raw.trim().parse::<u32>().ok())
+        })
+    };
+    let width = number("pixelWidth:")
+        .ok_or("Missing decoded HEIC pixel width.")?;
+    let height = number("pixelHeight:")
+        .ok_or("Missing decoded HEIC pixel height.")?;
+    if width == 0 || height == 0 || width > 30_000 || height > 30_000
+        || (width as u64) * (height as u64) > 250_000_000 {
+        return Err("Selected HEIC pixel dimensions exceed processing safety limits.".into());
+    }
+    Ok((width, height))
+}
+
+#[cfg(target_os = "macos")]
 fn convert_heic(bytes: &[u8]) -> Result<Vec<u8>, String> {
     let temporary = temporary_folder()?;
     let source = temporary.0.join("selected.heic");
@@ -83,12 +104,23 @@ fn convert_heic(bytes: &[u8]) -> Result<Vec<u8>, String> {
     file.sync_all().map_err(|_| "Cannot finalize temporary image input.")?;
     drop(file);
 
-    // -Z bounds iPhone's original 12/48 MP photo before sending pixels to the WebView.
-    // No shell, user-supplied path, env script or external network process.
-    let status = std::process::Command::new("/usr/bin/sips")
-        .arg("-s").arg("format").arg("png")
-        .arg("-Z").arg("2048")
-        .arg(&source).arg("--out").arg(&output)
+    // sips -Z can *upscale* small pictures. Ask macOS for the actual size first,
+    // and downsample only when the longest edge exceeds 2048 px.
+    let inspect = std::process::Command::new("/usr/bin/sips")
+        .arg("-g").arg("pixelWidth").arg("-g").arg("pixelHeight")
+        .arg(&source).output()
+        .map_err(|_| "macOS sips cannot inspect the selected HEIC dimensions.")?;
+    if !inspect.status.success() {
+        return Err("macOS cannot inspect this HEIC photo.".into());
+    }
+    let (width, height) = parse_sips_dimensions(&inspect.stdout)?;
+    let mut command = std::process::Command::new("/usr/bin/sips");
+    command.arg("-s").arg("format").arg("png");
+    if width.max(height) > 2048 {
+        command.arg("-Z").arg("2048");
+    }
+    // No shell, user-supplied paths/flags or network service.
+    let status = command.arg(&source).arg("--out").arg(&output)
         .output().map_err(|_| "macOS built-in image converter (sips) is unavailable.")?;
     if !status.status.success() {
         return Err("macOS could not decode this HEIC photo. Check whether it is damaged or unsupported.".into());
@@ -135,6 +167,20 @@ mod tests {
     }
     #[cfg(target_os = "macos")]
     #[test]
+    fn reads_real_sips_dimensions_without_upscaling_small_images() {
+        assert_eq!(
+            parse_sips_dimensions(b"/tmp/selected.heic\\n  pixelWidth: 32\\n  pixelHeight: 32\\n").unwrap(),
+            (32, 32)
+        );
+        assert_eq!(
+            parse_sips_dimensions(b"/tmp/selected.heic\\n  pixelWidth: 4032\\n  pixelHeight: 3024\\n").unwrap(),
+            (4032, 3024)
+        );
+        assert!(parse_sips_dimensions(b"pixelWidth: 0\\npixelHeight: 20").is_err());
+        assert!(parse_sips_dimensions(b"corrupt heic").is_err());
+    }
+    #[cfg(target_os = "macos")]
+    #[test]
     fn real_macos_sips_heic_roundtrip_from_png_fixture() {
         use base64::{engine::general_purpose::STANDARD, Engine as _};
         let fixture = STANDARD.decode("iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAIAAAD8GO2jAAAALUlEQVR4nGNMqd3CQEvARFPTRy0YtWDUglELRi0YtWDUglELRi0YtWDUAioCALxyAdUsiO3BAAAAAElFTkSuQmCC").unwrap();
@@ -164,7 +210,7 @@ mod tests {
         data.extend_from_slice(&1024u32.to_be_bytes());
         data.extend_from_slice(&768u32.to_be_bytes());
         assert!(check_png(&data).is_ok());
-        data[16..20].copy_from_slice(&10000u32.to_be_bytes());
+        data[16..20].copy_from_slice(&20000u32.to_be_bytes());
         assert!(check_png(&data).is_err());
     }
 }
