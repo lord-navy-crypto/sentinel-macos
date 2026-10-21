@@ -279,7 +279,7 @@ function saveCaptured(value,mode){
   let host="web";
   try{if(lastSource)host=new URL(lastSource).hostname.toLowerCase().replace(/[^a-z0-9.-]/g,"-").slice(0,60)||"web";}catch{}
   anchor.href=url;
-  anchor.download="universal-box-"+host+"-"+mode+"-"+stamp+"."+ext;
+  anchor.download="sentinel-box-"+host+"-"+mode+"-"+stamp+"."+ext;
   document.body.appendChild(anchor);anchor.click();anchor.remove();
   setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
