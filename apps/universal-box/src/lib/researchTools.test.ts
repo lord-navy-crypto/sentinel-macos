@@ -53,7 +53,7 @@ describe("PCM16 measured sample peak and RMS",()=>{
   expect(wavLevelsCsv(r)).toContain("peak_dbfs");
  });
  it("recognizes digital clipping and an uncompressed silent source",()=>{
-  expect(analyzeWavLevels(wav(32767)).clippedSamples).toBe(8000);
+  // In signed PCM16, +32767 and −32768 are the exact rails, but −32767 is not.\n  expect(analyzeWavLevels(wav(32767)).clippedSamples).toBe(4000);\n  expect(analyzeWavLevels(wav(-32768)).clippedSamples).toBe(4000);
   const silent=analyzeWavLevels(wav(0));
   expect(silent.peakDbfs).toBeNull();expect(silent.rmsDbfs).toBeNull();
  });
