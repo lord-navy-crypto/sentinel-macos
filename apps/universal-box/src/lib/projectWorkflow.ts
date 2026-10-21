@@ -44,12 +44,12 @@ export async function buildProjectPack(input:ProjectPackInput):Promise<Uint8Arra
  zip.file("project/slides.pptx",pptx);
  zip.file("project/process.svg",graph);
  zip.file("project/original-outline.md",markdown);
- zip.file("project/README.txt","Universal Box free offline project pack\n"
+ zip.file("project/README.txt","Sentinel Box free offline project pack\n"
   +"Open brief.docx in Word/LibreOffice and slides.pptx in PowerPoint/LibreOffice.\n"
   +"Edit process.svg in a vector editor. All outputs are newly generated, not uploaded.\n"
   +"Original input files are untouched. Review layouts in the target apps.\n");
  zip.file("project/manifest.json",JSON.stringify({
-  schemaVersion:1,generator:"Universal Box (offline)",
+  schemaVersion:1,generator:"Sentinel Box (offline)",
   title:plan.title,sections:plan.sections,
   files:plan.filenames.filter(s=>!s.endsWith("manifest.json")),
   servicesUsed:[],

@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Universal Box Web Capture",
+  "name": "Sentinel Box Web Capture",
   "version": "0.3.1",
   "description": "Private on-demand webpage text, Markdown, selected HTML-table CSV capture and preview.",
   "permissions": [
@@ -10,6 +10,6 @@
   ],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Universal Box Web Capture"
+    "default_title": "Sentinel Box Web Capture"
   }
 }

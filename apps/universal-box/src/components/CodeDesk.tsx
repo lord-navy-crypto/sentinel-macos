@@ -4,12 +4,12 @@ import type {DeskSnippet} from "../lib/workspace";
 
 type Language="python"|"javascript"|"typescript"|"java"|"rust"|"json"|"text";
 const SAMPLES:Record<Language,string>={
- python:"def main():\n    print('Hello, Daily Desk')\n\nif __name__ == '__main__':\n    main()\n",
- javascript:"function main() {\n  console.log('Hello, Daily Desk');\n}\n\nmain();\n",
- typescript:"function greet(name: string): string {\n  return `Hello, ${name}`;\n}\nconsole.log(greet('Daily Desk'));\n",
- java:"public class Main {\n  public static void main(String[] args) {\n    System.out.println(\"Hello, Daily Desk\");\n  }\n}\n",
- rust:"fn main() {\n    println!(\"Hello, Daily Desk\");\n}\n",
- json:"{\n  \"message\": \"Hello, Daily Desk\"\n}\n",
+ python:"def main():\n    print('Hello, Sentinel Box')\n\nif __name__ == '__main__':\n    main()\n",
+ javascript:"function main() {\n  console.log('Hello, Sentinel Box');\n}\n\nmain();\n",
+ typescript:"function greet(name: string): string {\n  return `Hello, ${name}`;\n}\nconsole.log(greet('Sentinel Box'));\n",
+ java:"public class Main {\n  public static void main(String[] args) {\n    System.out.println(\"Hello, Sentinel Box\");\n  }\n}\n",
+ rust:"fn main() {\n    println!(\"Hello, Sentinel Box\");\n}\n",
+ json:"{\n  \"message\": \"Hello, Sentinel Box\"\n}\n",
  text:"Notes about my code...\n",
 };
 export default function CodeDesk({snippets,onChange}:{snippets:DeskSnippet[];onChange:(next:DeskSnippet[])=>void}){

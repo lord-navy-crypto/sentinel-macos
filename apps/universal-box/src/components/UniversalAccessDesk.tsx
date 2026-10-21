@@ -22,7 +22,7 @@ export default function UniversalAccessDesk({preferences,onChange,onOpenTool}:Pr
   const setPreference=<K extends keyof AccessPreferences>(key:K,value:AccessPreferences[K])=>
     onChange({...preferences,[key]:value});
   return <section className="access-center">
-    <p className="eyebrow">UNIVERSAL BOX · UNIVERSAL ACCESS</p>
+    <p className="eyebrow">SENTINEL BOX · UNIVERSAL ACCESS</p>
     <h1>让工具更容易使用</h1>
     <p className="intro">不需要订阅、不需要了解文件格式，也不需要把私人内容发往服务器。调整可读性，然后用日常语言找到合适的工具。</p>
     <div className="access-panels">

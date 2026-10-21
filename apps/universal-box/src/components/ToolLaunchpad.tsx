@@ -156,7 +156,7 @@ export default function ToolLaunchpad({onLaunch}:{onLaunch:(view:string,module?:
    <div className="catalog-heading">
      <div><p className="eyebrow">DISCOVER · CREATE · CONVERT · LEARN</p>
        <h2>Explore your toolbox</h2>
-       <p className="subtle">Search for exactly what you need. Every local tool opens inside Universal Box; favorites are saved only on this device.</p>
+       <p className="subtle">Search for exactly what you need. Every local tool opens inside Sentinel Box; favorites are saved only on this device.</p>
      </div>
      <div className="catalog-count"><strong>{LOCAL_TOOLS.length}</strong><span>tool entries</span></div>
    </div>

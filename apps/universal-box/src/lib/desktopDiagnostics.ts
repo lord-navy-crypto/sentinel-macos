@@ -8,7 +8,7 @@ export function summarizeDiagnostics(checks:DiagnosticCheck[]):DiagnosticSummary
 }
 export function diagnosticExport(checks:DiagnosticCheck[]):string{
  // Deliberately exclude usernames, local paths, system model, installed apps and private files.
- return JSON.stringify({product:"Universal Box",version:"0.31.0",report:"Local capability self-check",
+ return JSON.stringify({product:"Sentinel Box",version:"0.31.0",report:"Local capability self-check",
   checks:checks.map(({id,title,level,detail})=>({id,title,level,detail}))},null,2)+"\n";
 }
 export async function runLocalDiagnostics():Promise<DiagnosticCheck[]>{

@@ -1,5 +1,7 @@
 # Sentinel 2.7 — Resilient Local Intelligence
 
+> **Related desktop product:** **Sentinel Box** (formerly Universal Box) is the free, offline-first macOS utility suite developed in this repository under [`apps/universal-box/`](apps/universal-box/). It includes Office creation and conversion, media tools, local OCR, design, file management and privacy-focused workflow automation. Sentinel Box is a **separate application** from Sentinel's evidence and gateway core. See its [product overview](apps/universal-box/README.md).
+
 Sentinel is a local-first macOS evidence and system-intelligence application. It observes current state, connects related evidence, compares change over time, verifies exact objects, measures storage pressure, and exposes deliberately bounded reversible actions.
 
 Sentinel is designed around one rule: **evidence is not a verdict**. Attention, Risk, Confidence, Drift, a public endpoint, a startup item, or a changed fingerprint can help prioritize investigation, but none of those values is a malware probability by itself.

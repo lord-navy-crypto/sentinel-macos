@@ -67,15 +67,15 @@ export default function WebCaptureHub({onOpenTool}:{onOpenTool:(view:string,modu
   setSettings(old=>({...old,[key]:value}));setPreviewAccepted(false);
  };
  return <section className="panel ub-companion" aria-label="Web Capture and offline CSV workshop">
-  <p className="eyebrow">UNIVERSAL BOX · WEB CAPTURE · FREE OFFICE WORKFLOW</p>
+  <p className="eyebrow">SENTINEL BOX · WEB CAPTURE · FREE OFFICE WORKFLOW</p>
   <h2>Web Capture 与免费 CSV 工作台</h2>
-  <p className="subtle">浏览器扩展已经打包在 Universal Box 桌面程序中。无需在线账户或额外付费服务。为遵守浏览器安全边界，桌面应用不会偷偷读取网页；只有主动安装扩展并点击捕获时才读取当前网页。</p>
+  <p className="subtle">浏览器扩展已经打包在 Sentinel Box 桌面程序中。无需在线账户或额外付费服务。为遵守浏览器安全边界，桌面应用不会偷偷读取网页；只有主动安装扩展并点击捕获时才读取当前网页。</p>
   <div className="ub-companion-grid">
    <div className="ub-companion-pane">
     <h3>① 安装浏览器捕获助手</h3>
     <p>Web Capture v{WEB_CAPTURE_VERSION} · Chromium 扩展。支持网页正文、Markdown、链接 CSV 和指定表格导出。</p>
     <button type="button" className="primary-button" disabled={busy} onClick={()=>void exportCompanion()} data-testid="export-companion">
-     {busy?"正在准备 ZIP…":"从 Universal Box 导出浏览器扩展 ZIP"}
+     {busy?"正在准备 ZIP…":"从 Sentinel Box 导出浏览器扩展 ZIP"}
     </button>
     <p className="subtle">安装：解压 ZIP → Chrome / Edge 等 Chromium 扩展页面 → 开发者模式 → 加载已解压的扩展程序 → 选择含 manifest.json 的文件夹。Safari 尚未打包。</p>
     <p className="subtle">扩展与应用同源打包、默认离线；没有自动连接浏览器或跨应用静默传输。</p>

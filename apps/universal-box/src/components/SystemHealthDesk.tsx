@@ -20,7 +20,7 @@ export default function SystemHealthDesk({onOpenTool}:{onOpenTool:(view:string,m
   catch(e){setStatus("导出失败："+(e instanceof Error?e.message:String(e)));}
  }
  return <section className="panel ub-health">
-  <p className="eyebrow">UNIVERSAL BOX · LOCAL DIAGNOSTICS</p>
+  <p className="eyebrow">SENTINEL BOX · LOCAL DIAGNOSTICS</p>
   <div className="ub-intake-heading">
    <div><h2>应用健康检查 · System Health</h2>
     <p className="subtle">检查桌面外壳、加密哈希、Canvas 渲染、偏好存储和剪贴板能力。这里只验证本机基础接口，并不替代真实 Mac 上的 PDF、DMG 安装或网络传输测试。</p></div>

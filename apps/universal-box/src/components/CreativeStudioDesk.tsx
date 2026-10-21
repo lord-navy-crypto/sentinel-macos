@@ -20,12 +20,12 @@ export default function CreativeStudioDesk({initialMode="word"}:{initialMode?:Cr
   title:"活动邀请函",recipient:"李同学",event:"创意科技分享会",date:"2026-11-12",body:exampleBody,
  });
  const [slides,setSlides]=useState<SlideDeckInput>({
-  title:"我的创意项目",subtitle:"Universal Box · 离线演示文稿",
+  title:"我的创意项目",subtitle:"Sentinel Box · 离线演示文稿",
   outline:"## 我们要解决什么\n- 用户遇到的实际问题\n- 现有方案的局限\n- 我们的目标\n\n## 设计方案\n- 关键思路\n- 使用流程\n- 预期价值\n\n## 下一步\n- 小范围测试\n- 收集反馈\n- 持续完善",
   theme:"ocean",
  });
  const [design,setDesign]=useState<PosterInput>({
-  title:"创意分享日",subtitle:"探索 · 设计 · 实践",footer:"2026 · Universal Box",
+  title:"创意分享日",subtitle:"探索 · 设计 · 实践",footer:"2026 · Sentinel Box",
   theme:"sunset",format:"poster",
  });
  const [flow,setFlow]=useState<FlowchartInput>({title:"创意项目流程",
@@ -72,7 +72,7 @@ export default function CreativeStudioDesk({initialMode="word"}:{initialMode?:Cr
   </select>
  </label>;
  return <section className="panel" aria-label="Free Creative Office Studio">
-  <p className="eyebrow">UNIVERSAL BOX · CREATE & EXPORT · LOCAL FIRST</p>
+  <p className="eyebrow">SENTINEL BOX · CREATE & EXPORT · LOCAL FIRST</p>
   <h2>Creative Studio / 免费创作工作台</h2>
   <p className="subtle">不仅是 PDF 或 CSV：从模板制作可编辑 Word 文档、原生 PowerPoint 演示文稿，以及原创 SVG 海报/证书/横幅。无需账号、付费、网络服务或云端上传。</p>
   <div className="pill-row" role="group" aria-label="Creative studio tools">

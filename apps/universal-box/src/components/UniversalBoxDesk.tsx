@@ -112,10 +112,10 @@ export default function UniversalBoxDesk({initialMode="qr"}:{initialMode?:Univer
  const adjustWifi=(key:keyof WifiConfig,value:WifiConfig[keyof WifiConfig])=>{setWifi(s=>({...s,[key]:value}));setPreview("");};
  const adjustContact=(key:keyof ContactConfig,value:ContactConfig[keyof ContactConfig])=>{setContact(s=>({...s,[key]:value}));setPreview("");};
  return <section className="panel">
-   <p className="eyebrow">UNIVERSAL BOX · FREE LOCAL GENERATORS</p>
-   <h2>Universal Box / 万用工具箱</h2>
+   <p className="eyebrow">SENTINEL BOX · FREE LOCAL GENERATORS</p>
+   <h2>Sentinel Box / 万用工具箱</h2>
    <p className="subtle">Batch QR codes, personal contact/Wi-Fi QR, calendar event files and development IDs. No paid service, login, analytics or upload. Works offline.</p>
-   <div className="pill-row" role="group" aria-label="Universal Box generator">
+   <div className="pill-row" role="group" aria-label="Sentinel Box generator">
      {([["qr","QR Studio · 二维码"],["calendar","Calendar .ics · 日历"],["uuid","UUID Generator · 唯一标识"]] as const).map(([key,label])=>
        <button type="button" key={key} className={mode===key?"pill active-pill":"pill"} onClick={()=>{setMode(key);setStatus("");}}>{label}</button>)}
    </div>

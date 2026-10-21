@@ -91,7 +91,7 @@ export default function PdfConvertDesk({pdfFile,pageCount}:{pdfFile:File|null;pa
   return <section className="panel">
     <p className="eyebrow">FREE LOCAL PDF CONVERTERS · ZERO UPLOAD</p>
     <h3>Image ↔ PDF conversion</h3>
-    <p className="subtle">Convert common images into a PDF or render PDF pages into an image ZIP. All processing stays on this device. No watermarks or daily limits from Daily Desk.</p>
+    <p className="subtle">Convert common images into a PDF or render PDF pages into an image ZIP. All processing stays on this device. No watermarks or daily limits from Sentinel Box.</p>
     <div className="pill-row compact" role="group" aria-label="PDF conversion type">
       <button type="button" className={conversion==="images-pdf"?"pill active-pill":"pill"} onClick={()=>{setConversion("images-pdf");setStatus("");}}>PNG/JPEG → PDF</button>
       <button type="button" className={conversion==="pdf-images"?"pill active-pill":"pill"} onClick={()=>{setConversion("pdf-images");setStatus("");}}>PDF pages → images ZIP</button>

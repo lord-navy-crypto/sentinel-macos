@@ -123,10 +123,10 @@ export default function UniversalLabDesk({initialMode="lines"}:{initialMode?:Uni
    finally{urls.forEach(url=>URL.revokeObjectURL(url));setBusy(false);}
  }
  return <section className="panel">
-   <p className="eyebrow">UNIVERSAL BOX LAB · LOCAL UTILITIES</p>
-   <h2>Universal Box Lab / 更多免费小工具</h2>
+   <p className="eyebrow">SENTINEL BOX LAB · LOCAL UTILITIES</p>
+   <h2>Sentinel Box Lab / 更多免费小工具</h2>
    <p className="subtle">Four offline utilities without forced accounts, subscriptions, quotas from a remote service, background uploads or changing originals. Local memory and input safety limits still apply.</p>
-   <div className="pill-row" role="group" aria-label="Universal Box Lab tool">
+   <div className="pill-row" role="group" aria-label="Sentinel Box Lab tool">
      {tabs.map(tab=><button type="button" key={tab.id} className={tab.id===mode?"pill active-pill":"pill"}
        onClick={()=>{setMode(tab.id);setStatus("");}}>{tab.label}</button>)}
    </div>

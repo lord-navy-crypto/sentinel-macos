@@ -18,7 +18,7 @@ export default function OfficePrivacyDesk({initialMode="contacts"}:{initialMode?
  const [status,setStatus]=useState("");
  const [busy,setBusy]=useState(false);
  const [csv,setCsv]=useState("Name,Phone,Email,Organization,Website\nAda Lovelace,+1 212 555 0100,ada@example.org,Mathematics,https://example.org\nGrace Hopper,+1 212 555 0200,grace@example.org,Computing,https://example.org");
- const [template,setTemplate]=useState("Hello {{Name}},\n\nThis is a sample letter for {{Organization}}.\n\nBest regards,\nUniversal Box");
+ const [template,setTemplate]=useState("Hello {{Name}},\n\nThis is a sample letter for {{Organization}}.\n\nBest regards,\nSentinel Box");
  const [selectedFiles,setSelectedFiles]=useState<File[]>([]);
  const [duplicates,setDuplicates]=useState<DuplicateReport|null>(null);
  const [unicodeText,setUnicodeText]=useState("Hello\u200B world!\nR\u202Eesearch");
@@ -88,7 +88,7 @@ export default function OfficePrivacyDesk({initialMode="contacts"}:{initialMode?
    catch{setStatus("Clipboard unavailable. Select and copy manually.");}
  }
  return <section className="panel">
-   <p className="eyebrow">UNIVERSAL BOX · OFFICE & PRIVACY</p>
+   <p className="eyebrow">SENTINEL BOX · OFFICE & PRIVACY</p>
    <h2>Office & Privacy / 免费办公与文件检查</h2>
    <p className="subtle">Local contact conversion, TXT mail merge, duplicate detection and Unicode inspection. No subscription, forced account, remote upload or background filesystem scanning.</p>
    <div className="pill-row" role="group" aria-label="Office and privacy tools">

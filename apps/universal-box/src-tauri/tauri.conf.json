@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Universal Box",
+  "productName": "Sentinel Box",
   "version": "0.36.0",
   "identifier": "com.lordnavycrypto.dailydesk",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Universal Box",
+        "title": "Sentinel Box",
         "width": 1180,
         "height": 780,
         "minWidth": 760,
@@ -30,8 +30,8 @@
       "dmg"
     ],
     "category": "Productivity",
-    "shortDescription": "Private, free file tools and productivity workspace",
-    "longDescription": "An offline-first desktop toolbox for local file workflows, PDF editing, encrypted LAN transfers and productivity.",
+    "shortDescription": "Sentinel Box — free offline-first productivity tools",
+    "longDescription": "Sentinel Box is a free, privacy-first macOS utility suite for Word and PowerPoint creation, document and media tools, on-device OCR, creative design, secure file exchange and workflow automation.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

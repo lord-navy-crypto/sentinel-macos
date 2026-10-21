@@ -111,9 +111,9 @@ function themeXml(p:typeof PALETTES.ocean):string{
  const colors=[["dk1","000000"],["lt1","FFFFFF"],["dk2",p.dark],["lt2",p.light],
   ["accent1",p.mid],["accent2",p.accent],["accent3","5783B1"],["accent4","66AFA0"],
   ["accent5","C5819F"],["accent6","E2B45F"],["hlink",p.mid],["folHlink",p.dark]];
- return PREFIX+'<a:theme xmlns:a="'+NS_A+'" name="Universal Box"><a:themeElements><a:clrScheme name="Original">'
+ return PREFIX+'<a:theme xmlns:a="'+NS_A+'" name="Sentinel Box"><a:themeElements><a:clrScheme name="Original">'
   +colors.map(([name,rgb])=>'<a:'+name+'><a:srgbClr val="'+rgb+'"/></a:'+name+'>').join("")
-  +'</a:clrScheme><a:fontScheme name="Universal Box"><a:majorFont><a:latin typeface="Aptos Display"/></a:majorFont>'
+  +'</a:clrScheme><a:fontScheme name="Sentinel Box"><a:majorFont><a:latin typeface="Aptos Display"/></a:majorFont>'
   +'<a:minorFont><a:latin typeface="Aptos"/></a:minorFont></a:fontScheme>'
   +'<a:fmtScheme name="Simple"><a:fillStyleLst><a:solidFill><a:schemeClr val="accent1"/></a:solidFill></a:fillStyleLst>'
   +'<a:lnStyleLst><a:ln w="9525"><a:solidFill><a:schemeClr val="accent1"/></a:solidFill></a:ln></a:lnStyleLst>'
@@ -139,7 +139,7 @@ export async function exportSlideDeck(input:SlideDeckInput):Promise<Uint8Array>{
   +'<Default Extension="xml" ContentType="application/xml"/>'+overrides.join("")+'</Types>');
  zip.file("_rels/.rels",relationships(rel(1,"officeDocument","ppt/presentation.xml")));
  zip.file("ppt/theme/theme1.xml",themeXml(p));
- zip.file("ppt/slideMasters/slideMaster1.xml",PREFIX+'<p:sldMaster '+ROOT+'><p:cSld name="Universal Box">'+SP_TREE
+ zip.file("ppt/slideMasters/slideMaster1.xml",PREFIX+'<p:sldMaster '+ROOT+'><p:cSld name="Sentinel Box">'+SP_TREE
   +'</p:spTree></p:cSld><p:clrMap accent1="accent1" accent2="accent2" accent3="accent3" accent4="accent4" accent5="accent5" accent6="accent6" bg1="lt1" bg2="lt2" tx1="dk1" tx2="dk2" hlink="hlink" folHlink="folHlink"/>'
   +'<p:sldLayoutIdLst><p:sldLayoutId id="2147483649" r:id="rId1"/></p:sldLayoutIdLst></p:sldMaster>');
  zip.file("ppt/slideMasters/_rels/slideMaster1.xml.rels",relationships(

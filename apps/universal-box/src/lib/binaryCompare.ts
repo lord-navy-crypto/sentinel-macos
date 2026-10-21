@@ -74,7 +74,7 @@ export function comparisonReport(result:BinaryCompareResult,firstName:string,sec
  const safeName=(name:string)=>name.slice(0,512);
  // Pure metadata. No source file bytes, local paths, or system configuration.
  return JSON.stringify({
-  application:"Universal Box",format:"offline-exact-binary-compare-v1",
+  application:"Sentinel Box",format:"offline-exact-binary-compare-v1",
   first:{name:safeName(firstName),bytes:result.aSize},
   second:{name:safeName(secondName),bytes:result.bSize},
   status:result.status,comparedBytes:result.comparedBytes,

@@ -1,4 +1,4 @@
-/** Zero-upload convenience operations for Daily Desk Quick Tools. */
+/** Zero-upload convenience operations for Sentinel Box Quick Tools. */
 export type CleanupOptions = {
   collapseSpaces:boolean;
   removeEmptyLines:boolean;

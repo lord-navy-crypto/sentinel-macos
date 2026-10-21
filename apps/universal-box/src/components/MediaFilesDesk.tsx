@@ -157,7 +157,7 @@ export default function MediaFilesDesk({initialMode="audio"}:{initialMode?:Media
    finally{if(url)URL.revokeObjectURL(url);setBusy(false);}
  }
  return <section className="panel">
-   <p className="eyebrow">UNIVERSAL BOX · MEDIA & FILES</p>
+   <p className="eyebrow">SENTINEL BOX · MEDIA & FILES</p>
    <h2>Audio, archive & image utilities / 媒体与文件工具</h2>
    <p className="subtle">No account, subscription, forced cloud upload or automatic file modifications. Processing is local. Tools have explicit format/size limits to prevent runaway memory use.</p>
    <div className="pill-row" role="group" aria-label="Media and files tool">

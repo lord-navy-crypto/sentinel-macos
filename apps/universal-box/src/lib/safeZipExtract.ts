@@ -127,7 +127,7 @@ export async function safeSelectiveZip(
    destination.file(item.safeName,raw,{binary:true,createFolders:false});
  }
  destination.file("manifest.json",JSON.stringify({
-   source:"Universal Box safe selective ZIP export",createdAt:new Date().toISOString(),
+   source:"Sentinel Box safe selective ZIP export",createdAt:new Date().toISOString(),
    files:plan.items.map(item=>({
      original:item.original,output:item.safeName,size:item.declaredSize,
    })),

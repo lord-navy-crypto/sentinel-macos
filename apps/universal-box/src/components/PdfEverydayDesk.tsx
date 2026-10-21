@@ -156,7 +156,7 @@ export default function PdfEverydayDesk({initialMode="metadata"}:{initialMode?:P
   }
   const pageCount=info?.pages??0;
   return <section className="panel pdf-everyday-desk">
-    <p className="eyebrow">UNIVERSAL BOX · FREE PDF EVERYDAY EDITORS</p>
+    <p className="eyebrow">SENTINEL BOX · FREE PDF EVERYDAY EDITORS</p>
     <h2>PDF Mini Editor / PDF 日常编辑器</h2>
     <p className="subtle">Free PDF utilities that process a file locally: edit properties, crop visible margins, insert blank pages, fill standard text forms, or extract and reorder pages. No paid plan, cloud upload or forced registration.</p>
     <div className="pill-row" role="group" aria-label="PDF mini editor modes">

@@ -1,4 +1,4 @@
-name: Universal Box Browser UI & Workflow Tests
+name: Sentinel Box Browser UI & Workflow Tests
 on:
   pull_request:
     paths:
@@ -30,7 +30,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - name: Install Universal Box dependencies and real Chromium automation
+      - name: Install Sentinel Box dependencies and real Chromium automation
         run: |
           npm ci
           npm install --no-save --no-package-lock playwright@1.58.2

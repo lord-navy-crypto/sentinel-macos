@@ -174,7 +174,7 @@ export default function LocalAIDesk(){
    }catch(e){setBrowserStatus(errorMessage(e));}
  }
  return <section className="panel local-ai-desk">
-   <p className="eyebrow">UNIVERSAL BOX · EASY LOCAL AI</p>
+   <p className="eyebrow">SENTINEL BOX · EASY LOCAL AI</p>
    <h2>Easy Local AI · 本地 AI 工作台</h2>
    <p className="subtle">从 AP Website 移植 WebLLM 模型、WebGPU 和模型缓存管理。这里只有一种 AI 工作方式：<strong>浏览器本地推理</strong>；没有网站 API、密钥或 Ollama。第一次使用模型需要从模型来源下载文件，下载后可在缓存可用时离线运行。</p>
    <div className="local-ai-state" aria-live="polite">
