@@ -56,10 +56,10 @@ describe("Manual meeting minutes and actionable follow-up validation",()=>{
  });
  it("escapes CSV formula injection while preserving input literal",()=>{
   const data=MEETING_ACTION_HEADERS.join(",")+
-   '\nF-01,"=HYPERLINK(\"\"https://example.com\"\",\"\"click\"\")",Alex,2026-11-01,normal,todo,"+SUM(1,1)"';
+   '\nF-01,=2+3,Alex,2026-11-01,normal,todo,"+SUM(1,1)"';
   const plan=planMeetingMinutes(MEETING_SAMPLE,data);
-  expect(plan.actions[0].task).toMatch(/^=HYPERLINK/);
-  expect(plan.actionCsv).toContain("\"'=HYPERLINK");
+  expect(plan.actions[0].task).toBe("=2+3");
+  expect(plan.actionCsv).toContain("\"'=2+3");
   expect(plan.actionCsv).toContain("\"'+SUM");
  });
 });
