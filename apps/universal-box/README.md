@@ -387,3 +387,23 @@ Existing PDF, office, text, image, math, and AP study tools are preserved; AP Re
 - The original file operations, PDF, offline Commons LAN v1, binary comparison, System Health, macOS U icon and ad-hoc signing remain unchanged.
 - Automated checks: TypeScript/Vitest, Rust, Sentinel validation, mounted signed Intel and Apple Silicon DMG. Manual macOS verification still needed for Finder drag-drop, VoiceOver, keyboard focus, save dialogs and startup behavior.
 - Security references: Apple Human Interface Guidelines for drag/drop and progress indicators; OWASP File Upload Cheat Sheet on filename, type and size validation; Tauri v2 capability scoping.
+
+## Universal Box v0.34 · nearby in-app approved transfers (new protocol)
+
+- In Universal Commons, choose **Nearby share**. The receiving Mac clicks **Allow nearby Macs to request files** (5-minute temporary mDNS advertisement). The sending Mac chooses files directly (no team workspace required), scans nearby receivers, selects a Mac and clicks **Send request**. The receiving Mac sees the request inside the app and explicitly approves or rejects. No external message, copied invitation or manually entered secret is needed.
+- Connection uses ephemeral X25519 DH, SHA-256 HKDF-derived encryption keys and XChaCha20-Poly1305. Both Macs display the same six-digit short authentication code. **Verify both codes match before approving**: device names are untrusted and unverified mDNS can be spoofed. Recipient only gets encrypted data after approval; it must pass authentication, Universal Commons ZIP integrity checks and a final user import review before being saved.
+- Single-use receiver stops advertising after successful transfer, can be manually stopped at any time; network requests expire after 45 seconds. Limit to up to 30 files per packet, <=8 MB each, <=24 MB combined attachment bytes, and <=30 MB encrypted ZIP. The existing v1 encrypted manual-invite sharing remains available for compatibility with older versions.
+- Both sides need v0.34 or newer to use in-app pairing. Same LAN and multicast discovery required; guest Wi-Fi isolation and macOS firewall can block it. No cloud servers, outside-VPN traversal, cross-LAN sharing, automatic external links or unsolicited writes to disk.
+- CI requirements: desktop React/TypeScript, Rust roundtrip/cryptography tests, Sentinel regression, Intel and Apple Silicon DMG mounted/signature verification. Real two-Mac test and human code comparison must still be done before declaring the pairing flow field-verified.
+
+## Universal Box 0.35 · shared results and no-copy workflows
+
+- **Recent Results** is a common handoff for all tools that call the shared `exportFile` function. Only after a successful user-initiated save, up to six outputs of at most 8 MB each are kept in process memory (24 MB total cap). Never stored in localStorage or uploaded. Outputs above the limit remain saved normally but are not offered for handoff.
+- Send the chosen output to the **Nearby Share 0.34** screen without copying invitations or reopening Finder, or pass it directly to File Intake's existing two-step safety review and Binary Compare slot A or B. Source files remain unchanged and nearby transfer still requires explicit consent and human pairing code checks.
+- The destination view always requires a user click. Existing saved files remain available after the session's ephemeral handoff cache has been cleared. Clearing the cache does not delete saved files. This feature is for ordinary local results and is not a secure permanent vault.
+- Coverage: PDF / image / chart / CSV / office / ZIP / text and other modules that already use `exportFile`. Excludes features using their own independent OS save dialogs or browser downloads; no claim of 100% of all module outputs.
+- Stacked on the still-experimental in-app pair transfer PR #58; both Macs need a compatible preview version for in-app nearby sharing. Real two-Mac / macOS firewall integration tests remain required.
+
+### App-wide consent notifications (0.35 preview)
+
+When the receiver explicitly enables five-minute Nearby Pair discovery in Universal Commons, switching to other tools no longer cancels that opt-in. A small app-wide notification displays pending requests, a six-digit comparison code, and **Approve / Reject** while the recipient works in PDF, charts, notes or other tools. A completed encrypted delivery remains in a temporary inbox until the recipient opens Commons, reviews the manifest and decides whether to import it. No background discovery is enabled automatically; pending requests time out, and approval is never automatic. Returning to Commons lets the user explicitly stop the receiver.

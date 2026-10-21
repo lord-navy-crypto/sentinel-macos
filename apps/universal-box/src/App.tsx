@@ -1,9 +1,12 @@
-import { type ChangeEvent, type FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { type ChangeEvent, type FormEvent, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Flashcards from "./components/Flashcards";
 import FocusTimer from "./components/FocusTimer";
 import EverydayTools, {type Utility} from "./components/EverydayTools";
 import ToolLaunchpad, {LOCAL_TOOLS} from "./components/ToolLaunchpad";
 import CommonsDesk from "./components/CommonsDesk";
+import RecentResultsDesk from "./components/RecentResultsDesk";
+import IncomingTransferNotice from "./components/IncomingTransferNotice";
+import {recentOutputSnapshot,subscribeRecentOutputs} from "./lib/recentOutputs";
 import FileIntakeDesk from "./components/FileIntakeDesk";
 import BinaryCompareDesk from "./components/BinaryCompareDesk";
 import SystemHealthDesk from "./components/SystemHealthDesk";
@@ -44,10 +47,11 @@ import {
   persistWorkspace,
 } from "./lib/nativeStorage";
 
-type View = "binary-compare" | "system-health" | "file-intake" | "commons" | "local-ai" | "access" | "pdf-mini" | "charts" | "free-formats" | "workflows" | "office-privacy" | "media-files" | "universal-lab" | "universal-box" | "universal" | "quick-tools" | "external" | "all-tools" | "code" | "tables" | "overview" | "tasks" | "cards" | "focus" | "notes" | "utilities" | "data" | "files" | "math" | "learning" | "writing" | "drawing" | "reading" | "presets";
+type View = "recent-results" | "binary-compare" | "system-health" | "file-intake" | "commons" | "local-ai" | "access" | "pdf-mini" | "charts" | "free-formats" | "workflows" | "office-privacy" | "media-files" | "universal-lab" | "universal-box" | "universal" | "quick-tools" | "external" | "all-tools" | "code" | "tables" | "overview" | "tasks" | "cards" | "focus" | "notes" | "utilities" | "data" | "files" | "math" | "learning" | "writing" | "drawing" | "reading" | "presets";
 
 const menu: { id: View; name: string; symbol: string; description: string }[] = [
   { id: "overview", name: "Overview", symbol: "◫", description: "Your workspace at a glance" },
+  { id: "recent-results", name: "Recent Results / 成果直达", symbol: "↪", description: "Pass local tool outputs directly into nearby sharing, file inspection and comparisons" },
   { id: "system-health", name: "System Health / 启动与功能自检", symbol: "✚", description: "Test local app capabilities and export a private diagnostic report" },
   { id: "binary-compare", name: "Binary Compare / 双文件差异分析", symbol: "≠", description: "Exact local byte-by-byte file comparison with visual difference map" },
   { id: "file-intake", name: "File Intake / 统一文件工作台", symbol: "⇪", description: "Drop files, inspect true formats, SHA-256 hashes, duplicates and safe CSV inventory" },
@@ -84,7 +88,7 @@ const menu: { id: View; name: string; symbol: string; description: string }[] = 
 ];
 
 const navigationGroups:{title:string;items:View[]}[]=[
-  {title:"DISCOVER",items:["overview","file-intake","commons","access","all-tools","charts"]},
+  {title:"DISCOVER",items:["overview","recent-results","file-intake","commons","access","all-tools","charts"]},
   {title:"FILES & CREATION",items:["files","binary-compare","pdf-mini","free-formats","writing","drawing","tables"]},
   {title:"UNIVERSAL BOX",items:["quick-tools","universal","universal-box","universal-lab","media-files","office-privacy","workflows","utilities","external"]},
   {title:"STUDY & SCIENCE",items:["local-ai","math","learning","reading","cards","focus"]},
@@ -104,6 +108,7 @@ function taskSort(a: DeskTask, b: DeskTask): number {
 }
 
 export default function App() {
+  const recentOutputs=useSyncExternalStore(subscribeRecentOutputs,recentOutputSnapshot,recentOutputSnapshot);
   const [view, setView] = useState<View>("overview");
   const [toolMode,setToolMode] = useState("");
   const [theme,setTheme] = useState<"light"|"dark">(()=>{
@@ -140,7 +145,7 @@ export default function App() {
       ...menu.map(item=>({id:"view-"+item.id,name:item.name,description:item.description,view:item.id as string,module:undefined as string|undefined})),
       ...LOCAL_TOOLS.map(item=>({id:"tool-"+item.id,name:item.name,description:item.area,view:item.view,module:item.module})),
     ];
-    return (term?values.filter(item=>(item.name+" "+item.description).toLocaleLowerCase().includes(term)):values.filter(item=>["binary-compare","system-health","file-intake","all-tools","workflows","files","charts","office-privacy","free-formats"].includes(item.view))).slice(0,12);
+    return (term?values.filter(item=>(item.name+" "+item.description).toLocaleLowerCase().includes(term)):values.filter(item=>["recent-results","binary-compare","system-health","file-intake","all-tools","workflows","files","charts","office-privacy","free-formats"].includes(item.view))).slice(0,12);
   },[commandQuery]);
   useEffect(()=>{
     try{localStorage.setItem("universal-box-theme",theme);}catch{/* preferences are optional */}
@@ -386,6 +391,10 @@ export default function App() {
           <div className="topbar-title"><span className="topbar-location">WORKSPACE / {activeMenu.name}</span><strong>{activeMenu.name.split(" / ")[0]}</strong></div>
           <div className="topbar-actions">
             <button className="topbar-control topbar-search" type="button" title="Search tools (⌘/Ctrl+K)" onClick={()=>{setCommandOpen(true);setCommandQuery("");}}>⌕ <span>Find a tool</span> <kbd>⌘K</kbd></button>
+            <button className="topbar-control ub-results-topbar" type="button" aria-label={"Recent results: "+recentOutputs.length}
+             title="最近成果：直接交给其他工具" onClick={()=>openTool("recent-results")}>
+             ↪ <span>成果直达</span> <strong>{recentOutputs.length}</strong>
+            </button>
             <button className="topbar-control icon-control" type="button" onClick={()=>toggleFavorite(view)} title={favoriteViews.includes(view)?"Remove workspace favorite":"Favorite this workspace"}
               aria-label={favoriteViews.includes(view)?"Remove favorite":"Add workspace favorite"} aria-pressed={favoriteViews.includes(view)}>{favoriteViews.includes(view)?"★":"☆"}</button>
             <button className="topbar-control icon-control" type="button" onClick={()=>setTheme(previous=>previous==="light"?"dark":"light")}
@@ -394,7 +403,7 @@ export default function App() {
             </button>
             <button className="topbar-control topbar-access" type="button" onClick={()=>openTool("access")}
               aria-label="Open Universal Access: larger text, contrast and help" title="Accessibility & help">Aa <span>无障碍</span></button>
-            <span className="version-pill">v0.33</span>
+            <span className="version-pill">v0.35</span>
           </div>
         </header>
         <div id="main-content" className="content" tabIndex={-1}>
@@ -441,6 +450,12 @@ export default function App() {
                   <strong>安全分享与协作</strong><small>免费加密局域网传输 · 离线团队空间</small><span className="ub-home-fast-arrow">→</span>
                 </button>
               </div>
+            </div>
+            <div className="ub-results-home">
+              <div><strong>在软件内部直接接力</strong>
+               <p className="subtle">PDF、图片、图表等工具保存的结果，可直接送入文件检查、差异比较或附近 Mac 传输，无需重复寻找文件。</p>
+              </div>
+              <button type="button" className="primary-button" onClick={()=>openTool("recent-results")}>打开最近成果 ({recentOutputs.length}) →</button>
             </div>
             <div className="ub-compare-home">
              <span aria-hidden="true">≠</span>
@@ -490,6 +505,7 @@ export default function App() {
           {view === "notes" && <section className="panel"><p className="eyebrow">LOCAL NOTES</p><h2>Keep ideas close at hand.</h2><p className="subtle">Your notes are automatically saved in this application. Export backups in Backup & privacy.</p><label className="field-label" htmlFor="my-notes">My notebook</label><textarea id="my-notes" className="field text-editor" rows={20} maxLength={50000} placeholder="Capture a thought, write a draft or summarise a concept…" value={workspace.notes} onChange={(event) => setWorkspace((current) => ({ ...current, notes: event.target.value }))}/><p className="subtle">{workspace.notes.length.toLocaleString()} characters</p></section>}
           {view === "commons" && <CommonsDesk />}
           {view === "file-intake" && <FileIntakeDesk onOpenTool={openTool}/> }
+          {view === "recent-results" && <RecentResultsDesk onOpenTool={openTool}/> }
           {view === "binary-compare" && <BinaryCompareDesk onOpenTool={openTool}/> }
           {view === "system-health" && <SystemHealthDesk onOpenTool={openTool}/> }
           {view === "all-tools" && <ToolLaunchpad onLaunch={openTool} />}
@@ -520,6 +536,7 @@ export default function App() {
           <footer>UNIVERSAL BOX <span>Local-first desktop toolkit · powered by Daily Desk</span></footer>
         </div>
       </section>
+      {!commandOpen&&<IncomingTransferNotice activeView={view} onOpenCommons={()=>openTool("commons")}/>}
       {commandOpen&&<div className="command-backdrop" onMouseDown={()=>setCommandOpen(false)}>
         <div className="command-dialog" ref={commandDialogRef} role="dialog" aria-modal="true" aria-label="Search all Universal Box tools"
           onMouseDown={event=>event.stopPropagation()}

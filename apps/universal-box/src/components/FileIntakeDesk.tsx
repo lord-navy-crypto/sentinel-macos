@@ -1,6 +1,7 @@
 import {useEffect,useRef,useState,type ChangeEvent,type DragEvent} from "react";
 import {exportFile} from "../lib/output";
 import {preflightFiles} from "../lib/intakePreflight";
+import {consumeHandoff,subscribeRecentOutputs} from "../lib/recentOutputs";
 import {
  compareChecksumManifest,createChecksumManifest,parseChecksumManifest,
  type ChecksumEntry,type ComparisonStatus
@@ -41,6 +42,15 @@ export default function FileIntakeDesk({onOpenTool}:Props){
  const compareLabels:Record<ComparisonStatus,string>={
   match:"通过",changed:"内容改变",missing:"未找到",ambiguous:"文件名重复",extra:"未在清单中"
  };
+ useEffect(()=>{
+  const importSavedResult=()=>{
+   const file=consumeHandoff("file-intake");
+   if(file)stage([file]);
+  };
+  const unsubscribe=subscribeRecentOutputs(importSavedResult);
+  importSavedResult();
+  return unsubscribe;
+ },[]);
  function stage(incoming:File[]){
   if(busy||!incoming.length)return;
   setStaged(incoming);

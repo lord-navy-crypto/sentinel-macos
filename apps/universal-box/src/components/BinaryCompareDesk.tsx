@@ -5,10 +5,11 @@ import {
  type BinaryCompareResult,type CompareProgress,
 } from "../lib/binaryCompare";
 import {sizeLabel} from "../lib/fileIntake";
+import {consumeHandoff,subscribeRecentOutputs,getCompareSlot,setCompareSlot} from "../lib/recentOutputs";
 
 export default function BinaryCompareDesk({onOpenTool}:{onOpenTool:(view:string,module?:string)=>void}){
- const [left,setLeft]=useState<File|null>(null);
- const [right,setRight]=useState<File|null>(null);
+ const [left,setLeft]=useState<File|null>(()=>getCompareSlot("left"));
+ const [right,setRight]=useState<File|null>(()=>getCompareSlot("right"));
  const [result,setResult]=useState<BinaryCompareResult|null>(null);
  const [progress,setProgress]=useState<CompareProgress>({done:0,total:0});
  const [working,setWorking]=useState(false);
@@ -18,8 +19,20 @@ export default function BinaryCompareDesk({onOpenTool}:{onOpenTool:(view:string,
  useEffect(()=>()=>{controller.current?.abort();},[]);
  function choose(side:"left"|"right",file?:File){
   setResult(null);setMessage("");
+  setCompareSlot(side,file??null);
   if(side==="left")setLeft(file??null);else setRight(file??null);
  }
+ useEffect(()=>{
+  const acceptSavedResult=()=>{
+   const first=consumeHandoff("binary-left");
+   if(first)choose("left",first);
+   const second=consumeHandoff("binary-right");
+   if(second)choose("right",second);
+  };
+  const unsubscribe=subscribeRecentOutputs(acceptSavedResult);
+  acceptSavedResult();
+  return unsubscribe;
+ },[]);
  function pick(event:ChangeEvent<HTMLInputElement>,side:"left"|"right"){
   const selected=event.currentTarget.files?.[0];event.currentTarget.value="";
   if(selected)choose(side,selected);
