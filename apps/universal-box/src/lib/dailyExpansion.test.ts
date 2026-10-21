@@ -11,14 +11,14 @@ describe("real offline printable layouts",()=>{
   expect(result).toContain("Learning &amp; Science");
   expect(result).toContain("Build &lt;prototype&gt;");
   expect(result).not.toContain("<prototype>");
-  expect((result.match(/<rect x="/g)||[])).toHaveLength(8);
+  expect((result.match(/<rect x="[^"]+" y="[^"]+" width="[^"]+" height="[^"]+" rx="/g)||[])).toHaveLength(8);
   expect(parsePrintItems(base)).toHaveLength(3);
  });
  it("supports distinct label and ticket layouts with fixed printable limits",()=>{
   const label=renderPrintSheet({...base,template:"labels",items:"Box A\nBox B"});
   const tickets=renderPrintSheet({...base,template:"tickets",items:"Visitor A\nVisitor B"});
-  expect((label.match(/<rect x="/g)||[])).toHaveLength(24);
-  expect((tickets.match(/<rect x="/g)||[])).toHaveLength(10);
+  expect((label.match(/<rect x="[^"]+" y="[^"]+" width="[^"]+" height="[^"]+" rx="/g)||[])).toHaveLength(24);
+  expect((tickets.match(/<rect x="[^"]+" y="[^"]+" width="[^"]+" height="[^"]+" rx="/g)||[])).toHaveLength(10);
   expect(()=>parsePrintItems({...base,template:"cards",items:Array(9).fill("card").join("\n")})).toThrow(/1–8/);
   expect(()=>parsePrintItems({...base,title:""})).toThrow(/Title/);
   expect(()=>parsePrintItems({...base,items:"X".repeat(91)})).toThrow(/90/);
