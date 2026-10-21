@@ -2,7 +2,7 @@
 export type JsonAudit={typeScript:string;paths:string;valueCount:number;arrayCount:number;objectCount:number;maxDepth:number};
 type Tracker={values:number;arrays:number;objects:number;depth:number;paths:string[]};
 const identifier=/^[A-Za-z_$][\w$]*$/u;
-const prop=(key:string)=>identifier.test(key)?key:JSON.stringify(key);
+const prop=(key:string)=>identifier.test(key)&&!["__proto__","prototype","constructor"].includes(key)?key:JSON.stringify(key);
 function inspect(node:unknown,path:string,depth:number,ctx:Tracker):string{
  if(depth>11)throw Error("JSON nesting exceeds 11 levels.");
  if(++ctx.values>4000)throw Error("JSON contains too many nodes.");
