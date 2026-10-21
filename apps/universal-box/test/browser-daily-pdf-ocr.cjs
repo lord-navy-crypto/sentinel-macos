@@ -45,7 +45,7 @@ test("PDF compression UI measures a real PDF and exports a verifiable smaller do
 test("Screen-capture-to-OCR UI is real-native-only, never simulates extracted text in Chromium",{timeout:50000},async()=>{
  const session=await start();
  try{
-  await navigate(session.page,"Screenshot OCR & Copy");
+  await navigate(session.page,"Screen Frame Capture");
   await session.page.locator('[data-testid="vision-capture-ocr-copy"]').waitFor();
   assert.equal(await session.page.locator('[data-testid="vision-capture-ocr-copy"]').isDisabled(),true);
   assert.equal(await session.page.locator('[data-testid="vision-run-ocr"]').isDisabled(),true);
