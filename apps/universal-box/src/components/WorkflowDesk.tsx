@@ -154,7 +154,7 @@ export default function WorkflowDesk({initialMode="zip-selective"}:{initialMode?
    }
  }
  return <section className="panel">
-   <p className="eyebrow">UNIVERSAL BOX · BATCH WORKFLOWS</p>
+   <p className="eyebrow">SENTINEL BOX · BATCH WORKFLOWS</p>
    <h2>Workflow Studio / 批处理工作室</h2>
    <p className="subtle">Two real offline workflows: safely extract selected ZIP contents into a new ZIP, or resize → convert → rename → bundle images in one operation. No hidden server calls, automatic overwrites or background directory access.</p>
    <div className="pill-row" role="group" aria-label="Batch workflow">
