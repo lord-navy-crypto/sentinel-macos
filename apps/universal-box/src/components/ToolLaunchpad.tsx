@@ -2,6 +2,12 @@ import {useEffect,useMemo,useState} from "react";
 
 export type LocalTool = {id:string;name:string;area:string;view:string;module?:string};
 export const LOCAL_TOOLS:LocalTool[] = [
+ {id:"docx-content-extract",name:"Word DOCX Inspector · 段落提取与图片 ZIP 导出",area:"Office",view:"extra-studio",module:"office"},
+ {id:"pptx-content-extract",name:"PowerPoint PPTX Reader · 读取讲稿文字和媒体资源",area:"Office",view:"extra-studio",module:"office"},
+ {id:"video-frame-export",name:"Video Frame Extractor · 视频单帧 PNG 截图",area:"Media",view:"extra-studio",module:"video"},
+ {id:"video-storyboard",name:"Video Storyboard Sheet · 自动生成 6 帧分镜图",area:"Media",view:"extra-studio",module:"video"},
+ {id:"mindmap-create",name:"Mind Map Generator · 思维导图 SVG 导出",area:"Creative",view:"extra-studio",module:"diagrams"},
+ {id:"timeline-create",name:"Milestone Timeline Maker · 项目时间线",area:"Creative",view:"extra-studio",module:"diagrams"},
  {id:"word-templates",name:"Word DOCX Templates · 免费邀请函、会议纪要、信件生成",area:"Office",view:"creative-studio",module:"word"},
  {id:"pptx-deck-maker",name:"PowerPoint PPTX Creator · 大纲 → 可编辑幻灯片",area:"Creative",view:"creative-studio",module:"slides"},
  {id:"poster-maker",name:"Free Poster & Invitation Maker · 海报与活动宣传",area:"Creative",view:"creative-studio",module:"design"},
