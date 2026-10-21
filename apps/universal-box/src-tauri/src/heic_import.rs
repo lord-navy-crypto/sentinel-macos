@@ -22,7 +22,7 @@ fn looks_like_heic(bytes: &[u8]) -> bool {
     }
     bytes[8..bytes.len().min(64)]
         .chunks_exact(4)
-        .any(|brand| matches!(brand, b"heic" | b"heix" | b"hevc" | b"hevx" | b"heim" | b"heis"))
+        .any(|brand| [b"heic".as_slice(), b"heix", b"hevc", b"hevx", b"heim", b"heis"].contains(&brand))
 }
 
 fn check_png(data: &[u8]) -> Result<(), String> {
@@ -133,6 +133,28 @@ mod tests {
         assert!(looks_like_heic(b"\0\0\0\x18ftypheic\0\0\0\0heic"));
         assert!(looks_like_heic(b"\0\0\0\x18ftypmif1\0\0\0\0heix"));
     }
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn real_macos_sips_heic_roundtrip_from_png_fixture() {
+        use base64::{engine::general_purpose::STANDARD, Engine as _};
+        let fixture = STANDARD.decode("iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAIAAAD8GO2jAAAALUlEQVR4nGNMqd3CQEvARFPTRy0YtWDUglELRi0YtWDUglELRi0YtWDUAioCALxyAdUsiO3BAAAAAElFTkSuQmCC").unwrap();
+        let work = temporary_folder().expect("Secure HEIC test directory");
+        let png_path = work.0.join("input.png");
+        let heic_path = work.0.join("converted.heic");
+        fs::write(&png_path, fixture).unwrap();
+        let run = std::process::Command::new("/usr/bin/sips")
+            .arg("-s").arg("format").arg("heic")
+            .arg(&png_path).arg("--out").arg(&heic_path)
+            .output().expect("macOS sips is installed");
+        assert!(run.status.success(), "macOS cannot create HEIC fixture");
+        let input = fs::read(&heic_path).unwrap();
+        assert!(looks_like_heic(&input), "HEIC fixture must have HEIC image signature");
+        let decoded = convert_heic(&input).expect("Native selected HEIC -> PNG conversion");
+        check_png(&decoded).expect("Decoded real PNG file");
+        assert_eq!(u32::from_be_bytes(decoded[16..20].try_into().unwrap()), 32);
+        assert_eq!(u32::from_be_bytes(decoded[20..24].try_into().unwrap()), 32);
+    }
+
     #[test]
     fn validates_png_bytes_and_bounded_image_dimensions() {
         let mut data = Vec::new();
