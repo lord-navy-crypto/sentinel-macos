@@ -36,7 +36,7 @@ export function parseChecksumManifest(text:string):ChecksumEntry[]{
  let raw:unknown;
  try{raw=JSON.parse(text) as unknown;}catch{throw Error("Invalid JSON checksum manifest.");}
  if(!isObject(raw)||raw.schema!==SCHEMA||raw.version!==1||raw.algorithm!=="SHA-256")
-  throw Error("Not a supported Universal Box checksum manifest v1.");
+  throw Error("Not a supported Sentinel Box checksum manifest v1.");
  return validateEntries(raw.entries);
 }
 export function compareChecksumManifest(expected:ChecksumEntry[],actual:FileInspection[]):ComparisonResult{
