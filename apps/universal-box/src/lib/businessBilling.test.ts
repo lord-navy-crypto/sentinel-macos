@@ -37,7 +37,7 @@ describe("Business billing planning, grouping and exact cents",()=>{
   expect(()=>parseBusinessBilling(base+"\n"+row.replace("12.00","12.001"),seller)).toThrow(/up to 2 decimal/);
   expect(()=>parseBusinessBilling(base+"\n"+row.replace(",1,12.00",",-2,12.00"),seller)).toThrow(/positive/);
   expect(()=>parseBusinessBilling(base+"\n"+row.replace(",12.00,0",",12.00,101"),seller)).toThrow(/100%/);
-  expect(()=>parseBusinessBilling(base.replace("client_address","client"),seller)).toThrow(/headings/);
+  expect(()=>parseBusinessBilling(base.replace("client_address","client")+"\n"+row,seller)).toThrow(/headings/);
  });
  it("supports Chinese Unicode editable-Word data without a broken PDF",()=>{
   const cn=base+"\nCN-01,quote,北京客户,北京市,2026-10-21,2026-11-01,CNY,,软件研发,2,100.00,0";
