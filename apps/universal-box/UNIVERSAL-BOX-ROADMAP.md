@@ -173,3 +173,8 @@ These are first accessibility steps, not universal WCAG 2.2 AA certification. Te
 - Prioritize real-hardware Mac acceptance of WebGPU and WebLLM download/cache before declaring native-WebView inference proven. The web browser path should be tested separately.
 - Follow-up: if WebGPU inside the macOS WebView remains unreliable, consider a dedicated secure browser-hosted Local AI page or Apple Silicon Metal-native engine; this is outside v0.29.
 - Other future work (OCR/office/application planners) stays independent of the AI port.
+
+
+## Sentinel Box v0.44 implementation candidate — 2026-10-21
+
+Roadmap-aligned Office/Data/Text production batch operations are now tracked in `docs/OFFICE-DATA-BATCH-044-QA.md` and PR #70. These supplement, rather than replace, existing modules: CSV to multiple editable DOCX mail-merge documents, two-CSV exact key joins (inner/left/full), and literal replacement across selected UTF-8 files with changed-only ZIP export. Mark as shipped only after frontend/browser checks, both macOS DMG builds and Sentinel validation pass. The original queue above remains historical.
