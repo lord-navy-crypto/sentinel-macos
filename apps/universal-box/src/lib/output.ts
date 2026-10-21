@@ -5,6 +5,8 @@ const MIME: Record<string, string> = {
   pdf: "application/pdf",
   txt: "text/plain;charset=utf-8",
   md: "text/markdown;charset=utf-8",
+  ts: "text/plain;charset=utf-8",
+  tsv: "text/tab-separated-values;charset=utf-8",
   csv: "text/csv;charset=utf-8",
   json: "application/json",
   png: "image/png",
