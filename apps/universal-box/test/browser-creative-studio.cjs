@@ -84,3 +84,18 @@ test("poster/certificate design exports safe XML SVG with layout variant",{timeo
   assert.match(svg,/<text /);
  }finally{await cleanup(s,"poster-screen.png");}
 });
+
+test("real flowchart steps export directional SVG shapes and escaped text",{timeout:60000},async()=>{
+ const s=await setup();
+ try{
+  await openTool(s.page,"Flowchart Maker");
+  await s.page.locator('[data-testid="creative-flow-title"]').fill("Flow & Work");
+  await s.page.locator('[data-testid="creative-flow-steps"]').fill("Collect\nDesign <safe>\nPublish");
+  assert.ok(await s.page.locator('[data-testid="creative-flow-preview"]').isVisible());
+  const svg=(await save(s.page,'[data-testid="creative-flow-export"]',"flowchart.svg")).toString("utf8");
+  assert.match(svg,/Flow &amp; Work/);
+  assert.match(svg,/Design &lt;safe&gt;/);
+  assert.equal((svg.match(/<rect x="170"/g)||[]).length,3);
+  assert.equal((svg.match(/<path d="M 500/g)||[]).length,2);
+ }finally{await cleanup(s,"flowchart-screen.png");}
+});
