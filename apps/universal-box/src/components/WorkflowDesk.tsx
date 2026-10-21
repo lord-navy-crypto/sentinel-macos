@@ -1,5 +1,6 @@
 import {type ChangeEvent,useMemo,useState} from "react";
 import UnifiedWorkflowPanel from "./UnifiedWorkflowPanel";
+import SheetClipDesk,{type SheetClipMode} from "./SheetClipDesk";
 import QualityReviewDesk,{type QualityMode} from "./QualityReviewDesk";
 import OfficeDataBatchPanel, {type OfficeDataMode} from "./OfficeDataBatchPanel";
 import JSZip from "jszip";
@@ -12,8 +13,10 @@ import {
 } from "../lib/imageWorkflow";
 import {planQuickZip} from "../lib/quickZipPack";
 
-export type WorkflowMode="word-diff"|"wav-silence"|"pdf-audit"|"unified"|"mail-merge"|"csv-key-join"|"text-file-batch"|"zip-selective"|"image-batch"|"zip-pack";
+export type WorkflowMode="sheet-select"|"clip-basket"|"word-diff"|"wav-silence"|"pdf-audit"|"unified"|"mail-merge"|"csv-key-join"|"text-file-batch"|"zip-selective"|"image-batch"|"zip-pack";
 const TABS:{id:WorkflowMode;label:string}[]=[
+ {id:"sheet-select",label:"Excel 多工作表转 CSV"},
+ {id:"clip-basket",label:"多段文字收集篮"},
  {id:"word-diff",label:"Word 文本差异对比"},
  {id:"wav-silence",label:"WAV 自动静音裁剪"},
  {id:"pdf-audit",label:"PDF 批量页面审计"},
@@ -171,6 +174,7 @@ export default function WorkflowDesk({initialMode="zip-selective"}:{initialMode?
      {TABS.map(item=><button className={item.id===mode?"pill active-pill":"pill"} type="button" key={item.id} onClick={()=>{setMode(item.id);setStatus("");}}>{item.label}</button>)}
    </div>
    {mode==="unified"&&<UnifiedWorkflowPanel/>}
+   {(["sheet-select","clip-basket"] as WorkflowMode[]).includes(mode)&&<SheetClipDesk mode={mode as SheetClipMode}/>}
    {(["word-diff","wav-silence","pdf-audit"] as WorkflowMode[]).includes(mode)&&<QualityReviewDesk mode={mode as QualityMode}/>}
    {(["mail-merge","csv-key-join","text-file-batch"] as WorkflowMode[]).includes(mode)&&<OfficeDataBatchPanel mode={mode as OfficeDataMode}/>}
    {mode==="zip-pack"&&<>
