@@ -1,7 +1,7 @@
 import {describe,expect,it} from "vitest";
 import JSZip from "jszip";
 import {
- exportWordTemplate,fillWordTemplate,parseSlideOutline,exportSlideDeck,renderCreativeSvg,
+ exportWordTemplate,fillWordTemplate,parseSlideOutline,exportSlideDeck,renderCreativeSvg,renderFlowchartSvg,
  type SlideDeckInput,type WordTemplateInput,
 } from "./creativeStudio";
 
@@ -56,6 +56,15 @@ describe("Free creative studio: real native file exports",()=>{
   expect(()=>parseSlideOutline({...deck,outline:"## Long\n"+Array(8).fill("- text").join("\n")})).toThrow(/Maximum 7/);
   expect(()=>parseSlideOutline({...deck,title:""})).toThrow(/title/);
   expect(()=>parseSlideOutline({...deck,theme:"unknown" as SlideDeckInput["theme"]})).toThrow(/Unknown creative theme/);
+ });
+ it("renders a real SVG flowchart with arrows and bounded escaped steps",()=>{
+  const diagram=renderFlowchartSvg({title:"Research & Build",steps:"Plan\nDesign <script>\nDeliver",theme:"forest"});
+  expect(diagram).toContain("Research &amp; Build");
+  expect(diagram).toContain("Design &lt;script&gt;");
+  expect(diagram).not.toContain("<script");
+  expect((diagram.match(/<rect x="170"/gu)||[])).toHaveLength(3);
+  expect((diagram.match(/<path d="M 500/gu)||[])).toHaveLength(2);
+  expect(()=>renderFlowchartSvg({title:"Project",steps:Array(13).fill("Step").join("\n"),theme:"forest"})).toThrow(/1–12/);
  });
  it("generates three different SVG ratios with no active user HTML",()=>{
   for(const [format,w,h] of [["poster",900,1200],["certificate",900,650],["social",1200,675]] as const){
