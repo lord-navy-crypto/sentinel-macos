@@ -115,7 +115,7 @@ export const LOCAL_TOOLS:LocalTool[] = [
  {id:"code-board",name:"Saved Code Snippets",area:"Code",view:"learning",module:"code"},
  {id:"json",name:"JSON Formatter",area:"Text",view:"utilities",module:"json"},
  {id:"base64",name:"Base64 / URL Encode",area:"Text",view:"utilities",module:"encode"},
- {id:"word-count",name:"Word Counter",area:"Text",view:"utilities",module:"stats"},
+ {id:"word-count",name:"Character & Word Counter · Unicode 字符字母单词统计",area:"Text",view:"utilities",module:"stats"},
  {id:"text-diff",name:"Text Comparator",area:"Text",view:"utilities",module:"diff"},
  {id:"csv",name:"CSV → Markdown",area:"Text",view:"utilities",module:"csv"},
  {id:"csv-batch-merge",name:"Merge Multiple CSV Tables · 多张表格合并",area:"Data",view:"tables"},
