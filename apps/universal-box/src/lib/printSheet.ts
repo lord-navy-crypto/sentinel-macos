@@ -27,7 +27,7 @@ function text(s:string,x:number,y:number,size:number,color:string,weight=400):st
 function wrap(s:string,limit:number,maxLines=3):string[]{
  let chars=Array.from(s);const lines:string[]=[];
  while(chars.length&&lines.length<maxLines){
-  if(chars.length<=limit){lines.push(chars.join(""));break;}
+  if(chars.length<=limit){lines.push(chars.join(""));chars=[];break;}
   let cut=limit;const prefix=chars.slice(0,limit).join("");const split=prefix.lastIndexOf(" ");
   if(split>Math.floor(limit/2))cut=split;
   lines.push(chars.slice(0,cut).join("").trim());
