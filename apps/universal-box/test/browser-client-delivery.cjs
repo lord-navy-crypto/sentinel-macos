@@ -49,6 +49,31 @@ test("Real selected client files are ZIP-packaged, SHA256/CRC verified and safel
   const checksums=await zip.file("reports/checksums.sha256").async("string");
   assert.match(checksums,/[0-9a-f]{64} \*files\/001-terms.txt/);
   assert.match(await page.locator('[data-testid="delivery-progress"]').innerText(),/verification complete/i);
+  // Receiver mode: open exactly the produced package, then verify an altered re-packed copy.
+  await page.locator('[data-testid="delivery-received-zip"]').setInputFiles({
+   name:"verified-delivery.zip",mimeType:"application/zip",buffer:fs.readFileSync(file)
+  });
+  await page.locator('[data-testid="delivery-verify-received"]').click();
+  const good=page.locator('[data-testid="delivery-receive-result"]');
+  await good.waitFor({timeout:25000});
+  assert.match(await good.innerText(),/Content matches/);
+  assert.match(await page.locator('[data-testid="delivery-receive-counts"]').innerText(),/匹配：2/);
+  assert.equal(await page.locator('[data-testid="delivery-receive-check"]').count(),2);
+  const pendingReceipt=page.waitForEvent("download",{timeout:30000});
+  await page.locator('[data-testid="delivery-save-receipt"]').click();
+  const receiptFile=path.join(out,"delivery-verification-receipt.txt");
+  await (await pendingReceipt).saveAs(receiptFile);
+  assert.match(fs.readFileSync(receiptFile,"utf8"),/RESULT: CONTENT MATCH/);
+  const edited=await JSZip.loadAsync(fs.readFileSync(file));
+  edited.file("files/001-terms.txt","Terms and delivery NOTES"); // same length, fresh valid ZIP CRC
+  const tampered=await edited.generateAsync({type:"nodebuffer",compression:"DEFLATE"});
+  await page.locator('[data-testid="delivery-received-zip"]').setInputFiles({
+   name:"altered-delivery.zip",mimeType:"application/zip",buffer:tampered
+  });
+  await page.locator('[data-testid="delivery-verify-received"]').click();
+  assert.match(await page.locator('[data-testid="delivery-receive-result"]').innerText(),/Mismatches found/);
+  assert.match(await page.locator('[data-testid="delivery-receive-counts"]').innerText(),/内容改变：1/);
+
   await page.locator('[data-testid="delivery-recipient"]').fill("");
   await page.locator('[data-testid="delivery-error"]').waitFor();
   assert.equal(await page.locator('[data-testid="delivery-export"]').count(),0);
