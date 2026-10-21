@@ -30,7 +30,7 @@ export function recentOutputSnapshot():RecentOutput[]{return snapshot;}
 export function hasRecentOutputs():boolean{return snapshot.length>0;}
 export function addRecentOutput(name:string,input:Uint8Array):boolean{
  if(input.byteLength===0||input.byteLength>MAX_HANDOFF_BYTES||!name||name.length>255)return false;
- if(/[\u0000-\u001f\u007f]/u.test(name))return false;
+ if(/[\/\\\u0000-\u001f\u007f]/u.test(name))return false;
  const copy=Uint8Array.from(input);
  const value:StoredOutput={id:nextId++,name,size:copy.length,createdAt:Date.now(),bytes:copy};
  records=[value,...records];
