@@ -1,8 +1,8 @@
 [package]
 name = "daily-desk"
 version = "0.36.0"
-description = "Daily Desk study and productivity desktop application"
-authors = ["Daily Desk contributors"]
+description = "Sentinel Box offline-first macOS productivity toolbox"
+authors = ["Sentinel Box contributors"]
 edition = "2021"
 
 [lib]
