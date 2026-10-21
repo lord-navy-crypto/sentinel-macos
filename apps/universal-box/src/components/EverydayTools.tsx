@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
+import TextCounterMetrics from "./TextCounterMetrics";
 import QRCode from "qrcode";
 import JSZip from "jszip";
 import { exportFile } from "../lib/output";
@@ -9,7 +10,7 @@ import MarkdownConvertDesk from "./MarkdownConvertDesk";
 export type Utility = "json" | "stats" | "csv" | "diff" | "markdown" | "encode" | "groups" | "color" | "qr" | "rename";
 export const UTILITIES: { id: Utility; title: string; description: string }[] = [
   { id: "json", title: "JSON formatter", description: "Validate, pretty print or minify JSON." },
-  { id: "stats", title: "Word count & reading time", description: "Words, characters, paragraphs, sentences, reading time." },
+  { id: "stats", title: "Character & Word Counter · 字符字母字数统计", description: "Unicode characters, Latin letters, Han characters, words, Emoji, selections, length limits and local reports." },
   { id: "csv", title: "CSV → Markdown", description: "Convert correctly quoted CSV/TSV into a Markdown table." },
   { id: "diff", title: "Text comparator", description: "Aligned line differences, highlighted words and similarity." },
   { id: "markdown", title: "Markdown ↔ plain text", description: "Two-way conversion, links, copy, swap and export." },
@@ -104,6 +105,7 @@ function fromBase64(value: string): string {
 export default function EverydayTools({ initial = "stats" }: { initial?: Utility }) {
   const [tab,setTab] = useState<Utility>(initial);
   const [input,setInput] = useState("");
+  const [selectedText,setSelectedText] = useState("");
   const [other,setOther] = useState("");
   const [output,setOutput] = useState("");
   const [status,setStatus] = useState("");
@@ -121,12 +123,6 @@ export default function EverydayTools({ initial = "stats" }: { initial?: Utility
   const [start,setStart] = useState(1);
   const [renameBusy,setRenameBusy] = useState(false);
 
-  const stats = useMemo(() => {
-    const words=input.trim()?input.trim().split(/\s+/u).length:0;
-    const sentences=(input.match(/[.!?。！？]+/gu)??[]).length;
-    const paragraphs=input.trim()?input.trim().split(/\n\s*\n/u).length:0;
-    return {words,sentences,paragraphs,characters:input.length,lines:input?input.split(/\r?\n/u).length:0,reading:Math.ceil(words/200)};
-  },[input]);
   const renamed=files.map((file,i)=>{
     const extIndex=file.name.lastIndexOf(".");
     const ext=extIndex>0?file.name.slice(extIndex):"";
@@ -235,12 +231,12 @@ export default function EverydayTools({ initial = "stats" }: { initial?: Utility
         <div className="task-list">{renamed.map(({file,filename},i)=><div key={i} className="task-row"><span className="task-copy">{file.name} → {filename}</span><button type="button" className="secondary-button" onClick={()=>{void renameFile(file,filename).catch(e=>setStatus(String(e)));}}>Save copy</button></div>)}</div>
       </>:<>
         <label className="field-label" htmlFor="utility-input">{tab==="groups"?"Names, separated by lines or commas":tab==="csv"?"CSV or TSV data":tab==="qr"?"URL or text":"Enter text"}</label>
-        <textarea className="field text-editor" id="utility-input" rows={6} value={input} onChange={e=>setInput(e.target.value)} />
+        <textarea className="field text-editor" id="utility-input" rows={tab==="stats"?10:6} maxLength={tab==="stats"?1000000:undefined} value={input} onSelect={e=>{if(tab==="stats")setSelectedText(input.slice(e.currentTarget.selectionStart,e.currentTarget.selectionEnd));}} onMouseUp={e=>{if(tab==="stats")setSelectedText(input.slice(e.currentTarget.selectionStart,e.currentTarget.selectionEnd));}} onKeyUp={e=>{if(tab==="stats")setSelectedText(input.slice(e.currentTarget.selectionStart,e.currentTarget.selectionEnd));}} onChange={e=>{setInput(e.target.value);setSelectedText("");}} />
         {tab==="csv"&&<div className="actions"><label className="field-label" htmlFor="csv-file-import">Import CSV or TSV<input type="file" id="csv-file-import" className="field" accept=".csv,.tsv,text/csv,text/tab-separated-values" onChange={e=>{const file=e.target.files?.[0];if(file){if(file.size>2_000_000){setStatus("Maximum CSV import is 2 MB.");return;}void file.text().then(t=>{setInput(t);setStatus("Loaded CSV locally");}).catch(x=>setStatus(String(x)));}e.target.value="";}} /></label><label>Delimiter <select className="field" value={delimiter} onChange={e=>setDelimiter(e.target.value as "," | "\t")}><option value=",">Comma</option><option value="\t">Tab</option></select></label><label><input type="checkbox" checked={header} onChange={e=>setHeader(e.target.checked)}/> First row is header</label></div>}
         {tab==="json"&&<div className="actions"><button type="button" className="secondary-button" onClick={()=>{try{setOutput(JSON.stringify(JSON.parse(input) as unknown));setStatus("");}catch(e){setStatus(String(e));}}}>Minify JSON</button></div>}
         {tab==="encode"&&<div className="actions"><label>Encoding <select className="field" value={codec} onChange={e=>setCodec(e.target.value as "base64"|"url")}><option value="base64">Base64 (UTF-8)</option><option value="url">URL component</option></select></label></div>}
         {tab==="groups"&&<><label className="field-label">People per group <input type="number" className="field" min={1} max={50} value={groupSize} onChange={e=>setGroupSize(Math.max(1,Math.min(50,Number(e.target.value)||1)))}/></label><button type="button" className="secondary-button" onClick={()=>{const names=input.split(/\r?\n|,/u).map(s=>s.trim()).filter(Boolean);setOutput(names.length ? "Random pick: "+shuffle(names)[0] : "Enter names first.");setStatus("");}}>Pick one randomly</button></>}
-        {tab==="stats"?<div className="metrics"><span>{stats.words} words</span><span>{stats.characters} characters</span><span>{stats.sentences} sentences</span><span>{stats.paragraphs} paragraphs</span><span>{stats.lines} lines</span><span>~{stats.reading} min read</span></div>:<div className="actions">
+        {tab==="stats"?<TextCounterMetrics text={input} selected={selectedText} onImport={t=>{setInput(t);setSelectedText("");}}/>:<div className="actions">
           {tab==="qr"?<button type="button" className="primary-button" onClick={()=>{void makeQr();}}>Generate QR</button>:<button type="button" className="primary-button" onClick={compute}>Convert / compare</button>}
           {tab==="encode"&&<button type="button" className="secondary-button" onClick={()=>{try{setOutput(codec==="url"?decodeURIComponent(input):fromBase64(input));setStatus("");}catch(e){setStatus("Decode error: "+String(e));}}}>Decode</button>}
         </div>}
