@@ -971,3 +971,26 @@ pre { white-space:pre-wrap; word-break:break-word; }
  .ub-results-actions button{flex:1;min-width:130px;}
  .ub-results-file{flex-wrap:wrap;}
  .ub-results-topbar>span{display:none;}}
+
+
+/* In-app approval visible while a person is editing any other Universal Box document. */
+.ub-transfer-notice{position:fixed;bottom:20px;right:20px;z-index:70;width:min(440px,calc(100vw - 32px));
+ max-height:min(76vh,670px);overflow:auto;background:var(--ub-panel);border:1px solid var(--ub-border);
+ border-radius:16px;padding:18px;box-shadow:0 14px 48px rgba(8,20,42,.22);}
+.ub-transfer-notice-title{display:flex;justify-content:space-between;gap:10px;align-items:center;}
+.ub-transfer-notice-title strong{font-size:14px;color:var(--ub-text);}
+.ub-transfer-notice-title button{white-space:nowrap;font-size:11px;}
+.ub-transfer-request{background:var(--ub-subtle);padding:13px;border:1px solid var(--ub-border);
+ border-radius:12px;margin:14px 0;}
+.ub-transfer-request strong,.ub-transfer-received strong{font-size:13px;}
+.ub-transfer-request .subtle{font-size:11px;margin:8px 0;}
+.ub-transfer-code{font:800 32px ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums;
+ letter-spacing:.12em;text-align:center;padding:12px;background:var(--ub-tint);
+ color:var(--ub-primary);border-radius:11px;user-select:all;}
+.ub-transfer-request .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:13px;}
+.ub-transfer-request .actions button{flex:1;min-width:130px;}
+.ub-transfer-received{margin-top:14px;border-top:1px solid var(--ub-border);padding-top:12px;}
+.ub-transfer-received .subtle{font-size:11px;margin:7px 0;}
+@media(max-width:600px){.ub-transfer-notice{bottom:10px;right:10px;width:calc(100vw - 20px);
+ padding:13px;max-height:65vh;}}
+@media(prefers-reduced-motion:reduce){.ub-transfer-notice{transition:none;}}
