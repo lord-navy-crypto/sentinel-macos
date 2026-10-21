@@ -1,9 +1,9 @@
 {
-  "name": "daily-desk",
+  "name": "sentinel-box",
   "private": true,
   "version": "0.36.0",
   "type": "module",
-  "description": "A standalone local-first study and productivity desktop application.",
+  "description": "Sentinel Box: free offline-first macOS utilities for Office, media, local OCR, design, files and automation.",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
