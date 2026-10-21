@@ -17,9 +17,9 @@ export default function UtilityExpansionDesk({initialMode="annotate"}:{initialMo
  const [sheet,setSheet]=useState<PrintInput>({
   template:"cards",theme:"blue",title:"创意科学学习卡",
   items:"提出假设\n设计实验\n记录观察\n解释结果\n总结发现\n交流分享",
-  footer:"Universal Box · Original print template",
+  footer:"Sentinel Box · Original print template",
  });
- const [json,setJson]=useState('{\n  "project": "Universal Box",\n  "version": 1,\n  "enabled": true,\n  "contributors": [{"name": "Ada", "role": "designer"}, {"name": "Lin"}],\n  "tags": ["office", "creative"]\n}');
+ const [json,setJson]=useState('{\n  "project": "Sentinel Box",\n  "version": 1,\n  "enabled": true,\n  "contributors": [{"name": "Ada", "role": "designer"}, {"name": "Lin"}],\n  "tags": ["office", "creative"]\n}');
  const printPreview=useMemo(()=>{try{return {svg:renderPrintSheet(sheet),count:parsePrintItems(sheet).length,error:""};}
   catch(e){return {svg:"",count:0,error:err(e)};}},[sheet]);
  const jsonPreview=useMemo(()=>{try{return {report:auditJsonToTypescript(json),error:""};}
@@ -44,7 +44,7 @@ export default function UtilityExpansionDesk({initialMode="annotate"}:{initialMo
   }catch(e){setStatus("导出失败："+err(e));}
   finally{setBusy(false);}
  }
- return <section className="panel" aria-label="Universal Box daily creative and developer workbench">
+ return <section className="panel" aria-label="Sentinel Box daily creative and developer workbench">
   <p className="eyebrow">FREE · ORIGINAL · OFFLINE UTILITY TOOLS</p>
   <h2>Daily Utility Studio · 图片、打印与开发工具</h2>
   <p className="subtle">这些工具直接生成实用成果：标注图片并另存 PNG，生成真实 A4 尺寸卡片/标签，或从 JSON 生成 TypeScript 类型文件。所有处理都在本地完成，无订阅、无需登录。</p>
