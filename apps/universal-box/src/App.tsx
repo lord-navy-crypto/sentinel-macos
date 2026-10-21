@@ -4,6 +4,7 @@ import FocusTimer from "./components/FocusTimer";
 import EverydayTools, {type Utility} from "./components/EverydayTools";
 import ToolLaunchpad, {LOCAL_TOOLS} from "./components/ToolLaunchpad";
 import CommonsDesk from "./components/CommonsDesk";
+import WebCaptureHub from "./components/WebCaptureHub";
 import FileIntakeDesk from "./components/FileIntakeDesk";
 import BinaryCompareDesk from "./components/BinaryCompareDesk";
 import SystemHealthDesk from "./components/SystemHealthDesk";
@@ -44,10 +45,11 @@ import {
   persistWorkspace,
 } from "./lib/nativeStorage";
 
-type View = "binary-compare" | "system-health" | "file-intake" | "commons" | "local-ai" | "access" | "pdf-mini" | "charts" | "free-formats" | "workflows" | "office-privacy" | "media-files" | "universal-lab" | "universal-box" | "universal" | "quick-tools" | "external" | "all-tools" | "code" | "tables" | "overview" | "tasks" | "cards" | "focus" | "notes" | "utilities" | "data" | "files" | "math" | "learning" | "writing" | "drawing" | "reading" | "presets";
+type View = "web-capture" | "binary-compare" | "system-health" | "file-intake" | "commons" | "local-ai" | "access" | "pdf-mini" | "charts" | "free-formats" | "workflows" | "office-privacy" | "media-files" | "universal-lab" | "universal-box" | "universal" | "quick-tools" | "external" | "all-tools" | "code" | "tables" | "overview" | "tasks" | "cards" | "focus" | "notes" | "utilities" | "data" | "files" | "math" | "learning" | "writing" | "drawing" | "reading" | "presets";
 
 const menu: { id: View; name: string; symbol: string; description: string }[] = [
   { id: "overview", name: "Overview", symbol: "◫", description: "Your workspace at a glance" },
+  { id: "web-capture", name: "Web Capture & CSV Workshop / 网页捕获与表格清理", symbol: "⇣", description: "Bundled free browser extension, local CSV inspection and one-click safe export" },
   { id: "system-health", name: "System Health / 启动与功能自检", symbol: "✚", description: "Test local app capabilities and export a private diagnostic report" },
   { id: "binary-compare", name: "Binary Compare / 双文件差异分析", symbol: "≠", description: "Exact local byte-by-byte file comparison with visual difference map" },
   { id: "file-intake", name: "File Intake / 统一文件工作台", symbol: "⇪", description: "Drop files, inspect true formats, SHA-256 hashes, duplicates and safe CSV inventory" },
@@ -84,7 +86,7 @@ const menu: { id: View; name: string; symbol: string; description: string }[] = 
 ];
 
 const navigationGroups:{title:string;items:View[]}[]=[
-  {title:"DISCOVER",items:["overview","file-intake","commons","access","all-tools","charts"]},
+  {title:"DISCOVER",items:["overview","web-capture","file-intake","commons","access","all-tools","charts"]},
   {title:"FILES & CREATION",items:["files","binary-compare","pdf-mini","free-formats","writing","drawing","tables"]},
   {title:"UNIVERSAL BOX",items:["quick-tools","universal","universal-box","universal-lab","media-files","office-privacy","workflows","utilities","external"]},
   {title:"STUDY & SCIENCE",items:["local-ai","math","learning","reading","cards","focus"]},
@@ -394,7 +396,7 @@ export default function App() {
             </button>
             <button className="topbar-control topbar-access" type="button" onClick={()=>openTool("access")}
               aria-label="Open Universal Access: larger text, contrast and help" title="Accessibility & help">Aa <span>无障碍</span></button>
-            <span className="version-pill">v0.33</span>
+            <span className="version-pill">v0.36</span>
           </div>
         </header>
         <div id="main-content" className="content" tabIndex={-1}>
@@ -441,6 +443,11 @@ export default function App() {
                   <strong>安全分享与协作</strong><small>免费加密局域网传输 · 离线团队空间</small><span className="ub-home-fast-arrow">→</span>
                 </button>
               </div>
+            </div>
+            <div className="ub-companion-home">
+              <div><strong>新增 · 网页捕获 + 免费 CSV 清理</strong>
+                <p className="subtle">浏览器助手随桌面软件打包 · 选择表格 · 清理重复行 · 安全导出，不需要付费服务</p></div>
+              <button className="primary-button" type="button" onClick={()=>openTool("web-capture")}>打开网页捕获工作台 →</button>
             </div>
             <div className="ub-compare-home">
              <span aria-hidden="true">≠</span>
@@ -489,6 +496,7 @@ export default function App() {
           <div hidden={view !== "focus"}><FocusTimer /></div>
           {view === "notes" && <section className="panel"><p className="eyebrow">LOCAL NOTES</p><h2>Keep ideas close at hand.</h2><p className="subtle">Your notes are automatically saved in this application. Export backups in Backup & privacy.</p><label className="field-label" htmlFor="my-notes">My notebook</label><textarea id="my-notes" className="field text-editor" rows={20} maxLength={50000} placeholder="Capture a thought, write a draft or summarise a concept…" value={workspace.notes} onChange={(event) => setWorkspace((current) => ({ ...current, notes: event.target.value }))}/><p className="subtle">{workspace.notes.length.toLocaleString()} characters</p></section>}
           {view === "commons" && <CommonsDesk />}
+          {view === "web-capture" && <WebCaptureHub onOpenTool={openTool}/> }
           {view === "file-intake" && <FileIntakeDesk onOpenTool={openTool}/> }
           {view === "binary-compare" && <BinaryCompareDesk onOpenTool={openTool}/> }
           {view === "system-health" && <SystemHealthDesk onOpenTool={openTool}/> }
