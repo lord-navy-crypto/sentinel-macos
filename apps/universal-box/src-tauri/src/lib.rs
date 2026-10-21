@@ -2,6 +2,7 @@ mod commons_p2p;
 mod commons_lan;
 mod vision_ocr;
 mod native_speech;
+mod heic_import;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -179,6 +180,7 @@ pub fn run() {
             read_backup,
             write_output_file,
             vision_ocr::recognize_image_text,
+            heic_import::decode_heic_to_png,
             native_speech::transcribe_on_device_wav,
             commons_lan::commons_lan_start,
             commons_lan::commons_lan_stop,
