@@ -113,7 +113,7 @@ export function generateCalendarBatch(source:string,identifier:string):CalendarP
   if(!match)throw Error("Failed to generate event.");
   return match[0];
  }).join("");
- const ics="BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Universal Box//Offline Planner//EN\r\n"
+ const ics="BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Sentinel Box//Offline Planner//EN\r\n"
   +"CALSCALE:GREGORIAN\r\nMETHOD:PUBLISH\r\n"+body+"END:VCALENDAR\r\n";
  return {events,overlaps,ics};
 }
