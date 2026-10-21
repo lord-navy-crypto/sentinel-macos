@@ -83,7 +83,9 @@ export function parseBusinessBilling(raw:string,seller:SellerDetails):BillingBat
   const quantity=Number(rawQuantity.trim());
   if(!Number.isSafeInteger(quantity)||quantity<1||quantity>1000)throw Error("Quantity must be 1–1000 at line "+lineNumber+".");
   const unitCents=decimalUnits(rawPrice,"Unit price",1_000_000);
-  const taxBasisPoints=decimalUnits(rawTax,"Tax rate (%)",100)*1;
+  let taxBasisPoints:number;
+  try{taxBasisPoints=decimalUnits(rawTax,"Tax rate (%)",100);}
+  catch(e){if(/exceeds the allowed limit/.test(String(e)))throw Error("Tax rate cannot exceed 100%.");throw e;}
   if(taxBasisPoints>10_000)throw Error("Tax rate cannot exceed 100%.");
   const netCents=unitCents*quantity,taxCents=Math.round(netCents*taxBasisPoints/10_000);
   const totalCents=netCents+taxCents;
