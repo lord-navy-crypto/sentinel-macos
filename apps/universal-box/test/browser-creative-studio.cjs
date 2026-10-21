@@ -79,7 +79,8 @@ test("poster/certificate design exports safe XML SVG with layout variant",{timeo
   assert.ok(await s.page.locator('[data-testid="creative-design-preview"]').isVisible());
   const svg=(await save(s.page,'[data-testid="creative-svg-export"]',"certificate.svg")).toString("utf8");
   assert.match(svg,/viewBox="0 0 900 650"/);
-  assert.match(svg,/Achievement &amp; Growth/);
+  assert.match(svg,/Achievement &amp;/);
+  assert.match(svg,/>Growth<\/text>/);
   assert.doesNotMatch(svg,/<script/);
   assert.match(svg,/<text /);
  }finally{await cleanup(s,"poster-screen.png");}
