@@ -34,7 +34,7 @@ describe("Received client delivery ZIP integrity scanner",()=>{
   expect(received.checks.every(x=>x.expectedSha256===x.actualSha256)).toBe(true);
   const txt=receiptReport(received);
   expect(txt).toContain("RESULT: CONTENT MATCH");
-  expect(txt).toContain("NOT guarantee").toBe(false);
+  expect(txt).not.toContain("NOT guarantee");
   expect(txt).toContain("does not prove authorship");
  });
  it("flags a same-size content change despite a fresh ZIP CRC",async()=>{
