@@ -21,3 +21,13 @@ All operations start from user actions and produce new files. There is no networ
 
 ## Current PR status
 Code added to development branch for independent review. No claim of local npm/macOS run before GitHub workflow results are inspected.
+
+## Additional independent workflow: CSV duplicate-key audit
+- [x] New fourth tool: select one or two key columns in one CSV to find repeated IDs, distinguish identical duplicate rows from conflicting field values, and list original CSV line numbers.
+- [x] Visible navigation entry and user-selectable import, preview, key choice, and ZIP export.
+- [x] Unit tests for mixed conflicts/identical duplicates, blank keys, malformed rows and formula-safe exports.
+- [x] Chromium browser test imports actual visible form state and re-reads ZIP output.
+- [ ] Run latest CI for the additional unit and browser tests; no real macOS validation yet.
+- **Distinct from CSV Snapshot Diff:** snapshot diff compares versions across two CSV files and requires unique keys; this auditor examines duplicate and conflicting keys **inside one CSV**.
+- Bounds: user-selected file up to 1 MB, CSV parser limits 10,000 rows, 100 columns and 2,000,000 characters. Neither deletes rows nor silently applies auto-corrections.
+- If exported records contain private values, review and remove them before distributing the audit ZIP.
