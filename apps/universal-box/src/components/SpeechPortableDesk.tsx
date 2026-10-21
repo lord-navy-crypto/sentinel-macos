@@ -2,7 +2,7 @@ import {useEffect,useRef,useState,type ChangeEvent} from "react";
 import {invoke,isTauri} from "@tauri-apps/api/core";
 import {exportFile} from "../lib/output";
 import {markdownToDocx} from "../lib/documentExport";
-import {decodeAudioToWav,type SPEECH_SAMPLE_RATE} from "../lib/speechAudio";
+import {decodeAudioToWav} from "../lib/speechAudio";
 import {compressPhotoBatch,planPhotoBatch,type PhotoSettings,type PhotoReport} from "../lib/photoCompression";
 import {exportPortableText,planPortable,type SourceCharset,type OutputCharset,type LineStyle,type PortableInput,type PortableSettings} from "../lib/portableText";
 
