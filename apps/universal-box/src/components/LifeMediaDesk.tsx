@@ -10,7 +10,7 @@ const modes:{id:LifeMediaMode;name:string}[]=[
  {id:"organize",name:"文件自动分类打包"},
  {id:"calendar",name:"批量日程与冲突检测"}
 ];
-const sampleSub="1\n00:00:01,000 --> 00:00:02,500\n欢迎来到 Universal Box\n\n2\n00:00:05,000 --> 00:00:07,000\n免费本地工具示例";
+const sampleSub="1\n00:00:01,000 --> 00:00:02,500\n欢迎来到 Sentinel Box\n\n2\n00:00:05,000 --> 00:00:07,000\n免费本地工具示例";
 const sampleCalendar="2026-11-12T09:00 | 2026-11-12T10:00 | 科学展示 | 实验室\n2026-11-12T10:30 | 2026-11-12T11:15 | 项目讨论 | 会议室";
 const err=(e:unknown)=>e instanceof Error?e.message:String(e);
 function milliseconds(raw:string):number{
@@ -93,7 +93,7 @@ export default function LifeMediaDesk({initialMode="subtitle"}:{initialMode?:Lif
   finally{setBusy(false);}
  }
  return <section className="panel" aria-label="Life and media tools">
-  <p className="eyebrow">UNIVERSAL BOX · OFFLINE LIFE & MEDIA</p>
+  <p className="eyebrow">SENTINEL BOX · OFFLINE LIFE & MEDIA</p>
   <h2>生活与影音工具工作台</h2>
   <p className="subtle">三种实际处理任务：两点校准字幕的逐渐漂移、整理文件为分类 ZIP、批量生成日历并检查时间冲突。没有账号、付费、默认扫描磁盘或网络上传。</p>
   <div className="pill-row" role="group" aria-label="Life and media tools">
