@@ -53,10 +53,10 @@ jobs:
           done
           cat "$RUNNER_TEMP/universal-box-vite.log"
           exit 1
-      - name: Simulate navigating every catalog entry and run office workflows
+      - name: Test real user operations and validate exported PDF, Excel, ZIP and images
         env:
           UNIVERSAL_BOX_UI_URL: http://127.0.0.1:1420/
-        run: node --test test/browser-ui-smoke.cjs
+        run: node --test --test-concurrency=1 test/browser-ui-smoke.cjs test/browser-operation-regression.cjs
       - name: Save browser screenshots and extracted files
         uses: actions/upload-artifact@v4
         if: always()

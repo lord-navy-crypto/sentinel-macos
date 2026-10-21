@@ -12,6 +12,9 @@ export type CsvCleanupOptions={trimCells:boolean;removeBlankRows:boolean;removeD
 export const DEFAULT_CSV_CLEANUP:CsvCleanupOptions={
  trimCells:true,removeBlankRows:true,removeDuplicateRows:true,protectFormulas:true,
 };
+/** Optional, reversible data-row filter and stable column ordering. No spreadsheet formulas run. */
+export type CsvRefineOptions={query:string;sortColumn:number|null;descending:boolean};
+export const DEFAULT_CSV_REFINE:CsvRefineOptions={query:"",sortColumn:null,descending:false};
 const MAX_INPUT_CHARS=2_000_000;
 const MAX_RECORDS=10000;
 const MAX_COLUMNS=100;
@@ -88,22 +91,37 @@ function encodeCell(value:string,protect:boolean):string{
  if(protect&&/^[\s\u0001-\u001f]*[=+\-@]/u.test(input))input="'"+input;
  return '"'+input.replace(/"/g,'""')+'"';
 }
-export function cleanWorkspaceCsv(text:string,opts:CsvCleanupOptions):{
- csv:string;review:CsvReview;keptRows:number;removedRows:number;
+export function cleanWorkspaceCsv(text:string,opts:CsvCleanupOptions,refine:CsvRefineOptions=DEFAULT_CSV_REFINE):{
+ csv:string;review:CsvReview;keptRows:number;removedRows:number;filteredRows:number;
 }{
  const rows=parseWorkspaceCsv(text),review=inspectWorkspaceCsv(text);
+ if(refine.query.length>120)throw Error("CSV filter exceeds 120 characters.");
+ if(refine.sortColumn!==null&&(!Number.isSafeInteger(refine.sortColumn)||refine.sortColumn<0||refine.sortColumn>=review.columns))
+  throw Error("CSV sort column is outside the header range.");
+ const needle=refine.query.trim().toLocaleLowerCase();
  const out:string[][]=[];
  const seen=new Set<string>();
- let removed=0;
+ let removed=0,filtered=0;
  for(let i=0;i<rows.length;i++){
   const row=opts.trimCells?rows[i].map(x=>x.trim()):[...rows[i]];
   if(i>0&&opts.removeBlankRows&&!meaningful(row)){removed++;continue;}
+  if(i>0&&needle&&!row.some(cell=>cell.toLocaleLowerCase().includes(needle))){
+   removed++;filtered++;continue;
+  }
   if(i>0&&opts.removeDuplicateRows){
    const key=keyOf(row);
    if(seen.has(key)){removed++;continue;}
    seen.add(key);
   }
   out.push(row);
+ }
+ if(refine.sortColumn!==null){
+  const column=refine.sortColumn;
+  const sorted=out.slice(1).sort((a,b)=>{
+   const order=(a[column]??"").localeCompare(b[column]??"",undefined,{numeric:true,sensitivity:"base"});
+   return refine.descending?-order:order;
+  });
+  out.splice(1,out.length-1,...sorted);
  }
  let total=0;
  const lines=out.map(row=>{
@@ -112,5 +130,5 @@ export function cleanWorkspaceCsv(text:string,opts:CsvCleanupOptions):{
   if(total>MAX_OUTPUT_CHARS)throw Error("Processed CSV exceeds the maximum safe export size.");
   return line;
  });
- return {csv:lines.join("\r\n")+"\r\n",review,keptRows:Math.max(0,out.length-1),removedRows:removed};
+ return {csv:lines.join("\r\n")+"\r\n",review,keptRows:Math.max(0,out.length-1),removedRows:removed,filteredRows:filtered};
 }

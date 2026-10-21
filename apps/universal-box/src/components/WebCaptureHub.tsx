@@ -2,7 +2,8 @@ import {type ChangeEvent,useMemo,useState} from "react";
 import {exportFile} from "../lib/output";
 import {createOfflineCompanionBundle,WEB_CAPTURE_VERSION} from "../lib/webCaptureBundle";
 import {
- cleanWorkspaceCsv,inspectWorkspaceCsv,DEFAULT_CSV_CLEANUP,type CsvCleanupOptions,
+ cleanWorkspaceCsv,inspectWorkspaceCsv,DEFAULT_CSV_CLEANUP,DEFAULT_CSV_REFINE,
+ type CsvCleanupOptions,type CsvRefineOptions,
 } from "../lib/csvCleanroom";
 
 const errorText=(error:unknown)=>error instanceof Error?error.message:String(error);
@@ -11,6 +12,7 @@ export default function WebCaptureHub({onOpenTool}:{onOpenTool:(view:string,modu
  const [source,setSource]=useState(EXAMPLE_CSV);
  const [filename,setFilename]=useState("captured-data.csv");
  const [settings,setSettings]=useState<CsvCleanupOptions>(DEFAULT_CSV_CLEANUP);
+ const [refine,setRefine]=useState<CsvRefineOptions>(DEFAULT_CSV_REFINE);
  const [busy,setBusy]=useState(false);
  const [status,setStatus]=useState("");
  const [previewAccepted,setPreviewAccepted]=useState(false);
@@ -19,9 +21,9 @@ export default function WebCaptureHub({onOpenTool}:{onOpenTool:(view:string,modu
   catch(e){return {value:null,error:errorText(e)};}
  },[source]);
  const cleaned=useMemo(()=>{
-  try{return {value:cleanWorkspaceCsv(source,settings),error:""};}
+  try{return {value:cleanWorkspaceCsv(source,settings,refine),error:""};}
   catch(e){return {value:null,error:errorText(e)};}
- },[source,settings]);
+ },[source,settings,refine]);
  async function exportCompanion(){
   if(busy)return;
   setBusy(true);setStatus("");
@@ -65,6 +67,9 @@ export default function WebCaptureHub({onOpenTool}:{onOpenTool:(view:string,modu
  }
  const update=<K extends keyof CsvCleanupOptions>(key:K,value:CsvCleanupOptions[K])=>{
   setSettings(old=>({...old,[key]:value}));setPreviewAccepted(false);
+ };
+ const updateRefine=<K extends keyof CsvRefineOptions>(key:K,value:CsvRefineOptions[K])=>{
+  setRefine(old=>({...old,[key]:value}));setPreviewAccepted(false);
  };
  return <section className="panel ub-companion" aria-label="Web Capture and offline CSV workshop">
   <p className="eyebrow">UNIVERSAL BOX · WEB CAPTURE · FREE OFFICE WORKFLOW</p>
@@ -114,8 +119,29 @@ export default function WebCaptureHub({onOpenTool}:{onOpenTool:(view:string,modu
     <input type="checkbox" checked={settings[key]} onChange={e=>update(key,e.target.checked)}/> {label}
    </label>)}
   </div>
+  <div className="tools-pair" role="group" aria-label="Optional CSV filtering and sorting">
+    <label className="field-label">筛选数据行（关键词，留空显示全部）
+      <input className="field" data-testid="csv-filter" maxLength={120} value={refine.query}
+        onChange={e=>updateRefine("query",e.target.value)} placeholder="查找姓名、编号、文字…"/>
+    </label>
+    <label className="field-label">按列排序（只调整数据行）
+      <select className="field" data-testid="csv-sort-column" value={refine.sortColumn===null?"none":String(refine.sortColumn)}
+        onChange={e=>updateRefine("sortColumn",e.target.value==="none"?null:Number(e.target.value))}>
+        <option value="none">保留原有顺序</option>
+        {report.value&&Array.from({length:report.value.columns},(_,i)=><option key={i} value={i}>{i+1}. {report.value.heading[i]||"Column "+(i+1)}</option>)}
+      </select>
+    </label>
+    <label className="field-label">排序方向
+      <select className="field" data-testid="csv-sort-desc" value={refine.descending?"desc":"asc"}
+        disabled={refine.sortColumn===null}
+        onChange={e=>updateRefine("descending",e.target.value==="desc")}>
+        <option value="asc">升序</option><option value="desc">降序</option>
+      </select>
+    </label>
+  </div>
+  <p className="subtle">筛选仅对数据行生效，保留表头；支持文字匹配和自然排序（例如 2 排在 10 前）。全部在本机进行，操作前请核对预览。</p>
   {cleaned.value?<div className="ub-companion-output">
-    <p className="subtle">预览：保留 {cleaned.value.keptRows} 个数据行；移除 {cleaned.value.removedRows} 个数据行。操作只是新建导出文件，不会覆盖源文件。</p>
+    <p className="subtle">预览：保留 {cleaned.value.keptRows} 个数据行；移除 {cleaned.value.removedRows} 个数据行（其中筛选 {cleaned.value.filteredRows} 行）。操作只是新建导出文件，不会覆盖源文件。</p>
     <pre data-testid="csv-preview">{cleaned.value.csv.slice(0,1600)}{cleaned.value.csv.length>1600?"\n…仅预览前 1600 字符":""}</pre>
     <label className="ub-companion-confirm">
       <input type="checkbox" checked={previewAccepted} onChange={e=>setPreviewAccepted(e.target.checked)}/> 已检查预览，同意导出新 CSV
