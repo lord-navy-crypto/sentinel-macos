@@ -61,7 +61,7 @@ export async function exportMeetingMinutes(plan:MeetingPlan):Promise<Uint8Array>
   heading("Agenda / 议程"),
   ...(plan.agenda.length?plan.agenda.map(bullet):[paragraph("No agenda entered.")]),
   heading("Discussion / 讨论记录"),
-  ...(plan.discussion.length?plan.discussion.map(paragraph):[paragraph("No discussion recorded.")]),
+  ...(plan.discussion.length?plan.discussion.map(value=>paragraph(value)):[paragraph("No discussion recorded.")]),
   heading("Decisions / 决议"),
   ...(plan.decisions.length?plan.decisions.map(bullet):[paragraph("No decisions recorded.")]),
   heading("Action items / 待办事项"),
