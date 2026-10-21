@@ -4,6 +4,10 @@
 <dict>
   <key>NSLocalNetworkUsageDescription</key>
   <string>Sentinel Box uses your local network to find nearby computers that have deliberately enabled a temporary encrypted file share. Nothing is shared without your action.</string>
+  <key>NSMicrophoneUsageDescription</key>
+  <string>Sentinel Box accesses your microphone only when you start a recording. Recording stops when you press Stop or the time limit is reached.</string>
+  <key>NSSpeechRecognitionUsageDescription</key>
+  <string>Sentinel Box transcribes only audio you select or record. Recognition is restricted to on-device Apple Speech and never falls back to online recognition.</string>
   <key>NSBonjourServices</key>
   <array>
     <string>_uboxcom._tcp</string>

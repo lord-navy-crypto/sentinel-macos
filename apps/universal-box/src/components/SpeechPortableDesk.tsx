@@ -1,0 +1,204 @@
+import {useEffect,useRef,useState,type ChangeEvent} from "react";
+import {invoke,isTauri} from "@tauri-apps/api/core";
+import {exportFile} from "../lib/output";
+import {markdownToDocx} from "../lib/documentExport";
+import {decodeAudioToWav} from "../lib/speechAudio";
+import {compressPhotoBatch,planPhotoBatch,type PhotoSettings,type PhotoReport} from "../lib/photoCompression";
+import {exportPortableText,planPortable,type SourceCharset,type OutputCharset,type LineStyle,type PortableInput,type PortableSettings} from "../lib/portableText";
+
+export type SpeechPortableMode="speech"|"photo-target"|"portable-text";
+type Transcript={text:string;locale:string;on_device:boolean};
+const err=(e:unknown)=>e instanceof Error?e.message:String(e);
+const availableLanguage=[
+ ["zh-CN","中文（简体）"],["zh-TW","中文（繁體）"],["en-US","English (US)"],["en-GB","English (UK)"],
+ ["ja-JP","日本語"],["fr-FR","Français"],["de-DE","Deutsch"],["es-ES","Español"]
+];
+export default function SpeechPortableDesk({mode}:{mode:SpeechPortableMode}){
+ const [audio,setAudio]=useState<{wav:Uint8Array;name:string;seconds:number}|null>(null);
+ const [transcript,setTranscript]=useState<Transcript|null>(null),[edited,setEdited]=useState("");
+ const [locale,setLocale]=useState("zh-CN"),[recording,setRecording]=useState(false);
+ const [busy,setBusy]=useState(false),[status,setStatus]=useState("");
+ const recorder=useRef<MediaRecorder|null>(null),stream=useRef<MediaStream|null>(null);
+ const timer=useRef<number|null>(null),recordChunks=useRef<Blob[]>([]);
+ const [photos,setPhotos]=useState<File[]>([]);
+ const [photoSettings,setPhotoSettings]=useState<PhotoSettings>({format:"jpeg",maxDimension:1024,targetKB:250});
+ const [photoReports,setPhotoReports]=useState<PhotoReport[]>([]);
+ const [texts,setTexts]=useState<PortableInput[]>([]);
+ const [textSettings,setTextSettings]=useState<PortableSettings>({source:"auto",target:"utf-8-bom",lines:"crlf"});
+ const [textReports,setTextReports]=useState<{source:string;encoding:string;outputBytes:number}[]>([]);
+ function stopTracks(){
+  if(timer.current!==null){window.clearTimeout(timer.current);timer.current=null;}
+  stream.current?.getTracks().forEach(t=>t.stop());stream.current=null;
+ }
+ useEffect(()=>()=>{if(recorder.current?.state==="recording")recorder.current.stop();stopTracks();},[]);
+ async function decodeInput(buffer:ArrayBuffer,name:string){
+  setBusy(true);setStatus("");setAudio(null);setTranscript(null);setEdited("");
+  try{
+   const result=await decodeAudioToWav(buffer);
+   setAudio({...result,name});setStatus("Audio decoded locally as 16kHz mono PCM WAV. Recognition has not run.");
+  }catch(e){setStatus("Audio decode failed: "+err(e));}
+  finally{setBusy(false);}
+ }
+ async function importAudio(event:ChangeEvent<HTMLInputElement>){
+  const file=event.target.files?.[0];event.target.value="";if(!file)return;
+  if(file.size>12_000_000){setStatus("Select audio smaller than 12 MB.");return;}
+  await decodeInput(await file.arrayBuffer(),file.name);
+ }
+ async function startRecord(){
+  if(recording||busy)return;setStatus("");
+  if(!navigator.mediaDevices?.getUserMedia||typeof MediaRecorder==="undefined"){
+   setStatus("Microphone recording is not supported by this browser/WebView. Select an existing audio file instead.");return;
+  }
+  try{
+   const media=await navigator.mediaDevices.getUserMedia({audio:true,video:false});
+   stream.current=media;
+   const preferred=["audio/mp4","audio/webm;codecs=opus","audio/webm"].find(m=>MediaRecorder.isTypeSupported(m));
+   const record=new MediaRecorder(media,preferred?{mimeType:preferred}:undefined);
+   recordChunks.current=[];recorder.current=record;
+   record.ondataavailable=e=>{if(e.data.size>0)recordChunks.current.push(e.data);};
+   record.onerror=()=>{stopTracks();setRecording(false);setStatus("Microphone recorder failed.");};
+   record.onstop=()=>{
+    stopTracks();setRecording(false);recorder.current=null;
+    const blob=new Blob(recordChunks.current,{type:record.mimeType});recordChunks.current=[];
+    if(blob.size<44){setStatus("No usable recording was captured.");return;}
+    void blob.arrayBuffer().then(data=>decodeInput(data,"microphone-recording")).catch(e=>setStatus("Recording decode failed: "+err(e)));
+   };
+   record.start(300);setRecording(true);
+   timer.current=window.setTimeout(()=>{if(record.state==="recording")record.stop();},90_000);
+   setStatus("Microphone recording: only captured after explicit permission; automatic stop at 90 seconds.");
+  }catch(e){stopTracks();setRecording(false);setStatus("Microphone permission or recording failed: "+err(e));}
+ }
+ function stopRecord(){const current=recorder.current;if(current?.state==="recording")current.stop();}
+ async function recognize(){
+  if(!audio||busy)return;
+  setBusy(true);setStatus("");setTranscript(null);
+  try{
+   if(!isTauri())throw Error("Speech-to-text requires the Sentinel Box macOS desktop app; browser preview never performs cloud recognition.");
+   const result=await invoke<Transcript>("transcribe_on_device_wav",{wav:Array.from(audio.wav),locale});
+   if(!result.on_device||!result.text.trim())throw Error("No on-device transcription was returned.");
+   setTranscript(result);setEdited(result.text);
+   setStatus("Transcribed using the local Apple Speech model. Please review the transcript for errors.");
+  }catch(e){setStatus("Local speech recognition: "+err(e));}
+  finally{setBusy(false);}
+ }
+ async function saveSpeech(kind:"txt"|"docx"|"wav"){
+  if(busy)return;setBusy(true);setStatus("");
+  try{
+   const bytes=kind==="wav"?audio?.wav:kind==="docx"?await markdownToDocx(edited):edited;
+   if(!bytes||kind!=="wav"&&!edited.trim())throw Error("No recorded audio or transcript to export.");
+   const saved=await exportFile(kind==="wav"?"sentinel-box-audio-16khz.wav":"sentinel-box-transcript."+kind,bytes);
+   setStatus(saved?"Saved locally. Audio source was never overwritten.":"Save cancelled.");
+  }catch(e){setStatus("Export error: "+err(e));}finally{setBusy(false);}
+ }
+ function pickPhotos(event:ChangeEvent<HTMLInputElement>){
+  setPhotos([...(event.target.files??[])]);event.target.value="";setPhotoReports([]);setStatus("");
+ }
+ async function savePhotos(){
+  if(busy)return;setBusy(true);setStatus("");
+  try{
+   const result=await compressPhotoBatch(photos,photoSettings);
+   const ok=await exportFile("sentinel-box-compressed-photos.zip",result.zip);
+   setPhotoReports(result.reports);
+   setStatus(ok?"Saved actual JPEG/WebP images and their byte-for-byte sizes. Check targetMet in the report.":"Save cancelled.");
+  }catch(e){setStatus("Photo compression failed: "+err(e));}
+  finally{setBusy(false);}
+ }
+ async function pickTexts(event:ChangeEvent<HTMLInputElement>){
+  const selected=[...(event.target.files??[])];event.target.value="";setTexts([]);setTextReports([]);setStatus("");
+  try{
+   planPortable(selected,textSettings);
+   const result:PortableInput[]=[];
+   for(const f of selected)result.push({name:f.name,bytes:new Uint8Array(await f.arrayBuffer())});
+   setTexts(result);
+  }catch(e){setStatus("Text import failed: "+err(e));}
+ }
+ async function saveTexts(){
+  if(busy)return;setBusy(true);setStatus("");
+  try{
+   const result=await exportPortableText(texts,textSettings);
+   const ok=await exportFile("sentinel-box-windows-mac-text.zip",result.zip);
+   setTextReports(result.reports);
+   setStatus(ok?"Saved UTF text and line-ending conversions as new files. Sources unchanged.":"Save cancelled.");
+  }catch(e){setStatus("Cross-OS conversion failed: "+err(e));}
+  finally{setBusy(false);}
+ }
+ let photoError="";try{if(photos.length)planPhotoBatch(photos,photoSettings);}catch(e){photoError=err(e);}
+ let portableError="";try{if(texts.length)planPortable(texts.map(x=>({name:x.name,size:x.bytes.length})),textSettings);}catch(e){portableError=err(e);}
+ return <section className="panel" data-testid="speech-portable-panel">
+  <p className="eyebrow">SENTINEL BOX · VOICE, IMAGES & CROSS-OS FILES</p>
+  {mode==="speech"&&<>
+   <h2>语音转文字 · On-device Speech to Text</h2>
+   <p className="subtle">录制麦克风或导入本地音频，统一转为 16 kHz 单声道 WAV，再使用 macOS Apple Speech 转写。**强制本机识别**：语言模型或权限不可用时拒绝识别，绝不悄悄使用在线服务。每段最长 90 秒。</p>
+   <div className="actions">
+    <button type="button" className="primary-button" data-testid="speech-record-start" disabled={recording||busy} onClick={()=>void startRecord()}>开始录音（需允许麦克风）</button>
+    <button type="button" className="secondary-button" data-testid="speech-record-stop" disabled={!recording} onClick={stopRecord}>结束录音</button>
+   </div>
+   {recording&&<p role="status" data-testid="speech-recording-active">录音进行中 · 90 秒自动停止</p>}
+   <label className="field-label">或导入本地音频（WAV、MP3、M4A 等，取决于 WebView 的实际解码器，≤12 MB）
+    <input type="file" data-testid="speech-audio-file" className="field" accept="audio/*,.wav,.mp3,.m4a,.webm" onChange={e=>void importAudio(e)}/>
+   </label>
+   {audio&&<p className="subtle" data-testid="speech-audio-ready">可用本地音频：{audio.name} · {audio.seconds.toFixed(2)} 秒 · PCM16/16kHz</p>}
+   <label className="field-label">转写语言（设备是否支持离线模型由 Apple Speech 决定）
+    <select className="field" data-testid="speech-locale" value={locale} onChange={e=>setLocale(e.target.value)}>
+     {availableLanguage.map(([value,label])=><option key={value} value={value}>{label}</option>)}
+    </select>
+   </label>
+   {!isTauri()&&<p data-testid="speech-native-only" className="subtle">当前浏览器预览只可录音、解码与导出 WAV；真正的语音识别只在安装的 macOS Sentinel Box 中提供。</p>}
+   <div className="actions">
+    <button className="primary-button" data-testid="speech-transcribe" type="button"
+     disabled={!audio||busy||recording||!isTauri()} onClick={()=>void recognize()}>Apple Speech 本机转文字</button>
+    <button className="secondary-button" data-testid="speech-save-wav" type="button"
+     disabled={!audio||busy||recording} onClick={()=>void saveSpeech("wav")}>保存标准 PCM WAV</button>
+   </div>
+   {transcript&&<><p className="subtle" data-testid="speech-result-meta">离线识别 · {transcript.locale} · 请校对文字</p>
+    <label className="field-label">可编辑转写结果<textarea rows={10} className="field text-editor"
+     data-testid="speech-transcript" maxLength={100000} value={edited} onChange={e=>setEdited(e.target.value)}/></label>
+    <div className="actions">
+     <button type="button" data-testid="speech-save-txt" className="primary-button" onClick={()=>void saveSpeech("txt")}>导出 TXT</button>
+     <button type="button" data-testid="speech-save-docx" className="secondary-button" onClick={()=>void saveSpeech("docx")}>导出 Word DOCX</button>
+    </div>
+   </>}
+  </>}
+  {mode==="photo-target"&&<>
+   <h2>照片目标体积压缩 · Local Target-size Image Compressor</h2>
+   <p className="subtle">批量选择最多 10 张 PNG/JPEG/WebP，压缩为 JPEG 或 WebP；自动迭代质量并按实际文件字节判断是否达到目标。不是只给图片改扩展名，也不能保证每张都能压到指定体积。</p>
+   <label className="field-label">选择照片（单张 ≤8 MB，总计 ≤25 MB）
+    <input className="field" data-testid="photo-files" type="file" multiple accept=".png,.jpg,.jpeg,.webp,image/*" onChange={pickPhotos}/></label>
+   <div className="tools-pair">
+    <label className="field-label">输出格式<select className="field" data-testid="photo-format" value={photoSettings.format} onChange={e=>setPhotoSettings(s=>({...s,format:e.target.value as PhotoSettings["format"]}))}>
+     <option value="jpeg">JPEG · 常见兼容格式</option><option value="webp">WebP · 现代浏览器</option></select></label>
+    <label className="field-label">最长边<select className="field" data-testid="photo-max-size" value={photoSettings.maxDimension} onChange={e=>setPhotoSettings(s=>({...s,maxDimension:Number(e.target.value) as PhotoSettings["maxDimension"]}))}>
+     <option value={512}>512 px</option><option value={1024}>1024 px</option><option value={2048}>2048 px</option></select></label>
+    <label className="field-label">目标 KB（40–4000）<input className="field" data-testid="photo-target-kb" type="number" min={40} max={4000} step={10} value={photoSettings.targetKB}
+     onChange={e=>setPhotoSettings(s=>({...s,targetKB:Number(e.target.value)}))}/></label>
+   </div>
+   {photos.length>0&&<p data-testid="photo-count" className="subtle">选中 {photos.length} 张照片</p>}
+   {photoError&&<p role="alert">{photoError}</p>}
+   <button type="button" className="primary-button" data-testid="photo-save" disabled={busy||!!photoError||!photos.length} onClick={()=>void savePhotos()}>压缩并保存 ZIP</button>
+   {photoReports.map((r,i)=><p data-testid="photo-report" className="subtle" key={i}>
+    {r.source}: {r.originalBytes.toLocaleString()} → {r.outputBytes.toLocaleString()} bytes · 质量 {r.quality} · {r.targetMet?"达成目标":"未达成目标"}</p>)}
+   <p className="subtle">JPEG 会把透明背景填充成白色。该工具不保证文件更小；请依据输出的真实字节数判断。</p>
+  </>}
+  {mode==="portable-text"&&<>
+   <h2>Windows ↔ macOS 文本兼容转换</h2>
+   <p className="subtle">转换 UTF-8、UTF-16、Windows-1252、GB18030、Shift-JIS 文本编码，并统一 LF／CRLF 换行符；适用于文本、CSV、字幕与简单配置文件。不能转换 Windows 软件（.exe）、Office 专有版式或任意二进制文件。</p>
+   <label className="field-label">选择文本文件（最多 20 个，单份 ≤1 MB）
+    <input className="field" data-testid="portable-files" type="file" multiple accept=".txt,.csv,.md,.tsv,.json,.srt,.vtt,.ini,.log" onChange={e=>void pickTexts(e)}/></label>
+   <div className="tools-pair">
+    <label className="field-label">输入编码<select className="field" data-testid="portable-source" value={textSettings.source} onChange={e=>setTextSettings(s=>({...s,source:e.target.value as SourceCharset}))}>
+     {(["auto","utf-8","utf-16le","utf-16be","windows-1252","gb18030","shift_jis"] as SourceCharset[]).map(x=><option key={x} value={x}>{x}</option>)}</select></label>
+    <label className="field-label">目标编码<select className="field" data-testid="portable-target" value={textSettings.target} onChange={e=>setTextSettings(s=>({...s,target:e.target.value as OutputCharset}))}>
+     <option value="utf-8">UTF-8（Mac/Linux）</option><option value="utf-8-bom">UTF-8 with BOM（Excel/Windows）</option><option value="utf-16le-bom">UTF-16 LE with BOM（旧版 Windows）</option></select></label>
+    <label className="field-label">换行方式<select className="field" data-testid="portable-lines" value={textSettings.lines} onChange={e=>setTextSettings(s=>({...s,lines:e.target.value as LineStyle}))}>
+     <option value="lf">LF（Mac/Linux）</option><option value="crlf">CRLF（Windows）</option></select></label>
+   </div>
+   {texts.length>0&&<p data-testid="portable-count">{texts.length} 个文件准备就绪</p>}
+   {portableError&&<p role="alert">{portableError}</p>}
+   <button className="primary-button" type="button" data-testid="portable-save" disabled={!texts.length||!!portableError||busy} onClick={()=>void saveTexts()}>转换并导出 ZIP</button>
+   {textReports.map((r,i)=><p data-testid="portable-report" className="subtle" key={i}>{r.source} · {r.encoding} → {textSettings.target} · {r.outputBytes} bytes</p>)}
+   <p className="subtle">自动检测仅依据 BOM；无 BOM 时默认 UTF-8，不会猜测中文系统编码。转换后的文件请按目标软件重新打开核对。</p>
+  </>}
+  {status&&<p role="status" className="subtle" data-testid="speech-portable-status">{status}</p>}
+  <p className="subtle">所有输入仅在用户主动选择或授权后处理。麦克风轨道在停止录音时结束，未建立持续监听。没有强制云端服务和付费订阅。</p>
+ </section>;
+}

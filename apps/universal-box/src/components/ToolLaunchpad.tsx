@@ -2,6 +2,11 @@ import {useEffect,useMemo,useState} from "react";
 
 export type LocalTool = {id:string;name:string;area:string;view:string;module?:string};
 export const LOCAL_TOOLS:LocalTool[] = [
+ {id:"mac-offline-voice-to-text",name:"Local Speech to Text · Apple Speech 本机音频转文字",area:"Media",view:"media-files",module:"speech"},
+ {id:"voice-recorder-transcription",name:"Record & Transcribe · 麦克风录音转文字（本机）",area:"Media",view:"media-files",module:"speech"},
+ {id:"offline-audio-file-to-word",name:"Audio to Word Notes · 音频转写并生成可编辑 DOCX",area:"Office",view:"media-files",module:"speech"},
+ {id:"target-photo-compressor",name:"Target Size Photo Compression · 批量照片指定 KB 压缩",area:"Images",view:"media-files",module:"photo-target"},
+ {id:"windows-macos-text-converter",name:"Windows ↔ macOS Text Encoding · UTF-8/UTF-16/GB18030 与 LF/CRLF",area:"Files",view:"media-files",module:"portable-text"},
  {id:"word-paragraph-diff",name:"Word Paragraph Diff · 对比两份 DOCX 的文本变化",area:"Office",view:"workflows",module:"word-diff"},
  {id:"wav-silence-auto-trim",name:"WAV Silence Auto Trim · 自动去除音频首尾静音",area:"Media",view:"workflows",module:"wav-silence"},
  {id:"pdf-batch-page-inventory",name:"PDF Batch Page Audit · 多文档尺寸方向与页数清单",area:"Files",view:"workflows",module:"pdf-audit"},

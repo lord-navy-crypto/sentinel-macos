@@ -1,12 +1,16 @@
 import {type ChangeEvent,useMemo,useState} from "react";
+import SpeechPortableDesk,{type SpeechPortableMode} from "./SpeechPortableDesk";
 import JSZip from "jszip";
 import {exportFile} from "../lib/output";
 import {editPcmWav,inspectPcmWav,type WavInfo} from "../lib/wavTools";
 import {inspectZip,type ZipInspection} from "../lib/zipInspector";
 import {extractPalette,iconPlan,ICON_SIZES,type PaletteColor} from "../lib/iconPalette";
 
-export type MediaFilesMode="audio"|"zip-inspect"|"icons"|"palette";
+export type MediaFilesMode="speech"|"photo-target"|"portable-text"|"audio"|"zip-inspect"|"icons"|"palette";
 const modes:{id:MediaFilesMode;name:string}[]=[
+ {id:"speech",name:"本机语音转文字 / Speech-to-text"},
+ {id:"photo-target",name:"照片按目标 KB 压缩"},
+ {id:"portable-text",name:"Windows ↔ macOS 文本转换"},
  {id:"audio",name:"WAV Studio / 音频剪切"},
  {id:"zip-inspect",name:"ZIP Inspector / 压缩包检查"},
  {id:"icons",name:"Icon Batch / 图标批量转换"},
@@ -163,6 +167,7 @@ export default function MediaFilesDesk({initialMode="audio"}:{initialMode?:Media
    <div className="pill-row" role="group" aria-label="Media and files tool">
      {modes.map(item=><button type="button" key={item.id} className={item.id===mode?"pill active-pill":"pill"} onClick={()=>{setMode(item.id);setStatus("");}}>{item.name}</button>)}
    </div>
+   {(["speech","photo-target","portable-text"] as MediaFilesMode[]).includes(mode)&&<SpeechPortableDesk mode={mode as SpeechPortableMode}/>}
    {mode==="audio"&&<>
      <p className="subtle">Trim, normalize and add short edge fades to local uncompressed <strong>16-bit PCM WAV</strong> (mono/stereo, 8–192 kHz). Other audio codecs, MP3 and 24/32-bit WAV aren't supported in this version. Normalization is conservatively limited to 4× gain and skips nearly silent tracks.</p>
      <label className="field-label" htmlFor="media-wav">Select WAV file (≤20 MB)</label>
