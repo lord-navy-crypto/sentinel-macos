@@ -4,6 +4,9 @@ export type GuideSuggestion={id:string;name:string;view:string;module?:string;st
 export type GuideAnswer={kind:"available"|"planned"|"unknown";message:string;suggestions:GuideSuggestion[]};
 type Recipe={id:string;patterns:RegExp[];steps:string[];caution?:string};
 const recipes:Recipe[]=[
+ {id:"mac-native-vision-ocr",patterns:[/(\bocr\b)/iu,/(图片|照片|图像).*(识别文字|提取文字|识字)/iu,/(扫描|截图).*(识别文字|文字识别)/iu,/(image|photo).*?(text recognition|extract text)/iu],
+ steps:["在 macOS 版 Sentinel Box 打开 Apple Vision OCR","主动选择 PNG、JPEG 或 WebP 图片，并运行本机识别","检查识别结果，再保存 TXT 或 DOCX"],
+ caution:"该功能需要 macOS 桌面版；浏览器预览不能识别文字，PDF 整页 OCR 尚未提供。"},
  {id:"pdf-converters",patterns:[/(图片|照片).*(转|做|成|合).*pdf/iu,/(photo|image|picture).*(to|into).*(pdf)/iu,/(png|jpeg|jpg).*(pdf)/iu,/(pdf).*转.*(图片|图像)/iu],
  steps:["打开图片与 PDF 转换工具","选择自己的文件，检查顺序和输出格式","预览结果并另存新文件"]},
  {id:"pdf-organize",patterns:[/(pdf).*(排序|重排|删除.*页|调整.*顺序)/iu,/(reorder|remove page|delete page).*pdf/iu],
@@ -41,11 +44,11 @@ const recipes:Recipe[]=[
  {id:"wav-studio",patterns:[/(wav|音频).*(裁剪|截取|淡入|淡出|音量)/iu,/(trim|normalize|fade).*(wav|audio)/iu],
  steps:["打开 WAV 音频编辑器","导入受支持的 PCM WAV","裁剪或调节音量并保存 WAV"]},
 ];
-const planned=/(\bocr\b|扫描.*(文字|pdf|识别|表格)|图片.*(提取文字|识别文字)|图像.*(提取文字|识别文字)|识别.*(图片|扫描)|speech[- ]?to[- ]?text|语音转文字)/iu;
+const planned=/(?:pdf.*ocr|ocr.*pdf|扫描.*pdf|speech[- ]?to[- ]?text|语音转文字)/iu;
 export function recommendLocalTools(request:string,available:readonly AvailableTool[]):GuideAnswer{
  const query=request.trim().slice(0,500);
  if(!query)return {kind:"unknown",message:"用日常语言描述目标，例如“把几张照片合成 PDF”。",suggestions:[]};
- if(planned.test(query))return {kind:"planned",message:"完整离线 OCR / 语音转文字尚未完成。Universal Box 不会把不存在的功能伪装成已经可用。",suggestions:[]};
+ if(planned.test(query))return {kind:"planned",message:"PDF 整页 OCR 和语音转文字尚未提供；图片文字识别可使用 macOS 版 Sentinel Box 的 Apple Vision 工具。",suggestions:[]};
  const matched=recipes.map((rule,i)=>({rule,i,score:rule.patterns.reduce((sum,p)=>sum+(p.test(query)?1:0),0)}))
    .filter(v=>v.score>0).sort((a,b)=>b.score-a.score||a.i-b.i).slice(0,3);
  const indexed=new Map(available.map(tool=>[tool.id,tool]));
