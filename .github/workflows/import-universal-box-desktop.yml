@@ -1,4 +1,4 @@
-name: Import Universal Box Desktop Into Sentinel
+name: Import Legacy Universal Box Desktop Into Sentinel (Historical)
 on:
   push:
     branches:
@@ -52,6 +52,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "No new desktop files to commit."
           else
-            git commit -m "feat: import Universal Box desktop source into Sentinel [skip ci]"
+            git commit -m "feat: import Sentinel Box desktop source into Sentinel [skip ci]"
             git push origin HEAD:refs/heads/migration/import-universal-box-desktop-20261020
           fi
