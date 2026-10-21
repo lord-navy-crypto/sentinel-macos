@@ -885,3 +885,39 @@ pre { white-space:pre-wrap; word-break:break-word; }
 @media(prefers-reduced-motion:reduce){
  .ub-intake-dropzone,.ub-intake-review{transition:none;}
 }
+
+
+/* Universal Box 0.36 — locally bundled browser companion and free CSV workbench */
+.ub-companion-home{display:flex;align-items:center;justify-content:space-between;gap:18px;
+ padding:16px 18px;margin:0 0 18px;border-radius:15px;border:1px solid var(--ub-border);
+ background:var(--ub-subtle)}
+.ub-companion-home>div{flex:1;min-width:0}
+.ub-companion-home strong{font-size:15px;color:var(--ub-text)}
+.ub-companion-home p{font-size:12px;margin:7px 0 0}
+.ub-companion h2{margin:7px 0 10px}
+.ub-companion h3{font-size:16px;margin:8px 0 10px}
+.ub-companion-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px;margin:18px 0 24px}
+.ub-companion-pane{min-width:0;padding:17px;border:1px solid var(--ub-border);border-radius:15px;
+ background:var(--ub-subtle)}
+.ub-companion-pane>p{font-size:12px;line-height:1.7}
+.ub-companion-pane button{max-width:100%}
+.ub-companion-pane .actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.ub-companion-file{display:flex;gap:8px;flex-direction:column;font-size:12px;max-width:100%;min-width:0}
+.ub-companion-file input{font-size:11px;max-width:100%;color:var(--ub-text)}
+.ub-companion-metrics{display:flex;flex-wrap:wrap;gap:12px;margin:12px 0}
+.ub-companion-metrics>span{display:flex;align-items:baseline;gap:7px;padding:9px 12px;
+ border:1px solid var(--ub-border);background:var(--ub-subtle);border-radius:10px;font-size:12px}
+.ub-companion-metrics strong{font-variant-numeric:tabular-nums;font-size:18px;color:var(--ub-primary)}
+.ub-companion-options{display:flex;flex-wrap:wrap;gap:14px;padding:12px 0;margin:0 0 10px}
+.ub-companion-options label{font-size:12px;display:flex;gap:7px;align-items:center}
+.ub-companion-output{padding:13px 15px;border:1px solid var(--ub-border);border-radius:13px;background:var(--ub-subtle)}
+.ub-companion-output pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:230px;overflow:auto;
+ font:12px/1.6 ui-monospace,Menlo,monospace;background:var(--ub-panel);
+ color:var(--ub-text);padding:13px;border-radius:11px;border:1px solid var(--ub-border)}
+.ub-companion-confirm{display:flex;gap:10px;align-items:center;margin:12px 0;font-size:12px}
+.ub-companion-status{padding:11px 13px;border-left:3px solid var(--ub-primary);
+ background:var(--ub-subtle);border-radius:8px;font-size:12px;overflow-wrap:anywhere}
+@media(max-width:850px){.ub-companion-grid{grid-template-columns:1fr}
+ .ub-companion-home{flex-direction:column;align-items:stretch}
+ .ub-companion-home button{align-self:stretch}}
+@media(prefers-reduced-motion:reduce){.ub-companion *{animation:none!important;transition:none!important}}
