@@ -2,6 +2,9 @@ import {useEffect,useMemo,useState} from "react";
 
 export type LocalTool = {id:string;name:string;area:string;view:string;module?:string};
 export const LOCAL_TOOLS:LocalTool[] = [
+ {id:"unified-mixed-files",name:"Unified Workflow · Word, PPT, CSV, JSON, text & images → one ZIP",area:"Workflows",view:"workflows",module:"unified"},
+ {id:"unified-audit-manifest",name:"Unified Source Audit · SHA-256, per-file conversion logs and ZIP report",area:"Privacy",view:"workflows",module:"unified"},
+ {id:"unified-document-extraction",name:"Mixed Office Text Batch · extract DOCX & PPTX alongside data files",area:"Office",view:"workflows",module:"unified"},
  {id:"mac-native-vision-ocr",name:"Apple Vision OCR · Mac 本机图片文字识别与 Word 导出",area:"Office",view:"vision-workflows",module:"ocr"},
  {id:"single-frame-screen-capture",name:"Screen Frame Capture · 用户授权选屏截图 PNG",area:"Images",view:"vision-workflows",module:"capture"},
  {id:"one-click-project-pack",name:"One-Click Project Kit · Word+PPTX+SVG 项目成果 ZIP",area:"Creative",view:"vision-workflows",module:"project"},
