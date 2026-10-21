@@ -1,7 +1,7 @@
 import {beforeEach,describe,expect,it} from "vitest";
 import {
  addRecentOutput,clearRecentOutputs,consumeHandoff,handoffTarget,
- MAX_HANDOFF_BYTES,recentOutputSnapshot,removeRecentOutput,requestHandoff,
+ MAX_HANDOFF_BYTES,recentOutputSnapshot,removeRecentOutput,requestHandoff,getCompareSlot,setCompareSlot,
  subscribeRecentOutputs,
 } from "./recentOutputs";
 beforeEach(()=>clearRecentOutputs());
@@ -42,6 +42,20 @@ describe("Universal Box in-memory result handoffs",()=>{
   expect(recentOutputSnapshot()).toEqual([]);
   stop();
   expect(count).toBeGreaterThanOrEqual(3);
+ });
+ it("keeps comparison file A when returning to the results screen for B",async()=>{
+  const file=new File([data("first")],"first.txt");
+  setCompareSlot("left",file);
+  expect(getCompareSlot("left")?.name).toBe("first.txt");
+  addRecentOutput("second.txt",data("second"));
+  const id=recentOutputSnapshot()[0].id;
+  requestHandoff(id,"binary-right");
+  const second=consumeHandoff("binary-right");
+  setCompareSlot("right",second);
+  expect(await getCompareSlot("left")?.text()).toBe("first");
+  expect(await getCompareSlot("right")?.text()).toBe("second");
+  clearRecentOutputs();
+  expect(getCompareSlot("left")).toBeNull();
  });
  it("rejects empty and unsafe filenames without copying them",()=>{
   expect(addRecentOutput("../abc\\n.txt",data("a"))).toBe(false);
