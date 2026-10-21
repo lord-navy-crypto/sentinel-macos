@@ -163,7 +163,7 @@ mod tests {
     use super::*;
     fn valid_silence() -> Vec<u8> {
         let mut b = vec![0; 44 + 32_000];
-        b[0..4].copy_from_slice(b"RIFF");b[4..8].copy_from_slice(&(b.len() as u32 - 8).to_le_bytes());
+        b[0..4].copy_from_slice(b"RIFF");let riff_len=b.len() as u32 - 8;b[4..8].copy_from_slice(&riff_len.to_le_bytes());
         b[8..12].copy_from_slice(b"WAVE"); b[12..16].copy_from_slice(b"fmt ");
         b[16..20].copy_from_slice(&16u32.to_le_bytes());b[20..22].copy_from_slice(&1u16.to_le_bytes());
         b[22..24].copy_from_slice(&1u16.to_le_bytes());b[24..28].copy_from_slice(&16_000u32.to_le_bytes());
@@ -182,7 +182,7 @@ mod tests {
         b[22] = 2;
         assert!(check_input(&b, "en-US").is_err());
         let mut x = valid_silence(); x.resize(44 + 32_000 * 91, 0);
-        x[4..8].copy_from_slice(&(x.len() as u32 - 8).to_le_bytes());
+        let expanded_len=x.len() as u32 - 8;x[4..8].copy_from_slice(&expanded_len.to_le_bytes());
         x[40..44].copy_from_slice(&(32_000u32 * 91).to_le_bytes());
         assert!(check_input(&x, "en-US").is_err());
     }
