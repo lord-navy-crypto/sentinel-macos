@@ -2,6 +2,9 @@ import {useEffect,useMemo,useState} from "react";
 
 export type LocalTool = {id:string;name:string;area:string;view:string;module?:string};
 export const LOCAL_TOOLS:LocalTool[] = [
+ {id:"word-paragraph-diff",name:"Word Paragraph Diff · 对比两份 DOCX 的文本变化",area:"Office",view:"workflows",module:"word-diff"},
+ {id:"wav-silence-auto-trim",name:"WAV Silence Auto Trim · 自动去除音频首尾静音",area:"Media",view:"workflows",module:"wav-silence"},
+ {id:"pdf-batch-page-inventory",name:"PDF Batch Page Audit · 多文档尺寸方向与页数清单",area:"Files",view:"workflows",module:"pdf-audit"},
  {id:"csv-docx-mail-merge",name:"CSV Mail Merge → Word · 批量制作个性化 DOCX",area:"Office",view:"workflows",module:"mail-merge"},
  {id:"keyed-two-csv-join",name:"CSV Key Join · 按 ID 关联合并两张表",area:"Data",view:"workflows",module:"csv-key-join"},
  {id:"multi-file-literal-replace",name:"Multi-file Text Replace · 多文件安全批量查找替换",area:"Files",view:"workflows",module:"text-file-batch"},
