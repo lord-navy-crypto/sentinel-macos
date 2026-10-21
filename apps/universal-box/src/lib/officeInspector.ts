@@ -27,7 +27,7 @@ const extractDocx=(xml:string)=>{
  }return sections;
 };
 const getAttr=(tag:string,attr:string):string|undefined=>{
- const m=new RegExp("(?:^|\\s)"+attr.replace(":","\\:")+'="([^"]*)"',"u").exec(tag);
+ const m=new RegExp("(?:^|\\s)"+attr+'="([^"]*)"',"u").exec(tag);
  return m?.[1];
 };
 function pptxOrderedPaths(zip:JSZip,xml:string,rels:string):string[]{
