@@ -4,11 +4,19 @@ use std::time::Duration;
 
 const MAX_WAV_BYTES: usize = 4_000_000;
 const MAX_AUDIO_SECONDS: u32 = 90;
+#[derive(Serialize, Clone)]
+pub struct SpeechSegment {
+    pub text: String,
+    pub start: f64,
+    pub duration: f64,
+    pub confidence: f32,
+}
 #[derive(Serialize)]
 pub struct Transcription {
     pub text: String,
     pub locale: String,
     pub on_device: bool,
+    pub segments: Vec<SpeechSegment>,
 }
 fn check_input(wav: &[u8], locale: &str) -> Result<(), String> {
     if !matches!(locale, "en-US" | "en-GB" | "zh-CN" | "zh-TW" | "ja-JP" | "fr-FR" | "de-DE" | "es-ES") {
@@ -126,7 +134,7 @@ fn macos_transcribe(wav: &[u8], locale: &str) -> Result<Transcription, String> {
         let _: () = msg_send![request, setRequiresOnDeviceRecognition: true];
         let _: () = msg_send![request, setShouldReportPartialResults: false];
 
-        let (tx, rx) = mpsc::channel::<Result<String, String>>();
+        let (tx, rx) = mpsc::channel::<Result<(String, Vec<SpeechSegment>), String>>();
         let response = ConcreteBlock::new(move |result: *mut Object, error: *mut Object| {
             if !error.is_null() {
                 let _ = tx.send(Err("Apple Speech could not decode or recognize this audio locally.".into()));
@@ -142,7 +150,34 @@ fn macos_transcribe(wav: &[u8], locale: &str) -> Result<Transcription, String> {
             let pointer: *const c_char = unsafe { msg_send![string, UTF8String] };
             if pointer.is_null() { return; }
             let recognized = unsafe { CStr::from_ptr(pointer) }.to_string_lossy().to_string();
-            let _ = tx.send(Ok(recognized));
+            // Apple Speech returns exact offsets relative to the selected audio,
+            // not guessed phrase durations. Unsupported/invalid timings are dropped.
+            let native_segments: *mut Object = unsafe { msg_send![best, segments] };
+            let count: usize = if native_segments.is_null() { 0 } else {
+                unsafe { msg_send![native_segments, count] }
+            };
+            let mut segments = Vec::new();
+            for i in 0..count.min(5000) {
+                let item: *mut Object = unsafe { msg_send![native_segments, objectAtIndex: i] };
+                if item.is_null() { continue; }
+                let start: f64 = unsafe { msg_send![item, timestamp] };
+                let duration: f64 = unsafe { msg_send![item, duration] };
+                let confidence: f32 = unsafe { msg_send![item, confidence] };
+                let word: *mut Object = unsafe { msg_send![item, substring] };
+                if word.is_null() { continue; }
+                let value: *const c_char = unsafe { msg_send![word, UTF8String] };
+                if value.is_null() || !start.is_finite() || !duration.is_finite()
+                    || start < 0.0 || duration <= 0.0 || start + duration > 95.0 {
+                    continue;
+                }
+                let text = unsafe { CStr::from_ptr(value) }.to_string_lossy().to_string();
+                if text.trim().is_empty() || text.len() > 500 { continue; }
+                segments.push(SpeechSegment {
+                    text, start, duration,
+                    confidence: if confidence.is_finite() { confidence.clamp(0.0, 1.0) } else { 0.0 },
+                });
+            }
+            let _ = tx.send(Ok((recognized, segments)));
         }).copy();
         let task: *mut Object = msg_send![recognizer, recognitionTaskWithRequest: request resultHandler: &*response];
         if task.is_null() { return Err("Apple Speech could not start an offline recognition task.".into()); }
@@ -151,10 +186,10 @@ fn macos_transcribe(wav: &[u8], locale: &str) -> Result<Transcription, String> {
             let _: () = msg_send![task, cancel];
             return Err("The on-device transcription exceeded the 115-second time limit.".into());
         }
-        let text = answer.unwrap()?;
+        let (text, segments) = answer.unwrap()?;
         if text.trim().is_empty() { return Err("No clear speech was recognized in this audio.".into()); }
         if text.len() > 100_000 { return Err("Transcript exceeds the 100 KB limit.".into()); }
-        Ok(Transcription { text, locale: locale.to_string(), on_device: true })
+        Ok(Transcription { text, locale: locale.to_string(), on_device: true, segments })
     })
 }
 
