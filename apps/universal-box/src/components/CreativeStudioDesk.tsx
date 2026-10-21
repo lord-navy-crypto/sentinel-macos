@@ -1,15 +1,16 @@
 import {useMemo,useState} from "react";
 import {exportFile} from "../lib/output";
 import {
- exportSlideDeck,exportWordTemplate,fillWordTemplate,parseSlideOutline,renderCreativeSvg,
- type CreativeTheme,type CreativeFormat,type SlideDeckInput,type WordTemplateInput,type PosterInput,
+ exportSlideDeck,exportWordTemplate,fillWordTemplate,parseSlideOutline,renderCreativeSvg,renderFlowchartSvg,
+ type CreativeTheme,type CreativeFormat,type SlideDeckInput,type WordTemplateInput,type PosterInput,type FlowchartInput,
 } from "../lib/creativeStudio";
 
-export type CreativeMode="word"|"slides"|"design";
+export type CreativeMode="word"|"slides"|"design"|"flowchart";
 const TABS:{id:CreativeMode;name:string}[]=[
  {id:"word",name:"Word 文档与模板"},
  {id:"slides",name:"PowerPoint 幻灯片"},
  {id:"design",name:"海报 · 证书 · 封面"},
+ {id:"flowchart",name:"流程图制作"},
 ];
 const error=(e:unknown)=>e instanceof Error?e.message:String(e);
 const exampleBody="亲爱的 {{recipient}}：\n\n诚挚邀请您参加 **{{event}}**。\n\n活动日期：{{date}}\n\n- 活动主题与流程\n- 参与者须知\n- 联系方式\n\n期待您的参与！";
@@ -27,6 +28,10 @@ export default function CreativeStudioDesk({initialMode="word"}:{initialMode?:Cr
   title:"创意分享日",subtitle:"探索 · 设计 · 实践",footer:"2026 · Universal Box",
   theme:"sunset",format:"poster",
  });
+ const [flow,setFlow]=useState<FlowchartInput>({title:"创意项目流程",
+  steps:"发现问题\n提出设计\n制作原型\n收集意见\n完善成果",theme:"forest"});
+ const flowPreview=useMemo(()=>{try{return {svg:renderFlowchartSvg(flow),error:""};}
+  catch(e){return {svg:"",error:error(e)};}},[flow]);
  const wordPreview=useMemo(()=>{
   try{return {text:fillWordTemplate(word),error:""};}catch(e){return {text:"",error:error(e)};}
  },[word]);
@@ -51,7 +56,8 @@ export default function CreativeStudioDesk({initialMode="word"}:{initialMode?:Cr
   try{
    const file=mode==="word"?{name:"universal-box-template.docx",bytes:await exportWordTemplate(word)}
     :mode==="slides"?{name:"universal-box-slides.pptx",bytes:await exportSlideDeck(slides)}
-    :{name:"universal-box-"+design.format+".svg",bytes:renderCreativeSvg(design)};
+    :mode==="design"?{name:"universal-box-"+design.format+".svg",bytes:renderCreativeSvg(design)}
+    :{name:"universal-box-flowchart.svg",bytes:renderFlowchartSvg(flow)};
    const didSave=await exportFile(file.name,file.bytes);
    setStatus(didSave?"已保存 "+file.name+"。内容在本机生成，未上传文件。":"已取消保存，未修改任何源文件。");
   }catch(e){setStatus("无法生成文件："+error(e));}
@@ -126,6 +132,28 @@ export default function CreativeStudioDesk({initialMode="word"}:{initialMode?:Cr
     src={"data:image/svg+xml;charset=utf-8,"+encodeURIComponent(artPreview.svg)}/>}
    <button type="button" className="primary-button" data-testid="creative-svg-export" disabled={busy||!!artPreview.error}
     onClick={()=>void save("design")}>{busy?"正在生成…":"保存原创 SVG 设计文件"}</button>
+  </>}
+  {mode==="flowchart"&&<>
+   <h3>Flowchart · 免费流程图制作</h3>
+   <p className="subtle">每行一个步骤，自动添加方向箭头并生成真正的 SVG 矢量流程图。最多 12 步；这是简单的线性流程图，不支持复杂分支、多人编辑或任意拖动节点。</p>
+   <label className="field-label">流程图标题
+    <input className="field" data-testid="creative-flow-title" maxLength={100} value={flow.title}
+     onChange={e=>{setFlow(old=>({...old,title:e.target.value}));setStatus("");}}/>
+   </label>
+   <label className="field-label">流程步骤（每行一项）
+    <textarea className="field text-editor" data-testid="creative-flow-steps" rows={7} maxLength={2400} value={flow.steps}
+     onChange={e=>{setFlow(old=>({...old,steps:e.target.value}));setStatus("");}}/>
+   </label>
+   <label className="field-label">配色主题
+    <select className="field" value={flow.theme} onChange={e=>setFlow(old=>({...old,theme:e.target.value as CreativeTheme}))}>
+     <option value="ocean">海洋蓝</option><option value="sunset">暖霞紫</option><option value="forest">森林绿</option>
+    </select>
+   </label>
+   {flowPreview.error?<p role="alert" className="subtle">{flowPreview.error}</p>:<img
+    data-testid="creative-flow-preview" alt="Generated flowchart preview" src={"data:image/svg+xml;charset=utf-8,"+encodeURIComponent(flowPreview.svg)}
+    style={{display:"block",width:"100%",maxWidth:560,maxHeight:460,objectFit:"contain",border:"1px solid #dbe3ee",borderRadius:8}}/>}
+   <button type="button" className="primary-button" data-testid="creative-flow-export" disabled={busy||!!flowPreview.error}
+    onClick={()=>void save("flowchart")}>{busy?"正在生成…":"导出 SVG 流程图"}</button>
   </>}
   {status&&<p role="status" className="subtle">{status}</p>}
   <p className="subtle">隐私与限制：仅在用户点击后另存新文件。没有外部图片、第三方品牌模板、隐藏网络服务或自动覆盖。复杂排版在不同 Office/字体环境下可能有差异，请用目标软件检查结果。</p>
