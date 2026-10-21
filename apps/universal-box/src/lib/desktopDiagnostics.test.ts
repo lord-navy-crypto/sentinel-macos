@@ -11,7 +11,7 @@ describe("desktop capability report",()=>{
   const s=diagnosticExport(checks);
   const r=JSON.parse(s) as {product:string;version:string;checks:DiagnosticCheck[]};
   expect(r.version).toBe("0.31.0");
-  expect(r.product).toBe("Universal Box");
+  expect(r.product).toBe("Sentinel Box");
   expect(r.checks).toEqual(checks);
   expect(s).not.toMatch(/(username|hostname|serialNumber|filePath)/i);
  });
