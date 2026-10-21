@@ -118,10 +118,11 @@ async function readXml(zip:JSZip,path:string,max:number):Promise<string>{
    stream.resume();
  });
 }
-function worksheetPath(workbook:string,rels:string):{path:string;name:string;count:number}{
+function worksheetPath(workbook:string,rels:string,index=0):{path:string;name:string;count:number}{
  const sheets=tags(workbook,"sheet");
- if(!sheets.length)throw Error("Workbook has no sheets.");
- const id=attr(sheets[0],"r:id"),name=attr(sheets[0],"name")??"Sheet1";
+ if(!sheets.length||sheets.length>20)throw Error("Workbook must contain 1–20 sheets.");
+ if(!Number.isSafeInteger(index)||index<0||index>=sheets.length)throw Error("Selected worksheet index is out of range.");
+ const id=attr(sheets[index],"r:id"),name=attr(sheets[index],"name")??("Sheet"+(index+1));
  const relationship=tags(rels,"Relationship").find(s=>attr(s,"Id")===id);
  if(!relationship||(attr(relationship,"Type")??"").endsWith("/worksheet")===false)
    throw Error("Missing worksheet relationship.");
@@ -171,7 +172,7 @@ function parseWorksheet(xml:string,shared:string[]):DataTable{
  const rows=Array.from({length:maxRow},(_,r)=>Array.from({length:maxCol+1},(_,c)=>map.get(r+1)?.get(c)??""));
  return makeDataTable(rows,true);
 }
-export async function xlsxToTable(source:Uint8Array):Promise<{table:DataTable;sheetName:string;sheetCount:number}>{
+export async function xlsxToTable(source:Uint8Array,index=0):Promise<{table:DataTable;sheetName:string;sheetCount:number}>{
  if(source.length<100||source.length>MAX_INPUT)throw Error("XLSX input must be 100 bytes–4 MB.");
  const info=inspectZip(source);
  if(info.entries.length>100||info.entries.some(e=>e.unsafePath||e.symlink||e.encrypted))
@@ -181,10 +182,28 @@ export async function xlsxToTable(source:Uint8Array):Promise<{table:DataTable;sh
  const zip=await JSZip.loadAsync(source,{checkCRC32:false,createFolders:false});
  const workbook=await readXml(zip,"xl/workbook.xml",400_000);
  const rels=await readXml(zip,"xl/_rels/workbook.xml.rels",400_000);
- const sheet=worksheetPath(workbook,rels);
+ const sheet=worksheetPath(workbook,rels,index);
  const strings=zip.file("xl/sharedStrings.xml")?
    nodes(await readXml(zip,"xl/sharedStrings.xml",3_000_000),"si").map(item=>textParts(item.body)):[];
  if(strings.length>50_000)throw Error("Excessive XLSX shared strings.");
  return {table:parseWorksheet(await readXml(zip,sheet.path,8_000_000),strings),
    sheetName:sheet.name,sheetCount:sheet.count};
+}
+
+/** Read only sheet names without decoding worksheet cells. Imported formulas are not evaluated. */
+export async function listXlsxWorksheets(source:Uint8Array):Promise<{index:number;name:string}[]>{
+ if(source.length<100||source.length>MAX_INPUT)throw Error("XLSX input must be 100 bytes–4 MB.");
+ const info=inspectZip(source);
+ if(info.entries.length>100||info.entries.some(e=>e.unsafePath||e.symlink||e.encrypted)
+  ||info.entries.some(e=>/vbaProject|externalLinks|embeddings\//iu.test(e.name)))
+  throw Error("Unsupported or unsafe XLSX content.");
+ const zip=await JSZip.loadAsync(source,{checkCRC32:false,createFolders:false});
+ const workbook=await readXml(zip,"xl/workbook.xml",400_000);
+ const rels=await readXml(zip,"xl/_rels/workbook.xml.rels",400_000);
+ const sheets=tags(workbook,"sheet");
+ if(sheets.length<1||sheets.length>20)throw Error("Workbook must contain 1–20 sheets.");
+ return sheets.map((_,index)=>{
+  const sheet=worksheetPath(workbook,rels,index);
+  return {index,name:sheet.name};
+ });
 }
