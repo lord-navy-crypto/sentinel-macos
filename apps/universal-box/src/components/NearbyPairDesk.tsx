@@ -68,8 +68,8 @@ export default function NearbyPairDesk({room,onImport}:{
   return ()=>{
    mounted.current=false;window.clearInterval(timer);
    unlisten.forEach(off=>off());
-   // Stop advertising when the receiver leaves this workspace.
-   void invoke("commons_pair_stop").catch(()=>{});
+   // Pairing is app-scoped: explicitly enabled for five minutes or until
+   // the user presses Stop. Switching workspaces must not silently reject a request.
   };
  },[]);
  async function refreshPeers(){
