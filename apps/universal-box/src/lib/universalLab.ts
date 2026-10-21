@@ -1,4 +1,4 @@
-/** Bounded offline transforms for the Universal Box v0.21 text and subtitle suite. */
+/** Bounded offline transforms for the Sentinel Box v0.21 text and subtitle suite. */
 export type LineOptions={
   trim:boolean;removeBlank:boolean;unique:boolean;
   sort:"none"|"ascending"|"descending";
