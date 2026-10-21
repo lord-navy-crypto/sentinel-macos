@@ -75,7 +75,7 @@ export default function CreativeStudioDesk({initialMode="word"}:{initialMode?:Cr
   </div>
   {mode==="word"&&<>
    <h3>Word 文档模板生成</h3>
-   <p className="subtle">使用明确的 {{recipient}}、{{event}}、{{date}} 占位符，生成真实 DOCX，内容可在 Word/LibreOffice 中继续编辑。支持基本标题、粗体和列表；不等于完整的 Word 页面设计。</p>
+   <p className="subtle">使用明确的 {"{{recipient}}"}、{"{{event}}"}、{"{{date}}"} 占位符，生成真实 DOCX，内容可在 Word/LibreOffice 中继续编辑。支持基本标题、粗体和列表；不等于完整的 Word 页面设计。</p>
    <div className="tools-pair">
     <label className="field-label">文档标题<input className="field" data-testid="creative-word-title" maxLength={120} value={word.title} onChange={e=>updateWord("title",e.target.value)}/></label>
     <label className="field-label">收件人 / 姓名<input className="field" maxLength={120} value={word.recipient} onChange={e=>updateWord("recipient",e.target.value)}/></label>
