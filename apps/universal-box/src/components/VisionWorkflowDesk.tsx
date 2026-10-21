@@ -107,8 +107,8 @@ export default function VisionWorkflowDesk({initialMode="ocr"}:{initialMode?:Vis
  const update=<K extends keyof ProjectPackInput>(key:K,value:ProjectPackInput[K])=>{
   setProject(p=>({...p,[key]:value}));setStatus("");
  };
- return <section className="panel" aria-label="Universal Box OCR, screen capture and project kit">
-  <p className="eyebrow">UNIVERSAL BOX · FREE NATIVE & CROSS-TOOL WORKFLOWS</p>
+ return <section className="panel" aria-label="Sentinel Box OCR, screen capture and project kit">
+  <p className="eyebrow">SENTINEL BOX · FREE NATIVE & CROSS-TOOL WORKFLOWS</p>
   <h2>OCR & Project Kit / 识字与一键成果工作台</h2>
   <p className="subtle">识别本地图片中的文字，选择一帧屏幕画面，或把一次项目输入组合为 Word、PowerPoint 和设计图的完整成果包。OCR 使用 macOS Apple Vision，不会自动上传文件。</p>
   <div className="pill-row" role="group" aria-label="OCR and cross tool modes">
@@ -132,7 +132,7 @@ export default function VisionWorkflowDesk({initialMode="ocr"}:{initialMode?:Vis
     <p className="subtle">仅 Mac 桌面应用具备识别接口；浏览器预览不能识别。支持由系统决定的文字语言，识别结果可能存在错误，请校对。</p>
     <label><input type="checkbox" checked={fast} onChange={e=>setFast(e.target.checked)}/> 快速识别模式（可能降低准确度）</label>
     <button data-testid="vision-run-ocr" type="button" className="primary-button" disabled={!file||busy||!isTauri()} onClick={()=>void recognize()}>本机识别图片文字</button>
-    {!isTauri()&&<p data-testid="vision-native-unavailable" className="subtle">当前是浏览器预览；请使用 macOS Universal Box 桌面应用执行 Apple Vision OCR。</p>}
+    {!isTauri()&&<p data-testid="vision-native-unavailable" className="subtle">当前是浏览器预览；请使用 macOS Sentinel Box 桌面应用执行 Apple Vision OCR。</p>}
     {result&&<p data-testid="vision-result-lines" className="subtle">识别到 {result.length} 行。结果可编辑，导出之前请检查。</p>}
     {result&&<label className="field-label">识别结果 / 手动校正
      <textarea data-testid="vision-text-result" className="field text-editor" maxLength={200000} rows={12} value={edited} onChange={e=>setEdited(e.target.value)}/>
