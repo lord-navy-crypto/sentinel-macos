@@ -135,7 +135,7 @@ export default function FreeFormatsDesk({initialMode="spreadsheet"}:{initialMode
    catch{setStatus("Clipboard unavailable. Select preview and copy manually.");}
  }
  return <section className="panel">
-   <p className="eyebrow">UNIVERSAL BOX · FREE FORMATS LAB</p>
+   <p className="eyebrow">SENTINEL BOX · FREE FORMATS LAB</p>
    <h2>Spreadsheets, visual comparison & text codes</h2>
    <p className="subtle">Three real offline utilities with no subscription, account, watermark, forced cloud upload or background file access. All exports create new user-selected files.</p>
    <div className="pill-row" role="group" aria-label="Free formats laboratory">
