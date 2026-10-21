@@ -21,13 +21,13 @@ export default function ExternalTools({onOpenPresets}:{onOpenPresets:()=>void}){
         // noopener may intentionally return null even when the browser opened the tab.
         window.open(safe,"_blank","noopener,noreferrer");
       }
-      setStatus("External website launch requested. Daily Desk has not sent any of your files.");
+      setStatus("External website launch requested. Sentinel Box has not sent any of your files.");
     }catch(error){setStatus("Could not open this link: "+String(error instanceof Error?error.message:error));}
   }
   return <section className="panel">
     <p className="eyebrow">EXTERNAL TOOLS · VERIFIED OFFICIAL WEBSITES</p>
     <h2>External Tools / 外部工具</h2>
-    <p className="subtle">Use Daily Desk local features first. For professional editing, collaborative writing and tools that need internet services, explicitly open a third-party website in your default browser. No embedding, auto-login or silent uploads.</p>
+    <p className="subtle">Use Sentinel Box local features first. For professional editing, collaborative writing and tools that need internet services, explicitly open a third-party website in your default browser. No embedding, auto-login or silent uploads.</p>
     <div className="actions">
       <label className="field-label" htmlFor="external-query">Find external tool</label>
       <input className="field" id="external-query" value={query} onChange={e=>setQuery(e.target.value)} placeholder="PDF, drawing, equations, citations…"/>
@@ -47,7 +47,7 @@ export default function ExternalTools({onOpenPresets}:{onOpenPresets:()=>void}){
     </div>
     {filtered.length===0&&<p className="subtle">No matching websites. Try another search or category.</p>}
     <h3>Your own external shortcuts</h3>
-    <p className="subtle">Keep arbitrary project URLs in Link Presets. Daily Desk stores those shortcuts locally rather than operating a redirect server.</p>
+    <p className="subtle">Keep arbitrary project URLs in Link Presets. Sentinel Box stores those shortcuts locally rather than operating a redirect server.</p>
     <button className="secondary-button" type="button" onClick={onOpenPresets}>Open my Link Presets</button>
     {status&&<p role="status" className="subtle">{status}</p>}
   </section>;
