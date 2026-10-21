@@ -65,7 +65,7 @@ export function auditJsonToTypescript(source:string):JsonAudit{
  }
  const ctx:Tracker={values:0,arrays:0,objects:0,depth:0,paths:[]};
  const type=inspect(parsed,"$",0,ctx);
- const typeScript="// Generated locally by Universal Box. Inferred types, not a runtime validator.\n"+
+ const typeScript="// Generated locally by Sentinel Box. Inferred types, not a runtime validator.\n"+
   "export type Root = "+type+";\n";
  if(typeScript.length>500_000)throw Error("Generated TypeScript exceeds the output limit.");
  return {typeScript,paths:"path\ttype\n"+ctx.paths.join("\n")+"\n",valueCount:ctx.values,
