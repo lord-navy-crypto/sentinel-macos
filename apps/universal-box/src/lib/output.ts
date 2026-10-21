@@ -2,6 +2,7 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
 
 const MIME: Record<string, string> = {
+  epub: "application/epub+zip",
   pdf: "application/pdf",
   txt: "text/plain;charset=utf-8",
   md: "text/markdown;charset=utf-8",
