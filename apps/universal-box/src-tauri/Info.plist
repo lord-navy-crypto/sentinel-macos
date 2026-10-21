@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
   <key>NSLocalNetworkUsageDescription</key>
-  <string>Universal Box uses your local network to find nearby computers that have deliberately enabled a temporary encrypted file share. Nothing is shared without your action.</string>
+  <string>Sentinel Box uses your local network to find nearby computers that have deliberately enabled a temporary encrypted file share. Nothing is shared without your action.</string>
   <key>NSBonjourServices</key>
   <array>
     <string>_uboxcom._tcp</string>
