@@ -27,7 +27,7 @@ describe("Offline CSV office workshop",()=>{
   expect(source.startsWith("Name,Note")).toBe(true);
  });
  it("keeps unsafe-looking data literal, also with leading tabs and spaces",()=>{
-  const source="Value\n  +SUM(1,2)\n  @Evil\n-1\n=cmd\n";
+  const source="Value\n\"  +SUM(1,2)\"\n  @Evil\n-1\n=cmd\n";
   const result=cleanWorkspaceCsv(source,{trimCells:false,removeBlankRows:false,removeDuplicateRows:false,protectFormulas:true});
   expect(result.csv).toContain("\"'  +SUM(1,2)\"");
   expect(result.csv).toContain("\"'  @Evil\"");
