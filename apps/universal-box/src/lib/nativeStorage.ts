@@ -55,8 +55,8 @@ export async function exportWorkspaceBackup(value: WorkspaceData): Promise<strin
     return "Browser backup requested. Check your downloads.";
   }
   const selected = await save({
-    defaultPath: "daily-desk-backup.json",
-    filters: [{ name: "Daily Desk JSON", extensions: ["json"] }],
+    defaultPath: "sentinel-box-backup.json",
+    filters: [{ name: "Sentinel Box / legacy v2 JSON", extensions: ["json"] }],
   });
   if (!selected) return "Export cancelled.";
   await invoke("export_backup", { path: selected, contents: JSON.stringify(value, null, 2) });
@@ -68,7 +68,7 @@ export async function importNativeBackup(): Promise<WorkspaceData | null> {
   const selected = await open({
     multiple: false,
     directory: false,
-    filters: [{ name: "Daily Desk JSON", extensions: ["json"] }],
+    filters: [{ name: "Sentinel Box / legacy v2 JSON", extensions: ["json"] }],
   });
   if (typeof selected !== "string") return null;
   const contents = await invoke<string>("read_backup", { path: selected });
