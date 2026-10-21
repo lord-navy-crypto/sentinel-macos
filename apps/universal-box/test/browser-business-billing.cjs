@@ -40,9 +40,10 @@ test("Business CSV rows group into actual PDF/Word ZIP with correct totals, malf
   assert.match(await page.locator('[data-testid="billing-preview"]').innerText(),/中文客户/);
   const pendingChinese=page.waitForEvent("download",{timeout:30000});
   await page.locator('[data-testid="billing-export"]').click();
-  const cnZip=await JSZip.loadAsync(await (await pendingChinese).createReadStream().then(async stream=>{
-   const chunks=[];for await(const chunk of stream)chunks.push(chunk);return Buffer.concat(chunks);
-  }));
+  const cnDownloaded=await pendingChinese;
+  const cnFile=path.join(output,"chinese-business-documents.zip");
+  await cnDownloaded.saveAs(cnFile);
+  const cnZip=await JSZip.loadAsync(fs.readFileSync(cnFile),{checkCRC32:true});
   assert.ok(cnZip.file("invoices/CN-01.docx"));
   assert.equal(cnZip.file("invoices/CN-01.pdf"),null,"Do not export unreadable PDF with missing CJK glyphs");
   await page.locator('[data-testid="billing-csv"]').fill("not,a,valid,billing,csv\nwrong,row");
