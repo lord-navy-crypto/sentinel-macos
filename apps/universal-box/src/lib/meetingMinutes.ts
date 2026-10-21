@@ -92,8 +92,8 @@ export function planMeetingMinutes(input:MeetingInput,csv:string):MeetingPlan{
   if(row.length!==7)throw Error("Action CSV line "+index+" must have 7 columns.");
   const [idRaw,taskRaw,ownerRaw,dueRaw,priorityRaw,statusRaw,notesRaw]=row;
   const id=field(idRaw,"Action ID at line "+index,50,true);
-  if(!/^[A-Za-z0-9][A-Za-z0-9_.-]{0,49}$/u.test(id))
-   throw Error("Action ID "+id+" must use safe letters, numbers, dot, underscore or hyphen.");
+  if(!/^[\p{L}\p{N}][\p{L}\p{N}_.-]{0,49}$/u.test(id))
+   throw Error("Action ID "+id+" must use Unicode letters/numbers, dot, underscore or hyphen.");
   if(used.has(id))throw Error("Duplicate action ID "+id+" at line "+index+".");
   used.add(id);
   const task=field(taskRaw,"Task at line "+index,500,true);
