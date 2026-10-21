@@ -40,13 +40,13 @@ test("A4 printable card, label and ticket templates actually export SVG",{timeou
   assert.match(svg,/width="210mm" height="297mm"/);
   assert.match(svg,/Science &amp; Teamwork/);
   assert.match(svg,/Design &lt;safe&gt;/);
-  assert.equal((svg.match(/<rect x="/g)||[]).length,8);
+  assert.equal((svg.match(/<rect x="[^"]+" y="[^"]+" width="[^"]+" height="[^"]+" rx="/g)||[]).length,8);
   await ctx.page.locator('[data-testid="utility-print-format"]').selectOption("labels");
   svg=(await save(ctx.page,'[data-testid="utility-print-export"]',"real-a4-labels.svg")).toString("utf8");
-  assert.equal((svg.match(/<rect x="/g)||[]).length,24);
+  assert.equal((svg.match(/<rect x="[^"]+" y="[^"]+" width="[^"]+" height="[^"]+" rx="/g)||[]).length,24);
   await ctx.page.locator('[data-testid="utility-print-format"]').selectOption("tickets");
   svg=(await save(ctx.page,'[data-testid="utility-print-export"]',"real-a4-tickets.svg")).toString("utf8");
-  assert.equal((svg.match(/<rect x="/g)||[]).length,10);
+  assert.equal((svg.match(/<rect x="[^"]+" y="[^"]+" width="[^"]+" height="[^"]+" rx="/g)||[]).length,10);
  }finally{await finish(ctx,"print-ui.png");}
 });
 test("JSON to TypeScript and TSV exports preserve real paths and optional fields",{timeout:60000},async()=>{
