@@ -18,7 +18,7 @@ Research reference points (features only, never copy code/design):
 - Unicode letters, Latin letters, Han characters, numbers, punctuation, symbols, Emoji grapheme clusters, whitespace and counts excluding whitespace.
 - Locale-aware Unicode word segmentation where `Intl.Segmenter` exists; explicit approximation if unavailable. Counts may differ from Pages/Word or platform-specific quotas.
 - Live selected-text metrics; practical 150-/280-character and 500-/650-word presets, adjustable custom limit; overshoot shown honestly (not an irreversible truncation).
-- Manual UTF-8 text-file import (TXT, MD, CSV, SRT, VTT, JSON); copy/export plain TXT statistics. User text never automatically uploaded, persisted, altered or scanned from other apps.
+- Manual UTF-8 text-file import (TXT, MD, CSV, SRT, VTT, JSON), **explicit-click clipboard-to-counter input** if WebView permissions allow it, copy/export plain TXT statistics. Clipboard reading is never automatic; users can paste manually when permission is unavailable. User text never automatically uploaded, persisted, altered or scanned from other apps.
 - Basic paragraph/sentence counts and reading time remain **estimates**, not linguistic analysis.
 
 ## Actual coverage vs important remaining gaps (not pretended shipped)
