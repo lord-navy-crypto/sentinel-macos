@@ -403,3 +403,7 @@ Existing PDF, office, text, image, math, and AP study tools are preserved; AP Re
 - The destination view always requires a user click. Existing saved files remain available after the session's ephemeral handoff cache has been cleared. Clearing the cache does not delete saved files. This feature is for ordinary local results and is not a secure permanent vault.
 - Coverage: PDF / image / chart / CSV / office / ZIP / text and other modules that already use `exportFile`. Excludes features using their own independent OS save dialogs or browser downloads; no claim of 100% of all module outputs.
 - Stacked on the still-experimental in-app pair transfer PR #58; both Macs need a compatible preview version for in-app nearby sharing. Real two-Mac / macOS firewall integration tests remain required.
+
+### App-wide consent notifications (0.35 preview)
+
+When the receiver explicitly enables five-minute Nearby Pair discovery in Universal Commons, switching to other tools no longer cancels that opt-in. A small app-wide notification displays pending requests, a six-digit comparison code, and **Approve / Reject** while the recipient works in PDF, charts, notes or other tools. A completed encrypted delivery remains in a temporary inbox until the recipient opens Commons, reviews the manifest and decides whether to import it. No background discovery is enabled automatically; pending requests time out, and approval is never automatic. Returning to Commons lets the user explicitly stop the receiver.
