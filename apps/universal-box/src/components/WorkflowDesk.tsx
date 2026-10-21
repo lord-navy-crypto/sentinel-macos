@@ -1,5 +1,6 @@
 import {type ChangeEvent,useMemo,useState} from "react";
 import UnifiedWorkflowPanel from "./UnifiedWorkflowPanel";
+import OfficeDataBatchPanel, {type OfficeDataMode} from "./OfficeDataBatchPanel";
 import JSZip from "jszip";
 import {exportFile} from "../lib/output";
 import {inspectZip,type ZipInspection} from "../lib/zipInspector";
@@ -10,9 +11,12 @@ import {
 } from "../lib/imageWorkflow";
 import {planQuickZip} from "../lib/quickZipPack";
 
-export type WorkflowMode="unified"|"zip-selective"|"image-batch"|"zip-pack";
+export type WorkflowMode="unified"|"mail-merge"|"csv-key-join"|"text-file-batch"|"zip-selective"|"image-batch"|"zip-pack";
 const TABS:{id:WorkflowMode;label:string}[]=[
  {id:"unified",label:"Unified Workflow / 多格式统一处理"},
+ {id:"mail-merge",label:"CSV → 批量 Word"},
+ {id:"csv-key-join",label:"CSV 关联合并"},
+ {id:"text-file-batch",label:"批量文件查找替换"},
  {id:"zip-selective",label:"Safe ZIP selective export / 选择性解压"},
  {id:"image-batch",label:"Image workflow / 图片批量处理"},
  {id:"zip-pack",label:"Batch ZIP pack / 一键批量压缩"},
@@ -163,6 +167,7 @@ export default function WorkflowDesk({initialMode="zip-selective"}:{initialMode?
      {TABS.map(item=><button className={item.id===mode?"pill active-pill":"pill"} type="button" key={item.id} onClick={()=>{setMode(item.id);setStatus("");}}>{item.label}</button>)}
    </div>
    {mode==="unified"&&<UnifiedWorkflowPanel/>}
+   {(["mail-merge","csv-key-join","text-file-batch"] as WorkflowMode[]).includes(mode)&&<OfficeDataBatchPanel mode={mode as OfficeDataMode}/>}
    {mode==="zip-pack"&&<>
      <p className="subtle">Choose 1–50 files (up to 16 MB total), then pack into a new local ZIP with a filename manifest. Existing files are never deleted, overwritten or uploaded. Compressed media may not shrink much.</p>
      <label className="field-label" htmlFor="zip-pack-files">Select files for ZIP</label>
