@@ -29,7 +29,7 @@ const cleanText=(v:unknown,max:number,label:string,required=false):string=>{
 };
 const safePackedPath=(path:string):boolean=>
  /^files\/[0-9]{3}-[^\\/\u0000-\u001f\u007f]{1,120}$/u.test(path)&&
- !path.includes("..")&&!path.endsWith(".")&&!path.includes(":");
+ !path.includes(":");
 function readManifest(value:unknown):RawManifest{
  if(!isRecord(value)||value.generator!=="Sentinel Box"||value.version!==1)
   throw Error("Not a recognized Sentinel Box client delivery manifest v1.");
@@ -110,9 +110,6 @@ export async function verifyReceivedDelivery(
  for(const name of REQUIRED)if(!zip.file(name))
   throw Error("Received package lacks required verification file: "+name);
  const metadataFile=zip.file("reports/manifest.json")!;
- if((metadataFile as unknown as { _data?:{uncompressedSize?:number}})._data?.uncompressedSize!==undefined&&
-  (metadataFile as unknown as {_data?:{uncompressedSize?:number}})._data!.uncompressedSize!>120_000)
-  throw Error("Manifest is too large.");
  const manifestText=await metadataFile.async("string");
  if(manifestText.length>120_000)throw Error("Manifest is too large.");
  let data:unknown;
