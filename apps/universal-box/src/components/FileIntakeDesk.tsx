@@ -238,7 +238,7 @@ export default function FileIntakeDesk({onOpenTool}:Props){
    <p className="eyebrow">VERIFY FILE TRANSFERS · 跨设备完整性校验</p>
    <h3>验证另一台电脑接收到的文件</h3>
    <p className="subtle">在原电脑导出 SHA-256 JSON 清单，把清单和文件一起传给另一台电脑。在接收电脑重新扫描文件，再导入清单：逐个核对文件名、字节数和哈希值。不会自动打开清单中写的路径。</p>
-   <label className="field-label">导入 Universal Box SHA-256 校验清单（JSON，≤256 KB）
+   <label className="field-label">导入 Sentinel Box SHA-256 校验清单（JSON，≤256 KB）
     <input className="field" type="file" accept=".json,application/json" onChange={event=>void importManifest(event)}/>
    </label>
    {manifestError&&<p role="alert" className="ub-intake-warning">{manifestError}</p>}
