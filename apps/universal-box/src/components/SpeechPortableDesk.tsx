@@ -3,11 +3,12 @@ import {invoke,isTauri} from "@tauri-apps/api/core";
 import {exportFile} from "../lib/output";
 import {markdownToDocx} from "../lib/documentExport";
 import {decodeAudioToWav} from "../lib/speechAudio";
+import {speechCues,exportTimedCaptions,type SpeechTiming} from "../lib/speechCaptions";
 import {compressPhotoBatch,planPhotoBatch,type PhotoSettings,type PhotoReport} from "../lib/photoCompression";
 import {exportPortableText,planPortable,type SourceCharset,type OutputCharset,type LineStyle,type PortableInput,type PortableSettings} from "../lib/portableText";
 
 export type SpeechPortableMode="speech"|"photo-target"|"portable-text";
-type Transcript={text:string;locale:string;on_device:boolean};
+type Transcript={text:string;locale:string;on_device:boolean;segments?:SpeechTiming[]};
 const err=(e:unknown)=>e instanceof Error?e.message:String(e);
 const availableLanguage=[
  ["zh-CN","中文（简体）"],["zh-TW","中文（繁體）"],["en-US","English (US)"],["en-GB","English (UK)"],
@@ -17,6 +18,7 @@ export default function SpeechPortableDesk({mode}:{mode:SpeechPortableMode}){
  const [audio,setAudio]=useState<{wav:Uint8Array;name:string;seconds:number}|null>(null);
  const [transcript,setTranscript]=useState<Transcript|null>(null),[edited,setEdited]=useState("");
  const [locale,setLocale]=useState("zh-CN"),[recording,setRecording]=useState(false);
+ const [maxCueChars,setMaxCueChars]=useState(48),[maxCueSeconds,setMaxCueSeconds]=useState(5);
  const [busy,setBusy]=useState(false),[status,setStatus]=useState("");
  const recorder=useRef<MediaRecorder|null>(null),stream=useRef<MediaStream|null>(null);
  const timer=useRef<number|null>(null),recordChunks=useRef<Blob[]>([]);
@@ -81,12 +83,12 @@ export default function SpeechPortableDesk({mode}:{mode:SpeechPortableMode}){
   }catch(e){setStatus("Local speech recognition: "+err(e));}
   finally{setBusy(false);}
  }
- async function saveSpeech(kind:"txt"|"docx"|"wav"){
+ async function saveSpeech(kind:"txt"|"docx"|"wav"|"srt"|"vtt"){
   if(busy)return;setBusy(true);setStatus("");
   try{
-   const bytes=kind==="wav"?audio?.wav:kind==="docx"?await markdownToDocx(edited):edited;
-   if(!bytes||kind!=="wav"&&!edited.trim())throw Error("No recorded audio or transcript to export.");
-   const saved=await exportFile(kind==="wav"?"sentinel-box-audio-16khz.wav":"sentinel-box-transcript."+kind,bytes);
+   const bytes=kind==="wav"?audio?.wav:kind==="docx"?await markdownToDocx(edited):kind==="srt"||kind==="vtt"?exportTimedCaptions(speechCues(transcript?.segments??[],maxCueChars,maxCueSeconds),kind):edited;
+   if(!bytes||(kind==="txt"||kind==="docx")&&!edited.trim())throw Error("No recorded audio or transcript to export.");
+   const saved=await exportFile(kind==="wav"?"sentinel-box-audio-16khz.wav":kind==="srt"||kind==="vtt"?"sentinel-box-timed-captions."+kind:"sentinel-box-transcript."+kind,bytes);
    setStatus(saved?"Saved locally. Audio source was never overwritten.":"Save cancelled.");
   }catch(e){setStatus("Export error: "+err(e));}finally{setBusy(false);}
  }
@@ -150,12 +152,25 @@ export default function SpeechPortableDesk({mode}:{mode:SpeechPortableMode}){
     <button className="secondary-button" data-testid="speech-save-wav" type="button"
      disabled={!audio||busy||recording} onClick={()=>void saveSpeech("wav")}>保存标准 PCM WAV</button>
    </div>
-   {transcript&&<><p className="subtle" data-testid="speech-result-meta">离线识别 · {transcript.locale} · 请校对文字</p>
+   {transcript&&<><p className="subtle" data-testid="speech-result-meta">离线识别 · {transcript.locale} · 真实音频分段 {transcript.segments?.length??0} · 请校对文字</p>
+    {transcript.segments&&transcript.segments.length>0&&<div className="tools-pair">
+      <label className="field-label">字幕每条最大字符
+        <input data-testid="speech-cue-chars" className="field" type="number" min={15} max={100} value={maxCueChars} onChange={e=>setMaxCueChars(Number(e.target.value))}/>
+      </label>
+      <label className="field-label">字幕最大时长（秒）
+        <input data-testid="speech-cue-seconds" className="field" type="number" min={1} max={10} value={maxCueSeconds} onChange={e=>setMaxCueSeconds(Number(e.target.value))}/>
+      </label>
+      <p className="subtle" data-testid="speech-timing-note">字幕时间来自 Apple Speech 原始音频分段，不会根据编辑后的 TXT 重新猜测时间。编辑文字仅影响 TXT/Word；请导出字幕后另行校对。</p>
+    </div>}
     <label className="field-label">可编辑转写结果<textarea rows={10} className="field text-editor"
      data-testid="speech-transcript" maxLength={100000} value={edited} onChange={e=>setEdited(e.target.value)}/></label>
     <div className="actions">
      <button type="button" data-testid="speech-save-txt" className="primary-button" onClick={()=>void saveSpeech("txt")}>导出 TXT</button>
      <button type="button" data-testid="speech-save-docx" className="secondary-button" onClick={()=>void saveSpeech("docx")}>导出 Word DOCX</button>
+     {transcript.segments&&transcript.segments.length>0&&<>
+       <button type="button" data-testid="speech-save-srt" className="secondary-button" onClick={()=>void saveSpeech("srt")}>导出时间戳 SRT</button>
+       <button type="button" data-testid="speech-save-vtt" className="secondary-button" onClick={()=>void saveSpeech("vtt")}>导出 WebVTT</button>
+     </>}
     </div>
    </>}
   </>}
