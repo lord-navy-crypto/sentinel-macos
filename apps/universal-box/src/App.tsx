@@ -67,8 +67,8 @@ const menu: { id: View; name: string; symbol: string; description: string }[] = 
   { id: "all-tools", name: "All tools / 全部工具", symbol: "▦", description: "Search and open every available tool" },
   { id: "quick-tools", name: "Quick Tools / 快捷小工具", symbol: "✂", description: "Text cleaning, cleaner links, dates and grades" },
   { id: "universal", name: "Universal Tools / 综合工具", symbol: "◈", description: "JSON conversion, timezones, hashes, passwords and photo privacy" },
-  { id: "universal-box", name: "Universal Box / 万用工具箱", symbol: "▧", description: "Offline QR batches, calendar invites, ID generators" },
-  { id: "universal-lab", name: "Universal Box Lab / 免费工具实验室", symbol: "▤", description: "Local text, subtitles, photo sheets and URL diagnostics" },
+  { id: "universal-box", name: "Sentinel Box / 万用工具箱", symbol: "▧", description: "Offline QR batches, calendar invites, ID generators" },
+  { id: "universal-lab", name: "Sentinel Box Lab / 免费工具实验室", symbol: "▤", description: "Local text, subtitles, photo sheets and URL diagnostics" },
   { id: "media-files", name: "Media & Files / 媒体文件工具", symbol: "♫", description: "Offline audio WAV trimming, ZIP safety inspection, icon sizes and photo palette" },
   { id: "office-privacy", name: "Office & Privacy / 办公与隐私工具", symbol: "▥", description: "CSV contacts, mail merge, duplicate file hashes, hidden Unicode" },
   { id: "workflows", name: "Workflow Studio / 批处理工作室", symbol: "⇄", description: "Safe selective ZIP export and image resize → convert → rename → ZIP" },
@@ -98,7 +98,7 @@ const menu: { id: View; name: string; symbol: string; description: string }[] = 
 const navigationGroups:{title:string;items:View[]}[]=[
   {title:"DISCOVER",items:["overview","vision-workflows","creative-studio","extra-studio","daily-studio","life-media","web-capture","file-intake","commons","access","all-tools","charts"]},
   {title:"FILES & CREATION",items:["vision-workflows","creative-studio","extra-studio","daily-studio","life-media","files","binary-compare","pdf-mini","free-formats","writing","drawing","tables"]},
-  {title:"UNIVERSAL BOX",items:["quick-tools","universal","universal-box","universal-lab","media-files","office-privacy","workflows","utilities","external"]},
+  {title:"SENTINEL BOX",items:["quick-tools","universal","universal-box","universal-lab","media-files","office-privacy","workflows","utilities","external"]},
   {title:"STUDY & SCIENCE",items:["local-ai","math","learning","reading","cards","focus"]},
   {title:"PERSONAL WORKSPACE",items:["tasks","notes","code","presets","data","system-health"]},
 ];
@@ -365,15 +365,15 @@ export default function App() {
       data-theme={theme} data-reading={accessPreferences.reading}>
       <a className="skip-to-content" href="#main-content">跳转到正文 / Skip to content</a>
       <aside className="sidebar" inert={commandOpen}>
-        <button type="button" className="sidebar-brand" onClick={()=>openTool("overview")} aria-label="Universal Box Home">
-          <span className="brand-mark">U</span><span className="sidebar-brand-text">
-            <strong className="brand-name">Universal Box</strong><span className="brand-caption">YOUR TOOLS · YOUR DEVICE</span>
+        <button type="button" className="sidebar-brand" onClick={()=>openTool("overview")} aria-label="Sentinel Box Home">
+          <span className="brand-mark">S</span><span className="sidebar-brand-text">
+            <strong className="brand-name">Sentinel Box</strong><span className="brand-caption">YOUR TOOLS · YOUR DEVICE</span>
           </span>
         </button>
         <button className="sidebar-quick-search" type="button" onClick={()=>{setCommandOpen(true);setCommandQuery("");}}>
           <span aria-hidden="true">⌕</span><span>Search tools</span><kbd>⌘ K</kbd>
         </button>
-        <nav aria-label="Universal Box workspaces" className="sidebar-nav">
+        <nav aria-label="Sentinel Box workspaces" className="sidebar-nav">
           {navigationGroups.map(group=><details className="nav-group" key={group.title} open>
             <summary className="nav-label">{group.title}</summary>
             {group.items.map(id=>{
@@ -418,7 +418,7 @@ export default function App() {
             </div></div>
             <div className="hero-card">
               <div className="hero-copy">
-                <p className="card-eyebrow">WELCOME TO UNIVERSAL BOX</p>
+                <p className="card-eyebrow">WELCOME TO SENTINEL BOX</p>
                 <h2>Your tools.<br/>Your rules.</h2>
                 <p>Work faster with a connected desktop toolbox, not a maze of websites.</p>
                 <div className="hero-actions">
@@ -428,7 +428,7 @@ export default function App() {
               </div>
               <div className="hero-visual" aria-hidden="true">
                 <div className="visual-orbit orbit-one"/><div className="visual-orbit orbit-two"/>
-                <div className="visual-core">U</div>
+                <div className="visual-core">S</div>
                 <div className="visual-chip chip-top">✦ &nbsp; Create</div>
                 <div className="visual-chip chip-right">◈ &nbsp; Convert</div>
                 <div className="visual-chip chip-bottom">▥ &nbsp; Visualize</div>
@@ -540,11 +540,11 @@ export default function App() {
           {view === "writing" && <WritingDesk markdown={workspace.documentMarkdown ?? ""} onChange={value=>setWorkspace(current=>({...current,documentMarkdown:value}))}/>}
           {view === "drawing" && <DrawingDesk strokes={workspace.drawing ?? []} onChange={value=>setWorkspace(current=>({...current,drawing:value}))}/>}
           {view === "data" && <section className="panel"><p className="eyebrow">PORTABLE WORKSPACE</p><h2>Backup & privacy</h2><p className="subtle">The desktop app now saves tasks, flashcards and notes in its own local app-data file using atomic writes. A browser preview still uses localStorage. Nothing is synced to the AP website or Vercel.</p><div className="actions"><button className="primary-button" type="button" onClick={() => { void exportBackup(); }}>Export JSON backup</button><button className="secondary-button" type="button" onClick={() => { void importFromNativeDialog(); }}>Import with native file picker</button></div><div className="import-group"><label className="field-label" htmlFor="import-workspace">Or restore from a Daily Desk v2 JSON backup using a file input</label><input className="field" type="file" id="import-workspace" accept=".json,application/json" onChange={(event) => { void importBackup(event); }} /></div>{dataMessage && <p className="subtle" role="status">{dataMessage}</p>}<p className="subtle">Tip: Export a backup before reinstalling or changing devices. Import replaces the current workspace only after confirmation.</p></section>}
-          <footer>UNIVERSAL BOX <span>Local-first desktop toolkit · powered by Daily Desk</span></footer>
+          <footer>SENTINEL BOX <span>Free, offline-first macOS utility suite · part of the Sentinel ecosystem</span></footer>
         </div>
       </section>
       {commandOpen&&<div className="command-backdrop" onMouseDown={()=>setCommandOpen(false)}>
-        <div className="command-dialog" ref={commandDialogRef} role="dialog" aria-modal="true" aria-label="Search all Universal Box tools"
+        <div className="command-dialog" ref={commandDialogRef} role="dialog" aria-modal="true" aria-label="Search all Sentinel Box tools"
           onMouseDown={event=>event.stopPropagation()}
           onKeyDown={event=>{
             if(event.key!=="Tab")return;
