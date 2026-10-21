@@ -2,6 +2,9 @@ import {useEffect,useMemo,useState} from "react";
 
 export type LocalTool = {id:string;name:string;area:string;view:string;module?:string};
 export const LOCAL_TOOLS:LocalTool[] = [
+ {id:"browser-bookmarks-audit",name:"Bookmark HTML Organizer · 浏览器书签导入 CSV/Markdown",area:"Files",view:"workflows",module:"bookmark-import"},
+ {id:"ics-calendar-import-audit",name:"ICS Calendar Import & Overlap Audit · 日历导入冲突分析",area:"Planning",view:"workflows",module:"ics-review"},
+ {id:"subtitle-timeline-quality-check",name:"SRT VTT Subtitle Timeline QA · 字幕时序及阅读速度审计",area:"Media",view:"workflows",module:"subtitle-audit"},
  {id:"speech-timed-srt-vtt",name:"Speech Timed Subtitles · Apple Speech 音频时间戳转 SRT/VTT",area:"Media",view:"media-files",module:"speech"},
  {id:"selected-xlsx-sheets",name:"XLSX Multi-Sheet Export · Excel 工作表选择导出 CSV",area:"Data",view:"workflows",module:"sheet-select"},
  {id:"manual-multi-clip-basket",name:"Multi-Clip Text Basket · 手动多段收集、排序与合并",area:"Files",view:"workflows",module:"clip-basket"},
