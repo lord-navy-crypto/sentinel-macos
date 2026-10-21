@@ -1,0 +1,70 @@
+name: Universal Box Browser UI & Workflow Tests
+on:
+  pull_request:
+    paths:
+      - "apps/universal-box/**"
+      - ".github/workflows/test-universal-box-browser.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/universal-box/**"
+      - ".github/workflows/test-universal-box-browser.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: universal-box-browser-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  chromium-ui:
+    name: All-tool navigation and office operations in Chromium
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: apps/universal-box
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install Universal Box dependencies and real Chromium automation
+        run: |
+          npm ci
+          npm install --no-save --no-package-lock playwright@1.58.2
+          npx playwright install --with-deps chromium
+      - name: Check TypeScript and run file and workflow unit tests
+        run: |
+          npm run build
+          npm test
+      - name: Launch actual React app and check HTTP readiness
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run dev -- --host 127.0.0.1 --port 1420 > "$RUNNER_TEMP/universal-box-vite.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/universal-box-vite.pid"
+          for i in $(seq 1 50); do
+            if curl -fsS http://127.0.0.1:1420/ > /dev/null; then
+              echo "Real Vite app is ready"; exit 0
+            fi
+            sleep 1
+          done
+          cat "$RUNNER_TEMP/universal-box-vite.log"
+          exit 1
+      - name: Simulate navigating every catalog entry and run office workflows
+        env:
+          UNIVERSAL_BOX_UI_URL: http://127.0.0.1:1420/
+        run: node --test test/browser-ui-smoke.cjs
+      - name: Save browser screenshots and extracted files
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: universal-box-browser-e2e-evidence
+          path: apps/universal-box/test/browser-test-results/
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Save Vite server diagnostics on error
+        if: failure()
+        run: cat "$RUNNER_TEMP/universal-box-vite.log" || true
