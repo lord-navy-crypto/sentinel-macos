@@ -1,6 +1,7 @@
 import {useEffect,useRef,useState,type ChangeEvent} from "react";
 import {invoke} from "@tauri-apps/api/core";
 import {listen} from "@tauri-apps/api/event";
+import {consumeHandoff,subscribeRecentOutputs} from "../lib/recentOutputs";
 import {
  createCommonsRoom,commonsFile,exportCommonsPacket,importCommonsPacket,
  MAX_FILE_BYTES,MAX_TOTAL_BYTES,type CommonsPacket,
@@ -92,6 +93,18 @@ export default function NearbyPairDesk({room,onImport}:{
   catch(e){setMessage("停止失败："+String(e));}
   finally{setWorking(false);}
  }
+ useEffect(()=>{
+  const acceptSavedResult=()=>{
+   const file=consumeHandoff("nearby");
+   if(!file)return;
+   setSendRoom(false);
+   setFiles([file]);
+   setMessage("已从其他 Universal Box 工具导入："+file.name+"。请搜索接收方并发送请求。");
+  };
+  const unsubscribe=subscribeRecentOutputs(acceptSavedResult);
+  acceptSavedResult();
+  return unsubscribe;
+ },[]);
  function selectFiles(event:ChangeEvent<HTMLInputElement>){
   const selected=Array.from(event.currentTarget.files??[]);
   event.currentTarget.value="";
