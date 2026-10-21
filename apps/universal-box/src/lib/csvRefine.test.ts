@@ -25,7 +25,7 @@ describe("Free offline CSV filter and sort",()=>{
   expect(()=>cleanWorkspaceCsv("A,B\n1,2",DEFAULT_CSV_CLEANUP,{query:"",sortColumn:-1,descending:false})).toThrow(/sort column/);
  });
  it("does not evaluate formula-looking cells, even after filtering and sorting",()=>{
-  const processed=cleanWorkspaceCsv("Name,Value\nAnna,@attack\nAnn,+SUM(1,2)\nAnn,-cmd",DEFAULT_CSV_CLEANUP,{query:"Ann",sortColumn:0,descending:false});
+  const processed=cleanWorkspaceCsv('Name,Value\nAnna,@attack\nAnn,"+SUM(1,2)"\nAnn,-cmd',DEFAULT_CSV_CLEANUP,{query:"Ann",sortColumn:0,descending:false});
   expect(processed.csv).toContain('"\'@attack"');
   expect(processed.csv).toContain('"\'-cmd"');
   expect(processed.csv).toContain('"\' +SUM(1,2)"'.replace("' ","'"));
