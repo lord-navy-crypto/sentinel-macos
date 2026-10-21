@@ -31,7 +31,7 @@ export default function SheetClipDesk({mode}:{mode:SheetClipMode}){
   }catch(err){setStatus("Sheet export failed: "+errorText(err));}finally{setBusy(false);}
  }
  function addText(){
-  try{setBasket(items=>addBasketItem(items,draft));setDraft("");setStatus("Added one user-supplied snippet to this temporary basket.");}
+  try{setBasket(addBasketItem(basket,draft));setDraft("");setStatus("Added one user-supplied snippet to this temporary basket.");}
   catch(err){setStatus("Add snippet: "+errorText(err));}
  }
  function copyJoined(){
