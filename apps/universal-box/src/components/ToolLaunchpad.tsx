@@ -2,6 +2,9 @@ import {useEffect,useMemo,useState} from "react";
 
 export type LocalTool = {id:string;name:string;area:string;view:string;module?:string};
 export const LOCAL_TOOLS:LocalTool[] = [
+ {id:"csv-docx-mail-merge",name:"CSV Mail Merge → Word · 批量制作个性化 DOCX",area:"Office",view:"workflows",module:"mail-merge"},
+ {id:"keyed-two-csv-join",name:"CSV Key Join · 按 ID 关联合并两张表",area:"Data",view:"workflows",module:"csv-key-join"},
+ {id:"multi-file-literal-replace",name:"Multi-file Text Replace · 多文件安全批量查找替换",area:"Files",view:"workflows",module:"text-file-batch"},
  {id:"unified-mixed-files",name:"Unified Workflow · Word, PPT, CSV, JSON, text & images → one ZIP",area:"Workflows",view:"workflows",module:"unified"},
  {id:"unified-audit-manifest",name:"Unified Source Audit · SHA-256, per-file conversion logs and ZIP report",area:"Privacy",view:"workflows",module:"unified"},
  {id:"unified-document-extraction",name:"Mixed Office Text Batch · extract DOCX & PPTX alongside data files",area:"Office",view:"workflows",module:"unified"},
