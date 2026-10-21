@@ -33,7 +33,7 @@ test("existing Word Counter supports real Unicode graphemes, selection, limit pr
   await page.locator('[data-testid="counter-import"]').setInputFiles({
    name:"notes.txt",mimeType:"text/plain",buffer:Buffer.from("A e\u0301 👩‍👩‍👧‍👦","utf8"),
   });
-  assert.match(await page.locator('[data-testid="count-characters"]').innerText(),/^5 字符$/u);
+  await page.waitForFunction(()=>document.querySelector('[data-testid="count-characters"]')?.textContent?.trim()==="5 字符",{timeout:15000});\n  assert.match(await page.locator('[data-testid="count-characters"]').innerText(),/^5 字符$/u);
   assert.equal(await input.inputValue(),"A e\u0301 👩‍👩‍👧‍👦");
   await page.screenshot({path:path.join(results,"word-counter.png"),fullPage:true});
   assert.deepEqual(errors,[]);
