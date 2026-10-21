@@ -1,6 +1,7 @@
 /** Keyboard-first command search for existing Sentinel Box tools; no network or file indexing. */
 export type PaletteCommand={id:string;name:string;description:string;view:string;module?:string};
 const ALIASES:Record<string,string[]>={
+ "tool-client-delivery":["client handoff","delivery package","verified file zip","客户交付","文件交付","校验压缩包","项目交付包"],
  "tool-meeting-minutes":["meeting minutes","meeting action items","meeting notes word","会议纪要","会议任务","会议待办","会后跟进"],
  "tool-scan-pdf-compress":["compress pdf","reduce pdf","pdf扫描压缩","扫描件压缩","压缩pdf"],
  "tool-pdf-measured-optimize":["pdf size","smaller pdf","pdf大小","优化pdf","压缩pdf"],
@@ -16,7 +17,7 @@ const ALIASES:Record<string,string[]>={
  "view-file-intake":["import file","file inspect","文件导入"],
  "view-workflows":["workflow","批量处理","工作流"],
 };
-const DEFAULT_IDS=["tool-meeting-minutes","tool-scan-pdf-compress","tool-pdf-measured-optimize","tool-target-photo-compressor",
+const DEFAULT_IDS=["tool-client-delivery","tool-meeting-minutes","tool-scan-pdf-compress","tool-pdf-measured-optimize","tool-target-photo-compressor",
  "tool-business-billing","view-workflows","view-vision-workflows","view-file-intake",
  "view-all-tools","view-pdf-mini","view-free-formats","view-charts","view-system-health"];
 export function sanitizePaletteHistory(input:unknown,validIds:ReadonlySet<string>,limit=12):string[]{
