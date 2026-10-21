@@ -139,7 +139,7 @@ export default function ExtraCreationDesk({initialMode="office"}:{initialMode?:E
   finally{setBusy(false);}
  }
  return <section className="panel" aria-label="More free tools studio">
-  <p className="eyebrow">UNIVERSAL BOX · MORE FREE EVERYDAY TOOLS</p>
+  <p className="eyebrow">SENTINEL BOX · MORE FREE EVERYDAY TOOLS</p>
   <h2>更多免费实用工具 / Everyday Studio</h2>
   <p className="subtle">这组工具覆盖办公文件读取、视频关键帧，以及图形化创作。操作默认在本机完成，不要求账户，也不会静默上传或覆盖源文件。</p>
   <div className="pill-row" role="group" aria-label="More tools tabs">
