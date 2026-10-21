@@ -96,7 +96,7 @@ export function makeIcsEvent(input:UtcEvent):string{
  if(!/^[a-zA-Z0-9-]{6,100}@daily-desk\.local$/u.test(input.uid))
    throw new Error("Invalid local event identifier.");
  const now=new Date().toISOString().slice(0,19).replace(/[-:]/gu,"")+"Z"; // actual UTC creation stamp
- const lines=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Daily Desk//Universal Box//EN",
+ const lines=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Daily Desk//Sentinel Box//EN",
   "CALSCALE:GREGORIAN","METHOD:PUBLISH","BEGIN:VEVENT",`UID:${input.uid}`,
   `DTSTAMP:${now}`,`DTSTART:${start}`,`DTEND:${end}`,`SUMMARY:${summary}`];
  if(input.description.trim())lines.push("DESCRIPTION:"+icsEscape(input.description,2000));
