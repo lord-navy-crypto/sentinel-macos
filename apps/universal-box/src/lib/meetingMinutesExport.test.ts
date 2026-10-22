@@ -25,7 +25,7 @@ describe("Real meeting minutes Word and task CSV delivery",()=>{
   expect(rows[1][2]).toBe("Alex");
   expect(rows[2][5]).toBe("in_progress");
   const ics=await zip.file("actions/open-action-deadlines.ics")!.async("string");
-  expect(ics).toContain("BEGIN:VCALENDAR\\r\\n".replace(/\\\\/gu,"\\"));
+  expect(ics).toContain("BEGIN:VCALENDAR\r\n");
   expect(ics.match(/BEGIN:VEVENT/gu)).toHaveLength(2);
   expect(ics).toContain("DTSTART;VALUE=DATE:20261102");
   expect(ics).not.toContain("BEGIN:VALARM");
@@ -54,6 +54,6 @@ describe("Real meeting minutes Word and task CSV delivery",()=>{
   expect(xml).toContain("确认人员分工");
   expect(await zip.file("actions/assigned-actions.csv")!.async("string")).toContain("准备中文文档");
   expect((await zip.file("actions/open-action-deadlines.ics")!.async("string"))
-   .replace(/\\r\\n /gu,"")).toContain("准备中文文档");
+   .replace(/\r\n /gu,"")).toContain("准备中文文档");
  });
 });
