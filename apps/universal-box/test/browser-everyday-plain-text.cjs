@@ -56,3 +56,59 @@ test("Office quick tools: explicit clipboard read, preserved original and opt-in
   await page.close();await context.close();await browser.close();
  }
 });
+
+
+test("Office quick tools: lossless multi-copy clipboard basket, reorder, copy and TXT export",{
+ timeout:75000,
+},async()=>{
+ const browser=await chromium.launch({headless:true,args:["--no-sandbox"]});
+ const context=await browser.newContext({
+  viewport:{width:1440,height:940},acceptDownloads:true,
+  permissions:["clipboard-read","clipboard-write"],
+ });
+ const page=await context.newPage(),errors=[];
+ page.on("pageerror",error=>errors.push(error.message));
+ try{
+  await page.goto(origin,{waitUntil:"domcontentloaded"});
+  await page.locator(".app-shell").waitFor();
+  await page.locator('.sidebar button.nav-item[aria-label^="All tools"]').click();
+  await page.locator("#all-tools-search").fill("Text Cleaner");
+  await page.locator(".catalog-open").first().click();
+  await page.locator("#quick-text-input").waitFor();
+  await page.locator(".pill-row button").filter({hasText:"Multi-copy"}).click();
+  const raw="  First clipboard text\n  Indented second line  ";
+  await page.evaluate(async text=>navigator.clipboard.writeText(text),raw);
+  // Explicit-only clipboard access: nothing appears until user presses the button.
+  assert.equal(await page.locator("#clip-combined").inputValue(),"");
+  await page.locator('[data-testid="quick-clip-read"]').click();
+  await page.waitForFunction(expected=>document.querySelector("#clip-combined")?.value===expected,raw);
+  assert.equal(await page.locator("#clip-combined").inputValue(),raw);
+
+  await page.locator("#clip-draft").fill("Second snippet");
+  await page.locator('[data-testid="quick-clip-add"]').click();
+  assert.equal(await page.locator("#clip-combined").inputValue(),raw+"\nSecond snippet");
+  await page.locator('[data-testid="quick-clip-up-1"]').click();
+  const reordered="Second snippet\n"+raw;
+  assert.equal(await page.locator("#clip-combined").inputValue(),reordered);
+  await page.locator('[data-testid="quick-clip-copy"]').click();
+  await page.waitForFunction(async expected=>(await navigator.clipboard.readText())===expected,reordered);
+  await page.locator("#clip-separator").selectOption("blank");
+  const expected="Second snippet\n\n"+raw;
+  assert.equal(await page.locator("#clip-combined").inputValue(),expected);
+
+  const [download]=await Promise.all([
+   page.waitForEvent("download"),
+   page.locator('[data-testid="quick-clip-save"]').click(),
+  ]);
+  assert.equal(download.suggestedFilename(),"combined-snippets.txt");
+  const saved=path.join(output,"combined-snippets.txt");
+  await download.saveAs(saved);
+  assert.equal(fs.readFileSync(saved,"utf8"),expected);
+  await page.locator('[data-testid="quick-clip-clear"]').click();
+  assert.equal(await page.locator("#clip-combined").inputValue(),"");
+  await page.screenshot({path:path.join(output,"clipboard-basket.png"),fullPage:true});
+  assert.deepEqual(errors,[]);
+ }finally{
+  await page.close();await context.close();await browser.close();
+ }
+});
