@@ -83,6 +83,9 @@ test("PDF everyday: drag local PDF, choose odd/even/reverse shortcuts, export ex
 
   await page.locator('[data-testid="pdf-quick-odd"]').click();
   assert.equal(await page.locator('[data-testid="pdf-page-expression"]').inputValue(),"1,3,5");
+  await page.locator('[data-testid="pdf-quick-preview-pages"]').click();
+  await page.locator('[data-testid="pdf-quick-output-preview"]').waitFor();
+  await page.locator('[data-testid="pdf-quick-output-preview"] .pdf-preview').waitFor();
   let downloadPending=page.waitForEvent("download");
   await page.locator('[data-testid="pdf-quick-export-pages"]').click();
   let dl=await downloadPending;let output=path.join(target,"odd-page-shortcut.pdf");
@@ -92,6 +95,8 @@ test("PDF everyday: drag local PDF, choose odd/even/reverse shortcuts, export ex
 
   await page.locator('[data-testid="pdf-quick-even"]').click();
   assert.equal(await page.locator('[data-testid="pdf-page-expression"]').inputValue(),"2,4");
+  assert.equal(await page.locator('[data-testid="pdf-quick-output-preview"]').count(),0,
+    "Changing selection must invalidate the old preview");
   downloadPending=page.waitForEvent("download");
   await page.locator('[data-testid="pdf-quick-export-pages"]').click();
   dl=await downloadPending;output=path.join(target,"even-page-shortcut.pdf");
