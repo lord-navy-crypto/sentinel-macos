@@ -2,7 +2,7 @@ import {describe,it,expect} from "vitest";
 import {PDFDocument} from "pdf-lib";
 import {
  inspectPdfEveryday,savePdfMetadata,cropPdfPages,insertBlankPdfPages,
- inspectPdfTextFields,fillPdfTextFields,
+ inspectPdfTextFields,fillPdfTextFields,pdfQuickPageExpression,parsePdfPageOrder,exportSelectedPdfPages,
 } from "./pdfEveryday";
 
 async function sample():Promise<Uint8Array>{
@@ -58,6 +58,24 @@ describe("v0.27 local small PDF editing",()=>{
    expect(afterLast.getPage(2).getSize()).toMatchObject({width:612,height:792});
    await expect(insertBlankPdfPages(input,3,1,"a4")).rejects.toThrow(/Position/);
    await expect(insertBlankPdfPages(input,1,11,"letter")).rejects.toThrow(/1–10/);
+ });
+ it("builds first/last/odd/even/reverse shortcuts with exactly the desired pages",async()=>{
+   const input=await sample();
+   expect(pdfQuickPageExpression("first",2)).toBe("1");
+   expect(pdfQuickPageExpression("last",2)).toBe("2");
+   expect(pdfQuickPageExpression("odd",7)).toBe("1,3,5,7");
+   expect(pdfQuickPageExpression("even",7)).toBe("2,4,6");
+   expect(pdfQuickPageExpression("reverse",4)).toBe("4,3,2,1");
+   expect(parsePdfPageOrder(pdfQuickPageExpression("reverse",200),200)).toHaveLength(200);
+   expect(pdfQuickPageExpression("reverse",200).length).toBeLessThan(900);
+   expect(()=>pdfQuickPageExpression("even",1)).toThrow(/no even/);
+   expect(()=>pdfQuickPageExpression("odd",201)).toThrow(/1–200/);
+   expect(()=>pdfQuickPageExpression("first",0)).toThrow(/1–200/);
+   expect(()=>pdfQuickPageExpression("unknown" as "first",2)).toThrow(/Unknown/);
+   const picked=await PDFDocument.load(await exportSelectedPdfPages(input,pdfQuickPageExpression("reverse",2)));
+   expect(picked.getPageCount()).toBe(2);
+   expect(picked.getPage(0).getWidth()).toBe(400);
+   expect(picked.getPage(1).getWidth()).toBe(612);
  });
  it("finds and fills standard printable ASCII AcroForm text fields, refusing unsupported content",async()=>{
    const doc=await PDFDocument.create();
