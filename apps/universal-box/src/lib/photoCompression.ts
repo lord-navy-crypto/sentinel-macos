@@ -3,6 +3,18 @@ import JSZip from "jszip";
 import {imageWorkflowScale} from "./imageWorkflow";
 import {photoForCanvas} from "./heicPhotoInput";
 export type PhotoSettings={format:"jpeg"|"webp";maxDimension:512|1024|2048;targetKB:number};
+/** Small, transparent presets for common tasks; target size is a best effort, never guaranteed. */
+export type PhotoPreset="email"|"web"|"detail";
+export const PHOTO_PRESETS:Record<PhotoPreset,{label:string;description:string;settings:PhotoSettings}>={
+ email:{label:"邮件附件",description:"JPEG · 最长边 1024 px · 尝试 250 KB",settings:{format:"jpeg",maxDimension:1024,targetKB:250}},
+ web:{label:"网页上传",description:"WebP · 最长边 1024 px · 尝试 400 KB",settings:{format:"webp",maxDimension:1024,targetKB:400}},
+ detail:{label:"保留更多细节",description:"JPEG · 最长边 2048 px · 尝试 1500 KB",settings:{format:"jpeg",maxDimension:2048,targetKB:1500}},
+};
+export function photoPresetSettings(preset:PhotoPreset):PhotoSettings{
+ const found=PHOTO_PRESETS[preset];
+ if(!found)throw Error("Unsupported photo preset.");
+ return {...found.settings};
+}
 export type PhotoItem={name:string;file:File};
 export type PhotoReport={source:string;originalBytes:number;outputBytes:number;outputName:string;targetMet:boolean;quality:number;width:number;height:number;sizeDeltaBytes:number;sizeDeltaPercent:number;smallerThanSource:boolean};
 function sanitize(n:string){return n.normalize("NFC").replace(/[\\/:*?"<>|\u0000-\u001f\u007f]/gu,"-").replace(/\.[^.]+$/u,"").slice(0,65)||"photo";}
