@@ -1,5 +1,5 @@
 import {describe,it,expect} from "vitest";
-import {parseBookmarkHtml,bookmarkDeduplicate,bookmarksCsv,bookmarksMarkdown,bookmarkDomainSummary} from "./bookmarkImport";
+import {parseBookmarkHtml,bookmarkDeduplicate,bookmarksCsv,bookmarksMarkdown,bookmarkDomainSummary,bookmarkDuplicateGroups} from "./bookmarkImport";
 
 const exported=`<!DOCTYPE NETSCAPE-Bookmark-file-1>
 <TITLE>Bookmarks</TITLE>
@@ -28,6 +28,11 @@ describe("Browser bookmarks import is local and inert",()=>{
  it("does not silently delete duplicates and only removes duplicates on request",()=>{
   const report=parseBookmarkHtml(exported);
   expect(report.items).toHaveLength(3);
+  const groups=bookmarkDuplicateGroups(report.items);
+  expect(groups).toHaveLength(1);
+  expect(groups[0].count).toBe(2);
+  expect(groups[0].titles).toEqual(["Research & notes","Research & notes - copy"]);
+  expect(groups[0].url).toBe("https://example.com/docs?utm_source=mail&id=7");
   const unique=bookmarkDeduplicate(report.items);
   expect(unique).toHaveLength(2);
   expect(unique.map(x=>x.title)).toEqual(["Research & notes","Project guide"]);
