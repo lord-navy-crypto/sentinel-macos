@@ -1,6 +1,6 @@
 import {describe,it,expect} from "vitest";
 import {PDFDocument} from "pdf-lib";
-import {inspectMergeFiles,mergePdfFiles,moveMergeFile,validateMergeFiles,type MergePdfInput} from "./pdfMergeQuick";
+import {inspectMergeFiles,mergePdfFiles,moveMergeFile,validateMergeFiles,mergedPageRanges,validateMergeOutputName,type MergePdfInput} from "./pdfMergeQuick";
 
 async function pdf(name:string,widths:number[]):Promise<MergePdfInput>{
  const doc=await PDFDocument.create();
@@ -39,6 +39,37 @@ describe("Daily PDF merge order, previews and input limits",()=>{
   expect(()=>validateMergeFiles([{name:"a.pdf",size:15_000_001}])).toThrow(/15 MB/);
   expect(()=>validateMergeFiles(Array.from({length:21},(_,i)=>({name:i+".pdf",size:1000})))).toThrow(/1–20/);
   expect(()=>validateMergeFiles(Array.from({length:5},(_,i)=>({name:i+".pdf",size:14_000_000})))).toThrow(/60 MB/);
+ });
+ it("shows inclusive merged page boundaries in exactly the chosen PDF order",()=>{
+  const entries=[
+   {name:"book.pdf",pages:2,bytes:500},
+   {name:"worksheet.pdf",pages:1,bytes:600},
+   {name:"appendix.pdf",pages:3,bytes:700},
+  ];
+  expect(mergedPageRanges(entries)).toEqual([
+   {first:1,last:2},{first:3,last:3},{first:4,last:6},
+  ]);
+  expect(mergedPageRanges([])).toEqual([]);
+  expect(()=>mergedPageRanges([{name:"invalid.pdf",pages:0,bytes:100}])).toThrow(/page count/);
+  expect(()=>mergedPageRanges([{name:"huge.pdf",pages:201,bytes:100}])).toThrow(/page count/);
+  expect(()=>mergedPageRanges([
+   {name:"first.pdf",pages:200,bytes:100},
+   {name:"second.pdf",pages:200,bytes:100},
+   {name:"third.pdf",pages:1,bytes:100},
+  ])).toThrow(/400 pages/);
+ });
+ it("permits readable Chinese PDF filenames without duplicate .pdf extension",()=>{
+  expect(validateMergeOutputName("  文书汇总.PDF  ")).toBe("文书汇总.pdf");
+  expect(validateMergeOutputName("Final-Review.pdf")).toBe("Final-Review.pdf");
+  expect(validateMergeOutputName("meeting-notes")).toBe("meeting-notes.pdf");
+  expect(validateMergeOutputName("report.v2.pdf")).toBe("report.v2.pdf");
+ });
+ it("rejects empty, traversal, Windows reserved and control-character output paths",()=>{
+  for(const name of ["","  ","..","CON.pdf","NUL","COM1.pdf",
+   "../hidden.pdf","folder\\\\merge.pdf","filename:bad.pdf",".secret.pdf",
+   "trailing..pdf","bad\nname.pdf", "x".repeat(101)+".pdf"]){
+   expect(()=>validateMergeOutputName(name)).toThrow();
+  }
  });
  it("refuses unreadable files and explains which input failed",async()=>{
   const invalid:MergePdfInput={name:"broken.pdf",size:500,arrayBuffer:async()=>new Uint8Array(500).buffer};
