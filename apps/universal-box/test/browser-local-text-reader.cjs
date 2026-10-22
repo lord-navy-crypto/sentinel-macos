@@ -42,11 +42,9 @@ test("Local-only reader: refuse remote voice; speak, pause, resume and stop with
   assert.equal(await page.locator('[data-testid="reader-voice"] option').count(),1);
   assert.match(await page.locator('[data-testid="reader-voice"]').innerText(),/Local English/);
   await page.locator('[data-testid="reader-text"]').fill("  This is my own local reading text.  ");
-  await page.locator('[data-testid="reader-rate"]').evaluate(element=>{
-   element.value="1.2";
-   element.dispatchEvent(new Event("input",{bubbles:true}));
-   element.dispatchEvent(new Event("change",{bubbles:true}));
-  });
+  await page.locator('[data-testid="reader-rate"]').focus();
+  await page.locator('[data-testid="reader-rate"]').press("ArrowRight");
+  await page.locator('[data-testid="reader-rate"]').press("ArrowRight");
   await page.locator('[data-testid="reader-start"]').click();
   assert.deepEqual(await page.evaluate(()=>window.__spoken),[
    {text:"This is my own local reading text.",rate:1.2,voice:"local-en"},
