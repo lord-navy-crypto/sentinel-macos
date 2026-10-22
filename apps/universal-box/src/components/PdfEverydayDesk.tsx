@@ -40,6 +40,7 @@ export default function PdfEverydayDesk({initialMode="metadata"}:{initialMode?:P
   const [blankCount,setBlankCount]=useState(1);
   const [format,setFormat]=useState<PageFormat>("a4");
   const [pageExpression,setPageExpression]=useState("1");
+  const [preparedPages,setPreparedPages]=useState<{expression:string;file:File;bytes:Uint8Array}|null>(null);
   const [fields,setFields]=useState<PdfFormText[]|null>(null);
   const [links,setLinks]=useState<PdfExternalLink[]|null>(null);
   const [linkTarget,setLinkTarget]=useState("");
@@ -63,7 +64,7 @@ export default function PdfEverydayDesk({initialMode="metadata"}:{initialMode?:P
     setFile(null);setBytes(null);setInfo(null);setFields(null);setFormValues({});
     setLinks(null);setLinkSelection("");setLinkDirty(false);setLinkPreview(null);
     setBatchFrom("");setBatchTo("");setBatchPages("all");setShowLinkPicker(false);
-    setMetadata(EMPTY_METADATA);setPageExpression("1");setStatus("");
+    setMetadata(EMPTY_METADATA);setPageExpression("1");setPreparedPages(null);setStatus("");
     if(!selected)return;
     setBusy(true);
     try{
@@ -94,9 +95,21 @@ export default function PdfEverydayDesk({initialMode="metadata"}:{initialMode?:P
     if(!info||busy||linkDirty)return;
     try{
       const expression=pdfQuickPageExpression(action,info.pages);
-      setPageExpression(expression);setMode("pages");
+      setPageExpression(expression);setPreparedPages(null);setMode("pages");
       setStatus("已填写页码顺序："+expression+"。请核对后点击“提取并另存”，原 PDF 保持不变。");
     }catch(e){setStatus("PDF 快捷操作不可用："+err(e));}
+  }
+  async function previewPdfPages(){
+    if(!bytes||busy||linkDirty)return;
+    setBusy(true);setPreparedPages(null);setStatus("");
+    try{
+      const result=await exportSelectedPdfPages(bytes,pageExpression);
+      const previewFile=new File([new Uint8Array(result)],"sentinel-box-selected-pages-preview.pdf",
+        {type:"application/pdf"});
+      setPreparedPages({expression:pageExpression,file:previewFile,bytes:result});
+      setStatus("已在本机生成所选页面的实际预览。检查页序与内容后，再另存新文件。");
+    }catch(e){setStatus("PDF 页面预览失败："+err(e));}
+    finally{setBusy(false);}
   }
   async function savePdf(name:string,process:()=>Promise<Uint8Array>){
     if(!bytes||busy)return;
@@ -282,12 +295,24 @@ export default function PdfEverydayDesk({initialMode="metadata"}:{initialMode?:P
       {mode==="pages"&&<>
         <p className="subtle">Export chosen PDF pages in your specified order. Use e.g. 3,1-2,5 to output page 3, then pages 1–2, then 5. Repeating page numbers duplicates pages in the output. A fresh PDF is saved locally; the original stays unchanged. Some document-level features such as outlines or embedded forms may not transfer to the new PDF.</p>
         <label className="field-label">Page order / 页面顺序 (1–{pageCount})
-          <input className="field" type="text" data-testid="pdf-page-expression" maxLength={900} value={pageExpression} onChange={e=>setPageExpression(e.target.value)} placeholder="3,1-2,5"/>
+          <input className="field" type="text" data-testid="pdf-page-expression" maxLength={900} value={pageExpression} onChange={e=>{setPageExpression(e.target.value);setPreparedPages(null);}} placeholder="3,1-2,5"/>
         </label>
-        <button className="primary-button" type="button" data-testid="pdf-quick-export-pages" disabled={busy}
-          onClick={()=>{void savePdf("universal-box-selected-pages.pdf",()=>exportSelectedPdfPages(bytes!,pageExpression));}}>
-          Extract / reorder and save new PDF
-        </button>
+        <div className="actions">
+          <button className="secondary-button" type="button" data-testid="pdf-quick-preview-pages"
+            disabled={busy||linkDirty} onClick={()=>{void previewPdfPages();}}>
+            先预览所选页面
+          </button>
+          <button className="primary-button" type="button" data-testid="pdf-quick-export-pages" disabled={busy||linkDirty}
+            onClick={()=>{void savePdf("universal-box-selected-pages.pdf",async()=>
+              preparedPages?.expression===pageExpression?preparedPages.bytes:exportSelectedPdfPages(bytes!,pageExpression));}}>
+            提取并另存 PDF
+          </button>
+        </div>
+        {preparedPages&&preparedPages.expression===pageExpression&&
+          <div data-testid="pdf-quick-output-preview" className="panel">
+            <p className="subtle">实际导出页面预览：{preparedPages.file.size.toLocaleString()} 字节。原文件未修改；请核对页面顺序。</p>
+            <PdfPagePreview file={preparedPages.file} onPickPage={()=>{}}/>
+          </div>}
       </>}
       {mode==="links"&&<>
         <p className="subtle"><strong>PDF Hyperlink Studio · 可点击链接编辑。</strong> 只处理标准外部 URI 链接批注，可查看、替换、移除或创建透明的可点击区域。不会修改页面上肉眼看见的文字，也不会自动打开 PDF 中的任何网址。</p>
