@@ -23,7 +23,6 @@ import EmlArchiveDesk from "./components/EmlArchiveDesk";
 import ReadOnlyGrepDesk from "./components/ReadOnlyGrepDesk";
 import FolderSnapshotDiffDesk from "./components/FolderSnapshotDiffDesk";
 import OfflineFeedArchiveDesk from "./components/OfflineFeedArchiveDesk";
-import TextContrastDesk from "./components/TextContrastDesk";
 import BinaryCompareDesk from "./components/BinaryCompareDesk";
 import SystemHealthDesk from "./components/SystemHealthDesk";
 import UniversalDesk, {type UniversalMode} from "./components/UniversalDesk";
@@ -63,7 +62,7 @@ import {
   persistWorkspace,
 } from "./lib/nativeStorage";
 
-type View = "vision-workflows" | "life-media" | "daily-studio" | "extra-studio" | "creative-studio" | "web-capture" | "binary-compare" | "system-health" | "file-intake" | "folder-inventory" | "bookmarks" | "clipboard-image" | "text-reader" | "epub-reader" | "jsonl-viewer" | "hex-viewer" | "eml-viewer" | "grep-search" | "snapshot-diff" | "feed-archive" | "text-contrast" | "commons" | "local-ai" | "access" | "pdf-mini" | "charts" | "free-formats" | "workflows" | "office-privacy" | "media-files" | "universal-lab" | "universal-box" | "universal" | "quick-tools" | "external" | "all-tools" | "code" | "tables" | "overview" | "tasks" | "cards" | "focus" | "notes" | "utilities" | "data" | "files" | "math" | "learning" | "writing" | "drawing" | "reading" | "presets";
+type View = "vision-workflows" | "life-media" | "daily-studio" | "extra-studio" | "creative-studio" | "web-capture" | "binary-compare" | "system-health" | "file-intake" | "folder-inventory" | "bookmarks" | "clipboard-image" | "text-reader" | "epub-reader" | "jsonl-viewer" | "hex-viewer" | "eml-viewer" | "grep-search" | "snapshot-diff" | "feed-archive" | "commons" | "local-ai" | "access" | "pdf-mini" | "charts" | "free-formats" | "workflows" | "office-privacy" | "media-files" | "universal-lab" | "universal-box" | "universal" | "quick-tools" | "external" | "all-tools" | "code" | "tables" | "overview" | "tasks" | "cards" | "focus" | "notes" | "utilities" | "data" | "files" | "math" | "learning" | "writing" | "drawing" | "reading" | "presets";
 
 const menu: { id: View; name: string; symbol: string; description: string }[] = [
   { id: "overview", name: "Overview", symbol: "◫", description: "Your workspace at a glance" },
@@ -561,7 +560,6 @@ export default function App() {
           {view === "grep-search" && <ReadOnlyGrepDesk/> }
           {view === "snapshot-diff" && <FolderSnapshotDiffDesk/> }
           {view === "feed-archive" && <OfflineFeedArchiveDesk/> }
-          {view === "text-contrast" && <TextContrastDesk/> }
           {view === "binary-compare" && <BinaryCompareDesk onOpenTool={openTool}/> }
           {view === "system-health" && <SystemHealthDesk onOpenTool={openTool}/> }
           {view === "all-tools" && <ToolLaunchpad onLaunch={openTool} />}
