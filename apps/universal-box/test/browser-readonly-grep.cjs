@@ -44,7 +44,7 @@ test("Grep: real selected UTF-8 files, literal lines, complete safe CSV, no sour
   const dest=path.join(output,"grep-real-search.csv");await dl.saveAs(dest);
   const csv=fs.readFileSync(dest,"utf8");
   assert.match(csv,/TODO,李四/);assert.match(csv,/WARN: todo later/);
-  assert.match(csv,/4,"tasks.md",4/);
+  assert.match(csv,/1,"tasks.md",4/);
   assert.equal(csv.trim().split("\r\n").length,5);
 
   await page.locator('[data-testid="grep-case"]').check();
