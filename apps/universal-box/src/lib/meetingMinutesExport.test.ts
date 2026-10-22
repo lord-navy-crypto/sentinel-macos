@@ -40,6 +40,26 @@ describe("Real meeting minutes Word and task CSV delivery",()=>{
   expect(manifest.statusCounts).toEqual({todo:1,inProgress:1,done:0});
   expect(manifest.limitations).toEqual(expect.arrayContaining([expect.stringContaining("No audio transcript")]));
  });
+ it("packages only active tasks by default and respects completed-task opt-in",async()=>{
+  const csv=MEETING_ACTION_HEADERS.join(",")+"\n"+
+   "T1,Review files,Alex,2026-11-07,normal,todo,\n"+
+   "T2,Already approved,Lee,2026-11-08,low,done,";
+  const plan=planMeetingMinutes(MEETING_SAMPLE,csv);
+  const defaultZip=await JSZip.loadAsync(await exportMeetingMinutes(plan));
+  const regular=await defaultZip.file("actions/open-action-deadlines.ics")!.async("string");
+  expect(regular).toContain("Review files");
+  expect(regular).not.toContain("Already approved");
+  const defaultManifest=JSON.parse(await defaultZip.file("reports/manifest.json")!.async("string"));
+  expect(defaultManifest.calendarEvents).toBe(1);
+  expect(defaultManifest.skippedCompletedActions).toBe(1);
+  const allZip=await JSZip.loadAsync(await exportMeetingMinutes(plan,{includeDoneInCalendar:true}));
+  const imported=(await allZip.file("actions/open-action-deadlines.ics")!.async("string"))
+   .replace(/\r\n[ \t]/gu,"");
+  expect(imported).toContain("Already approved");
+  const allManifest=JSON.parse(await allZip.file("reports/manifest.json")!.async("string"));
+  expect(allManifest.calendarEvents).toBe(2);
+  expect(allManifest.skippedCompletedActions).toBe(0);
+ });
  it("keeps actual Chinese text inside Word and Excel-friendly task CSV",async()=>{
   const input={...MEETING_SAMPLE,title:"年度项目例会",attendees:"张三\n李四",
    decisions:"确认人员分工\n整理交付文件"};
