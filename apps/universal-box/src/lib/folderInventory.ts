@@ -60,7 +60,7 @@ function escapeMd(source:string):string{
 }
 /** Tree view from paths only; does not open, hash, or decode files. */
 export function folderTreeMarkdown(snapshot:FolderSnapshot):string{
-  const lines=["# 本地文件夹目录清单","","文件："+snapshot.files.length+" 个 · 子目录："+snapshot.folders.length+" 个 · 共 "+snapshot.totalBytes+" bytes",""];
+  const lines=["# 本地文件夹目录清单","","文件："+snapshot.files.length+" 个 · 子目录："+countSubfolders(snapshot)+" 个 · 共 "+snapshot.totalBytes+" bytes",""];
   const nodes=[
     ...snapshot.folders.map(path=>({path,folder:true})),
     ...snapshot.files.map(file=>({path:file.path,folder:false})),
@@ -91,6 +91,13 @@ export function folderInventoryCsv(snapshot:FolderSnapshot):string{
   ].join(","));
   return "\uFEFFindex,relative_path,file_name,extension,size_bytes,modified_utc\r\n"+
     rows.join("\r\n")+(rows.length?"\r\n":"");
+}
+/** Excludes the selected folder's own label; only nested directories are counted. */
+export function countSubfolders(snapshot:FolderSnapshot):number{
+ const first=snapshot.files[0]?.path.split("/")[0]??"";
+ const selectedRoot=!!first&&snapshot.files.every(item=>item.path.startsWith(first+"/"));
+ const hasRoot=selectedRoot&&snapshot.folders.includes(first);
+ return snapshot.folders.length-(hasRoot?1:0);
 }
 export function folderExtensionSummary(snapshot:FolderSnapshot):{extension:string;count:number;bytes:number}[]{
   const counts=new Map<string,{count:number;bytes:number}>();
