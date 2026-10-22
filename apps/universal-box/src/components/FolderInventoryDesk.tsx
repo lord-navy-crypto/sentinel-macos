@@ -1,6 +1,6 @@
 import {useMemo,useState,type ChangeEvent} from "react";
 import {exportFile} from "../lib/output";
-import {makeFolderSnapshot,folderTreeMarkdown,folderInventoryCsv,folderExtensionSummary,type FolderSnapshot} from "../lib/folderInventory";
+import {makeFolderSnapshot,folderTreeMarkdown,folderInventoryCsv,folderExtensionSummary,countSubfolders,type FolderSnapshot} from "../lib/folderInventory";
 
 const errorText=(value:unknown)=>value instanceof Error?value.message:String(value);
 
@@ -59,7 +59,7 @@ export default function FolderInventoryDesk(){
     {snapshot&&<>
       <div className="metrics" data-testid="folder-inventory-stats">
         <span>文件：{snapshot.files.length.toLocaleString()}</span>
-        <span>子文件夹：{snapshot.folders.length.toLocaleString()}</span>
+        <span>子文件夹：{countSubfolders(snapshot).toLocaleString()}</span>
         <span>总大小：{snapshot.totalBytes.toLocaleString()} bytes</span>
       </div>
       <div className="actions">
