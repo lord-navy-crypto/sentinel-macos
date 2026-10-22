@@ -57,6 +57,19 @@ export function bookmarkDeduplicate(items:readonly LocalBookmark[]):LocalBookmar
  const seen=new Set<string>();
  return items.filter(bookmark=>!seen.has(bookmark.url)&&!!seen.add(bookmark.url));
 }
+/** Keep duplicate details inspectable even if the user enables deduplication for export. */
+export function bookmarkDuplicateGroups(items:readonly LocalBookmark[]):{url:string;count:number;titles:string[]}[]{
+ const map=new Map<string,{count:number;titles:string[]}>();
+ for(const item of items){
+  const group=map.get(item.url)??{count:0,titles:[]};
+  group.count++;
+  if(group.titles.length<8)group.titles.push(item.title);
+  map.set(item.url,group);
+ }
+ return [...map.entries()].filter(([,group])=>group.count>1)
+  .map(([url,group])=>({url,...group}))
+  .sort((a,b)=>b.count-a.count||a.url.localeCompare(b.url));
+}
 function csvCell(value:string):string{
  const safe=/^[\s\uFEFF\u200B]*[=+@-]/u.test(value)?"'"+value:value;
  return '"'+safe.replace(/"/gu,'""')+'"';
