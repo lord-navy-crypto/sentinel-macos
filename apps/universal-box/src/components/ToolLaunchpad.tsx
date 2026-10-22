@@ -61,6 +61,8 @@ export const LOCAL_TOOLS:LocalTool[] = [
  {id:"offline-text-read-aloud",name:"Offline Text to Speech · 本地文字语音朗读",area:"Access",view:"text-reader"},
  {id:"epub-chapter-reader",name:"EPUB Chapter Reader · 本地电子书章节查看与导出",area:"Study",view:"epub-reader"},
  {id:"jsonl-log-inspector",name:"JSONL / NDJSON Log Viewer · 本地日志检索与 CSV 导出",area:"Code",view:"jsonl-viewer"},
+ {id:"hex-binary-viewer",name:"Read-Only HEX Viewer · 只读十六进制文件检查",area:"Files",view:"hex-viewer"},
+ {id:"eml-mail-archive",name:"Local EML Mail Archive · 纯文本邮件档案检查",area:"Office",view:"eml-viewer"},
  {id:"commons-team",name:"Universal Commons · 免费共享文件、离线团队留言和任务包",area:"Sharing",view:"commons"},
  {id:"easy-local-ai",name:"Easy Local AI · WebGPU + WebLLM Model Chat",area:"AI",view:"local-ai"},
  {id:"local-ai-models",name:"Local AI Model Manager · Download, Check & Remove",area:"AI",view:"local-ai"},
