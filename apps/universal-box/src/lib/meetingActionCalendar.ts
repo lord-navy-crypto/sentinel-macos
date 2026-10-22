@@ -29,7 +29,7 @@ export function foldIcalLine(value:string):string{
  return parts.join("\r\n");
 }
 const line=(name:string,value:string)=>foldIcalLine(name+":"+escapeIcalText(value));
-const dateToken=(iso:string):string=>iso.replaceAll("-","");
+const dateToken=(iso:string):string=>iso.replace(/-/gu,"");
 function nextDateToken(iso:string):string{
  const time=new Date(iso+"T00:00:00Z").getTime();
  if(!Number.isFinite(time))throw Error("Invalid action due date.");
