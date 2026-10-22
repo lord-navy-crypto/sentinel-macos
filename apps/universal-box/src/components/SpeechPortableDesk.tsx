@@ -1,4 +1,4 @@
-import {useEffect,useRef,useState,type ChangeEvent} from "react";
+import {useEffect,useRef,useState,type ChangeEvent,type DragEvent as ReactDragEvent} from "react";
 import {invoke,isTauri} from "@tauri-apps/api/core";
 import {exportFile} from "../lib/output";
 import JSZip from "jszip";
@@ -99,9 +99,32 @@ export default function SpeechPortableDesk({mode}:{mode:SpeechPortableMode}){
  function invalidatePreparedPhotos(){
   setPreparedPhotos(null);setPhotoReports([]);setPhotoPreviewUrl("");
  }
+ function selectPhotos(selected:File[],append:boolean){
+  if(busy)return;
+  if(!selected.length)return;
+  try{
+   const proposed=append?[...photos,...selected]:selected;
+   planPhotoBatch(proposed,photoSettings);
+   setPhotos(proposed);invalidatePreparedPhotos();
+   setStatus("已检查 "+proposed.length+" 张图片（含格式与大小限制）；清单更改后旧压缩预览已清除。");
+  }catch(e){setStatus("未加入图片，原清单不变："+err(e));}
+ }
  function pickPhotos(event:ChangeEvent<HTMLInputElement>){
-  if(busy){event.target.value="";return;}
-  setPhotos([...(event.target.files??[])]);event.target.value="";invalidatePreparedPhotos();setStatus("");
+  const selected=[...(event.target.files??[])];event.target.value="";
+  selectPhotos(selected,false);
+ }
+ function dropPhotos(event:ReactDragEvent<HTMLDivElement>){
+  event.preventDefault();
+  selectPhotos([...(event.dataTransfer.files??[])],true);
+ }
+ function removePhoto(index:number){
+  if(busy)return;
+  setPhotos(existing=>existing.filter((_,i)=>i!==index));
+  invalidatePreparedPhotos();setStatus("已移除图片，旧预览已清除；原文件未修改。");
+ }
+ function clearPhotos(){
+  if(busy)return;
+  setPhotos([]);invalidatePreparedPhotos();setStatus("已清空照片清单和旧压缩预览。");
  }
  function changePhotoSettings(update:Partial<PhotoSettings>){
   if(busy)return;
@@ -235,8 +258,23 @@ export default function SpeechPortableDesk({mode}:{mode:SpeechPortableMode}){
      {PHOTO_PRESETS[key].label}</button>)}
    </div>
    <p className="subtle">预设：邮件 1024px/JPEG/250KB；网页 1024px/WebP/400KB；保留细节 2048px/JPEG/1500KB。均为尝试上限，实际结果在预览中查看。</p>
-   <label className="field-label">选择照片（包括 iPhone HEIC，单张 ≤8 MB，总计 ≤25 MB）
-    <input className="field" data-testid="photo-files" type="file" multiple disabled={busy} accept=".png,.jpg,.jpeg,.webp,.heic,.heif,image/*" onChange={pickPhotos}/></label>
+   <div className="panel" data-testid="photo-drop-zone" aria-label="拖入图片并追加到照片清单"
+      onDragOver={event=>event.preventDefault()} onDrop={dropPhotos}>
+    <label className="field-label">选择照片（替换现有选择），或从 Finder 拖入图片以追加；最多 10 张、单张 ≤8 MB，总计 ≤25 MB
+     <input className="field" data-testid="photo-files" type="file" multiple disabled={busy}
+       accept=".png,.jpg,.jpeg,.webp,.heic,.heif,image/*" onChange={pickPhotos}/></label>
+    <p className="subtle">拖入会追加到当前清单；若超出图片数量、文件格式或大小限制，保留现有清单不变。照片始终本地处理。</p>
+   </div>
+   {photos.length>0&&<div data-testid="photo-input-list" className="panel">
+    <p><strong>待处理图片（{photos.length}/10）</strong> · 每次更改清单会清除上次预览</p>
+    {photos.map((file,index)=><div className="task-row" key={index} data-testid="photo-input-entry">
+     <span className="task-copy">{index+1}. {file.name} · {(file.size/1000).toFixed(1)} KB</span>
+     <button type="button" className="secondary-button" data-testid={`photo-remove-${index}`}
+      disabled={busy} onClick={()=>removePhoto(index)} aria-label={`移除第${index+1}张图片`}>移除</button>
+    </div>)}
+    <button type="button" className="secondary-button" data-testid="photo-clear-all"
+     disabled={busy} onClick={clearPhotos}>清空照片清单</button>
+   </div>}
    <div className="tools-pair">
     <label className="field-label">输出格式<select className="field" data-testid="photo-format" disabled={busy} value={photoSettings.format} onChange={e=>changePhotoSettings({format:e.target.value as PhotoSettings["format"]})}>
      <option value="jpeg">JPEG · 常见兼容格式</option><option value="webp">WebP · 现代浏览器</option></select></label>
