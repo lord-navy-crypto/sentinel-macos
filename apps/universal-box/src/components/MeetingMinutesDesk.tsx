@@ -38,7 +38,7 @@ export default function MeetingMinutesDesk(){
   if(busy||!planned.value)return;
   setBusy(true);setStatus("");
   try{
-   const bytes=await exportMeetingMinutes(planned.value);
+   const bytes=await exportMeetingMinutes(planned.value,{includeDoneInCalendar:calendarIncludeDone});
    const ok=await exportFile("sentinel-box-meeting-minutes-and-actions.zip",bytes);
    setStatus(ok?
     "Saved real editable Word minutes, plain-text copy, Excel-friendly assigned-actions CSV and ZIP manifest. No reminder or email was sent.":
