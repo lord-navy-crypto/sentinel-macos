@@ -38,7 +38,7 @@ describe("Metadata-only offline folder inventory",()=>{
   expect(csv.startsWith("\uFEFFindex,relative_path,file_name,extension,size_bytes,modified_utc\r\n")).toBe(true);
   expect(csv).toContain('"My Project/data/data, v2.csv"');
   expect(csv).toContain('"\'=START.txt"');
-  expect(csv).toContain('"\'My Project/data/=START.txt"');
+  expect(csv).toContain('"My Project/data/=START.txt"');
   expect(csv.split("\r\n").filter(Boolean)).toHaveLength(5);
  });
  it("flat file selection must not invent a parent directory",()=>{
