@@ -1,8 +1,9 @@
-import {type ChangeEvent,useState} from "react";
+import {type ChangeEvent,type DragEvent as ReactDragEvent,useState} from "react";
 import {exportFile} from "../lib/output";
 import {
   type PdfBasicInfo,type PdfMetadataEdit,type PdfCropMargins,type PdfFormText,type PageFormat,
   inspectPdfEveryday,savePdfMetadata,cropPdfPages,insertBlankPdfPages,inspectPdfTextFields,fillPdfTextFields,exportSelectedPdfPages,
+  type PdfPageQuickAction,pdfQuickPageExpression,
 } from "../lib/pdfEveryday";
 import PdfPagePreview from "./PdfPagePreview";
 import PdfStructureOptimizationPanel from "./PdfStructureOptimizationPanel";
@@ -39,6 +40,7 @@ export default function PdfEverydayDesk({initialMode="metadata"}:{initialMode?:P
   const [blankCount,setBlankCount]=useState(1);
   const [format,setFormat]=useState<PageFormat>("a4");
   const [pageExpression,setPageExpression]=useState("1");
+  const [preparedPages,setPreparedPages]=useState<{expression:string;file:File;bytes:Uint8Array}|null>(null);
   const [fields,setFields]=useState<PdfFormText[]|null>(null);
   const [links,setLinks]=useState<PdfExternalLink[]|null>(null);
   const [linkTarget,setLinkTarget]=useState("");
@@ -55,13 +57,14 @@ export default function PdfEverydayDesk({initialMode="metadata"}:{initialMode?:P
   const [linkPreview,setLinkPreview]=useState<File|null>(null);
   const [formValues,setFormValues]=useState<Record<string,string>>({});
   const [busy,setBusy]=useState(false);
+  const [dropActive,setDropActive]=useState(false);
   const [status,setStatus]=useState("");
-  async function importPdf(event:ChangeEvent<HTMLInputElement>){
-    const selected=event.target.files?.[0];event.target.value="";
+  async function importPdfFile(selected:File|null){
+    if(busy)return;
     setFile(null);setBytes(null);setInfo(null);setFields(null);setFormValues({});
     setLinks(null);setLinkSelection("");setLinkDirty(false);setLinkPreview(null);
     setBatchFrom("");setBatchTo("");setBatchPages("all");setShowLinkPicker(false);
-    setMetadata(EMPTY_METADATA);setPageExpression("1");setStatus("");
+    setMetadata(EMPTY_METADATA);setPageExpression("1");setPreparedPages(null);setStatus("");
     if(!selected)return;
     setBusy(true);
     try{
@@ -74,6 +77,38 @@ export default function PdfEverydayDesk({initialMode="metadata"}:{initialMode?:P
       setMetadata({title:inspected.title,author:inspected.author,subject:inspected.subject,keywords:inspected.keywords});
       setStatus("Loaded "+inspected.pages+" PDF pages locally. Original remains unchanged.");
     }catch(e){setStatus("PDF import failed: "+err(e));}
+    finally{setBusy(false);}
+  }
+  function importPdf(event:ChangeEvent<HTMLInputElement>){
+    const chosen=event.target.files?.[0]??null;
+    event.target.value="";
+    if(chosen)void importPdfFile(chosen);
+  }
+  function dropPdf(event:ReactDragEvent<HTMLDivElement>){
+    event.preventDefault();setDropActive(false);
+    if(busy)return;
+    const files=Array.from(event.dataTransfer.files);
+    if(files.length!==1){setStatus("请一次拖入一份 PDF；本工具不会覆盖原文件。");return;}
+    void importPdfFile(files[0]);
+  }
+  function shortcutPdfPages(action:PdfPageQuickAction){
+    if(!info||busy||linkDirty)return;
+    try{
+      const expression=pdfQuickPageExpression(action,info.pages);
+      setPageExpression(expression);setPreparedPages(null);setMode("pages");
+      setStatus("已填写页码顺序："+expression+"。请核对后点击“提取并另存”，原 PDF 保持不变。");
+    }catch(e){setStatus("PDF 快捷操作不可用："+err(e));}
+  }
+  async function previewPdfPages(){
+    if(!bytes||busy||linkDirty)return;
+    setBusy(true);setPreparedPages(null);setStatus("");
+    try{
+      const result=await exportSelectedPdfPages(bytes,pageExpression);
+      const previewFile=new File([new Uint8Array(result)],"sentinel-box-selected-pages-preview.pdf",
+        {type:"application/pdf"});
+      setPreparedPages({expression:pageExpression,file:previewFile,bytes:result});
+      setStatus("已在本机生成所选页面的实际预览。检查页序与内容后，再另存新文件。");
+    }catch(e){setStatus("PDF 页面预览失败："+err(e));}
     finally{setBusy(false);}
   }
   async function savePdf(name:string,process:()=>Promise<Uint8Array>){
@@ -113,7 +148,7 @@ export default function PdfEverydayDesk({initialMode="metadata"}:{initialMode?:P
     try{
       const output=await run();
       const next=await inspectPdfExternalLinks(output);
-      setBytes(output);setLinks(next);setLinkSelection("");
+      setBytes(output);setPreparedPages(null);setLinks(next);setLinkSelection("");
       setLinkPreview(new File([new Uint8Array(output)],file?.name??"working.pdf",{type:"application/pdf"}));
       setLinkDirty(true);
       setStatus("Link edit staged locally. Review the preview, then save a new PDF. Original file on disk remains unchanged.");
@@ -167,13 +202,37 @@ export default function PdfEverydayDesk({initialMode="metadata"}:{initialMode?:P
       {tabs.map(tab=><button key={tab.id} type="button" className={tab.id===mode?"pill active-pill":"pill"}
         aria-pressed={tab.id===mode} onClick={()=>{setMode(tab.id);setStatus("");}}>{tab.label}</button>)}
     </div>
-    <label className="field-label" htmlFor="mini-pdf-input">Select PDF (≤15 MB, up to 200 pages)</label>
-    <input type="file" id="mini-pdf-input" className="field" accept=".pdf,application/pdf" onChange={e=>{void importPdf(e);}}/>
+    <div data-testid="pdf-mini-drop-zone" role="region" aria-label="拖入 PDF 或选择本地 PDF"
+      className="panel" onDragOver={event=>{event.preventDefault();if(!busy)setDropActive(true);}}
+      onDragLeave={event=>{if(!event.currentTarget.contains(event.relatedTarget as Node))setDropActive(false);}}
+      onDrop={dropPdf}>
+      <label className="field-label" htmlFor="mini-pdf-input">{dropActive?"松开鼠标导入 PDF":"拖入一个 PDF，或点击选择文件（≤15 MB，最多 200 页）"}</label>
+      <input type="file" id="mini-pdf-input" className="field" disabled={busy}
+        accept=".pdf,application/pdf" onChange={importPdf}/>
+      <p className="subtle">仅在本机读取；不会上传，也不会覆盖原 PDF。处理完成后另存新文件。</p>
+    </div>
     {info&&file&&<>
       <div className="metrics" aria-label="Imported PDF document information">
         <span><strong>{pageCount}</strong> pages</span>
         <span><strong>{(file.size/1_000_000).toFixed(2)}</strong> MB</span>
         <span><strong>{Math.round(info.dimensions[0].width)}×{Math.round(info.dimensions[0].height)}</strong> pt first page</span>
+      </div>
+      <div className="panel" data-testid="pdf-mini-quick-tasks">
+        <p><strong>日常 PDF 快捷操作</strong> · 先选任务，再检查设置并另存</p>
+        <div className="actions" role="group" aria-label="常用 PDF 快捷操作">
+          <button type="button" className="secondary-button" data-testid="pdf-quick-optimize"
+            disabled={busy||linkDirty} onClick={()=>{setMode("optimize");setStatus("已切换到 PDF 体积优化；先生成并核对实际结果，再另存。");}}>
+            压缩 PDF
+          </button>
+          {([["first","提取首页"],["last","提取末页"],["odd","只留奇数页"],
+            ["even","只留偶数页"],["reverse","页面倒序"]] as const).map(([action,label])=>
+            <button type="button" key={action} className="secondary-button"
+              data-testid={`pdf-quick-${action}`} disabled={busy||linkDirty||(action==="even"&&pageCount<2)}
+              onClick={()=>shortcutPdfPages(action)}>{label}</button>
+          )}
+        </div>
+        {linkDirty&&<p role="note" className="subtle">有尚未另存的 PDF 链接修改。请先保存工作副本，再使用快捷提取，以免混淆原件与编辑稿。</p>}
+        <p className="subtle">提取和倒序复用现有 PDF 页面导出；不是批量拆分多个文件。目录、表单等复杂文档级对象可能不会随页面导出。</p>
       </div>
       {mode==="scan-compress"&&bytes&&<ScanPdfCompressionPanel key={file.name} source={bytes}/>}
       {mode==="optimize"&&bytes&&<PdfStructureOptimizationPanel key={file.name} source={bytes}/>}
@@ -236,12 +295,24 @@ export default function PdfEverydayDesk({initialMode="metadata"}:{initialMode?:P
       {mode==="pages"&&<>
         <p className="subtle">Export chosen PDF pages in your specified order. Use e.g. 3,1-2,5 to output page 3, then pages 1–2, then 5. Repeating page numbers duplicates pages in the output. A fresh PDF is saved locally; the original stays unchanged. Some document-level features such as outlines or embedded forms may not transfer to the new PDF.</p>
         <label className="field-label">Page order / 页面顺序 (1–{pageCount})
-          <input className="field" type="text" maxLength={600} value={pageExpression} onChange={e=>setPageExpression(e.target.value)} placeholder="3,1-2,5"/>
+          <input className="field" type="text" data-testid="pdf-page-expression" maxLength={900} value={pageExpression} onChange={e=>{setPageExpression(e.target.value);setPreparedPages(null);}} placeholder="3,1-2,5"/>
         </label>
-        <button className="primary-button" type="button" disabled={busy}
-          onClick={()=>{void savePdf("universal-box-selected-pages.pdf",()=>exportSelectedPdfPages(bytes!,pageExpression));}}>
-          Extract / reorder and save new PDF
-        </button>
+        <div className="actions">
+          <button className="secondary-button" type="button" data-testid="pdf-quick-preview-pages"
+            disabled={busy||linkDirty} onClick={()=>{void previewPdfPages();}}>
+            先预览所选页面
+          </button>
+          <button className="primary-button" type="button" data-testid="pdf-quick-export-pages" disabled={busy||linkDirty}
+            onClick={()=>{void savePdf("universal-box-selected-pages.pdf",async()=>
+              preparedPages?.expression===pageExpression?preparedPages.bytes:exportSelectedPdfPages(bytes!,pageExpression));}}>
+            提取并另存 PDF
+          </button>
+        </div>
+        {preparedPages&&preparedPages.expression===pageExpression&&
+          <div data-testid="pdf-quick-output-preview" className="panel">
+            <p className="subtle">实际导出页面预览：{preparedPages.file.size.toLocaleString()} 字节。原文件未修改；请核对页面顺序。</p>
+            <PdfPagePreview file={preparedPages.file} onPickPage={()=>{}}/>
+          </div>}
       </>}
       {mode==="links"&&<>
         <p className="subtle"><strong>PDF Hyperlink Studio · 可点击链接编辑。</strong> 只处理标准外部 URI 链接批注，可查看、替换、移除或创建透明的可点击区域。不会修改页面上肉眼看见的文字，也不会自动打开 PDF 中的任何网址。</p>
