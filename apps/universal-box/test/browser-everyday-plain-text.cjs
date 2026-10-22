@@ -28,16 +28,23 @@ test("Office quick tools: explicit clipboard read, preserved original and opt-in
   // No implicit passive clipboard reading or clipboard monitoring.
   assert.notEqual(await page.locator("#quick-text-input").inputValue(),raw);
   await page.locator('[data-testid="quick-paste-plain"]').click();
+  try{
+   await page.waitForFunction(text=>
+    document.querySelector("#quick-text-input")?.value===text,raw,{timeout:10000});
+  }catch{
+   const info=(await page.locator('p[role="status"]').allTextContents()).join(" | ");
+   throw Error("Clipboard import did not populate input: "+info);
+  }
   assert.equal(await page.locator("#quick-text-input").inputValue(),raw);
 
   // Plain-copy preserves original line breaks/spaces; this is not the cleanup action.
   await page.locator('[data-testid="quick-copy-source-plain"]').click();
-  assert.equal(await page.evaluate(()=>navigator.clipboard.readText()),raw);
+  await page.waitForFunction(async expected=>(await navigator.clipboard.readText())===expected,raw,{timeout:10000});
   await page.locator('[data-testid="quick-reflow-soft"]').check();
   const expected="Report heading Continues on the next line.\n\n项目说明第二行";
   assert.equal(await page.locator("#quick-result").inputValue(),expected);
   await page.locator('[data-testid="quick-copy-cleaned"]').click();
-  assert.equal(await page.evaluate(()=>navigator.clipboard.readText()),expected);
+  await page.waitForFunction(async value=>(await navigator.clipboard.readText())===value,expected,{timeout:10000});
 
   // The user can toggle the optional transformation off and preserve intentional line breaks.
   await page.locator('[data-testid="quick-reflow-soft"]').uncheck();
