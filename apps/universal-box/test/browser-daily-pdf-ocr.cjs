@@ -175,3 +175,75 @@ test("PDF merge: preflight pages, reorder duplicate filenames, preview real outp
   assert.deepEqual(session.errors,[]);
  }finally{await session.page.close();await session.browser.close();}
 });
+
+
+test("PDF Finder drop: append verified PDFs, keep previous preview on invalid selection, and export correct page order",{
+ timeout:90000,
+},async()=>{
+ const session=await start();
+ try{
+  const {page}=session;
+  await navigate(page,"PDF Preview & Tools");
+  const document=async widths=>{
+   const pdf=await PDFDocument.create();
+   for(const width of widths)pdf.addPage([width,600]);
+   return Buffer.from(await pdf.save());
+  };
+  const first=await document([410,411]),second=await document([520]),third=await document([630]);
+  await page.locator("#pdf-picker").setInputFiles({
+   name:"first.pdf",mimeType:"application/pdf",buffer:first
+  });
+  await page.locator('[data-testid="pdf-merge-entry"]').first().waitFor();
+  await page.locator('[data-testid="pdf-merge-preview"]').click();
+  await page.locator('[data-testid="pdf-merge-output-preview"]').waitFor();
+
+  const drop=async(name,bytes)=>{
+   await page.evaluate(([fileName,buffer])=>{
+    const transfer=new DataTransfer();
+    transfer.items.add(new File([Uint8Array.from(buffer)],fileName,{type:"application/pdf"}));
+    document.querySelector('[data-testid="pdf-file-drop"]').dispatchEvent(
+     new DragEvent("drop",{bubbles:true,cancelable:true,dataTransfer:transfer}));
+   },[name,Array.from(bytes)]);
+  };
+  // An invalid dropped file must leave the original selection AND real prepared preview unchanged.
+  await drop("broken.pdf",Buffer.from("not an actual PDF"));
+  await page.getByRole("status").last().filter({hasText:"原有选择与预览均保留"}).waitFor();
+  assert.equal(await page.locator('[data-testid="pdf-merge-entry"]').count(),1);
+  assert.equal(await page.locator('[data-testid="pdf-merge-output-preview"]').count(),1);
+
+  await drop("second.pdf",second);
+  await page.locator('[data-testid="pdf-merge-entry"]').nth(1).waitFor();
+  assert.equal(await page.locator('[data-testid="pdf-merge-output-preview"]').count(),0,
+   "A valid appended document invalidates the stale merge preview");
+  await drop("third.pdf",third);
+  await page.locator('[data-testid="pdf-merge-entry"]').nth(2).waitFor();
+  const actualOrder=await page.locator('[data-testid="pdf-merge-entry"] .task-copy').allInnerTexts();
+  assert.deepEqual(actualOrder.map(x=>x.split(" · ")[0]),["1. first.pdf","2. second.pdf","3. third.pdf"]);
+  await page.locator('[data-testid="pdf-merge-preview"]').click();
+  await page.locator('[data-testid="pdf-merge-output-preview"]').waitFor();
+  assert.match(await page.locator('[data-testid="pdf-merge-output-preview"]').innerText(),/4 页/);
+  const pending=page.waitForEvent("download",{timeout:30000});
+  await page.getByRole("button",{name:"按当前顺序合并并另存 PDF"}).click();
+  const dl=await pending;
+  const pathOut=path.join(target,"finder-dropped-merge.pdf");
+  await dl.saveAs(pathOut);
+  const parsed=await PDFDocument.load(fs.readFileSync(pathOut));
+  assert.deepEqual(parsed.getPages().map(p=>p.getWidth()),[410,411,520,630]);
+
+  // The ordinary file picker intentionally REPLACES, rather than appending.
+  await page.locator("#pdf-picker").setInputFiles({
+   name:"replacement.pdf",mimeType:"application/pdf",buffer:second
+  });
+  await page.waitForFunction(()=>document.querySelectorAll('[data-testid="pdf-merge-entry"]').length===1);
+  assert.match(await page.locator('[data-testid="pdf-merge-entry"]').first().innerText(),/replacement.pdf/);
+  assert.equal(await page.locator('[data-testid="pdf-merge-output-preview"]').count(),0);
+
+  // Splitting and rotation modes must accept a single dropped file, not an appended batch.
+  await page.getByRole("button",{name:"Split",exact:true}).click();
+  await drop("single.pdf",first);
+  await page.getByText("single.pdf",{exact:false}).first().waitFor();
+  assert.match(await page.locator("#pdf-pages").inputValue(),/1-2/);
+  await page.screenshot({path:path.join(target,"pdf-finder-drop-safe.png"),fullPage:true});
+  assert.deepEqual(session.errors,[]);
+ }finally{await session.page.close();await session.browser.close();}
+});
