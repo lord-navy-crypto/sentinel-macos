@@ -57,6 +57,7 @@ export const LOCAL_TOOLS:LocalTool[] = [
  {id:"file-intake",name:"File Intake · 文件识别、拖放 SHA-256、重复检查、CSV 清单",area:"Files",view:"file-intake"},
  {id:"folder-inventory",name:"Folder Tree & Inventory · 本地目录树 Markdown/CSV 导出",area:"Files",view:"folder-inventory"},
  {id:"browser-bookmark-organizer",name:"Offline Browser Bookmarks · HTML 书签整理、查重与 CSV 导出",area:"Office",view:"bookmarks"},
+ {id:"clipboard-image-to-png",name:"Paste Image to PNG · 剪贴板图片粘贴保存",area:"Images",view:"clipboard-image"},
  {id:"commons-team",name:"Universal Commons · 免费共享文件、离线团队留言和任务包",area:"Sharing",view:"commons"},
  {id:"easy-local-ai",name:"Easy Local AI · WebGPU + WebLLM Model Chat",area:"AI",view:"local-ai"},
  {id:"local-ai-models",name:"Local AI Model Manager · Download, Check & Remove",area:"AI",view:"local-ai"},
