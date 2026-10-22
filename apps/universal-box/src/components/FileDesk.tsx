@@ -9,7 +9,7 @@ import PdfTextDesk from "./PdfTextDesk";
 import PdfFreedomDesk from "./PdfFreedomDesk";
 import PdfConvertDesk from "./PdfConvertDesk";
 import { parsePdfOrder } from "../lib/pdfPageOrder";
-import {inspectMergeFiles,mergePdfFiles,moveMergeFile,type MergePdfEntry} from "../lib/pdfMergeQuick";
+import {inspectMergeFiles,mergePdfFiles,moveMergeFile,validateMergeFiles,type MergePdfEntry} from "../lib/pdfMergeQuick";
 import BatchImageDesk from "./BatchImageDesk";
 import ImageAnnotationDesk from "./ImageAnnotationDesk";
 import InteractiveCropDesk from "./InteractiveCropDesk";
@@ -107,31 +107,52 @@ export default function FileDesk({ onSendToWriting, initialTab = "pdf", initialP
     return () => URL.revokeObjectURL(url);
   }, [image]);
 
-  async function onPdfChange(event: ChangeEvent<HTMLInputElement>) {
-    const selected=Array.from(event.target.files??[]);
-    event.target.value="";
-    if(busy)return;
-    setFiles([]);setMergeEntries([]);setMergePreview(null);setPdfCount(0);
-    setPages("1-");setStatus("");
-    if(!selected.length)return;
-    setBusy(true);
+  /**
+   * Finder drop appends PDFs only in merge mode. File picker replaces the entire batch.
+   * Keep the previous valid state if the new PDF is unreadable or exceeds a limit.
+   */
+  async function importSelectedPdfs(selected:File[],append:boolean){
+    if(busy||!selected.length)return;
+    setBusy(true);setStatus("");
     try{
       if(pdfMode==="merge"){
-        // Do not silently truncate, hide or ignore rejected PDF files.
-        const entries=await inspectMergeFiles(selected);
-        const totalPages=entries.reduce((sum,item)=>sum+item.pages,0);
-        if(totalPages>400)throw Error("Merged PDF must not exceed 400 pages.");
-        setMergeEntries(entries);setFiles(selected);
-        setPdfCount(entries[0].pages);
-        setStatus("已检查 "+entries.length+" 份 PDF，共 "+totalPages+" 页。可调整顺序并先预览。");
+        const proposed=append?[...files,...selected]:selected;
+        // Validate the combined list before decoding even a single new document.
+        validateMergeFiles(proposed);
+        const newEntries=await inspectMergeFiles(selected);
+        const entries=append?[...mergeEntries,...newEntries]:newEntries;
+        const pagesTotal=entries.reduce((sum,item)=>sum+item.pages,0);
+        if(pagesTotal>400)throw Error("Merged output exceeds 400 pages.");
+        setFiles(proposed);setMergeEntries(entries);setMergePreview(null);
+        setPdfCount(entries[0].pages);setPages(`1-${entries[0].pages}`);
+        setStatus((append?"已追加 ":"已导入 ")+selected.length+" 份 PDF，清单共 "+proposed.length+" 份、"+pagesTotal+" 页。旧合并预览已清除。");
       }else{
-        if(selected.length!==1)throw Error("Choose one PDF for this operation.");
-        const doc=await PDFDocument.load(await selected[0].arrayBuffer());
-        setFiles(selected);setPdfCount(doc.getPageCount());
-        setPages(`1-${doc.getPageCount()}`);
+        if(selected.length!==1)throw Error("This PDF operation accepts one PDF only.");
+        const first=selected[0];
+        if(!/\.pdf$/iu.test(first.name)||first.size<100||first.size>20_000_000)
+          throw Error("Choose one PDF between 100 bytes and 20 MB.");
+        const document=await PDFDocument.load(await first.arrayBuffer());
+        const count=document.getPageCount();
+        if(count<1)throw Error("Selected PDF has no pages.");
+        setFiles([first]);setMergeEntries([]);setMergePreview(null);
+        setPdfCount(count);setPages(`1-${count}`);
+        setStatus("已读取 "+first.name+"，共 "+count+" 页；原始文件未修改。");
       }
-    }catch(e){setStatus("PDF 导入失败："+errorMessage(e));}
-    finally{setBusy(false);}
+    }catch(error){
+      setStatus("PDF 导入被拒绝，原有选择与预览均保留："+errorMessage(error));
+    }finally{setBusy(false);}
+  }
+  function onPdfChange(event:ChangeEvent<HTMLInputElement>){
+    const selected=Array.from(event.target.files??[]);
+    event.target.value="";
+    void importSelectedPdfs(selected,false);
+  }
+  function onPdfDrop(event:ReactDragEvent<HTMLDivElement>){
+    event.preventDefault();
+    if(busy)return;
+    const selected=Array.from(event.dataTransfer.files);
+    if(!selected.length){setStatus("请从 Finder 拖入 PDF 文件，不支持文字链接替代。");return;}
+    void importSelectedPdfs(selected,pdfMode==="merge");
   }
   function reorderMergedPdf(from:number,to:number){
     if(busy||from===to)return;
@@ -307,12 +328,16 @@ export default function FileDesk({ onSendToWriting, initialTab = "pdf", initialP
         <div className="pill-row compact" role="group" aria-label="PDF operation">
           {(["merge", "split", "rotate", "organize", "decorate", "convert", "compress"] as const).map((item) => <button type="button" key={item} disabled={busy} onClick={() => { setPdfMode(item); setFiles([]); setMergeEntries([]); setMergePreview(null); setPdfCount(0); setStatus(""); }} className={pdfMode === item ? "pill active-pill" : "pill"}>{item === "compress" ? "Optimize (light)" : item === "decorate" ? "Add text / sign / watermark" : item === "convert" ? "Image ↔ PDF" : item[0].toUpperCase() + item.slice(1)}</button>)}
         </div>
-        <label htmlFor="pdf-picker" className="field-label">{pdfMode === "merge" ? "选择最多 20 份 PDF，随后可以调整合并顺序" : pdfMode === "convert" ? "Optional PDF source (for PDF → images)" : "Choose a PDF"}</label>
-        <input id="pdf-picker" className="field" type="file" accept=".pdf,application/pdf" multiple={pdfMode === "merge"} disabled={busy} onChange={(event) => { void onPdfChange(event); }} />
+        <div className="panel" role="region" data-testid="pdf-file-drop" aria-label="选择或拖入本地 PDF 文件"
+          onDragOver={event=>event.preventDefault()} onDrop={onPdfDrop}>
+          <label htmlFor="pdf-picker" className="field-label">{pdfMode === "merge" ? "选择最多 20 份 PDF（替换清单）；或从 Finder 拖入文件追加" : pdfMode === "convert" ? "选择或拖入单个 PDF（图片转换）" : "选择或拖入单个 PDF"}</label>
+          <input id="pdf-picker" className="field" type="file" accept=".pdf,application/pdf" multiple={pdfMode === "merge"} disabled={busy} onChange={onPdfChange} />
+          <p className="subtle">拖入时读取本地 PDF，不上传。合并模式拖入会追加；文件选择器会替换清单。超出数量、大小或页数限制时，原有清单与预览不会丢失。</p>
+        </div>
         {files.length > 0 && <p className="subtle">Selected: {files.map((file) => file.name).join(" · ")} {pdfCount > 0 && `· first PDF ${pdfCount} page(s)`}</p>}
         {pdfMode==="merge"&&<div className="panel" data-testid="pdf-merge-order">
           <h3>PDF 合并顺序与预览</h3>
-          <p className="subtle">文件按下方顺序合并。可拖动每一行，或使用上移、下移按钮；允许相同文件名。每份最多 15 MB，总计最多 60 MB、400 页；最终输出不超过 20 MB。</p>
+          <p className="subtle">文件按下方顺序合并。选择器替换、Finder 拖入追加；列表内部拖动可重排，也能使用上移或下移。允许同名文件。最多 20 份、每份 15 MB、总输入 60 MB、合计 400 页；最终输出不超过 20 MB。</p>
           {mergeEntries.map((entry,index)=><div key={index} className="task-row"
               draggable={!busy}
               onDragStart={e=>e.dataTransfer.setData("text/plain",String(index))}
