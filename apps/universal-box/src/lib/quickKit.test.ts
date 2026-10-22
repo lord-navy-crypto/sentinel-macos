@@ -9,15 +9,15 @@ describe("QuickKit no-upload utilities",()=>{
   });
   it("reflows only opted-in PDF soft wraps, preserving paragraphs, bullets and Chinese",()=>{
     const soft={...DEFAULT_CLEANUP,joinSoftWrappedParagraphs:true};
-    expect(cleanCopiedText("Report covers\\nseveral pages.\\nNext paragraph\\n\\nEnd of report",soft))
-      .toBe("Report covers several pages.\\nNext paragraph\\n\\nEnd of report");
-    expect(cleanCopiedText("研究内容\\n包括实验\\n\\n结果总结",soft))
-      .toBe("研究内容包括实验\\n\\n结果总结");
-    expect(cleanCopiedText("- First point\\nContinued text\\n- Second point",soft))
-      .toBe("- First point\\nContinued text\\n- Second point");
-    expect(cleanCopiedText("a line\\nb line",DEFAULT_CLEANUP)).toBe("a line\\nb line");
-    expect(cleanCopiedText("a line\\nb line",soft)).toBe("a line b line");
-    expect(cleanCopiedText("a line\\nb line",{...soft,joinWrappedLines:true})).toBe("a line b line");
+    expect(cleanCopiedText("Report covers\nseveral pages.\nNext paragraph\n\nEnd of report",soft))
+      .toBe("Report covers several pages.\nNext paragraph\n\nEnd of report");
+    expect(cleanCopiedText("研究内容\n包括实验\n\n结果总结",soft))
+      .toBe("研究内容包括实验\n\n结果总结");
+    expect(cleanCopiedText("- First point\nContinued text\n- Second point",soft))
+      .toBe("- First point\nContinued text\n- Second point");
+    expect(cleanCopiedText("a line\nb line",DEFAULT_CLEANUP)).toBe("a line\nb line");
+    expect(cleanCopiedText("a line\nb line",soft)).toBe("a line b line");
+    expect(cleanCopiedText("a line\nb line",{...soft,joinWrappedLines:true})).toBe("a line b line");
   });
   it("removes tracking only, preserving functional URL query, anchor and host",()=>{
     const cleaned=cleanTrackingUrl("https://example.org/search?q=ap+physics&utm_source=mail&gclid=abc#results");
