@@ -1,4 +1,4 @@
-import { type ChangeEvent, useEffect, useState } from "react";
+import { type ChangeEvent, type DragEvent as ReactDragEvent, useEffect, useState } from "react";
 import { PDFDocument, degrees } from "pdf-lib";
 import JSZip from "jszip";
 import Markdown from "react-markdown";
@@ -9,6 +9,7 @@ import PdfTextDesk from "./PdfTextDesk";
 import PdfFreedomDesk from "./PdfFreedomDesk";
 import PdfConvertDesk from "./PdfConvertDesk";
 import { parsePdfOrder } from "../lib/pdfPageOrder";
+import {inspectMergeFiles,mergePdfFiles,moveMergeFile,type MergePdfEntry} from "../lib/pdfMergeQuick";
 import BatchImageDesk from "./BatchImageDesk";
 import ImageAnnotationDesk from "./ImageAnnotationDesk";
 import InteractiveCropDesk from "./InteractiveCropDesk";
@@ -73,6 +74,8 @@ export default function FileDesk({ onSendToWriting, initialTab = "pdf", initialP
   const [tab, setTab] = useState<FileTab>(initialTab);
   const [pdfMode, setPdfMode] = useState<PdfMode>(initialPdfMode);
   const [files, setFiles] = useState<File[]>([]);
+  const [mergeEntries,setMergeEntries] = useState<MergePdfEntry[]>([]);
+  const [mergePreview,setMergePreview] = useState<{bytes:Uint8Array;file:File;pages:number}|null>(null);
   const [pages, setPages] = useState("1-");
   const [rotation, setRotation] = useState(90);
   const [splitEach, setSplitEach] = useState(false);
@@ -105,21 +108,63 @@ export default function FileDesk({ onSendToWriting, initialTab = "pdf", initialP
   }, [image]);
 
   async function onPdfChange(event: ChangeEvent<HTMLInputElement>) {
-    const selected = [...(event.target.files ?? [])].slice(0, 20);
-    setFiles(selected);
-    setPdfCount(0);
-    setPages("1-");
-    setStatus("");
-    const first = selected[0];
-    if (!first) return;
-    try {
-      const document = await PDFDocument.load(await first.arrayBuffer());
-      const n = document.getPageCount();
-      setPdfCount(n);
-      setPages(`1-${n}`);
-    } catch {
-      setStatus("Could not read the selected PDF. Choose an unencrypted PDF file.");
-    }
+    const selected=Array.from(event.target.files??[]);
+    event.target.value="";
+    if(busy)return;
+    setFiles([]);setMergeEntries([]);setMergePreview(null);setPdfCount(0);
+    setPages("1-");setStatus("");
+    if(!selected.length)return;
+    setBusy(true);
+    try{
+      if(pdfMode==="merge"){
+        // Do not silently truncate, hide or ignore rejected PDF files.
+        const entries=await inspectMergeFiles(selected);
+        const totalPages=entries.reduce((sum,item)=>sum+item.pages,0);
+        if(totalPages>400)throw Error("Merged PDF must not exceed 400 pages.");
+        setMergeEntries(entries);setFiles(selected);
+        setPdfCount(entries[0].pages);
+        setStatus("已检查 "+entries.length+" 份 PDF，共 "+totalPages+" 页。可调整顺序并先预览。");
+      }else{
+        if(selected.length!==1)throw Error("Choose one PDF for this operation.");
+        const doc=await PDFDocument.load(await selected[0].arrayBuffer());
+        setFiles(selected);setPdfCount(doc.getPageCount());
+        setPages(`1-${doc.getPageCount()}`);
+      }
+    }catch(e){setStatus("PDF 导入失败："+errorMessage(e));}
+    finally{setBusy(false);}
+  }
+  function reorderMergedPdf(from:number,to:number){
+    if(busy||from===to)return;
+    try{
+      setFiles(current=>moveMergeFile(current,from,to));
+      setMergeEntries(current=>moveMergeFile(current,from,to));
+      setMergePreview(null);
+      setStatus("合并顺序已修改，之前的预览已清除。");
+    }catch(e){setStatus(errorMessage(e));}
+  }
+  function removeMergedPdf(index:number){
+    if(busy)return;
+    setFiles(current=>current.filter((_,i)=>i!==index));
+    setMergeEntries(current=>current.filter((_,i)=>i!==index));
+    setMergePreview(null);
+    setStatus("已从待合并清单移除文件；磁盘中的原文件不变。");
+  }
+  function dropMergeOrder(event:ReactDragEvent<HTMLDivElement>,target:number){
+    event.preventDefault();if(busy)return;
+    const raw=event.dataTransfer.getData("text/plain");
+    if(!/^\d+$/u.test(raw))return;
+    reorderMergedPdf(Number(raw),target);
+  }
+  async function previewPdfMerge(){
+    if(!files.length||busy)return;
+    setBusy(true);setMergePreview(null);setStatus("");
+    try{
+      const result=await mergePdfFiles(files);
+      const file=new File([new Uint8Array(result.bytes)],"merged-preview.pdf",{type:"application/pdf"});
+      setMergePreview({bytes:result.bytes,file,pages:result.pages});
+      setStatus("已生成真实合并 PDF 预览，共 "+result.pages+" 页。检查顺序后再保存。");
+    }catch(e){setStatus("PDF 合并预览失败："+errorMessage(e));}
+    finally{setBusy(false);}
   }
 
   async function processPdf() {
@@ -128,14 +173,9 @@ export default function FileDesk({ onSendToWriting, initialTab = "pdf", initialP
     setStatus("");
     try {
       if (pdfMode === "merge") {
-        const output = await PDFDocument.create();
-        for (const file of files) {
-          const source = await PDFDocument.load(await file.arrayBuffer());
-          const copied = await output.copyPages(source, source.getPageIndices());
-          copied.forEach((page) => output.addPage(page));
-        }
-        const saved = await exportFile("merged.pdf", await output.save());
-        setStatus(saved ? `Merged ${files.length} PDFs locally.` : "Save cancelled.");
+        const result=mergePreview??await mergePdfFiles(files);
+        const saved=await exportFile("merged.pdf",result.bytes);
+        setStatus(saved ? "已按显示顺序另存合并 PDF，共 "+result.pages+" 页。原文件未修改。" : "已取消保存。");
       } else {
         const file = files[0];
         const source = await PDFDocument.load(await file.arrayBuffer());
@@ -265,17 +305,53 @@ export default function FileDesk({ onSendToWriting, initialTab = "pdf", initialP
       </div>
       {tab === "pdf" && <>
         <div className="pill-row compact" role="group" aria-label="PDF operation">
-          {(["merge", "split", "rotate", "organize", "decorate", "convert", "compress"] as const).map((item) => <button type="button" key={item} onClick={() => { setPdfMode(item); setFiles([]); setStatus(""); }} className={pdfMode === item ? "pill active-pill" : "pill"}>{item === "compress" ? "Optimize (light)" : item === "decorate" ? "Add text / sign / watermark" : item === "convert" ? "Image ↔ PDF" : item[0].toUpperCase() + item.slice(1)}</button>)}
+          {(["merge", "split", "rotate", "organize", "decorate", "convert", "compress"] as const).map((item) => <button type="button" key={item} disabled={busy} onClick={() => { setPdfMode(item); setFiles([]); setMergeEntries([]); setMergePreview(null); setPdfCount(0); setStatus(""); }} className={pdfMode === item ? "pill active-pill" : "pill"}>{item === "compress" ? "Optimize (light)" : item === "decorate" ? "Add text / sign / watermark" : item === "convert" ? "Image ↔ PDF" : item[0].toUpperCase() + item.slice(1)}</button>)}
         </div>
-        <label htmlFor="pdf-picker" className="field-label">{pdfMode === "merge" ? "Choose up to 20 PDFs in order" : pdfMode === "convert" ? "Optional PDF source (for PDF → images)" : "Choose a PDF"}</label>
-        <input id="pdf-picker" className="field" type="file" accept=".pdf,application/pdf" multiple={pdfMode === "merge"} onChange={(event) => { void onPdfChange(event); }} />
+        <label htmlFor="pdf-picker" className="field-label">{pdfMode === "merge" ? "选择最多 20 份 PDF，随后可以调整合并顺序" : pdfMode === "convert" ? "Optional PDF source (for PDF → images)" : "Choose a PDF"}</label>
+        <input id="pdf-picker" className="field" type="file" accept=".pdf,application/pdf" multiple={pdfMode === "merge"} disabled={busy} onChange={(event) => { void onPdfChange(event); }} />
         {files.length > 0 && <p className="subtle">Selected: {files.map((file) => file.name).join(" · ")} {pdfCount > 0 && `· first PDF ${pdfCount} page(s)`}</p>}
+        {pdfMode==="merge"&&<div className="panel" data-testid="pdf-merge-order">
+          <h3>PDF 合并顺序与预览</h3>
+          <p className="subtle">文件按下方顺序合并。可拖动每一行，或使用上移、下移按钮；允许相同文件名。每份最多 15 MB，总计最多 60 MB、400 页；最终输出不超过 20 MB。</p>
+          {mergeEntries.map((entry,index)=><div key={index} className="task-row"
+              draggable={!busy}
+              onDragStart={e=>e.dataTransfer.setData("text/plain",String(index))}
+              onDragOver={e=>e.preventDefault()}
+              onDrop={e=>dropMergeOrder(e,index)} data-testid="pdf-merge-entry">
+            <span className="task-copy">{index+1}. {entry.name} · {entry.pages} 页 · {(entry.bytes/1_000_000).toFixed(2)} MB</span>
+            <div className="actions">
+              <button type="button" className="secondary-button" disabled={busy||index===0}
+                aria-label={`上移第${index+1}份 PDF`} data-testid={`pdf-merge-up-${index}`}
+                onClick={()=>reorderMergedPdf(index,index-1)}>↑ 上移</button>
+              <button type="button" className="secondary-button" disabled={busy||index===mergeEntries.length-1}
+                aria-label={`下移第${index+1}份 PDF`} data-testid={`pdf-merge-down-${index}`}
+                onClick={()=>reorderMergedPdf(index,index+1)}>↓ 下移</button>
+              <button type="button" className="secondary-button" disabled={busy}
+                aria-label={`移除第${index+1}份 PDF`} data-testid={`pdf-merge-remove-${index}`}
+                onClick={()=>removeMergedPdf(index)}>移除</button>
+            </div>
+          </div>)}
+          <div className="actions">
+            <button type="button" className="secondary-button" data-testid="pdf-merge-preview"
+              disabled={busy||!files.length} onClick={()=>{void previewPdfMerge();}}>
+              {busy?"处理中…":"生成真实合并预览"}
+            </button>
+            <button type="button" className="secondary-button" data-testid="pdf-merge-clear"
+              disabled={busy||!files.length} onClick={()=>{setFiles([]);setMergeEntries([]);setMergePreview(null);setPdfCount(0);setStatus("合并清单已清空。");}}>
+              清空合并清单
+            </button>
+          </div>
+          {mergePreview&&<div data-testid="pdf-merge-output-preview">
+            <p className="subtle">真实输出预览：{mergePreview.pages} 页 · {mergePreview.bytes.length.toLocaleString()} 字节；可在下方翻页核对。</p>
+            <PdfPagePreview file={mergePreview.file} onPickPage={()=>{}}/>
+          </div>}
+        </div>}
         {(pdfMode === "split" || pdfMode === "rotate" || pdfMode === "organize") && <><label className="field-label" htmlFor="pdf-pages">{pdfMode === "organize" ? "Pages in desired order (e.g. 3,1,2,5-8). Omit pages to remove them." : "Pages (e.g. 1-3,5,7-)"}</label><input id="pdf-pages" className="field" value={pages} onChange={(e) => setPages(e.target.value)} /></>}
         {pdfMode === "organize" && <p className="subtle">Reorder pages or remove unwanted pages by listing only those you want. Each page may appear once. No changes are made to the original file.</p>}
         {pdfMode === "split" && <label className="field-label"><input type="checkbox" checked={splitEach} onChange={e => setSplitEach(e.target.checked)} /> Export each selected page as its own PDF inside a ZIP (up to 50 pages)</label>}
         {pdfMode === "rotate" && <><label className="field-label" htmlFor="pdf-angle">Degrees clockwise</label><select id="pdf-angle" className="field" value={rotation} onChange={(e) => setRotation(Number(e.target.value))}><option value={90}>90°</option><option value={180}>180°</option><option value={270}>270°</option></select></>}
         {pdfMode === "compress" && <p className="subtle">Like the web's light-compress mode, this reserializes PDF objects. Scanned/image-heavy PDFs may not shrink.</p>}
-        {pdfMode !== "decorate" && pdfMode !== "convert" && <div className="actions"><button type="button" className="primary-button" disabled={!files.length || busy} onClick={() => { void processPdf(); }}>{busy ? "Processing…" : "Process & save PDF"}</button></div>}
+        {pdfMode !== "decorate" && pdfMode !== "convert" && <div className="actions"><button type="button" className="primary-button" disabled={!files.length || busy} onClick={() => { void processPdf(); }}>{busy ? "Processing…" : pdfMode==="merge" ? "按当前顺序合并并另存 PDF" : "Process & save PDF"}</button></div>}
         {pdfMode === "decorate" && <PdfFreedomDesk file={files[0]??null} pageCount={pdfCount}/>}
         {pdfMode === "convert" && <PdfConvertDesk pdfFile={files[0]??null} pageCount={pdfCount}/>}
         {files.length > 0 && <PdfPagePreview file={files[0]} onPickPage={page=>{if(pdfMode!=="organize")setPages(String(page));}} />}

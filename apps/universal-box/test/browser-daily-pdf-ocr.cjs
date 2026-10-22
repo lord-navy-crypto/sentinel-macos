@@ -123,3 +123,55 @@ test("PDF everyday: drag local PDF, choose odd/even/reverse shortcuts, export ex
   await page.screenshot({path:path.join(target,"pdf-quick-tasks.png"),fullPage:true});
  }finally{await session.page.close();await session.browser.close();}
 });
+
+
+test("PDF merge: preflight pages, reorder duplicate filenames, preview real output and export correct order",{
+ timeout:90000,
+},async()=>{
+ const session=await start();
+ try{
+  const {page}=session;
+  await navigate(page,"PDF Preview & Tools");
+  await page.locator("#pdf-picker").waitFor();
+  const mk=async widths=>{
+   const pdf=await PDFDocument.create();
+   for(const width of widths)pdf.addPage([width,600]);
+   return Buffer.from(await pdf.save());
+  };
+  const first=await mk([411,412]),second=await mk([520]),third=await mk([630]);
+  await page.locator("#pdf-picker").setInputFiles([
+   {name:"same-name.pdf",mimeType:"application/pdf",buffer:first},
+   {name:"same-name.pdf",mimeType:"application/pdf",buffer:second},
+   {name:"last.pdf",mimeType:"application/pdf",buffer:third},
+  ]);
+  await page.locator('[data-testid="pdf-merge-entry"]').nth(2).waitFor({timeout:25000});
+  assert.equal(await page.locator('[data-testid="pdf-merge-entry"]').count(),3);
+  assert.match(await page.locator('[data-testid="pdf-merge-order"]').innerText(),/共|合并|页/);
+  await page.locator('[data-testid="pdf-merge-preview"]').click();
+  await page.locator('[data-testid="pdf-merge-output-preview"]').waitFor();
+  assert.match(await page.locator('[data-testid="pdf-merge-output-preview"]').innerText(),/4 页/);
+
+  await page.locator('[data-testid="pdf-merge-up-2"]').click();
+  assert.equal(await page.locator('[data-testid="pdf-merge-output-preview"]').count(),0,"Changing order clears stale preview");
+  await page.locator('[data-testid="pdf-merge-up-1"]').click();
+  assert.match(await page.locator('[data-testid="pdf-merge-entry"]').first().innerText(),/last.pdf/);
+  await page.locator('[data-testid="pdf-merge-preview"]').click();
+  await page.locator('[data-testid="pdf-merge-output-preview"]').waitFor();
+  const pending=page.waitForEvent("download",{timeout:30000});
+  await page.getByRole("button",{name:"按当前顺序合并并另存 PDF"}).click();
+  const dl=await pending;
+  assert.equal(dl.suggestedFilename(),"merged.pdf");
+  const name=path.join(target,"daily-merge-ordered.pdf");
+  await dl.saveAs(name);
+  const merged=await PDFDocument.load(fs.readFileSync(name));
+  assert.deepEqual(merged.getPages().map(p=>p.getWidth()),[630,411,412,520]);
+
+  await page.locator('[data-testid="pdf-merge-remove-1"]').click();
+  assert.equal(await page.locator('[data-testid="pdf-merge-entry"]').count(),2);
+  assert.equal(await page.locator('[data-testid="pdf-merge-output-preview"]').count(),0);
+  await page.locator('[data-testid="pdf-merge-clear"]').click();
+  assert.equal(await page.locator('[data-testid="pdf-merge-entry"]').count(),0);
+  await page.screenshot({path:path.join(target,"pdf-merge-quick.png"),fullPage:true});
+  assert.deepEqual(session.errors,[]);
+ }finally{await session.page.close();await session.browser.close();}
+});
