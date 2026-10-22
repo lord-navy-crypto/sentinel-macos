@@ -2,6 +2,7 @@
 import JSZip from "jszip";
 import {Document,HeadingLevel,Packer,Paragraph,TextRun} from "docx";
 import type {MeetingPlan} from "./meetingMinutes";
+import {createMeetingActionCalendar} from "./meetingActionCalendar";
 
 const paragraph=(text:string,bold=false)=>new Paragraph({
  children:[new TextRun({text,bold,font:"Arial",size:22})],
@@ -48,7 +49,7 @@ export function meetingMinutesText(plan:MeetingPlan):string{
  ];
  return lines.join("\n")+"\n";
 }
-export async function exportMeetingMinutes(plan:MeetingPlan):Promise<Uint8Array>{
+export async function exportMeetingMinutes(plan:MeetingPlan,options:{includeDoneInCalendar?:boolean}={}):Promise<Uint8Array>{
  if(plan.actions.length<1||plan.actions.length>80)throw Error("Meeting action count is invalid.");
  const m=plan.meeting;
  const sections=[
@@ -88,13 +89,18 @@ export async function exportMeetingMinutes(plan:MeetingPlan):Promise<Uint8Array>
  zip.file("meeting/meeting-minutes.txt",meetingMinutesText(plan));
  // UTF-8 BOM improves Excel interoperability, with CSV cells formula-protected.
  zip.file("actions/assigned-actions.csv","\uFEFF"+plan.actionCsv);
+ // Keep action deadlines portable to calendar apps as an opt-in imported snapshot.
+ const calendar=await createMeetingActionCalendar(plan,{includeDone:options.includeDoneInCalendar??false});
+ if(calendar.eventCount>0)zip.file("actions/open-action-deadlines.ics",calendar.content);
  zip.file("reports/manifest.json",JSON.stringify({
   generatedBy:"Sentinel Box — user-entered meeting minutes",
   date:m.meetingDate,actionCount:plan.actions.length,statusCounts:plan.counts,
-  files:["meeting/meeting-minutes.docx","meeting/meeting-minutes.txt","actions/assigned-actions.csv"],
+  calendarEvents:calendar.eventCount,skippedCompletedActions:calendar.skippedDone,
+  files:["meeting/meeting-minutes.docx","meeting/meeting-minutes.txt","actions/assigned-actions.csv",
+   ...(calendar.eventCount?["actions/open-action-deadlines.ics"]:[])],
   limitations:[
    "No audio transcript, attendance, deadlines, participants or decisions were inferred.",
-   "Task CSV is an offline snapshot; no notifications, emails or calendar events were created.",
+   "The optional .ics file is only for manual calendar import. No alarms, invitations, emails or calendar events were created automatically.",
    "Review names, owners, dates and decisions before distributing.",
   ],
  },null,2));

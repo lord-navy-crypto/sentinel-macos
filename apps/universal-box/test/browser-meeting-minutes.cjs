@@ -28,7 +28,7 @@ test("Meetings produce genuine editable Word, action CSV and truthful attendee/t
   assert.match(await page.locator('[data-testid="meeting-action-preview"]').innerText(),/Alex.*2026-11-02/s);
   const zip=await saveZip(page,"meeting-minutes-default.zip");
   for(const name of ["meeting/meeting-minutes.docx","meeting/meeting-minutes.txt",
-   "actions/assigned-actions.csv","reports/manifest.json"]){
+   "actions/assigned-actions.csv","actions/open-action-deadlines.ics","reports/manifest.json"]){
    assert.ok(zip.file(name),"Missing real exported document "+name);
   }
   const word=await JSZip.loadAsync(await zip.file("meeting/meeting-minutes.docx").async("uint8array"));
@@ -37,6 +37,21 @@ test("Meetings produce genuine editable Word, action CSV and truthful attendee/t
   assert.match(await zip.file("actions/assigned-actions.csv").async("string"),/"A-001","Review prototype changes","Alex"/);
   const manifest=JSON.parse(await zip.file("reports/manifest.json").async("string"));
   assert.equal(manifest.actionCount,2);
+  assert.equal(manifest.calendarEvents,2);
+  const packagedIcs=await zip.file("actions/open-action-deadlines.ics").async("string");
+  assert.equal((packagedIcs.match(/BEGIN:VEVENT/gu)||[]).length,2);
+  assert.match(packagedIcs,/DTSTART;VALUE=DATE:20261102/);
+  assert.doesNotMatch(packagedIcs,/BEGIN:VALARM/);
+  assert.match((await page.locator('[data-testid="meeting-calendar-count"]').textContent())??"",/2\s*\/\s*2/);
+  const icsPending=page.waitForEvent("download",{timeout:30000});
+  await page.locator('[data-testid="meeting-calendar-export"]').click();
+  const calendarTarget=path.join(dest,"meeting-calendar.ics");
+  await (await icsPending).saveAs(calendarTarget);
+  const standaloneIcs=fs.readFileSync(calendarTarget,"utf8");
+  assert.match(standaloneIcs,/BEGIN:VCALENDAR\r\nVERSION:2.0/);
+  assert.equal((standaloneIcs.match(/BEGIN:VEVENT/gu)||[]).length,2);
+  assert.doesNotMatch(standaloneIcs,/ATTENDEE:|BEGIN:VALARM/);
+
   await page.locator('[data-testid="meeting-title"]').fill("项目审议会议");
   await page.locator('[data-testid="meeting-decisions"]').fill("审核现有文档并保留记录");
   await page.locator('[data-testid="meeting-actions-csv"]').fill(
@@ -48,6 +63,24 @@ test("Meetings produce genuine editable Word, action CSV and truthful attendee/t
   const xml=await cnWord.file("word/document.xml").async("string");
   assert.match(xml,/项目审议会议/);assert.match(xml,/王丽/);assert.match(xml,/审核现有文档并保留记录/);
   assert.match(await cn.file("actions/assigned-actions.csv").async("string"),/准备交付材料/);
+  const cnCalendar=(await cn.file("actions/open-action-deadlines.ics").async("string"))
+   .replace(/\r\n[ \t]/gu,"");
+  assert.match(cnCalendar,/准备交付材料/);
+  assert.match(cnCalendar,/王丽/);
+  await page.locator('[data-testid="meeting-actions-csv"]').fill(
+   "id,task,owner,due_date,priority,status,notes\n"+
+   "A-01,To-do,Alex,2026-11-04,normal,todo,\n"+
+   "A-02,Done task,Lee,2026-11-05,normal,done,"
+  );
+  assert.match((await page.locator('[data-testid="meeting-calendar-count"]').textContent())??"",/1\s*\/\s*2/);
+  const donePending=page.waitForEvent("download",{timeout:30000});
+  await page.locator('[data-testid="meeting-calendar-export"]').click();
+  const doneFile=path.join(dest,"meeting-open-only.ics");
+  await (await donePending).saveAs(doneFile);
+  assert.doesNotMatch(fs.readFileSync(doneFile,"utf8"),/Done task/);
+  await page.locator('[data-testid="meeting-calendar-include-done"]').check();
+  assert.match((await page.locator('[data-testid="meeting-calendar-count"]').textContent())??"",/2\s*\/\s*2/);
+
   await page.locator('[data-testid="meeting-actions-csv"]').fill(
    "id,task,owner,due_date,priority,status,notes\n"+
    "X-01,Missing owner,,2026-11-02,normal,todo,");
