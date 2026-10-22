@@ -9,7 +9,7 @@ import PdfTextDesk from "./PdfTextDesk";
 import PdfFreedomDesk from "./PdfFreedomDesk";
 import PdfConvertDesk from "./PdfConvertDesk";
 import { parsePdfOrder } from "../lib/pdfPageOrder";
-import {inspectMergeFiles,mergePdfFiles,moveMergeFile,validateMergeFiles,type MergePdfEntry} from "../lib/pdfMergeQuick";
+import {inspectMergeFiles,mergePdfFiles,moveMergeFile,validateMergeFiles,mergedPageRanges,validateMergeOutputName,type MergePdfEntry} from "../lib/pdfMergeQuick";
 import BatchImageDesk from "./BatchImageDesk";
 import ImageAnnotationDesk from "./ImageAnnotationDesk";
 import InteractiveCropDesk from "./InteractiveCropDesk";
@@ -76,6 +76,7 @@ export default function FileDesk({ onSendToWriting, initialTab = "pdf", initialP
   const [files, setFiles] = useState<File[]>([]);
   const [mergeEntries,setMergeEntries] = useState<MergePdfEntry[]>([]);
   const [mergePreview,setMergePreview] = useState<{bytes:Uint8Array;file:File;pages:number}|null>(null);
+  const [mergeOutputName,setMergeOutputName] = useState("merged.pdf");
   const [pages, setPages] = useState("1-");
   const [rotation, setRotation] = useState(90);
   const [splitEach, setSplitEach] = useState(false);
@@ -195,7 +196,7 @@ export default function FileDesk({ onSendToWriting, initialTab = "pdf", initialP
     try {
       if (pdfMode === "merge") {
         const result=mergePreview??await mergePdfFiles(files);
-        const saved=await exportFile("merged.pdf",result.bytes);
+        const saved=await exportFile(validateMergeOutputName(mergeOutputName),result.bytes);
         setStatus(saved ? "已按显示顺序另存合并 PDF，共 "+result.pages+" 页。原文件未修改。" : "已取消保存。");
       } else {
         const file = files[0];
@@ -316,6 +317,10 @@ export default function FileDesk({ onSendToWriting, initialTab = "pdf", initialP
     finally { setBusy(false); }
   }
 
+  let mergeNameError="";
+  try{validateMergeOutputName(mergeOutputName);}
+  catch(error){mergeNameError=errorMessage(error);}
+  const ranges=mergedPageRanges(mergeEntries);
   return (
     <section className="panel">
       <p className="eyebrow">OFFLINE FILE LAB</p>
@@ -343,7 +348,10 @@ export default function FileDesk({ onSendToWriting, initialTab = "pdf", initialP
               onDragStart={e=>e.dataTransfer.setData("text/plain",String(index))}
               onDragOver={e=>e.preventDefault()}
               onDrop={e=>dropMergeOrder(e,index)} data-testid="pdf-merge-entry">
-            <span className="task-copy">{index+1}. {entry.name} · {entry.pages} 页 · {(entry.bytes/1_000_000).toFixed(2)} MB</span>
+            <span className="task-copy">{index+1}. {entry.name} · {entry.pages} 页
+              · 合并后第 {ranges[index].first}{ranges[index].last===ranges[index].first?"":"–"+ranges[index].last} 页
+              · {(entry.bytes/1_000_000).toFixed(2)} MB
+            </span>
             <div className="actions">
               <button type="button" className="secondary-button" disabled={busy||index===0}
                 aria-label={`上移第${index+1}份 PDF`} data-testid={`pdf-merge-up-${index}`}
@@ -356,6 +364,13 @@ export default function FileDesk({ onSendToWriting, initialTab = "pdf", initialP
                 onClick={()=>removeMergedPdf(index)}>移除</button>
             </div>
           </div>)}
+          <label className="field-label" htmlFor="pdf-merge-output-name">
+            另存为 PDF 文件名（只保存副本，可填写中文）
+          </label>
+          <input id="pdf-merge-output-name" data-testid="pdf-merge-output-name" className="field"
+            type="text" maxLength={100} disabled={busy} value={mergeOutputName}
+            onChange={event=>setMergeOutputName(event.target.value)} />
+          {mergeNameError&&<p role="alert" data-testid="pdf-merge-name-error">{mergeNameError}</p>}
           <div className="actions">
             <button type="button" className="secondary-button" data-testid="pdf-merge-preview"
               disabled={busy||!files.length} onClick={()=>{void previewPdfMerge();}}>
@@ -376,7 +391,7 @@ export default function FileDesk({ onSendToWriting, initialTab = "pdf", initialP
         {pdfMode === "split" && <label className="field-label"><input type="checkbox" checked={splitEach} onChange={e => setSplitEach(e.target.checked)} /> Export each selected page as its own PDF inside a ZIP (up to 50 pages)</label>}
         {pdfMode === "rotate" && <><label className="field-label" htmlFor="pdf-angle">Degrees clockwise</label><select id="pdf-angle" className="field" value={rotation} onChange={(e) => setRotation(Number(e.target.value))}><option value={90}>90°</option><option value={180}>180°</option><option value={270}>270°</option></select></>}
         {pdfMode === "compress" && <p className="subtle">Like the web's light-compress mode, this reserializes PDF objects. Scanned/image-heavy PDFs may not shrink.</p>}
-        {pdfMode !== "decorate" && pdfMode !== "convert" && <div className="actions"><button type="button" className="primary-button" disabled={!files.length || busy} onClick={() => { void processPdf(); }}>{busy ? "Processing…" : pdfMode==="merge" ? "按当前顺序合并并另存 PDF" : "Process & save PDF"}</button></div>}
+        {pdfMode !== "decorate" && pdfMode !== "convert" && <div className="actions"><button type="button" className="primary-button" disabled={!files.length || busy || (pdfMode==="merge"&&!!mergeNameError)} onClick={() => { void processPdf(); }}>{busy ? "Processing…" : pdfMode==="merge" ? "按当前顺序合并并另存 PDF" : "Process & save PDF"}</button></div>}
         {pdfMode === "decorate" && <PdfFreedomDesk file={files[0]??null} pageCount={pdfCount}/>}
         {pdfMode === "convert" && <PdfConvertDesk pdfFile={files[0]??null} pageCount={pdfCount}/>}
         {files.length > 0 && <PdfPagePreview file={files[0]} onPickPage={page=>{if(pdfMode!=="organize")setPages(String(page));}} />}
