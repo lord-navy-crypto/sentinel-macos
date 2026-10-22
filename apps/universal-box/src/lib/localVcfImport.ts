@@ -54,14 +54,15 @@ export function parseLocalVcf(source:string,byteLength:number):VcfReport{
  let current:VcfContact|null=null;
  let version="",inCard=false,headerSeen=false;
  for(const raw of lines){
-  if(raw==="BEGIN:VCARD"){
+  if(!raw.trim()&&!inCard)continue; // Common exported contact bundles include blank separators.
+  if(/^BEGIN:VCARD$/iu.test(raw)){
    if(inCard)throw Error("Nested BEGIN:VCARD is not supported.");
    if(contacts.length>=VCF_MAX_CONTACTS)throw Error("VCF exceeds the 300-contact limit.");
    inCard=true;headerSeen=false;version="";
    current={name:"",phones:[],emails:[],organization:"",website:"",title:""};
    continue;
   }
-  if(raw==="END:VCARD"){
+  if(/^END:VCARD$/iu.test(raw)){
    if(!inCard||!current||!version||!current.name)throw Error("VCF contact is missing VERSION or FN.");
    contacts.push(current);versions.add(version);
    inCard=false;current=null;version="";
