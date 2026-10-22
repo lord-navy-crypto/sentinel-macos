@@ -72,7 +72,7 @@ export async function createMeetingActionCalendar(
   const title="Due: "+action.task;
   out.push(
    "BEGIN:VEVENT",
-   "UID:"+await actionUid(plan,action),
+   foldIcalLine("UID:"+await actionUid(plan,action)),
    "DTSTAMP:"+utc,
    "DTSTART;VALUE=DATE:"+dateToken(action.dueDate),
    "DTEND;VALUE=DATE:"+nextDateToken(action.dueDate),
