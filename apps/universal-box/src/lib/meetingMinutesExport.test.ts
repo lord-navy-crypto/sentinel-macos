@@ -9,7 +9,7 @@ describe("Real meeting minutes Word and task CSV delivery",()=>{
   const result=await exportMeetingMinutes(plan);
   const zip=await JSZip.loadAsync(result,{checkCRC32:true});
   for(const p of ["meeting/meeting-minutes.docx","meeting/meeting-minutes.txt",
-   "actions/assigned-actions.csv","reports/manifest.json"])
+   "actions/assigned-actions.csv","actions/open-action-deadlines.ics","reports/manifest.json"])
    expect(zip.file(p),p).not.toBeNull();
   const docx=await JSZip.loadAsync(await zip.file("meeting/meeting-minutes.docx")!.async("uint8array"));
   const xml=await docx.file("word/document.xml")!.async("string");
@@ -24,12 +24,19 @@ describe("Real meeting minutes Word and task CSV delivery",()=>{
   expect(rows).toHaveLength(3);
   expect(rows[1][2]).toBe("Alex");
   expect(rows[2][5]).toBe("in_progress");
+  const ics=await zip.file("actions/open-action-deadlines.ics")!.async("string");
+  expect(ics).toContain("BEGIN:VCALENDAR\\r\\n".replace(/\\\\/gu,"\\"));
+  expect(ics.match(/BEGIN:VEVENT/gu)).toHaveLength(2);
+  expect(ics).toContain("DTSTART;VALUE=DATE:20261102");
+  expect(ics).not.toContain("BEGIN:VALARM");
   const txt=await zip.file("meeting/meeting-minutes.txt")!.async("string");
   expect(txt).toContain("Keep the next release scope focused.");
   expect(txt).not.toContain("Automated transcript generated");
   expect(meetingMinutesText(plan)).toBe(txt);
   const manifest=JSON.parse(await zip.file("reports/manifest.json")!.async("string"));
   expect(manifest.actionCount).toBe(2);
+  expect(manifest.calendarEvents).toBe(2);
+  expect(manifest.files).toContain("actions/open-action-deadlines.ics");
   expect(manifest.statusCounts).toEqual({todo:1,inProgress:1,done:0});
   expect(manifest.limitations).toEqual(expect.arrayContaining([expect.stringContaining("No audio transcript")]));
  });
@@ -46,5 +53,7 @@ describe("Real meeting minutes Word and task CSV delivery",()=>{
   expect(xml).toContain("准备中文文档");
   expect(xml).toContain("确认人员分工");
   expect(await zip.file("actions/assigned-actions.csv")!.async("string")).toContain("准备中文文档");
+  expect((await zip.file("actions/open-action-deadlines.ics")!.async("string"))
+   .replace(/\\r\\n /gu,"")).toContain("准备中文文档");
  });
 });
