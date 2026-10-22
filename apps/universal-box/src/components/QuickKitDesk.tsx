@@ -52,6 +52,24 @@ export default function QuickKitDesk({initialMode="text"}:{initialMode?:QuickKit
   },[gradeData,target]);
   const replaceResult=useMemo(()=>{try{return {...replaceTextLiteral(source,findLiteral,replacement),error:""};}catch(e){return {text:"",count:0,error:String(e instanceof Error?e.message:e)};}},[source,findLiteral,replacement]);
   const output=mode==="text"?textResult.value:mode==="links"?linkResult.text:mode==="replace"?replaceResult.text:"";
+  async function loadClipboardText(){
+    // Only on an explicit click. No clipboard polling, logs, history or network access.
+    try{
+      if(!navigator.clipboard?.readText)throw new Error("Clipboard read permission is unavailable.");
+      const received=await navigator.clipboard.readText();
+      if(received.length>200_000)throw new Error("Clipboard text exceeds the 200,000-character safety limit.");
+      setSource(received);
+      setStatus("已读取剪贴板的纯文本到预览框；尚未写入任何文件。");
+    }catch(e){setStatus("无法读取剪贴板，请手动粘贴："+
+      (e instanceof Error?e.message:String(e)));}
+  }
+  async function copySourcePlain(){
+    try{
+      if(!navigator.clipboard?.writeText)throw new Error("Clipboard write unavailable.");
+      await navigator.clipboard.writeText(source);
+      setStatus("已将原文复制为纯文本；没有改变空格或换行。");
+    }catch(e){setStatus("复制失败，可手动选择原文复制："+(e instanceof Error?e.message:String(e)));}
+  }
   async function copyResult(){
     try{
       await navigator.clipboard.writeText(output);
@@ -64,25 +82,41 @@ export default function QuickKitDesk({initialMode="text"}:{initialMode?:QuickKit
       setStatus(saved?"Saved locally.":"Save cancelled.");
     }catch(e){setStatus(String(e instanceof Error?e.message:e));}
   }
-  const toggle=(name:keyof CleanupOptions,checked:boolean)=>setOptions(o=>({...o,[name]:checked}));
+  const toggle=(name:keyof CleanupOptions,checked:boolean)=>setOptions(o=>({
+    ...o,[name]:checked,
+    ...(name==="joinWrappedLines"&&checked?{joinSoftWrappedParagraphs:false}:{}),
+    ...(name==="joinSoftWrappedParagraphs"&&checked?{joinWrappedLines:false,removeEmptyLines:false}:{}),
+    ...(name==="removeEmptyLines"&&checked?{joinSoftWrappedParagraphs:false}:{}),
+  }));
   return <section className="panel">
     <p className="eyebrow">QUICKKIT · 轻量快捷工具 · OFFLINE</p>
     <h2>Quick Tools / 快捷小工具</h2>
-    <p className="subtle">Four tiny tasks without accounts or online uploads. Local input stays in this window; text/links are exported only when you click. Date calculations use calendar days, not elapsed 24-hour periods.</p>
+    <p className="subtle">日常高频小工具：复制纯文本、整理 PDF/网页文字、清理链接与查找替换。无需登录、订阅或上传；不监听剪贴板，只有点击“读取”才访问。</p>
     <div className="pill-row" role="group" aria-label="Quick tool">
       {(["text","links","replace","multi-copy","dates","grades"] as const).map(key=><button type="button" key={key}
         className={mode===key?"pill active-pill":"pill"} onClick={()=>{setMode(key);setStatus("");}}>{title[key]}</button>)}
     </div>
     {mode==="text"&&<>
+      <div className="actions">
+        <button type="button" className="secondary-button" data-testid="quick-paste-plain"
+          onClick={()=>void loadClipboardText()}>读取剪贴板纯文本（仅本次）</button>
+        <button type="button" className="secondary-button" data-testid="quick-copy-source-plain"
+          disabled={!source} onClick={()=>void copySourcePlain()}>复制原文为纯文本（不修改内容）</button>
+      </div>
+      <p className="subtle">也可直接在输入框粘贴。macOS 原生“粘贴并匹配样式”快捷键是 ⌥⇧⌘V；此处提供清理预览和可选段落整理，不替换系统快捷键。</p>
       <label htmlFor="quick-text-input" className="field-label">Messy copied text · 粘贴原文</label>
       <textarea id="quick-text-input" className="field text-editor" rows={6} maxLength={200000} value={source} onChange={e=>setSource(e.target.value)}/>
       <div className="actions">
         <label><input type="checkbox" checked={options.collapseSpaces} onChange={e=>toggle("collapseSpaces",e.target.checked)}/> Collapse repeated spaces</label>
         <label><input type="checkbox" checked={options.removeEmptyLines} onChange={e=>toggle("removeEmptyLines",e.target.checked)}/> Remove blank lines</label>
         <label><input type="checkbox" checked={options.deduplicateLines} onChange={e=>toggle("deduplicateLines",e.target.checked)}/> Dedupe lines</label>
+        <label><input data-testid="quick-reflow-soft" type="checkbox"
+          checked={!!options.joinSoftWrappedParagraphs}
+          onChange={e=>toggle("joinSoftWrappedParagraphs",e.target.checked)}/>
+          PDF/网页复制时合并意外折行（保留空段及项目符号）</label>
         <label><input type="checkbox" checked={options.joinWrappedLines} onChange={e=>toggle("joinWrappedLines",e.target.checked)}/> Join all lines (opt-in)</label>
       </div>
-      <p className="subtle">Removes zero-width space / BOM / word joiner; preserves intentional emoji joiners and original line separation unless you choose otherwise.</p>
+      <p className="subtle">默认保留换行；仅当你主动勾选才合并意外折行。不会自动尝试改写内容、删除中文标点或处理原文件。复杂列表/诗歌/代码不要使用自动合并。</p>
     </>}
     {mode==="links"&&<>
       <label htmlFor="quick-links-input" className="field-label">Full links · one per line (up to 30)</label>
@@ -103,7 +137,7 @@ export default function QuickKitDesk({initialMode="text"}:{initialMode?:QuickKit
       <label className="field-label" htmlFor="quick-result">Processed output</label>
       <textarea id="quick-result" className="field text-editor" rows={6} value={output} readOnly aria-label="Quick Tool output"/>
       <div className="actions">
-        <button className="primary-button" type="button" disabled={!!(mode==="text"?textResult.error:mode==="links"?linkResult.error:replaceResult.error)} onClick={()=>{void copyResult();}}>Copy result</button>
+        <button className="primary-button" data-testid="quick-copy-cleaned" type="button" disabled={!!(mode==="text"?textResult.error:mode==="links"?linkResult.error:replaceResult.error)} onClick={()=>{void copyResult();}}>复制整理结果为纯文本</button>
         <button className="secondary-button" type="button" disabled={!!(mode==="text"?textResult.error:mode==="links"?linkResult.error:replaceResult.error)} onClick={()=>{void saveResult();}}>Save as TXT</button>
       </div>
       {(mode==="text"?textResult.error:mode==="links"?linkResult.error:replaceResult.error)&&<p role="alert" className="subtle">{mode==="text"?textResult.error:mode==="links"?linkResult.error:replaceResult.error}</p>}

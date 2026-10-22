@@ -4,9 +4,11 @@ export type CleanupOptions = {
   removeEmptyLines:boolean;
   deduplicateLines:boolean;
   joinWrappedLines:boolean;
+  joinSoftWrappedParagraphs?:boolean;
 };
 export const DEFAULT_CLEANUP:CleanupOptions={
   collapseSpaces:true,removeEmptyLines:false,deduplicateLines:false,joinWrappedLines:false,
+  joinSoftWrappedParagraphs:false,
 };
 export function cleanCopiedText(source:string,options:CleanupOptions=DEFAULT_CLEANUP):string {
   if(source.length>200_000)throw new Error("Text is limited to 200,000 characters.");
@@ -20,6 +22,23 @@ export function cleanCopiedText(source:string,options:CleanupOptions=DEFAULT_CLE
   if(options.deduplicateLines){
     const seen=new Set<string>();
     lines=lines.filter(line=>!line||(!seen.has(line)&&!!seen.add(line)));
+  }
+  if(options.joinSoftWrappedParagraphs&&!options.joinWrappedLines){
+    // Only merge likely copied PDF line wraps, preserving blank paragraph boundaries
+    // and explicit bullets/numbered lists. This is an opt-in text heuristic.
+    const merged:string[]=[];
+    const bullet=/^(?:[-*•]\s+|\d+[.)]\s+)/u;
+    for(const current of lines){
+      if(!current){merged.push("");continue;}
+      const previous=merged.length?merged[merged.length-1]:"";
+      if(!previous||bullet.test(current)||bullet.test(previous)||
+        /[.!?。！？;；:：]$/u.test(previous)){
+        merged.push(current);continue;
+      }
+      const cjk=/[\p{Script=Han}]$/u.test(previous)&&/^[\p{Script=Han}]/u.test(current);
+      merged[merged.length-1]=previous+(cjk?"":" ")+current;
+    }
+    lines=merged;
   }
   if(options.joinWrappedLines){
     // Explicit opt-in, since merging paragraphs could otherwise discard formatting.
