@@ -1,4 +1,5 @@
 import {useEffect,useMemo,useState} from "react";
+import {chooseDailyShortcuts} from "../lib/dailyQuickLaunch";
 
 export type LocalTool = {id:string;name:string;area:string;view:string;module?:string};
 export const LOCAL_TOOLS:LocalTool[] = [
@@ -171,6 +172,7 @@ export default function ToolLaunchpad({onLaunch}:{onLaunch:(view:string,module?:
      &&(!term||(item.name+" "+item.id+" "+item.area).toLocaleLowerCase().includes(term)));
    return matches.sort((a,b)=>Number(favorites.includes(b.id))-Number(favorites.includes(a.id)));
  },[category,search,favorites,showFavorites]);
+ const dailyTools=useMemo(()=>chooseDailyShortcuts(LOCAL_TOOLS,favorites),[favorites]);
  function toggleFavorite(id:string){
    setFavorites(old=>old.includes(id)?old.filter(x=>x!==id):[...old,id].slice(0,40));
  }
@@ -182,6 +184,16 @@ export default function ToolLaunchpad({onLaunch}:{onLaunch:(view:string,module?:
      </div>
      <div className="catalog-count"><strong>{LOCAL_TOOLS.length}</strong><span>tool entries</span></div>
    </div>
+   <section className="panel" data-testid="daily-quick-launch" aria-label="常用工具快捷入口">
+      <p><strong>常用工具 · Quick Launch</strong></p>
+      <p className="subtle">直接打开已有工具；优先显示你收藏的项目，未满六个时补充常见工具。可在下方用 ☆ 添加收藏；不读取私有文件。</p>
+      <div className="actions" role="group" aria-label="Daily tool shortcuts">
+        {dailyTools.map(item=><button key={item.id} type="button" className="secondary-button"
+          data-testid={`daily-shortcut-${item.id}`} onClick={()=>onLaunch(item.view,item.module)}>
+          {favorites.includes(item.id)?"★ ":""}{item.name.split(" · ")[0]}
+        </button>)}
+      </div>
+    </section>
    <div className="catalog-filter-bar">
      <label className="field-label" htmlFor="all-tools-search">Search the tool library
        <input autoComplete="off" className="field" id="all-tools-search" value={search}

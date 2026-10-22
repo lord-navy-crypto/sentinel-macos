@@ -112,3 +112,34 @@ test("Office quick tools: lossless multi-copy clipboard basket, reorder, copy an
   await page.close();await context.close();await browser.close();
  }
 });
+
+
+test("Favorite-first daily quick launch opens real existing tools and reacts to stars",{
+ timeout:75000,
+},async()=>{
+ const browser=await chromium.launch({headless:true,args:["--no-sandbox"]});
+ const page=await browser.newPage({viewport:{width:1380,height:900}});
+ const errors=[];page.on("pageerror",e=>errors.push(e.message));
+ try{
+  await page.goto(origin,{waitUntil:"domcontentloaded"});
+  await page.locator(".app-shell").waitFor();
+  await page.locator('.sidebar button.nav-item[aria-label^="All tools"]').click();
+  const quick=page.locator('[data-testid="daily-quick-launch"]');
+  await quick.waitFor();
+  assert.equal(await quick.getByRole("button").count(),6);
+  await page.locator('[data-testid="daily-shortcut-quick-clean-text"]').click();
+  await page.locator("#quick-text-input").waitFor();
+
+  await page.locator('.sidebar button.nav-item[aria-label^="All tools"]').click();
+  await page.locator("#all-tools-search").fill("Target Size Photo Compression");
+  assert.equal(await page.locator(".catalog-open").count(),1);
+  await page.locator(".catalog-favorite").click();
+  await page.locator("#all-tools-search").fill("");
+  const buttons=page.locator('[data-testid="daily-quick-launch"] button');
+  assert.match(await buttons.first().innerText(),/★.*Target Size Photo Compression/);
+  assert.equal(await buttons.count(),6);
+  await page.locator('[data-testid="daily-shortcut-target-photo-compressor"]').click();
+  await page.locator('[data-testid="photo-files"]').waitFor();
+  assert.deepEqual(errors,[]);
+ }finally{await page.close();await browser.close();}
+});
