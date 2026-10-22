@@ -141,10 +141,19 @@ test("Batch rename: safe extension preview, validation before export and exact Z
   preview=await s.page.locator('[data-testid="rename-preview"]').innerText();
   assert.match(preview,/daily-final-01\.txt/);
   assert.match(preview,/-02\.JPG/);
+  const mapCsv=(await download(s.page,'[data-testid="rename-export-map"]',"rename-map.csv")).toString("utf8");
+  assert.match(mapCsv,/index,original_name,new_name,size_bytes/);
+  assert.match(mapCsv,/draft.txt/);
+  assert.match(mapCsv,/daily-final-01.txt/);
   const archive=await JSZip.loadAsync(await download(s.page,
    'button:has-text("Save all renamed copies as ZIP")',"renamed-preflight.zip"),{checkCRC32:true});
-  const names=Object.keys(archive.files).filter(name=>!archive.files[name].dir);
+  const names=Object.keys(archive.files).filter(name=>!archive.files[name].dir&&!name.startsWith("reports/"));
   assert.equal(names.length,2);
+  const embedded=await archive.file("reports/rename-map.csv").async("string");
+  assert.equal(embedded,mapCsv,"ZIP mapping must match explicitly downloaded CSV");
+  const provenance=JSON.parse(await archive.file("reports/rename-manifest.json").async("string"));
+  assert.deepEqual(provenance.files.map(x=>x.originalName),["draft.txt","a".repeat(180)+".JPG"]);
+  assert.deepEqual(provenance.files.map(x=>x.newName),names);
   assert.ok(names.includes("daily-final-01.txt"));
   assert.ok(names.some(name=>name.endsWith("-02.JPG")&&name.length<=130));
   assert.deepEqual(Buffer.from(await archive.file("daily-final-01.txt").async("uint8array")),first);

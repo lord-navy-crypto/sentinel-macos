@@ -42,3 +42,29 @@ export function planSafeRenames<T extends RenameSource>(
    return {file,filename,originalName:file.name};
  });
 }
+
+/** CSV is friendly to spreadsheet viewers; guard cells against formula execution. */
+function csvCell(value:string):string{
+ const safe=/^[\s\uFEFF\u200B]*[=+@-]/u.test(value)?"'"+value:value;
+ return '"'+safe.replace(/"/gu,'""')+'"';
+}
+export function buildRenameMappingCsv<T extends RenameSource>(items:readonly RenameTarget<T>[]):string{
+ if(!items.length||items.length>50)throw Error("Mapping requires 1–50 validated renames.");
+ const header="index,original_name,new_name,size_bytes";
+ const rows=items.map((item,index)=>{
+  if(!item.originalName||!item.filename||!Number.isSafeInteger(item.file.size))
+   throw Error("Renaming map contains invalid entries.");
+  return [String(index+1),csvCell(item.originalName),csvCell(item.filename),String(item.file.size)].join(",");
+ });
+ return "\uFEFF"+[header,...rows].join("\r\n")+"\r\n";
+}
+export function buildRenameMappingJson<T extends RenameSource>(items:readonly RenameTarget<T>[]):string{
+ if(!items.length||items.length>50)throw Error("Mapping requires 1–50 validated renames.");
+ return JSON.stringify({
+  generator:"Sentinel Box",
+  operation:"Locally created renamed copies; source files unchanged",
+  files:items.map((item,index)=>({
+   index:index+1,originalName:item.originalName,newName:item.filename,originalBytes:item.file.size,
+  })),
+ },null,2);
+}

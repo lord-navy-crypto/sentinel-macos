@@ -3,7 +3,7 @@ import QRCode from "qrcode";
 import JSZip from "jszip";
 import { exportFile } from "../lib/output";
 import {fileNameManifest} from "../lib/quickBatchText";
-import {planSafeRenames} from "../lib/safeRenamePreview";
+import {planSafeRenames,buildRenameMappingCsv,buildRenameMappingJson} from "../lib/safeRenamePreview";
 import TextCompareDesk from "./TextCompareDesk";
 import MarkdownConvertDesk from "./MarkdownConvertDesk";
 
@@ -180,6 +180,13 @@ export default function EverydayTools({ initial = "stats" }: { initial?: Utility
       setStatus(saved?"Saved file list locally. Originals unchanged.":"Save cancelled.");
     }catch(e){setStatus(String(e instanceof Error?e.message:e));}
   }
+  async function exportRenameMapping(){
+    if(renamePlan.error||!renamed.length)return;
+    try{
+      const saved=await exportFile("sentinel-box-renamed-file-map.csv",buildRenameMappingCsv(renamed));
+      setStatus(saved?"已导出原文件名 → 新文件名的 CSV 映射；原文件不变。":"已取消保存映射清单。");
+    }catch(e){setStatus("导出重命名映射失败："+String(e instanceof Error?e.message:e));}
+  }
   async function renameFile(file:File,next:string){
     if(renamePlan.error)throw Error(renamePlan.error);
     const result=await exportFile(next,new Uint8Array(await file.arrayBuffer()));
@@ -197,10 +204,13 @@ export default function EverydayTools({ initial = "stats" }: { initial?: Utility
       for(const {file,filename} of renamed){
         archive.file(filename,await file.arrayBuffer());
       }
+      // Keep the exact order and old→new names inside the same ZIP as the copies.
+      archive.file("reports/rename-map.csv",buildRenameMappingCsv(renamed));
+      archive.file("reports/rename-manifest.json",buildRenameMappingJson(renamed));
       const result=await archive.generateAsync({type:"uint8array",compression:"DEFLATE",compressionOptions:{level:3}});
       if(result.length>20_000_000)throw Error("Output exceeds 20 MB.");
       const saved=await exportFile("daily-desk-renamed-files.zip",result);
-      setStatus(saved?"Saved "+renamed.length+" renamed copies in one ZIP. Originals untouched.":"Save cancelled.");
+      setStatus(saved?"已导出 "+renamed.length+" 个重命名副本及原名→新名 CSV/JSON 对照清单；原始文件均未修改。":"已取消保存。");
     }catch(error){setStatus("Batch rename failed: "+String(error instanceof Error?error.message:error));}
     finally{setRenameBusy(false);}
   }
@@ -231,9 +241,13 @@ export default function EverydayTools({ initial = "stats" }: { initial?: Utility
         <div className="actions">
           <button type="button" className="secondary-button" disabled={!files.length||renameBusy} onClick={()=>{void exportNames("txt");}}>Export names TXT</button>
           <button type="button" className="secondary-button" disabled={!files.length||renameBusy} onClick={()=>{void exportNames("csv");}}>Export names CSV</button>
+          <button type="button" className="secondary-button" data-testid="rename-export-map"
+           disabled={!renamed.length||renameBusy||!!renamePlan.error} onClick={()=>{void exportRenameMapping();}}>
+           单独导出原名→新名 CSV 清单
+          </button>
           <button type="button" className="primary-button" disabled={!renamed.length||renameBusy||!!renamePlan.error} onClick={()=>{void exportRenamedZip();}}>{renameBusy?"Creating ZIP…":"Save all renamed copies as ZIP"}</button><span className="subtle">Limit: 50 files, 16 MB input. Each original is preserved.</span></div>
         {renamePlan.error&&<p role="alert" data-testid="rename-plan-error">{renamePlan.error}，请调整规则或文件选择。没有写入任何文件。</p>}
-        {renamed.length>0&&<p role="status" data-testid="rename-plan-status">已检查 {renamed.length} 个文件的新名称：保留扩展名、限制危险字符，并在导出前检查重名冲突。</p>}
+        {renamed.length>0&&<p role="status" data-testid="rename-plan-status">已检查 {renamed.length} 个文件的新名称：保留扩展名、限制危险字符，并在导出前检查重名冲突。ZIP 会附带 reports/rename-map.csv 和 JSON 清单，方便追溯。</p>}
         <div className="task-list" data-testid="rename-preview">{renamed.map(({file,filename},i)=><div key={i} className="task-row"><span className="task-copy">{file.name} → {filename}</span><button type="button" className="secondary-button" disabled={renameBusy||!!renamePlan.error} onClick={()=>{void renameFile(file,filename).catch(e=>setStatus(String(e)));}}>Save copy</button></div>)}</div>
       </>:<>
         <label className="field-label" htmlFor="utility-input">{tab==="groups"?"Names, separated by lines or commas":tab==="csv"?"CSV or TSV data":tab==="qr"?"URL or text":"Enter text"}</label>
