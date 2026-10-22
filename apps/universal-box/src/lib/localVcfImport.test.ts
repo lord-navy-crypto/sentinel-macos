@@ -57,7 +57,7 @@ describe("Private local VCF to CSV complement",()=>{
   const lines=[
    "begin:vcard","VERSION:3.0","FN:Alice One","end:vcard",
    "","BEGIN:VCARD","VERSION:4.0","FN:李四","END:VCARD","",
-  ].join("\\r\\n");
+  ].join("\r\n");
   const parsed=parseLocalVcf(lines,bytes(lines));
   expect(parsed.contacts.map(c=>c.name)).toEqual(["Alice One","李四"]);
  });
