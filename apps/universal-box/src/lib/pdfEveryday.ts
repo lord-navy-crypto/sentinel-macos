@@ -123,6 +123,27 @@ export async function fillPdfTextFields(
   return doc.save();
 }
 
+/** Reuse the existing page-order parser for frequent operations; no alternate PDF pipeline. */
+export type PdfPageQuickAction="first"|"last"|"odd"|"even"|"reverse";
+export function pdfQuickPageExpression(action:PdfPageQuickAction,total:number):string{
+  if(!Number.isSafeInteger(total)||total<1||total>200)
+    throw Error("PDF must contain 1–200 pages.");
+  if(action==="first")return "1";
+  if(action==="last")return String(total);
+  if(action==="even"&&total<2)throw Error("This PDF has no even-numbered pages.");
+  if(action==="odd"||action==="even"){
+    const start=action==="odd"?1:2,items:string[]=[];
+    for(let page=start;page<=total;page+=2)items.push(String(page));
+    return items.join(",");
+  }
+  if(action==="reverse"){
+    const items:string[]=[];
+    for(let page=total;page>=1;page--)items.push(String(page));
+    return items.join(",");
+  }
+  throw Error("Unknown PDF page shortcut.");
+}
+
 /** Extract or reorder PDF pages with explicit ranges such as 3,1-2,5. Duplicates intentionally supported. */
 export function parsePdfPageOrder(expression:string,total:number):number[]{
   if(!Number.isSafeInteger(total)||total<1||total>200)throw Error("PDF must contain 1–200 pages.");
