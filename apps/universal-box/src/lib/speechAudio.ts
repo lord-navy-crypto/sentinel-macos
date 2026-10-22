@@ -4,6 +4,15 @@
 export const SPEECH_SAMPLE_RATE=16_000;
 export const SPEECH_MAX_SECONDS=90;
 export const SPEECH_MAX_INPUT=12_000_000;
+export const AUDIO_IMPORT_EXTENSIONS=/\.(?:wav|wave|mp3|m4a|mp4|aac|webm|ogg|opus|flac|aif|aiff|caf)$/iu;
+/** Preflight user-selected audio. Actual codec support is checked by the local decoder. */
+export function validateAudioImport(file:{name:string;size:number}):void{
+ if(!AUDIO_IMPORT_EXTENSIONS.test(file.name))
+  throw Error("Choose a recognizable audio file (WAV, MP3, M4A, WebM, OGG, or similar).");
+ if(!Number.isSafeInteger(file.size)||file.size<44||file.size>SPEECH_MAX_INPUT)
+  throw Error("Audio file must be 44 bytes–12 MB.");
+}
+
 export function encodeMonoWav16(samples:Float32Array,sampleRate=SPEECH_SAMPLE_RATE):Uint8Array{
  if(sampleRate!==SPEECH_SAMPLE_RATE||samples.length<1||samples.length>SPEECH_SAMPLE_RATE*SPEECH_MAX_SECONDS)
   throw Error("Speech audio must be mono 16kHz PCM of 1–90 seconds.");

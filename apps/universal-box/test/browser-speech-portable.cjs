@@ -116,3 +116,50 @@ test("Windows UTF16LE BOM text becomes UTF8 BOM LF portable file with Chinese an
   assert.equal(await s.page.locator('[data-testid="portable-report"]').count(),1);
  }finally{await done(s,"cross-os-encoding.png");}
 });
+
+test("Speech audio import: drag WAV, preserve last valid clip after failed import and clear explicit session",{
+ timeout:90000,
+},async()=>{
+ const s=await open();
+ try{
+  await openTool(s.page,"Local Speech to Text");
+  await s.page.locator('[data-testid="speech-audio-file"]').setInputFiles({
+   name:"first.wav",mimeType:"audio/wav",buffer:makeWav()
+  });
+  await s.page.locator('[data-testid="speech-audio-ready"]').waitFor({timeout:15000});
+  assert.match(await s.page.locator('[data-testid="speech-audio-ready"]').innerText(),/first.wav/);
+
+  // Invalid size is rejected without erasing the prior valid clip.
+  await s.page.locator('[data-testid="speech-audio-file"]').setInputFiles({
+   name:"truncated.wav",mimeType:"audio/wav",buffer:Buffer.from("123")
+  });
+  await s.page.locator('[data-testid="speech-portable-status"]').filter({hasText:"音频导入失败"}).waitFor();
+  assert.match(await s.page.locator('[data-testid="speech-audio-ready"]').innerText(),/first.wav/);
+  assert.equal(await s.page.locator('[data-testid="speech-save-wav"]').isDisabled(),false);
+
+  // A well-named but invalid codec must ALSO preserve the last successfully prepared clip.
+  await s.page.locator('[data-testid="speech-audio-file"]').setInputFiles({
+   name:"broken.wav",mimeType:"audio/wav",buffer:Buffer.alloc(100,65)
+  });
+  await s.page.locator('[data-testid="speech-portable-status"]').filter({hasText:"音频解码失败"}).waitFor({timeout:15000});
+  assert.match(await s.page.locator('[data-testid="speech-audio-ready"]').innerText(),/first.wav/);
+
+  const audio=makeWav();
+  await s.page.evaluate(encoded=>{
+   const bin=atob(encoded),bytes=Uint8Array.from(bin,ch=>ch.charCodeAt(0));
+   const dt=new DataTransfer();
+   dt.items.add(new File([bytes],"dropped.wav",{type:"audio/wav"}));
+   const area=document.querySelector('[data-testid="speech-audio-drop"]');
+   area.dispatchEvent(new DragEvent("drop",{bubbles:true,cancelable:true,dataTransfer:dt}));
+  },audio.toString("base64"));
+  await s.page.locator('[data-testid="speech-audio-ready"]').filter({hasText:"dropped.wav"}).waitFor({timeout:15000});
+  const output=await download(s.page,'[data-testid="speech-save-wav"]',"dragged-normalized.wav");
+  assert.equal(output.toString("ascii",0,4),"RIFF");
+  assert.equal(output.readUInt32LE(24),16000);
+  assert.equal(await s.page.locator('[data-testid="speech-transcript"]').count(),0,
+    "Chromium must not invent offline recognition");
+  await s.page.locator('[data-testid="speech-clear-session"]').click();
+  assert.equal(await s.page.locator('[data-testid="speech-audio-ready"]').count(),0);
+  assert.equal(await s.page.locator('[data-testid="speech-save-wav"]').isDisabled(),true);
+ }finally{await done(s,"audio-drag-drop-recovery.png");}
+});

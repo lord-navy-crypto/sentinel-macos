@@ -1,7 +1,7 @@
 import {describe,it,expect} from "vitest";
 import JSZip from "jszip";
 import {inspectPcmWav} from "./wavTools";
-import {encodeMonoWav16,sampleMono16k,SPEECH_MAX_SECONDS} from "./speechAudio";
+import {encodeMonoWav16,sampleMono16k,SPEECH_MAX_SECONDS,validateAudioImport} from "./speechAudio";
 import {planPortable,decodePortable,encodePortable,exportPortableText} from "./portableText";
 import {planPhotoBatch} from "./photoCompression";
 describe("Actual normalized speech WAV",()=>{
@@ -26,6 +26,19 @@ describe("Actual normalized speech WAV",()=>{
   expect(view.getInt16(46,true)).toBe(-32767);
   expect(view.getInt16(48,true)).toBe(0);
   expect(()=>sampleMono16k([new Float32Array((SPEECH_MAX_SECONDS+1)*8000)],8000)).toThrow(/90 seconds/);
+ });
+});
+describe("User-selected audio upload preflight",()=>{
+ it("permits conventional audio extensions case-insensitively within 12 MB",()=>{
+  for(const name of ["notes.WAV","interview.m4a","talk.MP3","capture.webm","sound.ogg","legacy.aiff"]){
+   expect(()=>validateAudioImport({name,size:10_000})).not.toThrow();
+  }
+ });
+ it("rejects unrelated files and implausible sizes without any audio decoding",()=>{
+  expect(()=>validateAudioImport({name:"script.js",size:1024})).toThrow(/recognizable audio/);
+  expect(()=>validateAudioImport({name:"song.wav",size:0})).toThrow(/44 bytes/);
+  expect(()=>validateAudioImport({name:"song.wav",size:12_000_001})).toThrow(/12 MB/);
+  expect(()=>validateAudioImport({name:"song.wav",size:NaN})).toThrow(/44 bytes/);
  });
 });
 describe("Windows/Mac portable text conversion",()=>{
