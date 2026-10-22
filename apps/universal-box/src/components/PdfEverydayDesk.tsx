@@ -148,7 +148,7 @@ export default function PdfEverydayDesk({initialMode="metadata"}:{initialMode?:P
     try{
       const output=await run();
       const next=await inspectPdfExternalLinks(output);
-      setBytes(output);setLinks(next);setLinkSelection("");
+      setBytes(output);setPreparedPages(null);setLinks(next);setLinkSelection("");
       setLinkPreview(new File([new Uint8Array(output)],file?.name??"working.pdf",{type:"application/pdf"}));
       setLinkDirty(true);
       setStatus("Link edit staged locally. Review the preview, then save a new PDF. Original file on disk remains unchanged.");
