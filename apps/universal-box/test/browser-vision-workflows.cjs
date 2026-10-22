@@ -74,7 +74,12 @@ test("browser preview explicitly disables native Vision OCR rather than fabricat
    name:"ocr-demo.png",mimeType:"image/png",buffer:Buffer.from(sample,"base64")
   });
   assert.equal(await s.page.locator('[data-testid="vision-run-ocr"]').isDisabled(),true);
+  assert.equal(await s.page.locator('[data-testid="vision-image-ocr-copy"]').isDisabled(),true,
+   "Direct image-to-clipboard OCR must remain native-only");
   assert.equal(await s.page.locator('[data-testid="vision-text-result"]').count(),0);
+  assert.equal(await s.page.locator('[data-testid="vision-reflow-option"]').count(),0,
+   "OCR preview must not pretend text was recognized");
+  assert.equal(await s.page.locator('[data-testid="vision-reflow-copy"]').count(),0);
  }finally{await cleanup(s,"native-only-ocr.png");}
 });
 test("user-approved screen picker stream captures a genuine PNG and stops tracks",{timeout:70000},async()=>{
