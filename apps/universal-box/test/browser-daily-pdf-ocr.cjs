@@ -247,3 +247,47 @@ test("PDF Finder drop: append verified PDFs, keep previous preview on invalid se
   assert.deepEqual(session.errors,[]);
  }finally{await session.page.close();await session.browser.close();}
 });
+
+
+test("PDF merge: verify displayed source page ranges and save a safe Chinese custom filename",{
+ timeout:85000,
+},async()=>{
+ const session=await start();
+ try{
+  const {page}=session;
+  const makePdf=async widths=>{
+   const doc=await PDFDocument.create();
+   for(const width of widths)doc.addPage([width,600]);
+   return Buffer.from(await doc.save());
+  };
+  await navigate(page,"PDF Preview & Tools");
+  await page.locator("#pdf-picker").setInputFiles([
+   {name:"chapter-one.pdf",mimeType:"application/pdf",buffer:await makePdf([430,431])},
+   {name:"chapter-two.pdf",mimeType:"application/pdf",buffer:await makePdf([610])},
+  ]);
+  await page.locator('[data-testid="pdf-merge-entry"]').nth(1).waitFor();
+  assert.match(await page.locator('[data-testid="pdf-merge-entry"]').nth(0).innerText(),/合并后第\s*1–2\s*页/);
+  assert.match(await page.locator('[data-testid="pdf-merge-entry"]').nth(1).innerText(),/合并后第\s*3\s*页/);
+  const nameInput=page.locator('[data-testid="pdf-merge-output-name"]');
+  await nameInput.fill("../somewhere.pdf");
+  await page.locator('[data-testid="pdf-merge-name-error"]').waitFor();
+  assert.equal(await page.getByRole("button",{name:"按当前顺序合并并另存 PDF"}).isDisabled(),true);
+
+  await nameInput.fill("研究资料汇总.PDF");
+  assert.equal(await page.locator('[data-testid="pdf-merge-name-error"]').count(),0);
+  await page.locator('[data-testid="pdf-merge-preview"]').click();
+  await page.locator('[data-testid="pdf-merge-output-preview"]').waitFor();
+  // Merely changing the output filename should not generate an obsolete merge or erase the real preview.
+  await nameInput.fill("最终合并稿.pdf");
+  assert.equal(await page.locator('[data-testid="pdf-merge-output-preview"]').count(),1);
+  const wait=page.waitForEvent("download",{timeout:30000});
+  await page.getByRole("button",{name:"按当前顺序合并并另存 PDF"}).click();
+  const dl=await wait;
+  assert.equal(dl.suggestedFilename(),"最终合并稿.pdf");
+  const saveAs=path.join(target,"pdf-custom-name-merge.pdf");
+  await dl.saveAs(saveAs);
+  const actual=await PDFDocument.load(fs.readFileSync(saveAs));
+  assert.deepEqual(actual.getPages().map(x=>x.getWidth()),[430,431,610]);
+  assert.deepEqual(session.errors,[]);
+ }finally{await session.page.close();await session.browser.close();}
+});

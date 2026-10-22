@@ -65,3 +65,29 @@ export async function mergePdfFiles(files:readonly MergePdfInput[]):Promise<{byt
   if(bytes.length>PDF_MERGE_MAX_OUTPUT_BYTES)throw Error("Merged PDF exceeds 20 MB export limit.");
   return {bytes,pages:count};
 }
+
+/** Page boundaries let users verify the final placement before processing. */
+export function mergedPageRanges(entries:readonly MergePdfEntry[]):{first:number;last:number}[]{
+ if(entries.length>PDF_MERGE_MAX_FILES)throw Error("Too many PDFs for a merge.");
+ let current=1;
+ return entries.map(entry=>{
+  if(!Number.isSafeInteger(entry.pages)||entry.pages<1||entry.pages>200)
+   throw Error("Invalid source PDF page count.");
+  const first=current,last=first+entry.pages-1;
+  if(last>400)throw Error("Merged PDF exceeds 400 pages.");
+  current=last+1;
+  return {first,last};
+ });
+}
+
+/** Keep the user-selected name local and ensure we never export a path or another extension. */
+export function validateMergeOutputName(value:string):string{
+ const name=value.trim();
+ if(!name||name.length>100||/[\\/:*?"<>|\u0000-\u001f\u007f]/u.test(name))
+  throw Error("Use a short filename without slashes, reserved symbols or control characters.");
+ const stem=name.replace(/\.pdf$/iu,"");
+ if(!stem||stem.length>95||stem.startsWith(".")||stem.endsWith(".")||
+    /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])$/iu.test(stem))
+  throw Error("Please choose a valid PDF filename (not a reserved system name).");
+ return stem+".pdf";
+}
