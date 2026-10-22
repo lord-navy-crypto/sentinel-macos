@@ -72,14 +72,14 @@ test("Meetings produce genuine editable Word, action CSV and truthful attendee/t
    "A-01,To-do,Alex,2026-11-04,normal,todo,\n"+
    "A-02,Done task,Lee,2026-11-05,normal,done,"
   );
-  assert.match(await page.locator('[data-testid="meeting-calendar-count"]').innerText(),/1 \/ 2/);
+  assert.match((await page.locator('[data-testid="meeting-calendar-count"]').textContent())??"",/1\s*\/\s*2/);
   const donePending=page.waitForEvent("download",{timeout:30000});
   await page.locator('[data-testid="meeting-calendar-export"]').click();
   const doneFile=path.join(dest,"meeting-open-only.ics");
   await (await donePending).saveAs(doneFile);
   assert.doesNotMatch(fs.readFileSync(doneFile,"utf8"),/Done task/);
   await page.locator('[data-testid="meeting-calendar-include-done"]').check();
-  assert.match(await page.locator('[data-testid="meeting-calendar-count"]').innerText(),/2 \/ 2/);
+  assert.match((await page.locator('[data-testid="meeting-calendar-count"]').textContent())??"",/2\s*\/\s*2/);
 
   await page.locator('[data-testid="meeting-actions-csv"]').fill(
    "id,task,owner,due_date,priority,status,notes\n"+
