@@ -1,11 +1,23 @@
 import {describe,it,expect} from "vitest";
-import {cleanCopiedText,cleanTrackingUrl,cleanUrlList,dateDifference,shiftDate,parseGradeRows,calculateWeightedGrade} from "./quickKit";
+import {DEFAULT_CLEANUP,cleanCopiedText,cleanTrackingUrl,cleanUrlList,dateDifference,shiftDate,parseGradeRows,calculateWeightedGrade} from "./quickKit";
 describe("QuickKit no-upload utilities",()=>{
   it("cleans copied text while preserving line breaks by default",()=>{
     expect(cleanCopiedText(" A  B\r\nC\u00a0 D\u200b\n")).toBe("A B\nC D\n");
     expect(cleanCopiedText("A\nA\nB",{collapseSpaces:true,removeEmptyLines:true,deduplicateLines:true,joinWrappedLines:false})).toBe("A\nB");
     expect(cleanCopiedText("line one\nline two",{collapseSpaces:true,removeEmptyLines:true,deduplicateLines:false,joinWrappedLines:true})).toBe("line one line two");
     expect(()=>cleanCopiedText("x".repeat(200001))).toThrow();
+  });
+  it("reflows only opted-in PDF soft wraps, preserving paragraphs, bullets and Chinese",()=>{
+    const soft={...DEFAULT_CLEANUP,joinSoftWrappedParagraphs:true};
+    expect(cleanCopiedText("Report covers\\nseveral pages.\\nNext paragraph\\n\\nEnd of report",soft))
+      .toBe("Report covers several pages.\\nNext paragraph\\n\\nEnd of report");
+    expect(cleanCopiedText("研究内容\\n包括实验\\n\\n结果总结",soft))
+      .toBe("研究内容包括实验\\n\\n结果总结");
+    expect(cleanCopiedText("- First point\\nContinued text\\n- Second point",soft))
+      .toBe("- First point\\nContinued text\\n- Second point");
+    expect(cleanCopiedText("a line\\nb line",DEFAULT_CLEANUP)).toBe("a line\\nb line");
+    expect(cleanCopiedText("a line\\nb line",soft)).toBe("a line b line");
+    expect(cleanCopiedText("a line\\nb line",{...soft,joinWrappedLines:true})).toBe("a line b line");
   });
   it("removes tracking only, preserving functional URL query, anchor and host",()=>{
     const cleaned=cleanTrackingUrl("https://example.org/search?q=ap+physics&utm_source=mail&gclid=abc#results");
