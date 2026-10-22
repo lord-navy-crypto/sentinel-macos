@@ -5,11 +5,13 @@ import {
  type MeetingInput,
 } from "../lib/meetingMinutes";
 import {exportMeetingMinutes} from "../lib/meetingMinutesExport";
+import {createMeetingActionCalendar} from "../lib/meetingActionCalendar";
 const fail=(err:unknown)=>err instanceof Error?err.message:String(err);
 export default function MeetingMinutesDesk(){
  const [details,setDetails]=useState<MeetingInput>(MEETING_SAMPLE);
  const [actionsCsv,setActionsCsv]=useState(MEETING_ACTION_SAMPLE);
  const [busy,setBusy]=useState(false),[status,setStatus]=useState("");
+ const [calendarIncludeDone,setCalendarIncludeDone]=useState(false);
  const planned=useMemo(()=>{try{return {value:planMeetingMinutes(details,actionsCsv),error:""};}
   catch(e){return {value:null,error:fail(e)};}},[details,actionsCsv]);
  function update(field:keyof MeetingInput,value:string){
@@ -42,6 +44,17 @@ export default function MeetingMinutesDesk(){
     "Saved real editable Word minutes, plain-text copy, Excel-friendly assigned-actions CSV and ZIP manifest. No reminder or email was sent.":
     "Save cancelled.");
   }catch(e){setStatus("Meeting export failed: "+fail(e));}
+  finally{setBusy(false);}
+ }
+ async function saveCalendar(){
+  if(busy||!planned.value)return;
+  setBusy(true);setStatus("");
+  try{
+   const result=await createMeetingActionCalendar(planned.value,{includeDone:calendarIncludeDone});
+   if(result.eventCount<1){setStatus("没有可导出的任务；仅保留未完成任务时，需要至少一项待办或进行中任务。");return;}
+   const saved=await exportFile("sentinel-box-meeting-action-deadlines.ics",result.content);
+   setStatus(saved?"Saved "+result.eventCount+" all-day task dates to a local .ics file. Import manually; no reminders or calendar events were scheduled automatically.":"Calendar file save cancelled.");
+  }catch(e){setStatus("Calendar export failed: "+fail(e));}
   finally{setBusy(false);}
  }
  const text=(field:keyof MeetingInput,label:string,max:number,rows:number)=>
@@ -102,10 +115,26 @@ export default function MeetingMinutesDesk(){
      {a.notes&&<p className="subtle">备注：{a.notes}</p>}
     </div>)}
    </div>
+   <div className="panel" data-testid="meeting-calendar-options" style={{padding:12}}>
+    <strong>Calendar handoff · 任务日期导出</strong>
+    <p className="subtle">将已指定截止日期的任务导出为全天日程（不占用忙碌时间）。默认不导出已完成的任务。可手动导入 Apple Calendar、Outlook 或其他支持 iCalendar 的应用。不会自动邀请负责人或创建提醒。</p>
+    <label className="field-label">
+     <input type="checkbox" data-testid="meeting-calendar-include-done" checked={calendarIncludeDone}
+      onChange={e=>setCalendarIncludeDone(e.target.checked)}/>
+     同时包含已完成任务（默认为不包含）
+    </label>
+    <p data-testid="meeting-calendar-count" className="subtle">
+     本次 .ics 事件：{planned.value.actions.filter(x=>calendarIncludeDone||x.status!=="done").length}
+     / {planned.value.actions.length}
+    </p>
+    <button type="button" className="secondary-button" data-testid="meeting-calendar-export"
+     disabled={busy||!planned.value.actions.some(x=>calendarIncludeDone||x.status!=="done")}
+     onClick={()=>void saveCalendar()}>单独导出任务日历 .ics</button>
+   </div>
    <button className="primary-button" type="button" data-testid="meeting-export" disabled={busy}
-    onClick={()=>void saveMeeting()}>{busy?"生成中…":"导出 Word 纪要＋任务 CSV ZIP"}</button>
+    onClick={()=>void saveMeeting()}>{busy?"生成中…":"导出 Word 纪要＋任务 CSV＋可选日历 ZIP"}</button>
   </>}
   {status&&<p className="subtle" role="status" data-testid="meeting-status">{status}</p>}
-  <p className="subtle">不与日历或云端同步，不发送任务提醒。Word、文本纪要和任务 CSV 仅在你主动保存时导出；请分享前核对人名、期限与敏感会议内容。</p>
+  <p className="subtle">不与日历或云端同步，不发送任务提醒或邀请。仅在你主动保存时导出 Word、TXT、CSV 和可选 .ics；导入日历是用户在日历应用里另外执行的操作。请分享前核对人名、期限与敏感会议内容。</p>
  </section>;
 }
