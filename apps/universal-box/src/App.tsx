@@ -164,7 +164,9 @@ export default function App() {
   const commandInputRef=useRef<HTMLInputElement>(null);
   const commandDialogRef=useRef<HTMLDivElement>(null);
   function openTool(target: string, module?: string) {
-    if (!menu.some(item => item.id === target)) return;
+    // Standalone catalog tools have routes in View but are not sidebar menu entries.
+    // Only allow explicitly registered local-tool routes; keep unknown targets rejected.
+    if (!menu.some(item => item.id === target) && !LOCAL_TOOLS.some(item => item.view === target)) return;
     const id=target as View;
     setToolMode(module ?? "");setView(id);setCommandOpen(false);setCommandQuery("");
     setRecentViews(previous=>[id,...previous.filter(v=>v!==id)].slice(0,8));
