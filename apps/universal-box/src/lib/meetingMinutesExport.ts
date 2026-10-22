@@ -49,7 +49,7 @@ export function meetingMinutesText(plan:MeetingPlan):string{
  ];
  return lines.join("\n")+"\n";
 }
-export async function exportMeetingMinutes(plan:MeetingPlan):Promise<Uint8Array>{
+export async function exportMeetingMinutes(plan:MeetingPlan,options:{includeDoneInCalendar?:boolean}={}):Promise<Uint8Array>{
  if(plan.actions.length<1||plan.actions.length>80)throw Error("Meeting action count is invalid.");
  const m=plan.meeting;
  const sections=[
@@ -90,7 +90,7 @@ export async function exportMeetingMinutes(plan:MeetingPlan):Promise<Uint8Array>
  // UTF-8 BOM improves Excel interoperability, with CSV cells formula-protected.
  zip.file("actions/assigned-actions.csv","\uFEFF"+plan.actionCsv);
  // Keep action deadlines portable to calendar apps as an opt-in imported snapshot.
- const calendar=await createMeetingActionCalendar(plan);
+ const calendar=await createMeetingActionCalendar(plan,{includeDone:options.includeDoneInCalendar??false});
  if(calendar.eventCount>0)zip.file("actions/open-action-deadlines.ics",calendar.content);
  zip.file("reports/manifest.json",JSON.stringify({
   generatedBy:"Sentinel Box — user-entered meeting minutes",
