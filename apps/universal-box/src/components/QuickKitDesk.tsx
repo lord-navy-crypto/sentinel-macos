@@ -85,7 +85,8 @@ export default function QuickKitDesk({initialMode="text"}:{initialMode?:QuickKit
   const toggle=(name:keyof CleanupOptions,checked:boolean)=>setOptions(o=>({
     ...o,[name]:checked,
     ...(name==="joinWrappedLines"&&checked?{joinSoftWrappedParagraphs:false}:{}),
-    ...(name==="joinSoftWrappedParagraphs"&&checked?{joinWrappedLines:false}:{}),
+    ...(name==="joinSoftWrappedParagraphs"&&checked?{joinWrappedLines:false,removeEmptyLines:false}:{}),
+    ...(name==="removeEmptyLines"&&checked?{joinSoftWrappedParagraphs:false}:{}),
   }));
   return <section className="panel">
     <p className="eyebrow">QUICKKIT · 轻量快捷工具 · OFFLINE</p>
