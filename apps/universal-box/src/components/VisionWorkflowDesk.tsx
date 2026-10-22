@@ -1,7 +1,8 @@
 import {useMemo,useState,type ChangeEvent} from "react";
 import {invoke,isTauri} from "@tauri-apps/api/core";
 import {exportFile} from "../lib/output";
-import {normalizeOcrLines} from "../lib/ocrTextFlow";
+import {normalizeOcrLines,countUncertainOcrLines} from "../lib/ocrTextFlow";
+import {cleanCopiedText,DEFAULT_CLEANUP} from "../lib/quickKit";
 import {markdownToDocx} from "../lib/documentExport";
 import {buildProjectPack,planProjectPack,type ProjectPackInput} from "../lib/projectWorkflow";
 
@@ -23,13 +24,21 @@ export default function VisionWorkflowDesk({initialMode="ocr"}:{initialMode?:Vis
   [status,setStatus]=useState(""),[busy,setBusy]=useState(false),[fast,setFast]=useState(false);
  const [result,setResult]=useState<RecognizedLine[]|null>(null);
  const [edited,setEdited]=useState("");
+ const [showReflow,setShowReflow]=useState(false);
+ const reflowPreview=useMemo(()=>{
+  if(!showReflow||!result)return {text:"",error:""};
+  try{return {text:cleanCopiedText(edited,{...DEFAULT_CLEANUP,joinSoftWrappedParagraphs:true}),error:""};}
+  catch(e){return {text:"",error:toError(e)};}
+ },[edited,showReflow,result]);
+ const uncertainLines=useMemo(()=>result?countUncertainOcrLines(result):0,[result]);
  const [project,setProject]=useState<ProjectPackInput>(initialProject);
  const planned=useMemo(()=>{try{return {plan:planProjectPack(project),error:""};}catch(e){
   return {plan:null,error:toError(e)};
  }},[project]);
  function selectFile(event:ChangeEvent<HTMLInputElement>){
   const selected=event.target.files?.[0]??null;event.target.value="";
-  setFile(selected);setStatus("");setResult(null);setEdited("");
+  if(busy)return;
+  setFile(selected);setStatus("");setResult(null);setEdited("");setShowReflow(false);
  }
  async function recognizePhoto(photo:File,copyAfter:boolean){
    if(!isTauri())throw Error("Native Apple Vision OCR is available only in the macOS desktop app.");
@@ -38,7 +47,7 @@ export default function VisionWorkflowDesk({initialMode="ocr"}:{initialMode?:Vis
    const bytes=new Uint8Array(await photo.arrayBuffer());
    const native=await invoke<unknown>("recognize_image_text",{bytes:Array.from(bytes),fast});
    const verified=normalizeOcrLines(native);
-   setResult(verified.lines);setEdited(verified.text);
+   setResult(verified.lines);setEdited(verified.text);setShowReflow(false);
    if(!verified.text.trim()){setStatus("Apple Vision found no text. The screenshot remains available.");return;}
    if(copyAfter){
     try{
@@ -51,9 +60,33 @@ export default function VisionWorkflowDesk({initialMode="ocr"}:{initialMode?:Vis
    }else setStatus("Recognized "+verified.lines.length+" lines locally. Review and copy or save the editable text.");
  }
  async function recognize(){
-  if(!file||busy)return;setBusy(true);setStatus("");
+  if(!file||busy)return;setBusy(true);setStatus("");setResult(null);setEdited("");setShowReflow(false);
   try{await recognizePhoto(file,false);}
   catch(e){setStatus("OCR failed: "+toError(e));}
+  finally{setBusy(false);}
+ }
+ async function recognizeAndCopyImportedImage(){
+  if(!file||busy)return;
+  setBusy(true);setStatus("");setResult(null);setEdited("");setShowReflow(false);
+  try{await recognizePhoto(file,true);}
+  catch(e){setStatus("图片识别或复制失败："+toError(e));}
+  finally{setBusy(false);}
+ }
+ async function copyReflowPreview(){
+  if(reflowPreview.error||!reflowPreview.text.trim())return;
+  try{
+   if(!navigator.clipboard?.writeText)throw Error("Clipboard permission unavailable.");
+   await navigator.clipboard.writeText(reflowPreview.text);
+   setStatus("已复制可选的折行整理预览；原始 OCR 及手工修改文本未改变。");
+  }catch{setStatus("无法复制，请手动选中折行整理预览文字复制。");}
+ }
+ async function saveReflowPreview(){
+  if(reflowPreview.error||!reflowPreview.text.trim()||busy)return;
+  setBusy(true);setStatus("");
+  try{
+   const done=await exportFile("vision-reflowed-ocr.txt",reflowPreview.text);
+   setStatus(done?"已另存经过确认的折行整理 TXT；原始 OCR 内容未覆盖。":"已取消保存。");
+  }catch(e){setStatus("折行整理导出失败："+toError(e));}
   finally{setBusy(false);}
  }
  async function screenShot():Promise<File|null>{
@@ -81,7 +114,7 @@ export default function VisionWorkflowDesk({initialMode="ocr"}:{initialMode?:Vis
    ctx.drawImage(video,0,0,canvas.width,canvas.height);
    const photo=await pngFromCanvas(canvas);
    if(photo.size>8_000_000)throw Error("Screenshot exceeds 8 MB; use the system screenshot tool.");
-   setFile(photo);setResult(null);setEdited("");
+   setFile(photo);setResult(null);setEdited("");setShowReflow(false);
    setStatus("Captured one selected screen frame with your permission. All screen tracks stopped; choose OCR or save.");
    return photo;
   }catch(e){setStatus("Screen selection failed: "+toError(e));return null;}
@@ -153,19 +186,44 @@ export default function VisionWorkflowDesk({initialMode="ocr"}:{initialMode?:Vis
     <button data-testid="vision-capture-ocr-copy" type="button" className="secondary-button" disabled={busy||!isTauri()} onClick={()=>void captureRecognizeCopy()}>一键截图 → 本机识字 → 复制</button>
    </>}
    <label className="field-label">选择 PNG、JPEG 或 WebP 图片（最大 8 MB）
-    <input data-testid="vision-image-input" className="field" type="file" accept="image/png,image/jpeg,image/webp" onChange={selectFile}/>
+    <input data-testid="vision-image-input" className="field" type="file" disabled={busy} accept="image/png,image/jpeg,image/webp" onChange={selectFile}/>
    </label>
    {file&&<p className="subtle" data-testid="vision-file-info">已选择：{file.name} · {file.size} 字节</p>}
    <>
     <h3>Apple Vision · 本机文字识别</h3>
     <p className="subtle">仅 Mac 桌面应用具备识别接口；浏览器预览不能识别。支持由系统决定的文字语言，识别结果可能存在错误，请校对。</p>
     <label><input type="checkbox" checked={fast} onChange={e=>setFast(e.target.checked)}/> 快速识别模式（可能降低准确度）</label>
-    <button data-testid="vision-run-ocr" type="button" className="primary-button" disabled={!file||busy||!isTauri()} onClick={()=>void recognize()}>本机识别图片文字</button>
+    <div className="actions">
+     <button data-testid="vision-run-ocr" type="button" className="primary-button" disabled={!file||busy||!isTauri()} onClick={()=>void recognize()}>本机识别图片文字</button>
+     <button data-testid="vision-image-ocr-copy" type="button" className="secondary-button"
+      disabled={!file||busy||!isTauri()} onClick={()=>void recognizeAndCopyImportedImage()}>
+      导入图片 → 本机识字 → 复制原文
+     </button>
+    </div>
     {!isTauri()&&<p data-testid="vision-native-unavailable" className="subtle">当前是浏览器预览；请使用 macOS Sentinel Box 桌面应用执行 Apple Vision OCR。</p>}
-    {result&&<p data-testid="vision-result-lines" className="subtle">识别到 {result.length} 行。结果可编辑，导出之前请检查。</p>}
+    {result&&<p data-testid="vision-result-lines" className="subtle">识别到 {result.length} 行。结果可编辑，导出之前请检查。{uncertainLines>0?`其中 ${uncertainLines} 行低于 0.65 置信度，建议重点人工复核（此数值不保证识别正确率）。`:""}</p>}
     {result&&<label className="field-label">识别结果 / 手动校正
      <textarea data-testid="vision-text-result" className="field text-editor" maxLength={200000} rows={12} value={edited} onChange={e=>setEdited(e.target.value)}/>
     </label>}
+    {result&&<div className="panel" data-testid="vision-reflow-option">
+     <label><input type="checkbox" data-testid="vision-reflow-toggle"
+       checked={showReflow} onChange={e=>setShowReflow(e.target.checked)}/>
+       可选：整理图片/PDF 复制产生的意外折行（仅生成单独预览）</label>
+     <p className="subtle">默认关闭；启用后尽量保留空白段落、项目符号和中文连贯文本，但仍可能误合并标题、代码或诗歌。原始 OCR 与上方手动编辑内容保持不变。</p>
+     {showReflow&&<>
+      {reflowPreview.error?<p role="alert">{reflowPreview.error}</p>:
+       <label className="field-label">折行整理结果（只读）
+        <textarea readOnly data-testid="vision-reflow-preview" className="field text-editor" rows={7}
+         value={reflowPreview.text}/>
+       </label>}
+      <div className="actions">
+       <button type="button" className="secondary-button" data-testid="vision-reflow-copy"
+        disabled={busy||!!reflowPreview.error||!reflowPreview.text.trim()} onClick={()=>void copyReflowPreview()}>复制整理预览</button>
+       <button type="button" className="secondary-button" data-testid="vision-reflow-save"
+        disabled={busy||!!reflowPreview.error||!reflowPreview.text.trim()} onClick={()=>void saveReflowPreview()}>另存整理 TXT</button>
+      </div>
+     </>}
+    </div>}
     {result&&<div className="actions">
      <button data-testid="vision-copy-text" className="primary-button" type="button" disabled={busy||!edited.trim()} onClick={()=>void copyOcrText()}>复制识别文字</button>
      <button data-testid="vision-save-txt" className="primary-button" type="button" disabled={busy||!edited.trim()} onClick={()=>void saveOcr("txt")}>导出 OCR TXT</button>
