@@ -111,3 +111,44 @@ test("real video WebM upload and extracted PNG frame in Chromium",{timeout:90000
   assert.ok(png.length>200);
  }finally{await close(s,"video-frame.png");}
 });
+
+
+test("Batch rename: safe extension preview, validation before export and exact ZIP contents",{
+ timeout:75000,
+},async()=>{
+ const s=await setup();
+ try{
+  await navigate(s.page,"Batch Rename Copies");
+  const first=Buffer.from("notes alpha","utf8"),second=Buffer.from("picture beta","utf8");
+  await s.page.locator("#rename-files").setInputFiles([
+   {name:"draft.txt",mimeType:"text/plain",buffer:first},
+   {name:"a".repeat(180)+".JPG",mimeType:"image/jpeg",buffer:second},
+  ]);
+  await s.page.locator('[data-testid="rename-plan-status"]').waitFor();
+  await s.page.getByLabel("Find text").fill("draft");
+  await s.page.getByLabel("Replace").fill("final");
+  assert.equal(await s.page.locator('[data-testid="rename-preview"] .task-row').count(),2);
+  let preview=await s.page.locator('[data-testid="rename-preview"]').innerText();
+  assert.match(preview,/study-final-01\.txt/);
+  assert.match(preview,/-02\.JPG/);
+
+  // Deliberately invalid naming rule must block download before reading file bytes.
+  await s.page.getByLabel("Prefix").fill("x".repeat(101));
+  await s.page.locator('[data-testid="rename-plan-error"]').waitFor();
+  assert.equal(await s.page.getByRole("button",{name:"Save all renamed copies as ZIP"}).isDisabled(),true);
+  await s.page.getByLabel("Prefix").fill("daily-");
+  assert.equal(await s.page.locator('[data-testid="rename-plan-error"]').count(),0);
+  preview=await s.page.locator('[data-testid="rename-preview"]').innerText();
+  assert.match(preview,/daily-final-01\.txt/);
+  assert.match(preview,/-02\.JPG/);
+  const archive=await JSZip.loadAsync(await download(s.page,
+   'button:has-text("Save all renamed copies as ZIP")',"renamed-preflight.zip"),{checkCRC32:true});
+  const names=Object.keys(archive.files).filter(name=>!archive.files[name].dir);
+  assert.equal(names.length,2);
+  assert.ok(names.includes("daily-final-01.txt"));
+  assert.ok(names.some(name=>name.endsWith("-02.JPG")&&name.length<=130));
+  assert.deepEqual(Buffer.from(await archive.file("daily-final-01.txt").async("uint8array")),first);
+  const jpgName=names.find(name=>name.endsWith("-02.JPG"));
+  assert.deepEqual(Buffer.from(await archive.file(jpgName).async("uint8array")),second);
+ }finally{await close(s,"safe-rename-preview.png");}
+});
