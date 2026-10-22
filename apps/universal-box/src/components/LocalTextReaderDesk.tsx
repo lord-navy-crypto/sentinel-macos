@@ -18,7 +18,7 @@ export default function LocalTextReaderDesk(){
  useEffect(()=>{
   if(!available){setStatus("此系统/WebView 不提供语音朗读 API；没有调用远程语音服务。");return;}
   const synth=window.speechSynthesis;
-  const refresh=()=>setVoices(synth.getVoices());
+  const refresh=()=>setVoices([...synth.getVoices()]);
   refresh();
   synth.addEventListener?.("voiceschanged",refresh);
   return ()=>{
