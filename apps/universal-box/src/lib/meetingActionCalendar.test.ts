@@ -28,7 +28,7 @@ describe("RFC5545 meeting action due-date export",()=>{
   expect(result.content).not.toContain("ATTENDEE:");
   expect(result.content).not.toContain("ORGANIZER:");
   const again=await createMeetingActionCalendar(plan,{now:new Date("2026-10-23T00:00:00Z")});
-  const uids=(s:string)=>s.split("\r\n").filter(x=>x.startsWith("UID:"));
+  const uids=(s:string)=>unfold(s).split("\r\n").filter(x=>x.startsWith("UID:"));
   expect(uids(again.content)).toEqual(uids(result.content));
   expect(new Set(uids(result.content)).size).toBe(2);
  });
@@ -77,7 +77,7 @@ describe("RFC5545 meeting action due-date export",()=>{
  it("does not include a selected calendar owner email or claim to schedule meetings",async()=>{
   const plan=makePlan("X1,Preparation,owner@example.com,2026-12-31,normal,todo,No automated contact");
   const content=(await createMeetingActionCalendar(plan)).content;
-  expect(content).toContain("Assigned owner: owner@example.com");
+  expect(unfold(content)).toContain("Assigned owner: owner@example.com");
   expect(content).not.toContain("mailto:");
   expect(content).not.toContain("METHOD:REQUEST");
   expect(content).toContain("METHOD:PUBLISH");
