@@ -190,7 +190,7 @@ export default function QuickKitDesk({initialMode="text"}:{initialMode?:QuickKit
           disabled={clipboardBusy||clips.length>=30} onClick={()=>{void addClipboardSnippet();}}>
           {clipboardBusy?"正在读取…":"添加当前剪贴板文字（仅本次）"}</button>
         <button type="button" className="secondary-button" data-testid="quick-clip-clear"
-          disabled={!clips.length} onClick={()=>{setClips([]);setStatus("当前会话的所有片段已清空。");}}>清空全部片段</button>
+          disabled={!clips.length&& !clipDraft || clipboardBusy} onClick={()=>{setClips([]);setClipDraft("");setStatus("当前会话的所有片段及输入草稿已清空。");}}>清空全部片段</button>
       </div>
       <label className="field-label" htmlFor="clip-draft">也可以手动添加文本（保留首尾空格和换行）</label>
       <textarea id="clip-draft" className="field text-editor" rows={4} maxLength={20000}
