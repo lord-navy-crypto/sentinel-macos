@@ -76,6 +76,8 @@ export function parseLocalVcf(source:string,byteLength:number):VcfReport{
   const key=(props[0].split(".").at(-1)??"").toUpperCase();
   if(!/^[A-Z0-9-]+$/u.test(key))throw Error("VCF property name is invalid.");
   const parameters=props.slice(1).join(";").toUpperCase();
+  // Binary/photo/key resources are intentionally excluded, not decoded or executed.
+  if(["PHOTO","LOGO","SOUND","KEY"].includes(key)){ignoredProperties++;continue;}
   if(/(?:^|;)ENCODING=|(?:^|;)CHARSET=(?!UTF-8(?:;|$))/u.test(parameters))
    throw Error("VCF legacy encodings are unsupported; export UTF-8 vCard 3.0 or 4.0.");
   if(key==="VERSION"){
