@@ -15,3 +15,14 @@ export function normalizeOcrLines(value:unknown):{lines:NativeOcrLine[];text:str
  if(text.length>200_000)throw Error("OCR text exceeds 200,000 characters.");
  return {lines,text};
 }
+
+/** Advisory only: OCR confidence varies with language, image and Apple Vision revision. */
+export function countUncertainOcrLines(lines:readonly NativeOcrLine[],threshold=0.65):number{
+ if(!Number.isFinite(threshold)||threshold<0||threshold>1)throw Error("Invalid OCR threshold.");
+ return lines.filter(line=>{
+  if(typeof line.confidence!=="number"||!Number.isFinite(line.confidence)||
+     line.confidence<0||line.confidence>1)
+    throw Error("Invalid native OCR confidence.");
+  return line.text.trim().length>0&&line.confidence<threshold;
+ }).length;
+}
