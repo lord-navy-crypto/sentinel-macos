@@ -55,3 +55,66 @@ test("Screen-capture-to-OCR UI is real-native-only, never simulates extracted te
   assert.deepEqual(session.errors,[]);
  }finally{await session.page.close();await session.browser.close();}
 });
+
+
+test("PDF everyday: drag local PDF, choose odd/even/reverse shortcuts, export exact real page order",{
+ timeout:90000,
+},async()=>{
+ const session=await start();
+ try{
+  const {page}=session;
+  const doc=await PDFDocument.create();
+  for(let number=1;number<=5;number++)doc.addPage([400+number*10,600]);
+  const source=Buffer.from(await doc.save());
+  await navigate(page,"PDF Size Optimizer");
+  await page.locator('[data-testid="pdf-mini-drop-zone"]').waitFor();
+  // Genuine user-provided File via drag and drop, not a mocked loaded-PDF state.
+  await page.evaluate(encoded=>{
+   const raw=atob(encoded),bytes=new Uint8Array(raw.length);
+   for(let i=0;i<raw.length;i++)bytes[i]=raw.charCodeAt(i);
+   const dt=new DataTransfer();
+   dt.items.add(new File([bytes],"five-pages.pdf",{type:"application/pdf"}));
+   const drop=document.querySelector('[data-testid="pdf-mini-drop-zone"]');
+   if(!drop)throw Error("PDF drop area missing");
+   drop.dispatchEvent(new DragEvent("drop",{bubbles:true,cancelable:true,dataTransfer:dt}));
+  },source.toString("base64"));
+  await page.locator('[aria-label="Imported PDF document information"]').getByText("5", {exact:false}).first().waitFor();
+  assert.match(await page.locator('[aria-label="Imported PDF document information"]').innerText(),/5.*pages/);
+
+  await page.locator('[data-testid="pdf-quick-odd"]').click();
+  assert.equal(await page.locator('[data-testid="pdf-page-expression"]').inputValue(),"1,3,5");
+  let downloadPending=page.waitForEvent("download");
+  await page.locator('[data-testid="pdf-quick-export-pages"]').click();
+  let dl=await downloadPending;let output=path.join(target,"odd-page-shortcut.pdf");
+  await dl.saveAs(output);
+  let result=await PDFDocument.load(fs.readFileSync(output));
+  assert.deepEqual(result.getPages().map(p=>p.getWidth()),[410,430,450]);
+
+  await page.locator('[data-testid="pdf-quick-even"]').click();
+  assert.equal(await page.locator('[data-testid="pdf-page-expression"]').inputValue(),"2,4");
+  downloadPending=page.waitForEvent("download");
+  await page.locator('[data-testid="pdf-quick-export-pages"]').click();
+  dl=await downloadPending;output=path.join(target,"even-page-shortcut.pdf");
+  await dl.saveAs(output);
+  result=await PDFDocument.load(fs.readFileSync(output));
+  assert.deepEqual(result.getPages().map(p=>p.getWidth()),[420,440]);
+
+  await page.locator('[data-testid="pdf-quick-reverse"]').click();
+  assert.equal(await page.locator('[data-testid="pdf-page-expression"]').inputValue(),"5,4,3,2,1");
+  downloadPending=page.waitForEvent("download");
+  await page.locator('[data-testid="pdf-quick-export-pages"]').click();
+  dl=await downloadPending;output=path.join(target,"reversed-page-shortcut.pdf");
+  await dl.saveAs(output);
+  result=await PDFDocument.load(fs.readFileSync(output));
+  assert.deepEqual(result.getPages().map(p=>p.getWidth()),[450,440,430,420,410]);
+
+  await page.locator('[data-testid="pdf-quick-first"]').click();
+  assert.equal(await page.locator('[data-testid="pdf-page-expression"]').inputValue(),"1");
+  await page.locator('[data-testid="pdf-quick-last"]').click();
+  assert.equal(await page.locator('[data-testid="pdf-page-expression"]').inputValue(),"5");
+  await page.locator('[data-testid="pdf-quick-optimize"]').click();
+  await page.locator('[data-testid="pdf-structure-optimizer"]').waitFor();
+  assert.deepEqual(session.errors,[]);
+  await page.screenshot({path:path.join(target,"pdf-quick-tasks.png"),fullPage:true});
+ }finally{await session.page.close();await session.browser.close();}
+});
