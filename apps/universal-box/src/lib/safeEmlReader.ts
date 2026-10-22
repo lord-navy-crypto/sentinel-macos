@@ -24,7 +24,7 @@ function splitHeaders(input:string):HeaderBlock{
    continue;
   }
   const match=/^([a-z0-9!#$%&'*+.^_`|~-]+):\s*(.*)$/iu.exec(line);
-  if(!match)error("Email contains an invalid header line.");
+  if(!match)throw Error("Email contains an invalid header line.");
   current=match[1].toLowerCase();
   if(!headers.has(current))headers.set(current,match[2]);
  }
@@ -81,7 +81,7 @@ function decodedPart(body:string,headers:Map<string,string>):Uint8Array{
  if(method==="base64")return base64Decode(body);
  if(method==="quoted-printable")return quotedPrintable(body);
  if(method===""||method==="7bit"||method==="8bit"||method==="binary")return new TextEncoder().encode(body);
- error("Unsupported MIME transfer encoding: "+method.slice(0,50));
+ throw Error("Unsupported MIME transfer encoding: "+method.slice(0,50));
 }
 export function inspectLocalEml(bytes:Uint8Array):EmlRecord{
  if(!(bytes instanceof Uint8Array)||bytes.byteLength<25||bytes.byteLength>EML_MAX_BYTES)
