@@ -1,7 +1,7 @@
 import {useMemo,useState,type ChangeEvent} from "react";
 import {exportFile} from "../lib/output";
 import {
-  parseBookmarkHtml,bookmarkDeduplicate,bookmarksCsv,bookmarksMarkdown,bookmarkDomainSummary,
+  parseBookmarkHtml,bookmarkDeduplicate,bookmarksCsv,bookmarksMarkdown,bookmarkDomainSummary,bookmarkDuplicateGroups,
   type BookmarkReport,
 } from "../lib/bookmarkImport";
 
@@ -20,6 +20,7 @@ export default function BookmarkOrganizerDesk(){
     return (term?list.filter(item=>(item.title+" "+item.url+" "+item.domain).toLocaleLowerCase().includes(term)):list).slice(0,80);
   },[list,search]);
   const summary=useMemo(()=>bookmarkDomainSummary(list).slice(0,10),[list]);
+  const duplicates=useMemo(()=>report?bookmarkDuplicateGroups(report.items).slice(0,25):[],[report]);
 
   async function readBookmarks(event:ChangeEvent<HTMLInputElement>){
     const selected=Array.from(event.currentTarget.files??[]);
@@ -76,6 +77,14 @@ export default function BookmarkOrganizerDesk(){
         <button type="button" className="secondary-button" data-testid="bookmarks-clear"
           disabled={busy} onClick={()=>{setReport(null);setSourceName("");setSearch("");setRemoveDuplicates(false);setStatus("已清空当前会话的书签列表；浏览器原书签未更改。");}}>清空清单</button>
       </div>
+      {duplicates.length>0&&<>
+        <h3>需要核对的重复网址（最多列出 25 组）</h3>
+        <div className="task-list" data-testid="bookmarks-duplicate-groups">
+          {duplicates.map(group=><div className="task-row" key={group.url}>
+            <span className="task-copy">重复 {group.count} 次 · {group.url} · 书签标题：{group.titles.join(" / ")}</span>
+          </div>)}
+        </div>
+      </>}
       <h3>最常出现的域名</h3>
       <div className="task-list" data-testid="bookmarks-domains">
         {summary.map(group=><div className="task-row" key={group.domain}>
