@@ -1,4 +1,4 @@
-import {useMemo,useState} from "react";
+import {useMemo,useRef,useState,type ChangeEvent,type DragEvent as ReactDragEvent} from "react";
 import {
   type CleanupOptions,DEFAULT_CLEANUP,cleanCopiedText,cleanUrlList,
   dateDifference,shiftDate,parseGradeRows,calculateWeightedGrade,
@@ -6,6 +6,7 @@ import {
 import {exportFile} from "../lib/output";
 import {replaceTextLiteral} from "../lib/quickBatchText";
 import {addClip,combineClips,moveClip} from "../lib/multiCopy";
+import {decodeQuickTextFile} from "../lib/quickTextImport";
 
 export type QuickKitMode="text"|"links"|"dates"|"grades"|"multi-copy"|"replace";
 const title:Record<QuickKitMode,string>={
@@ -32,6 +33,10 @@ export default function QuickKitDesk({initialMode="text"}:{initialMode?:QuickKit
   const [clipDraft,setClipDraft]=useState("");
   const [clips,setClips]=useState<string[]>([]);
   const [clipboardBusy,setClipboardBusy]=useState(false);
+  const [textImportBusy,setTextImportBusy]=useState(false);
+  const sourceRef=useRef<HTMLTextAreaElement|null>(null);
+  const resultRef=useRef<HTMLTextAreaElement|null>(null);
+  const combinedRef=useRef<HTMLTextAreaElement|null>(null);
   const [clipSeparator,setClipSeparator]=useState<"newline"|"blank"|"space">("newline");
   const textResult=useMemo(()=>{
     try{return {value:cleanCopiedText(source,options),error:""};}
@@ -53,6 +58,34 @@ export default function QuickKitDesk({initialMode="text"}:{initialMode?:QuickKit
   },[gradeData,target]);
   const replaceResult=useMemo(()=>{try{return {...replaceTextLiteral(source,findLiteral,replacement),error:""};}catch(e){return {text:"",count:0,error:String(e instanceof Error?e.message:e)};}},[source,findLiteral,replacement]);
   const output=mode==="text"?textResult.value:mode==="links"?linkResult.text:mode==="replace"?replaceResult.text:"";
+  function selectForManualCopy(which:"source"|"result"|"combined"){
+    const element=which==="source"?sourceRef.current:which==="result"?resultRef.current:combinedRef.current;
+    if(!element)return;
+    element.focus();element.select();
+    setStatus("已选中完整文字。现在按 ⌘C（Windows/Linux 为 Ctrl+C）复制；不需要剪贴板读取权限。");
+  }
+  async function importText(file:File){
+    if(textImportBusy)return;
+    setTextImportBusy(true);
+    try{
+      const decoded=decodeQuickTextFile(file.name,new Uint8Array(await file.arrayBuffer()));
+      setSource(decoded);
+      setStatus("已本机读取 "+file.name+"（"+decoded.length+" 字符）；原文件未修改。");
+    }catch(e){setStatus("文本导入失败，现有内容已保留："+String(e instanceof Error?e.message:e));}
+    finally{setTextImportBusy(false);}
+  }
+  function pickTextFile(event:ChangeEvent<HTMLInputElement>){
+    const chosen=Array.from(event.target.files??[]);
+    event.target.value="";
+    if(chosen.length!==1){if(chosen.length)setStatus("一次请选择一份文本文件。");return;}
+    void importText(chosen[0]);
+  }
+  function dropTextFile(event:ReactDragEvent<HTMLDivElement>){
+    event.preventDefault();
+    const chosen=Array.from(event.dataTransfer.files);
+    if(chosen.length!==1){setStatus("一次只能拖入一份文本文件；已有文本不会改变。");return;}
+    void importText(chosen[0]);
+  }
   async function loadClipboardText(){
     // Only on an explicit click. No clipboard polling, logs, history or network access.
     try{
@@ -69,13 +102,13 @@ export default function QuickKitDesk({initialMode="text"}:{initialMode?:QuickKit
       if(!navigator.clipboard?.writeText)throw new Error("Clipboard write unavailable.");
       await navigator.clipboard.writeText(source);
       setStatus("已将原文复制为纯文本；没有改变空格或换行。");
-    }catch(e){setStatus("复制失败，可手动选择原文复制："+(e instanceof Error?e.message:String(e)));}
+    }catch(e){selectForManualCopy("source");setStatus("剪贴板写入不可用，已选中原文；按 ⌘C 或 Ctrl+C 手动复制："+(e instanceof Error?e.message:String(e)));}
   }
   async function copyResult(){
     try{
       await navigator.clipboard.writeText(output);
       setStatus("Copied locally to clipboard.");
-    }catch{setStatus("Clipboard permission unavailable. Select and copy the result manually.");}
+    }catch{selectForManualCopy("result");setStatus("剪贴板写入被拒绝，已选中全部整理结果；按 ⌘C 或 Ctrl+C 复制。");}
   }
 
   async function addClipboardSnippet(){
@@ -109,7 +142,7 @@ export default function QuickKitDesk({initialMode="text"}:{initialMode?:QuickKit
       if(!navigator.clipboard?.writeText)throw new Error("Clipboard permission is unavailable.");
       await navigator.clipboard.writeText(combineClips(clips,clipSeparator));
       setStatus("已复制合并文字（纯文本）；原片段仍在当前会话。");
-    }catch{setStatus("剪贴板不可用，请手动选中结果预览并复制。");}
+    }catch{selectForManualCopy("combined");setStatus("剪贴板写入被拒绝，已选中全部合并文本；按 ⌘C 或 Ctrl+C 复制。");}
   }
   async function saveCombinedSnippets(){
     try{
@@ -143,10 +176,20 @@ export default function QuickKitDesk({initialMode="text"}:{initialMode?:QuickKit
           onClick={()=>void loadClipboardText()}>读取剪贴板纯文本（仅本次）</button>
         <button type="button" className="secondary-button" data-testid="quick-copy-source-plain"
           disabled={!source} onClick={()=>void copySourcePlain()}>复制原文为纯文本（不修改内容）</button>
+        <button type="button" className="secondary-button" data-testid="quick-select-source"
+          disabled={!source} onClick={()=>selectForManualCopy("source")}>选中原文，手动复制</button>
       </div>
       <p className="subtle">也可直接在输入框粘贴。macOS 原生“粘贴并匹配样式”快捷键是 ⌥⇧⌘V；此处提供清理预览和可选段落整理，不替换系统快捷键。</p>
+      <div className="panel" data-testid="quick-text-import" onDragOver={event=>event.preventDefault()}
+        onDrop={dropTextFile} role="region" aria-label="拖入 UTF-8 文本文件">
+        <label className="field-label" htmlFor="quick-text-file">导入 TXT / Markdown / CSV / 日志等 UTF-8 文本，或拖放单个文件到这里（≤200 KB）</label>
+        <input id="quick-text-file" className="field" type="file" data-testid="quick-text-file"
+          disabled={textImportBusy} accept=".txt,.text,.md,.markdown,.csv,.tsv,.log,.json,.srt,.vtt,.ini"
+          onChange={pickTextFile}/>
+        <p className="subtle">用户主动选择/拖入才读取；本机解码，保留原有空白换行。非 UTF-8 请先通过现有编码转换工具处理；失败不覆盖当前文字。</p>
+      </div>
       <label htmlFor="quick-text-input" className="field-label">Messy copied text · 粘贴原文</label>
-      <textarea id="quick-text-input" className="field text-editor" rows={6} maxLength={200000} value={source} onChange={e=>setSource(e.target.value)}/>
+      <textarea ref={sourceRef} id="quick-text-input" className="field text-editor" rows={6} maxLength={200000} value={source} onChange={e=>setSource(e.target.value)}/>
       <div className="actions">
         <label><input type="checkbox" checked={options.collapseSpaces} onChange={e=>toggle("collapseSpaces",e.target.checked)}/> Collapse repeated spaces</label>
         <label><input type="checkbox" checked={options.removeEmptyLines} onChange={e=>toggle("removeEmptyLines",e.target.checked)}/> Remove blank lines</label>
@@ -176,9 +219,12 @@ export default function QuickKitDesk({initialMode="text"}:{initialMode?:QuickKit
     </>}
     {(mode==="text"||mode==="links"||mode==="replace")&&<>
       <label className="field-label" htmlFor="quick-result">Processed output</label>
-      <textarea id="quick-result" className="field text-editor" rows={6} value={output} readOnly aria-label="Quick Tool output"/>
+      <textarea ref={resultRef} id="quick-result" className="field text-editor" rows={6} value={output} readOnly aria-label="Quick Tool output"/>
       <div className="actions">
         <button className="primary-button" data-testid="quick-copy-cleaned" type="button" disabled={!!(mode==="text"?textResult.error:mode==="links"?linkResult.error:replaceResult.error)} onClick={()=>{void copyResult();}}>复制整理结果为纯文本</button>
+        <button className="secondary-button" data-testid="quick-select-result" type="button"
+          disabled={!output||!!(mode==="text"?textResult.error:mode==="links"?linkResult.error:replaceResult.error)}
+          onClick={()=>selectForManualCopy("result")}>选中全部结果，手动复制</button>
         <button className="secondary-button" type="button" disabled={!!(mode==="text"?textResult.error:mode==="links"?linkResult.error:replaceResult.error)} onClick={()=>{void saveResult();}}>Save as TXT</button>
       </div>
       {(mode==="text"?textResult.error:mode==="links"?linkResult.error:replaceResult.error)&&<p role="alert" className="subtle">{mode==="text"?textResult.error:mode==="links"?linkResult.error:replaceResult.error}</p>}
@@ -190,7 +236,7 @@ export default function QuickKitDesk({initialMode="text"}:{initialMode?:QuickKit
           disabled={clipboardBusy||clips.length>=30} onClick={()=>{void addClipboardSnippet();}}>
           {clipboardBusy?"正在读取…":"添加当前剪贴板文字（仅本次）"}</button>
         <button type="button" className="secondary-button" data-testid="quick-clip-clear"
-          disabled={!clips.length&& !clipDraft || clipboardBusy} onClick={()=>{setClips([]);setClipDraft("");setStatus("当前会话的所有片段及输入草稿已清空。");}}>清空全部片段</button>
+          disabled={(!clips.length&&!clipDraft)||clipboardBusy} onClick={()=>{setClips([]);setClipDraft("");setStatus("当前会话的所有片段及输入草稿已清空。");}}>清空全部片段</button>
       </div>
       <label className="field-label" htmlFor="clip-draft">也可以手动添加文本（保留首尾空格和换行）</label>
       <textarea id="clip-draft" className="field text-editor" rows={4} maxLength={20000}
@@ -217,11 +263,13 @@ export default function QuickKitDesk({initialMode="text"}:{initialMode?:QuickKit
         </div>
       </div>)}
       <label className="field-label" htmlFor="clip-combined">合并结果预览（{clips.length}/30）</label>
-      <textarea className="field text-editor" id="clip-combined" rows={6} readOnly
+      <textarea ref={combinedRef} className="field text-editor" id="clip-combined" rows={6} readOnly
         value={clips.length?combineClips(clips,clipSeparator):""}/>
       <div className="actions">
         <button type="button" className="primary-button" data-testid="quick-clip-copy"
           disabled={!clips.length} onClick={()=>{void copyCombinedSnippets();}}>复制合并纯文本</button>
+        <button type="button" className="secondary-button" data-testid="quick-select-combined"
+          disabled={!clips.length} onClick={()=>selectForManualCopy("combined")}>选中合并结果，手动复制</button>
         <button type="button" className="secondary-button" data-testid="quick-clip-save"
           disabled={!clips.length} onClick={()=>{void saveCombinedSnippets();}}>保存合并 TXT</button>
       </div>
