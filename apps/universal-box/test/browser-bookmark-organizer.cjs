@@ -39,6 +39,8 @@ test("Offline browser bookmarks: import HTML without requests, review duplicates
   assert.match(stats,/有效书签：3/);
   assert.match(stats,/重复网址：1/);
   assert.match(stats,/跳过的非网页链接：2/);
+  assert.equal(await page.locator('[data-testid="bookmarks-duplicate-groups"] .task-row').count(),1);
+  assert.match(await page.locator('[data-testid="bookmarks-duplicate-groups"]').innerText(),/Duplicate copy/);
   assert.equal(unwanted.length,0,"Import must not load remote resources in exported HTML");
 
   await page.locator('[data-testid="bookmarks-search"]').fill("Read & Study");
