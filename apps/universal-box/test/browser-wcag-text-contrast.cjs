@@ -44,6 +44,8 @@ test("W3C WCAG contrast: real interface, correct unrounded threshold, accessible
   assert.equal(await page.locator('[data-testid="contrast-export"]').count(),0);
   await page.locator('[data-testid="contrast-background"]').fill("#ffffff");
   await page.locator('[data-testid="contrast-ratio"]').waitFor();
+  await page.locator('[data-testid="contrast-foreground"]').fill("#abc");
+  assert.equal((await page.locator('[data-testid="contrast-foreground-picker"]').inputValue()).toLowerCase(),"#aabbcc");
   assert.deepEqual(errors,[]);
  }finally{await page.close();await browser.close();}
 });
