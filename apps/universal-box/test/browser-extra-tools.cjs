@@ -125,6 +125,8 @@ test("Batch rename: safe extension preview, validation before export and exact Z
    {name:"a".repeat(180)+".JPG",mimeType:"image/jpeg",buffer:second},
   ]);
   await s.page.locator('[data-testid="rename-plan-status"]').waitFor();
+  await s.page.getByLabel("Find text").fill("draft");
+  await s.page.getByLabel("Replace").fill("final");
   assert.equal(await s.page.locator('[data-testid="rename-preview"] .task-row').count(),2);
   let preview=await s.page.locator('[data-testid="rename-preview"]').innerText();
   assert.match(preview,/study-final-01\.txt/);
