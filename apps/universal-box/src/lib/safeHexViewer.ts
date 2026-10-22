@@ -30,6 +30,19 @@ export function buildHexPage(bytes:Uint8Array,offset:number,pageSize=HEX_PAGE_BY
  }
  return {start,end,total:bytes.length,rows};
 }
+/** Accept decimal or 0x-prefixed hexadecimal offsets only; no rounding or clamping. */
+export function parseHexOffset(value:string,fileBytes:number):number{
+ if(!Number.isSafeInteger(fileBytes)||fileBytes<1||fileBytes>HEX_MAX_BYTES)
+  throw Error("Cannot jump without a valid loaded file.");
+ const trimmed=value.trim();
+ if(!/^(?:0x[0-9a-f]+|[0-9]+)$/iu.test(trimmed)||trimmed.length>18)
+  throw Error("Enter a decimal byte offset or 0x-prefixed hexadecimal offset.");
+ const offset=trimmed.toLowerCase().startsWith("0x")?
+  Number.parseInt(trimmed.slice(2),16):Number.parseInt(trimmed,10);
+ if(!Number.isSafeInteger(offset)||offset<0||offset>=fileBytes)
+  throw Error("The byte offset is outside this file.");
+ return offset;
+}
 export function parseHexPattern(value:string):Uint8Array{
  const normalized=value.trim().replace(/\s+/gu,"");
  if(!normalized||normalized.length>64||normalized.length%2!==0||!/^[0-9a-f]+$/iu.test(normalized))
