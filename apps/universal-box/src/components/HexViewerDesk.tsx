@@ -1,12 +1,13 @@
 import {useMemo,useState,type ChangeEvent} from "react";
 import {exportFile} from "../lib/output";
-import {buildHexPage,findHexBytes,hexHeader,hexSummary,parseHexPattern,validateHexBytes,HEX_PAGE_BYTES,HEX_MAX_BYTES} from "../lib/safeHexViewer";
+import {buildHexPage,findHexBytes,hexHeader,hexSummary,parseHexPattern,parseHexOffset,validateHexBytes,HEX_PAGE_BYTES,HEX_MAX_BYTES} from "../lib/safeHexViewer";
 
 const errorText=(e:unknown)=>e instanceof Error?e.message:String(e);
 export default function HexViewerDesk(){
  const [data,setData]=useState<Uint8Array|null>(null);
  const [name,setName]=useState("");
  const [offset,setOffset]=useState(0);
+ const [jumpInput,setJumpInput]=useState("");
  const [pattern,setPattern]=useState("");
  const [search,setSearch]=useState<{matches:number;offsets:number[];truncated:boolean}|null>(null);
  const [status,setStatus]=useState("");
@@ -25,7 +26,7 @@ export default function HexViewerDesk(){
   try{
    const actual=new Uint8Array(await file.arrayBuffer());
    validateHexBytes(actual);
-   setData(actual);setName(file.name);setOffset(0);setPattern("");setSearch(null);
+   setData(actual);setName(file.name);setOffset(0);setJumpInput("");setPattern("");setSearch(null);
    setStatus("已只读加载 "+file.name+" · "+actual.length.toLocaleString()+" bytes；原文件不会被修改。");
   }catch(e){setStatus("读取失败，已保留之前的数据："+errorText(e));}
   finally{setBusy(false);}
@@ -41,6 +42,14 @@ export default function HexViewerDesk(){
  function moveToOffset(next:number){
   if(!data||!Number.isSafeInteger(next)||next<0||next>=data.length)return;
   setOffset(next);
+ }
+ function jump(){
+  if(!data)return;
+  try{
+   const address=parseHexOffset(jumpInput,data.length);
+   moveToOffset(address);
+   setStatus("已定位到字节偏移 0x"+address.toString(16).toUpperCase()+" 所在的真实文件页。");
+  }catch(e){setStatus("跳转失败："+errorText(e));}
  }
  async function save(){
   if(!data||busy)return;
@@ -73,6 +82,14 @@ export default function HexViewerDesk(){
      disabled={busy} onClick={()=>void save()}>导出只读摘要 TXT</button>
     <button type="button" className="secondary-button" data-testid="hex-clear"
      disabled={busy} onClick={()=>{setData(null);setName("");setOffset(0);setSearch(null);setStatus("当前字节预览已清空；源文件未改变。");}}>清空</button>
+   </div>
+   <div className="tools-pair">
+    <label className="field-label">直接跳转字节偏移（十进制或 0x 开头的十六进制）
+     <input data-testid="hex-jump-offset" className="field" value={jumpInput} maxLength={18}
+      onChange={e=>setJumpInput(e.target.value)} placeholder="例：1024 或 0x400"/>
+    </label>
+    <div className="actions"><button type="button" className="secondary-button"
+      data-testid="hex-jump" disabled={busy||!jumpInput.trim()} onClick={jump}>跳转到所在页</button></div>
    </div>
    <p className="subtle" data-testid="hex-page-info">当前偏移 0x{view.start.toString(16).toUpperCase().padStart(8,"0")} – 0x{(view.end-1).toString(16).toUpperCase().padStart(8,"0")}；每页最多 512 字节，完整文件仍用于精确搜索。</p>
    <div className="panel" data-testid="hex-rows" role="table" aria-label="16 字节每行的十六进制及 ASCII 预览"
