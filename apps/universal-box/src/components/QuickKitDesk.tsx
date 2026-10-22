@@ -5,7 +5,7 @@ import {
 } from "../lib/quickKit";
 import {exportFile} from "../lib/output";
 import {replaceTextLiteral} from "../lib/quickBatchText";
-import {addClip,combineClips} from "../lib/multiCopy";
+import {addClip,combineClips,moveClip} from "../lib/multiCopy";
 
 export type QuickKitMode="text"|"links"|"dates"|"grades"|"multi-copy"|"replace";
 const title:Record<QuickKitMode,string>={
@@ -31,6 +31,7 @@ export default function QuickKitDesk({initialMode="text"}:{initialMode?:QuickKit
   const [replacement,setReplacement]=useState("");
   const [clipDraft,setClipDraft]=useState("");
   const [clips,setClips]=useState<string[]>([]);
+  const [clipboardBusy,setClipboardBusy]=useState(false);
   const [clipSeparator,setClipSeparator]=useState<"newline"|"blank"|"space">("newline");
   const textResult=useMemo(()=>{
     try{return {value:cleanCopiedText(source,options),error:""};}
@@ -75,6 +76,46 @@ export default function QuickKitDesk({initialMode="text"}:{initialMode?:QuickKit
       await navigator.clipboard.writeText(output);
       setStatus("Copied locally to clipboard.");
     }catch{setStatus("Clipboard permission unavailable. Select and copy the result manually.");}
+  }
+
+  async function addClipboardSnippet(){
+    // Clipboard is read only following this button click; no polling or persistence.
+    if(clipboardBusy)return;
+    setClipboardBusy(true);
+    try{
+      if(!navigator.clipboard?.readText)throw new Error("Clipboard permission is unavailable.");
+      const received=await navigator.clipboard.readText();
+      const updated=addClip(clips,received);
+      setClips(updated);
+      setStatus("已从剪贴板主动添加一段文字；仅保留在当前页面会话。");
+    }catch(e){
+      setStatus("添加失败，可手动粘贴："+(e instanceof Error?e.message:String(e)));
+    }finally{setClipboardBusy(false);}
+  }
+  function addManualSnippet(){
+    try{
+      const updated=addClip(clips,clipDraft);
+      setClips(updated);
+      setClipDraft("");
+      setStatus("已添加文本并保留原有空格、缩进和换行。");
+    }catch(e){setStatus(String(e instanceof Error?e.message:e));}
+  }
+  function moveSnippet(from:number,to:number){
+    try{setClips(moveClip(clips,from,to));setStatus("段落顺序已更新，仅影响合并结果。");}
+    catch(e){setStatus(String(e instanceof Error?e.message:e));}
+  }
+  async function copyCombinedSnippets(){
+    try{
+      if(!navigator.clipboard?.writeText)throw new Error("Clipboard permission is unavailable.");
+      await navigator.clipboard.writeText(combineClips(clips,clipSeparator));
+      setStatus("已复制合并文字（纯文本）；原片段仍在当前会话。");
+    }catch{setStatus("剪贴板不可用，请手动选中结果预览并复制。");}
+  }
+  async function saveCombinedSnippets(){
+    try{
+      const saved=await exportFile("combined-snippets.txt",combineClips(clips,clipSeparator));
+      setStatus(saved?"已在本机导出合并文本。":"已取消保存。");
+    }catch(e){setStatus("导出失败："+String(e instanceof Error?e.message:e));}
   }
   async function saveResult(){
     try{
@@ -143,25 +184,47 @@ export default function QuickKitDesk({initialMode="text"}:{initialMode?:QuickKit
       {(mode==="text"?textResult.error:mode==="links"?linkResult.error:replaceResult.error)&&<p role="alert" className="subtle">{mode==="text"?textResult.error:mode==="links"?linkResult.error:replaceResult.error}</p>}
     </>}
     {mode==="multi-copy"&&<>
-      <p className="subtle">Collect up to 30 text snippets in this window, reorder by removal, then copy them as one. No background clipboard monitoring; no saved history or cloud sync. Passwords and private data should not be collected.</p>
-      <label className="field-label" htmlFor="clip-draft">Text to add · 待添加文本</label>
-      <textarea id="clip-draft" className="field text-editor" rows={4} maxLength={20000} value={clipDraft} onChange={e=>setClipDraft(e.target.value)}/>
+      <p className="subtle">逐次点击读取剪贴板、调整顺序，再合并为纯文本。所有片段只在当前窗口会话保存；不后台监听、不同步云端。敏感内容不要加入。</p>
       <div className="actions">
-        <button type="button" className="primary-button" onClick={()=>{try{setClips(old=>addClip(old,clipDraft));setClipDraft("");setStatus("Added snippet.");}catch(e){setStatus(String(e instanceof Error?e.message:e));}}}>Add snippet</button>
-        <button type="button" className="secondary-button" onClick={()=>{setClips([]);setStatus("Session clips cleared.");}} disabled={!clips.length}>Clear snippets</button>
+        <button type="button" className="secondary-button" data-testid="quick-clip-read"
+          disabled={clipboardBusy||clips.length>=30} onClick={()=>{void addClipboardSnippet();}}>
+          {clipboardBusy?"正在读取…":"添加当前剪贴板文字（仅本次）"}</button>
+        <button type="button" className="secondary-button" data-testid="quick-clip-clear"
+          disabled={!clips.length} onClick={()=>{setClips([]);setStatus("当前会话的所有片段已清空。");}}>清空全部片段</button>
       </div>
-      <label className="field-label">Join snippets with
-        <select className="field" value={clipSeparator} onChange={e=>setClipSeparator(e.target.value as "newline"|"blank"|"space")}>
-          <option value="newline">One new line</option><option value="blank">Blank line</option><option value="space">Space</option>
+      <label className="field-label" htmlFor="clip-draft">也可以手动添加文本（保留首尾空格和换行）</label>
+      <textarea id="clip-draft" className="field text-editor" rows={4} maxLength={20000}
+        value={clipDraft} onChange={e=>setClipDraft(e.target.value)}/>
+      <button type="button" className="secondary-button" data-testid="quick-clip-add"
+        disabled={!clipDraft.trim()||clips.length>=30} onClick={addManualSnippet}>添加输入框文本</button>
+      <label className="field-label" htmlFor="clip-separator">片段之间使用
+        <select id="clip-separator" className="field" value={clipSeparator}
+          onChange={e=>setClipSeparator(e.target.value as "newline"|"blank"|"space")}>
+          <option value="newline">一个换行</option><option value="blank">一个空行</option>
+          <option value="space">一个空格</option>
         </select>
       </label>
       {clips.map((clip,i)=><div className="task-row" key={i}>
         <span className="task-copy">{i+1}. {clip.slice(0,180)}{clip.length>180?"…":""}</span>
-        <button type="button" className="secondary-button" onClick={()=>setClips(old=>old.filter((_,j)=>i!==j))}>Remove</button>
+        <div className="actions">
+          <button type="button" className="secondary-button" data-testid={`quick-clip-up-${i}`}
+            aria-label={`上移第${i+1}段`} disabled={i===0} onClick={()=>moveSnippet(i,i-1)}>↑ 上移</button>
+          <button type="button" className="secondary-button" data-testid={`quick-clip-down-${i}`}
+            aria-label={`下移第${i+1}段`} disabled={i===clips.length-1}
+            onClick={()=>moveSnippet(i,i+1)}>↓ 下移</button>
+          <button type="button" className="secondary-button" aria-label={`移除第${i+1}段`}
+            onClick={()=>setClips(old=>old.filter((_,j)=>i!==j))}>移除</button>
+        </div>
       </div>)}
-      <label className="field-label" htmlFor="clip-combined">Combined preview · 合并结果 ({clips.length}/30)</label>
-      <textarea className="field text-editor" id="clip-combined" rows={6} readOnly value={clips.length?combineClips(clips,clipSeparator):""}/>
-      <button type="button" className="primary-button" disabled={!clips.length} onClick={()=>{void navigator.clipboard.writeText(combineClips(clips,clipSeparator)).then(()=>setStatus("Copied combined text locally."),()=>setStatus("Clipboard unavailable; select the preview text to copy manually."));}}>Copy combined text</button>
+      <label className="field-label" htmlFor="clip-combined">合并结果预览（{clips.length}/30）</label>
+      <textarea className="field text-editor" id="clip-combined" rows={6} readOnly
+        value={clips.length?combineClips(clips,clipSeparator):""}/>
+      <div className="actions">
+        <button type="button" className="primary-button" data-testid="quick-clip-copy"
+          disabled={!clips.length} onClick={()=>{void copyCombinedSnippets();}}>复制合并纯文本</button>
+        <button type="button" className="secondary-button" data-testid="quick-clip-save"
+          disabled={!clips.length} onClick={()=>{void saveCombinedSnippets();}}>保存合并 TXT</button>
+      </div>
     </>}
     {mode==="dates"&&<>
       <div className="tools-pair">
