@@ -5,7 +5,7 @@ import JSZip from "jszip";
 import {markdownToDocx} from "../lib/documentExport";
 import {decodeAudioToWav} from "../lib/speechAudio";
 import {speechCues,exportTimedCaptions,type SpeechTiming} from "../lib/speechCaptions";
-import {compressPhotoBatch,planPhotoBatch,type PhotoSettings,type PhotoReport} from "../lib/photoCompression";
+import {compressPhotoBatch,planPhotoBatch,PHOTO_PRESETS,photoPresetSettings,type PhotoPreset,type PhotoSettings,type PhotoReport} from "../lib/photoCompression";
 import {exportPortableText,planPortable,type SourceCharset,type OutputCharset,type LineStyle,type PortableInput,type PortableSettings} from "../lib/portableText";
 
 export type SpeechPortableMode="speech"|"photo-target"|"portable-text";
@@ -100,10 +100,17 @@ export default function SpeechPortableDesk({mode}:{mode:SpeechPortableMode}){
   setPreparedPhotos(null);setPhotoReports([]);setPhotoPreviewUrl("");
  }
  function pickPhotos(event:ChangeEvent<HTMLInputElement>){
+  if(busy){event.target.value="";return;}
   setPhotos([...(event.target.files??[])]);event.target.value="";invalidatePreparedPhotos();setStatus("");
  }
  function changePhotoSettings(update:Partial<PhotoSettings>){
+  if(busy)return;
   setPhotoSettings(prev=>({...prev,...update}));invalidatePreparedPhotos();setStatus("");
+ }
+ function applyPhotoPreset(preset:PhotoPreset){
+  if(busy)return;
+  setPhotoSettings(photoPresetSettings(preset));invalidatePreparedPhotos();
+  setStatus("已应用"+PHOTO_PRESETS[preset].label+"预设；目标大小仅供尝试，压缩完成后显示真实字节数。");
  }
  async function previewPhotos(){
   if(busy||!photos.length)return;
@@ -126,9 +133,25 @@ export default function SpeechPortableDesk({mode}:{mode:SpeechPortableMode}){
   if(busy||!photos.length)return;setBusy(true);setStatus("");
   try{
    const result=preparedPhotos??await compressPhotoBatch(photos,photoSettings);
-   const ok=await exportFile("sentinel-box-compressed-photos.zip",result.zip);
+   let ok:boolean;
+   if(photos.length===1){
+    // One input means one actual picture file, not an unnecessary ZIP wrapper.
+    const item=result.reports[0];
+    if(!item)throw Error("Compressed photo report is unavailable.");
+    const archive=await JSZip.loadAsync(result.zip);
+    const entry=archive.file(item.outputName);
+    if(!entry)throw Error("Compressed image is missing from the archive.");
+    const data=await entry.async("uint8array");
+    if(data.length!==item.outputBytes)throw Error("Compressed image size does not match the report.");
+    const fileName=item.outputName.split("/").pop()||"compressed-photo.jpg";
+    ok=await exportFile(fileName,new Uint8Array(data));
+   }else{
+    ok=await exportFile("sentinel-box-compressed-photos.zip",result.zip);
+   }
    setPhotoReports(result.reports);
-   setStatus(ok?"Saved actual JPEG/WebP images and per-file size comparison in a ZIP. Originals unchanged.":"Save cancelled.");
+   setStatus(ok?(photos.length===1?
+    "已直接保存一张真实压缩图片（非 ZIP），原件未更改；请检查画质与报告中的实际字节数。":
+    "已保存批量图片 ZIP 和逐张体积报告，原件未更改。"):"已取消保存。");
   }catch(e){setStatus("Photo compression failed: "+err(e));}
   finally{setBusy(false);}
  }
@@ -204,21 +227,29 @@ export default function SpeechPortableDesk({mode}:{mode:SpeechPortableMode}){
   {mode==="photo-target"&&<>
    <h2>照片目标体积压缩 · Local Target-size Image Compressor</h2>
    <p className="subtle">批量选择最多 10 张 PNG/JPEG/WebP/HEIC，压缩为 JPEG 或 WebP；自动迭代质量并按实际文件字节判断是否达到目标。不是只给图片改扩展名，也不能保证每张都能压到指定体积。</p>
+   <p className="subtle">单张图片直接保存 JPG/WebP，2–10 张继续导出 ZIP。可点一个用途预设，也可以自己修改设置；不会保证一定压到目标体积。</p>
+   <div className="actions" role="group" aria-label="照片快速预设">
+    {(Object.keys(PHOTO_PRESETS) as PhotoPreset[]).map(key=><button type="button"
+     key={key} className="secondary-button" data-testid={`photo-preset-${key}`}
+     title={PHOTO_PRESETS[key].description} disabled={busy} onClick={()=>applyPhotoPreset(key)}>
+     {PHOTO_PRESETS[key].label}</button>)}
+   </div>
+   <p className="subtle">预设：邮件 1024px/JPEG/250KB；网页 1024px/WebP/400KB；保留细节 2048px/JPEG/1500KB。均为尝试上限，实际结果在预览中查看。</p>
    <label className="field-label">选择照片（包括 iPhone HEIC，单张 ≤8 MB，总计 ≤25 MB）
-    <input className="field" data-testid="photo-files" type="file" multiple accept=".png,.jpg,.jpeg,.webp,.heic,.heif,image/*" onChange={pickPhotos}/></label>
+    <input className="field" data-testid="photo-files" type="file" multiple disabled={busy} accept=".png,.jpg,.jpeg,.webp,.heic,.heif,image/*" onChange={pickPhotos}/></label>
    <div className="tools-pair">
-    <label className="field-label">输出格式<select className="field" data-testid="photo-format" value={photoSettings.format} onChange={e=>changePhotoSettings({format:e.target.value as PhotoSettings["format"]})}>
+    <label className="field-label">输出格式<select className="field" data-testid="photo-format" disabled={busy} value={photoSettings.format} onChange={e=>changePhotoSettings({format:e.target.value as PhotoSettings["format"]})}>
      <option value="jpeg">JPEG · 常见兼容格式</option><option value="webp">WebP · 现代浏览器</option></select></label>
-    <label className="field-label">最长边<select className="field" data-testid="photo-max-size" value={photoSettings.maxDimension} onChange={e=>changePhotoSettings({maxDimension:Number(e.target.value) as PhotoSettings["maxDimension"]})}>
+    <label className="field-label">最长边<select className="field" data-testid="photo-max-size" disabled={busy} value={photoSettings.maxDimension} onChange={e=>changePhotoSettings({maxDimension:Number(e.target.value) as PhotoSettings["maxDimension"]})}>
      <option value={512}>512 px</option><option value={1024}>1024 px</option><option value={2048}>2048 px</option></select></label>
-    <label className="field-label">目标 KB（40–4000）<input className="field" data-testid="photo-target-kb" type="number" min={40} max={4000} step={10} value={photoSettings.targetKB}
+    <label className="field-label">目标 KB（40–4000）<input className="field" data-testid="photo-target-kb" type="number" min={40} max={4000} step={10} disabled={busy} value={photoSettings.targetKB}
      onChange={e=>changePhotoSettings({targetKB:Number(e.target.value)})}/></label>
    </div>
    {photos.length>0&&<p data-testid="photo-count" className="subtle">选中 {photos.length} 张照片</p>}
    {photoError&&<p role="alert">{photoError}</p>}
    <div className="actions">
     <button type="button" className="secondary-button" data-testid="photo-preview-run" disabled={busy||!!photoError||!photos.length} onClick={()=>void previewPhotos()}>先处理并预览实际效果</button>
-    <button type="button" className="primary-button" data-testid="photo-save" disabled={busy||!!photoError||!photos.length} onClick={()=>void savePhotos()}>{preparedPhotos?"保存已预览的 ZIP":"压缩并保存 ZIP"}</button>
+    <button type="button" className="primary-button" data-testid="photo-save" disabled={busy||!!photoError||!photos.length} onClick={()=>void savePhotos()}>{photos.length===1?(preparedPhotos?"保存已预览的图片":"压缩并保存图片"):(preparedPhotos?"保存已预览的 ZIP":"压缩并保存 ZIP")}</button>
    </div>
    {photoReports.length>0&&<div data-testid="photo-size-summary" className="metrics">
     <span>原图合计：{photoReports.reduce((sum,r)=>sum+r.originalBytes,0).toLocaleString()} bytes</span>
