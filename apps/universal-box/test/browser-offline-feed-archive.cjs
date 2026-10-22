@@ -68,7 +68,7 @@ test("Offline RSS archive: imported real XML, safe dedup, search, CSV/Markdown o
   const markdownDownload=await requested;
   const mdPath=path.join(output,"unique-rss.md");await markdownDownload.saveAs(mdPath);
   const md=fs.readFileSync(mdPath,"utf8");
-  assert.match(md,/Release & Maintenance/);
+  assert.match(md,/Release &amp; Maintenance/);
   assert.doesNotMatch(md,/Copied Release/);
 
   await page.locator('[data-testid="feed-import"]').setInputFiles({
