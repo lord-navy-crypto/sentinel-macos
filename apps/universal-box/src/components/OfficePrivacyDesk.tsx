@@ -2,6 +2,7 @@ import {type ChangeEvent,useMemo,useState} from "react";
 import JSZip from "jszip";
 import {exportFile} from "../lib/output";
 import {mailMergeText,parseOfficeCsv,recordsToVcf} from "../lib/officePrivacy";
+import VcfToCsvDesk from "./VcfToCsvDesk";
 import {findDuplicateFiles,type DuplicateReport} from "../lib/fileDuplicates";
 import {inspectUnicode} from "../lib/unicodeInspector";
 
@@ -111,7 +112,8 @@ export default function OfficePrivacyDesk({initialMode="contacts"}:{initialMode?
        <button className="primary-button" disabled={busy} type="button" onClick={()=>{void saveContacts();}}>{busy?"Saving…":"Save contacts.vcf"}</button>
      </>}
    </>}
-   {mode==="mail-merge"&&<>
+   mode==="contacts"&&<VcfToCsvDesk/>}
+   {{mode==="mail-merge"&&<>
      <p className="subtle">Use exact column headers in double braces, for example <code>{"{{Name}}"}</code>. Creates one new UTF-8 TXT per record, in a ZIP. Maximum 100 letters per run. No automation sends mail; names and addresses are never used as ZIP paths.</p>
      <label className="field-label" htmlFor="office-template">Letter template</label>
      <textarea id="office-template" className="field text-editor" rows={8} maxLength={10000} value={template} onChange={e=>setTemplate(e.target.value)}/>
