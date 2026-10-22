@@ -3,6 +3,7 @@ import QRCode from "qrcode";
 import JSZip from "jszip";
 import { exportFile } from "../lib/output";
 import {fileNameManifest} from "../lib/quickBatchText";
+import {planSafeRenames} from "../lib/safeRenamePreview";
 import TextCompareDesk from "./TextCompareDesk";
 import MarkdownConvertDesk from "./MarkdownConvertDesk";
 
@@ -127,14 +128,11 @@ export default function EverydayTools({ initial = "stats" }: { initial?: Utility
     const paragraphs=input.trim()?input.trim().split(/\n\s*\n/u).length:0;
     return {words,sentences,paragraphs,characters:input.length,lines:input?input.split(/\r?\n/u).length:0,reading:Math.ceil(words/200)};
   },[input]);
-  const renamed=files.map((file,i)=>{
-    const extIndex=file.name.lastIndexOf(".");
-    const ext=extIndex>0?file.name.slice(extIndex):"";
-    const base=extIndex>0?file.name.slice(0,extIndex):file.name;
-    const filename=(prefix+(find ? base.split(find).join(replace) : base)+"-"+String(start+i).padStart(2,"0")+ext)
-      .replace(/[\\/:*?"<>|]/gu,"-").slice(0,130);
-    return {file,filename};
-  });
+  const renamePlan=useMemo(()=>{
+    try{return {items:files.length?planSafeRenames(files,{prefix,find,replace,start}):[],error:""};}
+    catch(e){return {items:[],error:String(e instanceof Error?e.message:e)};}
+  },[files,prefix,find,replace,start]);
+  const renamed=renamePlan.items;
 
   function compute() {
     try {
@@ -183,10 +181,12 @@ export default function EverydayTools({ initial = "stats" }: { initial?: Utility
     }catch(e){setStatus(String(e instanceof Error?e.message:e));}
   }
   async function renameFile(file:File,next:string){
+    if(renamePlan.error)throw Error(renamePlan.error);
     const result=await exportFile(next,new Uint8Array(await file.arrayBuffer()));
     setStatus(result?"Saved a renamed file copy. Original file unchanged.":"Save cancelled.");
   }
   async function exportRenamedZip(){
+    if(renamePlan.error){setStatus("重命名预览存在问题："+renamePlan.error);return;}
     if(!renamed.length)return;
     setRenameBusy(true);setStatus("");
     try{
@@ -194,12 +194,8 @@ export default function EverydayTools({ initial = "stats" }: { initial?: Utility
       const sum=renamed.reduce((s,x)=>s+x.file.size,0);
       if(sum>16_000_000)throw Error("Total original file size exceeds the 16 MB batch budget.");
       const archive=new JSZip();
-      const names=new Set<string>();
       for(const {file,filename} of renamed){
-        const next=filename.replace(/^\.+/u,"-");
-        if(!next||names.has(next))throw Error("Filename collision or invalid name: "+filename);
-        names.add(next);
-        archive.file(next,await file.arrayBuffer());
+        archive.file(filename,await file.arrayBuffer());
       }
       const result=await archive.generateAsync({type:"uint8array",compression:"DEFLATE",compressionOptions:{level:3}});
       if(result.length>20_000_000)throw Error("Output exceeds 20 MB.");
@@ -225,14 +221,20 @@ export default function EverydayTools({ initial = "stats" }: { initial?: Utility
         <div className="contrast-preview" style={{color:foreground,backgroundColor:background}}>Readable sample text · Aa 123</div>
         <p className="subtle">Contrast: {ratio(foreground,background).toFixed(2)}:1 · Normal AA {ratio(foreground,background)>=4.5?"pass":"fail"} · Large AA {ratio(foreground,background)>=3?"pass":"fail"}</p>
       </div>:tab==="rename"?<>
-        <label className="field-label" htmlFor="rename-files">Choose files (originals stay unchanged)</label><input id="rename-files" className="field" type="file" multiple onChange={e=>setFiles([...(e.target.files??[])].slice(0,50))} />
+        <label className="field-label" htmlFor="rename-files">Choose files (originals stay unchanged)</label><input id="rename-files" className="field" type="file" multiple disabled={renameBusy} onChange={e=>{
+          const chosen=[...(e.target.files??[])];e.target.value="";
+          if(chosen.length>50){setFiles([]);setStatus("一次最多选择 50 个文件，不会悄悄丢弃其余文件。");return;}
+          setFiles(chosen);setStatus("");
+        }} />
         <div className="tools-pair"><label className="field-label">Prefix <input className="field" value={prefix} onChange={e=>setPrefix(e.target.value)} /></label><label className="field-label">Start number <input className="field" type="number" value={start} onChange={e=>setStart(Number(e.target.value)||1)} /></label>
         <label className="field-label">Find text <input className="field" value={find} onChange={e=>setFind(e.target.value)} /></label><label className="field-label">Replace <input className="field" value={replace} onChange={e=>setReplace(e.target.value)} /></label></div>
         <div className="actions">
           <button type="button" className="secondary-button" disabled={!files.length||renameBusy} onClick={()=>{void exportNames("txt");}}>Export names TXT</button>
           <button type="button" className="secondary-button" disabled={!files.length||renameBusy} onClick={()=>{void exportNames("csv");}}>Export names CSV</button>
-          <button type="button" className="primary-button" disabled={!renamed.length||renameBusy} onClick={()=>{void exportRenamedZip();}}>{renameBusy?"Creating ZIP…":"Save all renamed copies as ZIP"}</button><span className="subtle">Limit: 50 files, 16 MB input. Each original is preserved.</span></div>
-        <div className="task-list">{renamed.map(({file,filename},i)=><div key={i} className="task-row"><span className="task-copy">{file.name} → {filename}</span><button type="button" className="secondary-button" onClick={()=>{void renameFile(file,filename).catch(e=>setStatus(String(e)));}}>Save copy</button></div>)}</div>
+          <button type="button" className="primary-button" disabled={!renamed.length||renameBusy||!!renamePlan.error} onClick={()=>{void exportRenamedZip();}}>{renameBusy?"Creating ZIP…":"Save all renamed copies as ZIP"}</button><span className="subtle">Limit: 50 files, 16 MB input. Each original is preserved.</span></div>
+        {renamePlan.error&&<p role="alert" data-testid="rename-plan-error">{renamePlan.error}，请调整规则或文件选择。没有写入任何文件。</p>}
+        {renamed.length>0&&<p role="status" data-testid="rename-plan-status">已检查 {renamed.length} 个文件的新名称：保留扩展名、限制危险字符，并在导出前检查重名冲突。</p>}
+        <div className="task-list" data-testid="rename-preview">{renamed.map(({file,filename},i)=><div key={i} className="task-row"><span className="task-copy">{file.name} → {filename}</span><button type="button" className="secondary-button" disabled={renameBusy||!!renamePlan.error} onClick={()=>{void renameFile(file,filename).catch(e=>setStatus(String(e)));}}>Save copy</button></div>)}</div>
       </>:<>
         <label className="field-label" htmlFor="utility-input">{tab==="groups"?"Names, separated by lines or commas":tab==="csv"?"CSV or TSV data":tab==="qr"?"URL or text":"Enter text"}</label>
         <textarea className="field text-editor" id="utility-input" rows={6} value={input} onChange={e=>setInput(e.target.value)} />
