@@ -84,7 +84,7 @@ export const LOCAL_TOOLS:LocalTool[] = [
  {id:"zip-batch-pack",name:"Batch ZIP Pack · 本地批量压缩文件",area:"Files",view:"workflows",module:"zip-pack"},
  {id:"zip-selective-export",name:"Safe ZIP Selective Extract & Repack · CRC Checked",area:"Files",view:"workflows",module:"zip-selective"},
  {id:"image-pipeline",name:"Batch Image Pipeline · Resize → Convert → Rename → ZIP",area:"Images",view:"workflows",module:"image-batch"},
- {id:"contacts-csv-vcf",name:"CSV → vCard Contacts (.vcf) · Batch Address Book",area:"Office",view:"office-privacy",module:"contacts"},
+ {id:"contacts-csv-vcf",name:"CSV → vCard Contacts (.vcf) / VCF → CSV · Offline Address Book",area:"Office",view:"office-privacy",module:"contacts"},
  {id:"text-mail-merge",name:"Free Mail Merge · CSV Template → TXT ZIP",area:"Office",view:"office-privacy",module:"mail-merge"},
  {id:"duplicate-files",name:"SHA-256 Duplicate File Finder · Local Only",area:"Files",view:"office-privacy",module:"duplicates"},
  {id:"unicode-hidden",name:"Unicode Hidden Character & Bidi Inspector",area:"Privacy",view:"office-privacy",module:"unicode"},
