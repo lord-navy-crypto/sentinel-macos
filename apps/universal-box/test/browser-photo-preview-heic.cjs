@@ -124,3 +124,63 @@ test("Photo quick presets and direct one-picture JPEG export without ZIP",{
   assert.deepEqual(s.errors,[]);
  }finally{await s.page.close();await s.browser.close();}
 });
+
+
+test("Photo drag-add: retains listed order, clears stale preview, rejects over-limit and removes without touching originals",{
+ timeout:85000,
+},async()=>{
+ const s=await start();
+ try{
+  const sample=await s.page.evaluate(()=>{
+   const canvas=document.createElement("canvas");canvas.width=360;canvas.height=240;
+   const g=canvas.getContext("2d");g.fillStyle="#3c82ad";g.fillRect(0,0,360,240);
+   g.fillStyle="#f8f9fb";g.fillRect(25,20,90,80);
+   return canvas.toDataURL("image/png").split(",")[1];
+  });
+  await s.page.locator('[data-testid="photo-files"]').setInputFiles({
+   name:"first.png",mimeType:"image/png",buffer:Buffer.from(sample,"base64")
+  });
+  await s.page.locator('[data-testid="photo-input-entry"]').first().waitFor();
+  assert.equal(await s.page.locator('[data-testid="photo-input-entry"]').count(),1);
+  await s.page.locator('[data-testid="photo-preview-run"]').click();
+  await s.page.locator('[data-testid="photo-actual-preview"] img').waitFor({timeout:25000});
+  await s.page.evaluate(encoded=>{
+   const raw=atob(encoded),data=new Uint8Array(raw.length);
+   for(let i=0;i<data.length;i++)data[i]=raw.charCodeAt(i);
+   const transfer=new DataTransfer();
+   transfer.items.add(new File([data],"second.png",{type:"image/png"}));
+   document.querySelector('[data-testid="photo-drop-zone"]').dispatchEvent(
+    new DragEvent("drop",{bubbles:true,cancelable:true,dataTransfer:transfer}));
+  },sample);
+  await s.page.locator('[data-testid="photo-input-entry"]').nth(1).waitFor();
+  assert.equal(await s.page.locator('[data-testid="photo-actual-preview"]').count(),0,
+   "Adding a new photo must invalidate the previously compressed image");
+  assert.match(await s.page.locator('[data-testid="photo-input-entry"]').nth(1).innerText(),/second.png/);
+  assert.match(await s.page.locator('[data-testid="photo-save"]').innerText(),/ZIP/);
+  const pending=s.page.waitForEvent("download",{timeout:30000});
+  await s.page.locator('[data-testid="photo-save"]').click();
+  const dl=await pending;const filepath=path.join(out,"photo-drag-batch.zip");
+  await dl.saveAs(filepath);
+  const zip=await JSZip.loadAsync(fs.readFileSync(filepath),{checkCRC32:true});
+  const manifest=JSON.parse(await zip.file("reports/manifest.json").async("string"));
+  assert.deepEqual(manifest.files.map(x=>x.source),["first.png","second.png"]);
+
+  // Invalid file append should not delete either selected item.
+  await s.page.evaluate(()=>{
+   const transfer=new DataTransfer();
+   transfer.items.add(new File(["not an image"],"notes.txt",{type:"text/plain"}));
+   document.querySelector('[data-testid="photo-drop-zone"]').dispatchEvent(
+    new DragEvent("drop",{bubbles:true,cancelable:true,dataTransfer:transfer}));
+  });
+  assert.equal(await s.page.locator('[data-testid="photo-input-entry"]').count(),2);
+  await s.page.locator('[data-testid="photo-remove-0"]').click();
+  assert.equal(await s.page.locator('[data-testid="photo-input-entry"]').count(),1);
+  assert.match(await s.page.locator('[data-testid="photo-input-entry"]').first().innerText(),/second.png/);
+  assert.equal(await s.page.locator('[data-testid="photo-actual-preview"]').count(),0);
+  await s.page.locator('[data-testid="photo-clear-all"]').click();
+  assert.equal(await s.page.locator('[data-testid="photo-input-entry"]').count(),0);
+  assert.equal(await s.page.locator('[data-testid="photo-save"]').isDisabled(),true);
+  await s.page.screenshot({path:path.join(out,"photo-drag-batch-list.png"),fullPage:true});
+  assert.deepEqual(s.errors,[]);
+ }finally{await s.page.close();await s.browser.close();}
+});
