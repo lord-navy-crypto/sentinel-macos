@@ -40,14 +40,14 @@ export default function TextContrastDesk(){
     <input className="field" data-testid="contrast-foreground" maxLength={16}
      value={foreground} onChange={e=>setForeground(e.target.value)}/>
     <input type="color" aria-label="选择文字颜色" data-testid="contrast-foreground-picker"
-     value={/^#[0-9a-f]{6}$/iu.test(foreground)?foreground:"#777777"}
+     value={result?.foreground??"#777777"}
      onChange={e=>setForeground(e.target.value)}/>
    </label>
    <label className="field-label">背景颜色（#RGB / #RRGGBB）
     <input className="field" data-testid="contrast-background" maxLength={16}
      value={background} onChange={e=>setBackground(e.target.value)}/>
     <input type="color" aria-label="选择背景颜色" data-testid="contrast-background-picker"
-     value={/^#[0-9a-f]{6}$/iu.test(background)?background:"#FFFFFF"}
+     value={result?.background??"#FFFFFF"}
      onChange={e=>setBackground(e.target.value)}/>
    </label>
   </div>
