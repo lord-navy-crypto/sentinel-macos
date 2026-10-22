@@ -43,7 +43,12 @@ test("HEX viewer reads actual binary, searches offsets, paginates and preserves 
   await s.page.locator('[data-testid="hex-match"]').nth(0).click();
   assert.match(await s.page.locator('[data-testid="hex-page-info"]').innerText(),/00000200/);
   assert.match(await s.page.locator('[data-testid="hex-rows"]').innerText(),/DE AD BE EF/);
-  await s.page.locator('[data-testid="hex-next"]').click();
+  await s.page.locator('[data-testid="hex-jump-offset"]').fill("0x400");
+  await s.page.locator('[data-testid="hex-jump"]').click();
+  assert.match(await s.page.locator('[data-testid="hex-page-info"]').innerText(),/00000400/);
+  await s.page.locator('[data-testid="hex-jump-offset"]').fill("9999");
+  await s.page.locator('[data-testid="hex-jump"]').click();
+  await s.page.locator('[data-testid="hex-status"]').filter({hasText:"跳转失败"}).waitFor();
   assert.match(await s.page.locator('[data-testid="hex-page-info"]').innerText(),/00000400/);
   const download=s.page.waitForEvent("download",{timeout:30000});
   await s.page.locator('[data-testid="hex-summary"]').click();
