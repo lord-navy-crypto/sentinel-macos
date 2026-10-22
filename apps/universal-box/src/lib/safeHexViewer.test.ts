@@ -1,5 +1,5 @@
 import {describe,it,expect} from "vitest";
-import {buildHexPage,parseHexPattern,findHexBytes,hexHeader,hexSummary,validateHexBytes,HEX_PAGE_BYTES} from "./safeHexViewer";
+import {buildHexPage,parseHexPattern,findHexBytes,hexHeader,hexSummary,parseHexOffset,validateHexBytes,HEX_PAGE_BYTES} from "./safeHexViewer";
 
 describe("Legacy HEX viewer: safe real byte display",()=>{
  it("shows exact hex offsets, control bytes as dots, and the correct 16-byte header",()=>{
@@ -32,6 +32,16 @@ describe("Legacy HEX viewer: safe real byte display",()=>{
   expect(()=>parseHexPattern("0")).toThrow(/complete/);
   expect(()=>parseHexPattern("GG")).toThrow(/hex/);
   expect(()=>parseHexPattern("FF".repeat(33))).toThrow(/32/);
+ });
+ it("accepts intentional decimal and hex offsets and refuses beyond-end addresses",()=>{
+  expect(parseHexOffset("1024",1100)).toBe(1024);
+  expect(parseHexOffset(" 0x400 ",1100)).toBe(1024);
+  expect(parseHexOffset("0x0",1100)).toBe(0);
+  expect(()=>parseHexOffset("-1",1100)).toThrow(/decimal/);
+  expect(()=>parseHexOffset("0xQQ",1100)).toThrow(/hexadecimal/);
+  expect(()=>parseHexOffset("1100",1100)).toThrow(/outside/);
+  expect(()=>parseHexOffset("0x1000",1100)).toThrow(/outside/);
+  expect(()=>parseHexOffset("5",0)).toThrow(/loaded file/);
  });
  it("rejects oversized inputs and impossible offsets rather than silently truncating",()=>{
   expect(()=>validateHexBytes(new Uint8Array(0))).toThrow(/8 MB/);
