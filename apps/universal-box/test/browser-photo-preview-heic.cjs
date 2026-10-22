@@ -75,3 +75,52 @@ test("HEIC browser import refuses unsupported native conversion and never fabric
   assert.deepEqual(s.errors,[]);
  }finally{await s.page.close();await s.browser.close();}
 });
+
+
+test("Photo quick presets and direct one-picture JPEG export without ZIP",{
+ timeout:80000,
+},async()=>{
+ const s=await start();
+ try{
+  const png=await s.page.evaluate(()=>{
+   const canvas=document.createElement("canvas");canvas.width=680;canvas.height=430;
+   const ctx=canvas.getContext("2d");
+   for(let y=0;y<430;y+=10)for(let x=0;x<680;x+=10){
+    ctx.fillStyle="rgb("+((x*7+y)%255)+","+((x+y*13)%255)+","+((x*3+y*5)%255)+")";
+    ctx.fillRect(x,y,10,10);
+   }
+   return canvas.toDataURL("image/png").split(",")[1];
+  });
+  await s.page.locator('[data-testid="photo-files"]').setInputFiles({
+   name:"family-picture.png",mimeType:"image/png",buffer:Buffer.from(png,"base64")
+  });
+  await s.page.locator('[data-testid="photo-preset-email"]').click();
+  assert.equal(await s.page.locator('[data-testid="photo-format"]').inputValue(),"jpeg");
+  assert.equal(await s.page.locator('[data-testid="photo-max-size"]').inputValue(),"1024");
+  assert.equal(await s.page.locator('[data-testid="photo-target-kb"]').inputValue(),"250");
+  await s.page.locator('[data-testid="photo-target-kb"]').fill("600");
+  await s.page.locator('[data-testid="photo-preset-web"]').click();
+  assert.equal(await s.page.locator('[data-testid="photo-target-kb"]').inputValue(),"400");
+  assert.equal(await s.page.locator('[data-testid="photo-format"]').inputValue(),"webp");
+  await s.page.locator('[data-testid="photo-preset-email"]').click();
+  await s.page.locator('[data-testid="photo-preview-run"]').click();
+  await s.page.locator('[data-testid="photo-actual-preview"] img').waitFor({timeout:25000});
+  assert.equal(await s.page.locator('[data-testid="photo-report"]').count(),1);
+  assert.match(await s.page.locator('[data-testid="photo-save"]').innerText(),/图片/);
+  const pending=s.page.waitForEvent("download",{timeout:30000});
+  await s.page.locator('[data-testid="photo-save"]').click();
+  const download=await pending;
+  assert.match(download.suggestedFilename(),/\.jpg$/);
+  const destination=path.join(out,"single-photo-email.jpg");
+  await download.saveAs(destination);
+  const bytes=fs.readFileSync(destination);
+  assert.ok(bytes.length>20);
+  assert.equal(bytes[0],0xff);assert.equal(bytes[1],0xd8);
+  assert.equal(bytes[bytes.length-2],0xff);assert.equal(bytes[bytes.length-1],0xd9);
+  assert.match(await s.page.locator('[data-testid="speech-portable-status"]').innerText(),/非 ZIP/);
+  await s.page.locator('[data-testid="photo-preset-detail"]').click();
+  assert.equal(await s.page.locator('[data-testid="photo-actual-preview"] img').count(),0,"changing presets invalidates stale preview");
+  await s.page.screenshot({path:path.join(out,"single-photo-presets.png"),fullPage:true});
+  assert.deepEqual(s.errors,[]);
+ }finally{await s.page.close();await s.browser.close();}
+});

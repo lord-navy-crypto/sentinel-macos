@@ -85,11 +85,12 @@ test("real screenshot-like PNG is recompressed into independently decodable JPEG
    name:"large-image.png",mimeType:"image/png",buffer:Buffer.from(png,"base64")});
   await s.page.locator('[data-testid="photo-max-size"]').selectOption("512");
   await s.page.locator('[data-testid="photo-target-kb"]').fill("80");
-  const zip=await JSZip.loadAsync(await download(s.page,'[data-testid="photo-save"]',"compressed-photos.zip"),{checkCRC32:true});
-  const jpeg=await zip.file("images/001-large-image.jpg").async("uint8array");
-  assert.deepEqual([...jpeg.slice(0,3)],[255,216,255]);
-  const manifest=JSON.parse(await zip.file("reports/manifest.json").async("string"));
-  assert.equal(manifest.files[0].outputBytes,jpeg.length);
+  // One picture now downloads as an actual JPEG; batch photo tests still verify ZIP manifests.
+  const jpeg=await download(s.page,'[data-testid="photo-save"]',"compressed-single-photo.jpg");
+  assert.deepEqual([...jpeg.subarray(0,3)],[255,216,255]);
+  assert.deepEqual([...jpeg.subarray(-2)],[255,217]);
+  const report=await s.page.locator('[data-testid="photo-report"]').innerText();
+  assert.ok(report.includes(jpeg.length.toLocaleString("en-US")),"Actual JPEG byte count must appear in the report");
   const dimension=await s.page.evaluate(async raw=>{
    const img=new Image();await new Promise((res,rej)=>{img.onload=res;img.onerror=rej;img.src="data:image/jpeg;base64,"+raw;});
    return [img.naturalWidth,img.naturalHeight];
