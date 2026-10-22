@@ -65,6 +65,7 @@ export const LOCAL_TOOLS:LocalTool[] = [
  {id:"eml-mail-archive",name:"Local EML Mail Archive · 纯文本邮件档案检查",area:"Office",view:"eml-viewer"},
  {id:"multi-file-readonly-grep",name:"Read-only Multi-file Text Search · 多文件原始行号搜索 CSV",area:"Text",view:"grep-search"},
  {id:"folder-snapshot-compare",name:"Folder Snapshot Diff · 整理前后文件夹元数据比较 CSV",area:"Files",view:"snapshot-diff"},
+ {id:"rss-atom-offline-archive",name:"RSS / Atom Offline Archive · 本地订阅文章整理与 CSV 导出",area:"Office",view:"feed-archive"},
  {id:"commons-team",name:"Universal Commons · 免费共享文件、离线团队留言和任务包",area:"Sharing",view:"commons"},
  {id:"easy-local-ai",name:"Easy Local AI · WebGPU + WebLLM Model Chat",area:"AI",view:"local-ai"},
  {id:"local-ai-models",name:"Local AI Model Manager · Download, Check & Remove",area:"AI",view:"local-ai"},
