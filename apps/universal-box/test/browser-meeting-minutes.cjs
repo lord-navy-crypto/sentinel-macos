@@ -42,7 +42,7 @@ test("Meetings produce genuine editable Word, action CSV and truthful attendee/t
   assert.equal((packagedIcs.match(/BEGIN:VEVENT/gu)||[]).length,2);
   assert.match(packagedIcs,/DTSTART;VALUE=DATE:20261102/);
   assert.doesNotMatch(packagedIcs,/BEGIN:VALARM/);
-  assert.equal(await page.locator('[data-testid="meeting-calendar-count"]').innerText().then(x=>x.includes("2 / 2")),true);
+  assert.match((await page.locator('[data-testid="meeting-calendar-count"]').textContent())??"",/2\s*\/\s*2/);
   const icsPending=page.waitForEvent("download",{timeout:30000});
   await page.locator('[data-testid="meeting-calendar-export"]').click();
   const calendarTarget=path.join(dest,"meeting-calendar.ics");
