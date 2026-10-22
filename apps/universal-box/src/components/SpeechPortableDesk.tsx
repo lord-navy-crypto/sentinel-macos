@@ -3,7 +3,7 @@ import {invoke,isTauri} from "@tauri-apps/api/core";
 import {exportFile} from "../lib/output";
 import JSZip from "jszip";
 import {markdownToDocx} from "../lib/documentExport";
-import {decodeAudioToWav} from "../lib/speechAudio";
+import {decodeAudioToWav,validateAudioImport} from "../lib/speechAudio";
 import {speechCues,exportTimedCaptions,type SpeechTiming} from "../lib/speechCaptions";
 import {compressPhotoBatch,planPhotoBatch,PHOTO_PRESETS,photoPresetSettings,type PhotoPreset,type PhotoSettings,type PhotoReport} from "../lib/photoCompression";
 import {exportPortableText,planPortable,type SourceCharset,type OutputCharset,type LineStyle,type PortableInput,type PortableSettings} from "../lib/portableText";
@@ -38,17 +38,37 @@ export default function SpeechPortableDesk({mode}:{mode:SpeechPortableMode}){
  }
  useEffect(()=>()=>{if(recorder.current?.state==="recording")recorder.current.stop();stopTracks();},[]);
  async function decodeInput(buffer:ArrayBuffer,name:string){
-  setBusy(true);setStatus("");setAudio(null);setTranscript(null);setEdited("");
+  setBusy(true);setStatus("");
   try{
    const result=await decodeAudioToWav(buffer);
-   setAudio({...result,name});setStatus("Audio decoded locally as 16kHz mono PCM WAV. Recognition has not run.");
-  }catch(e){setStatus("Audio decode failed: "+err(e));}
+   setAudio({...result,name});setTranscript(null);setEdited("");setStatus("已本机解码 "+name+" 为 16kHz PCM WAV；旧转写已清除，尚未开始识别。");
+  }catch(e){setStatus("音频解码失败（旧的可用音频与转写保留）："+err(e));}
   finally{setBusy(false);}
  }
- async function importAudio(event:ChangeEvent<HTMLInputElement>){
-  const file=event.target.files?.[0];event.target.value="";if(!file)return;
-  if(file.size>12_000_000){setStatus("Select audio smaller than 12 MB.");return;}
-  await decodeInput(await file.arrayBuffer(),file.name);
+ async function importAudioFile(file:File){
+  if(busy||recording)return;
+  try{
+   validateAudioImport(file);
+   await decodeInput(await file.arrayBuffer(),file.name);
+  }catch(e){setStatus("音频导入失败，先前内容未修改："+err(e));}
+ }
+ function importAudio(event:ChangeEvent<HTMLInputElement>){
+  const selected=Array.from(event.target.files??[]);
+  event.target.value="";
+  if(!selected.length)return;
+  if(selected.length!==1){setStatus("一次只能选择一份音频；旧内容保留。");return;}
+  void importAudioFile(selected[0]);
+ }
+ function dropAudio(event:ReactDragEvent<HTMLDivElement>){
+  event.preventDefault();
+  const selected=Array.from(event.dataTransfer.files);
+  if(selected.length!==1){setStatus("一次只能拖入一份音频；旧内容保留。");return;}
+  void importAudioFile(selected[0]);
+ }
+ function clearCurrentAudio(){
+  if(busy||recording)return;
+  setAudio(null);setTranscript(null);setEdited("");
+  setStatus("当前音频及转写已从会话中清空；磁盘文件未更改。");
  }
  async function startRecord(){
   if(recording||busy)return;setStatus("");
@@ -209,9 +229,16 @@ export default function SpeechPortableDesk({mode}:{mode:SpeechPortableMode}){
     <button type="button" className="secondary-button" data-testid="speech-record-stop" disabled={!recording} onClick={stopRecord}>结束录音</button>
    </div>
    {recording&&<p role="status" data-testid="speech-recording-active">录音进行中 · 90 秒自动停止</p>}
-   <label className="field-label">或导入本地音频（WAV、MP3、M4A 等，取决于 WebView 的实际解码器，≤12 MB）
-    <input type="file" data-testid="speech-audio-file" className="field" accept="audio/*,.wav,.mp3,.m4a,.webm" onChange={e=>void importAudio(e)}/>
-   </label>
+   <div className="panel" data-testid="speech-audio-drop" role="region" aria-label="拖入音频文件"
+    onDragOver={event=>event.preventDefault()} onDrop={dropAudio}>
+    <label className="field-label">选择或拖入一份音频（WAV、MP3、M4A 等，44 bytes–12 MB，≤90 秒，实际支持由设备决定）
+     <input type="file" data-testid="speech-audio-file" className="field" disabled={busy||recording}
+      accept="audio/*,.wav,.mp3,.m4a,.webm,.ogg,.aac,.flac,.caf" onChange={importAudio}/>
+    </label>
+    <p className="subtle">仅在用户选择或拖入后本地解码。文件损坏、过大或格式不兼容时保留上次成功解码的音频和文字。</p>
+   </div>
+   {audio&&<button type="button" className="secondary-button" data-testid="speech-clear-session"
+    disabled={busy||recording} onClick={clearCurrentAudio}>清空当前音频与转写</button>}
    {audio&&<p className="subtle" data-testid="speech-audio-ready">可用本地音频：{audio.name} · {audio.seconds.toFixed(2)} 秒 · PCM16/16kHz</p>}
    <label className="field-label">转写语言（设备是否支持离线模型由 Apple Speech 决定）
     <select className="field" data-testid="speech-locale" value={locale} onChange={e=>setLocale(e.target.value)}>
