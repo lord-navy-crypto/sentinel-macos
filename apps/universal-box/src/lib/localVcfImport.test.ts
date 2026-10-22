@@ -53,6 +53,14 @@ describe("Private local VCF to CSV complement",()=>{
   expect(csv).not.toContain("ENCODING");
   expect(csv).toContain('"Acme; Research / Physics"');
  });
+ it("accepts case-insensitive boundaries and blank separators between exported contacts",()=>{
+  const lines=[
+   "begin:vcard","VERSION:3.0","FN:Alice One","end:vcard",
+   "","BEGIN:VCARD","VERSION:4.0","FN:李四","END:VCARD","",
+  ].join("\\r\\n");
+  const parsed=parseLocalVcf(lines,bytes(lines));
+  expect(parsed.contacts.map(c=>c.name)).toEqual(["Alice One","李四"]);
+ });
  it("rejects malformed boundaries, unsupported legacy encodings and an invalid version",()=>{
   const cases=[
    "FN:Bad\nBEGIN:VCARD\nVERSION:4.0\nEND:VCARD",
