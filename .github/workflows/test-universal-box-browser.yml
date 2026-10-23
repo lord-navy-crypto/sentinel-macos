@@ -40,7 +40,7 @@ jobs:
       - name: Verify release metadata and installer publishing contract
         run: |
           node scripts/release-preflight.cjs
-          node --test test/release-preflight.test.cjs
+          node --test test/release-preflight.node.cjs
       - name: Check TypeScript and run file and workflow unit tests
         run: |
           npm run build
