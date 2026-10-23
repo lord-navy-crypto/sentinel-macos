@@ -163,6 +163,16 @@
     document.body.appendChild(script);
   }
 
+  function loadReliabilityReadinessExtension(){
+    if(document.querySelector('script[data-sentinel-engineering-reliability-readiness]'))return;
+    const script=document.createElement('script');
+    script.src='/app/engineering-reliability-readiness.js';
+    script.dataset.sentinelEngineeringReliabilityReadiness='1';
+    script.async=true;
+    script.addEventListener('error',()=>console.warn('Sentinel Reliability Exposure & Failure-Family Readiness could not be loaded.'));
+    document.body.appendChild(script);
+  }
+
   injectStyle();
   const observer=new MutationObserver(()=>ensure());
   observer.observe(document.getElementById('evidenceStage')||document.body,{childList:true,subtree:true});
@@ -174,4 +184,5 @@
   loadBaselineExtension();
   loadQualityExperimentExtension();
   loadQueueReadinessExtension();
+  loadReliabilityReadinessExtension();
 })();
