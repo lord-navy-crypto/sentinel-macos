@@ -18,7 +18,7 @@ export default function ChartDesk(){
    catch(e){return {table:null,error:errorMessage(e)};}
  },[source]);
  const visualization=useMemo(()=>{
-   if(!parsed.table)return {data:null,svg:"",error:parsed.error};
+   if(!parsed.table)return {data:null,svg:"",error:parsed.error,fit:null};
    try{
      const data=kind==="scatter"?
        scatterChartModel(parsed.table,category,value,title,unit):
@@ -26,7 +26,7 @@ export default function ChartDesk(){
      const fit=data.kind==="scatter"&&showFit?fitScatterLine(data.points):null;
      const svg=data.kind==="scatter"?scatterChartSvg(data,fit):chartSvg(data);
      return {data,svg,error:"",fit};
-   }catch(e){return {data:null,svg:"",error:errorMessage(e)};}
+   }catch(e){return {data:null,svg:"",error:errorMessage(e),fit:null};}
  },[parsed,category,value,aggregate,kind,title,unit,showFit]);
  async function choose(event:ChangeEvent<HTMLInputElement>){
    const file=event.target.files?.[0];event.target.value="";if(!file)return;
