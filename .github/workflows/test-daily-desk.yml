@@ -47,6 +47,10 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
+      - name: Verify release metadata and installer publishing contract
+        run: |
+          node scripts/release-preflight.cjs
+          node --test test/release-preflight.test.cjs
       - name: Install dependencies
         run: npm install
 
