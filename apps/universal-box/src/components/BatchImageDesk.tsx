@@ -2,12 +2,15 @@ import {useState} from "react";
 import JSZip from "jszip";
 import {exportFile} from "../lib/output";
 import {enhancedDimensions,sharpenPixels} from "../lib/imageEnhance";
+import {verifyImageSource,verifyImageOutput,validateImageCanvas} from "../lib/imageConversionSafety";
 
 type ImageOutput = "image/jpeg"|"image/png"|"image/webp";
 function cleanBase(value:string):string {
   return value.replace(/\.[^.]+$/u,"").replace(/[^\p{L}\p{N}._-]+/gu,"-").slice(0,55)||"image";
 }
 async function convertImage(file:File,format:ImageOutput,maxWidth:number,quality:number,upscale:1|2,sharpen:number):Promise<Blob>{
+  if(file.size<1||file.size>8_000_000)throw Error("Choose a source image between 1 byte and 8 MB.");
+  verifyImageSource(file.name,file.type,new Uint8Array(await file.slice(0,64).arrayBuffer()));
   const img=new Image();
   const url=URL.createObjectURL(file);
   try {
@@ -18,6 +21,7 @@ async function convertImage(file:File,format:ImageOutput,maxWidth:number,quality
     });
     if(img.naturalWidth*img.naturalHeight>32_000_000)throw Error("Image exceeds 32 megapixels: "+file.name);
     const {width,height}=enhancedDimensions(img.naturalWidth,img.naturalHeight,upscale,maxWidth);
+    validateImageCanvas(width,height);
     const canvas=document.createElement("canvas");
     canvas.width=width;canvas.height=height;
     const context=canvas.getContext("2d");
@@ -33,6 +37,8 @@ async function convertImage(file:File,format:ImageOutput,maxWidth:number,quality
     }
     const blob=await new Promise<Blob>((resolve,reject)=>canvas.toBlob(result=>result?resolve(result):reject(Error("Encoding failed")),format,quality));
     if(blob.type!==format)throw Error("This WebView cannot encode "+format);
+    verifyImageOutput(format,new Uint8Array(await blob.slice(0,16).arrayBuffer()));
+    canvas.width=0;canvas.height=0;
     return blob;
   }finally{URL.revokeObjectURL(url);}
 }
@@ -70,7 +76,8 @@ export default function BatchImageDesk(){
   }
   return <section className="panel">
     <h3>Batch image converter, enhancement · ZIP export</h3>
-    <p className="subtle">Select up to 12 PNG/JPEG/WebP images, optionally enlarge 2× and sharpen, then convert and save a ZIP locally. Images are never uploaded. Enlargement uses interpolation, not generative AI, and cannot recreate missing detail.</p>
+    <p className="subtle">Select up to 12 static PNG/JPEG/WebP images, optionally enlarge 2× and sharpen, then convert and save a ZIP locally. Inputs are checked against their real image signatures; misleading extensions and animated WebP are rejected. Maximum output canvas: 16 megapixels. Originals are never uploaded or modified.</p>
+    <p className="subtle" data-testid="image-compatibility-note">Compatibility: JPEG does not support transparency; transparent areas are placed on a white background. Re-encoding can discard EXIF, color profiles, animation and metadata; JPEG/WebP can lose pixel detail. Unsupported encoders fail explicitly instead of exporting a mislabeled PNG. Increasing resolution interpolates pixels but cannot restore missing detail.</p>
     <label htmlFor="batch-image-files" className="field-label">Choose images (12 maximum, 8 MB each)</label>
     <input id="batch-image-files" type="file" className="field" accept="image/png,image/jpeg,image/webp" multiple
       onChange={event=>{
