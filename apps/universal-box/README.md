@@ -14,6 +14,7 @@ Under **Quick Tools → Batch text files**, explicitly select up to 20 local
 
 - Find and replace literal text across multiple selected documents with a per-file preview and match count.
 - Convert line endings to LF (Unix/macOS) or CRLF (Windows).
+- For TXT and Markdown only: remove end-of-line spaces/tabs, remove blank or whitespace-only lines, or deduplicate exact (case-sensitive) lines without reformatting surviving CRLF/LF/CR endings. CSV/TSV is deliberately rejected for these line-oriented modes because quoted cells may contain embedded newlines.
 - Remove a UTF-8 BOM only when deliberately selected; other operations preserve the original BOM.
 - Export only **changed copies** into a `processed/` directory inside a ZIP. A JSON manifest lists every selected file and change count. Exported ZIP contents are read back and compared byte-for-byte before saving.
 - Source files are never overwritten. UTF-8 decoding is strict: binary, malformed UTF-8, legacy-encoded documents, `.docx` and `.xlsx` are not supported. CSV cells and Markdown syntax are treated as literal text; review replacements that affect delimiters or formatting.
