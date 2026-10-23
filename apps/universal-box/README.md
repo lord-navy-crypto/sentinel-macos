@@ -6,6 +6,22 @@ Sentinel Box is an independent desktop toolbox hosted inside the Sentinel Gatewa
 
 > **Branding compatibility:** The desktop product and DMG are now named **Sentinel Box** (formerly Universal Box / Daily Desk). The source directory `apps/universal-box/`, native bundle identifier `com.lordnavycrypto.dailydesk`, Rust crate identity, release workflows, legacy v2 backup formats and existing local-storage keys remain unchanged to preserve users' data and build paths. Do not rename these internal identifiers without a tested migration. The project uses `sentinel-box-vX.Y.Z` tags for new releases, while older tag prefixes remain supported. Native OCR and display capture still need real-device acceptance tests.
 
+## Offline batch text file desk (office micro-utilities)
+
+Under **Quick Tools → Batch text files**, explicitly select up to 20 local
+`.txt`, `.md`, `.markdown`, `.csv` or `.tsv` files (200,000 bytes each,
+2 MB combined). No folder scanning or background clipboard access is used.
+
+- Find and replace literal text across multiple selected documents with a per-file preview and match count.
+- Convert line endings to LF (Unix/macOS) or CRLF (Windows).
+- Remove a UTF-8 BOM only when deliberately selected; other operations preserve the original BOM.
+- Export only **changed copies** into a `processed/` directory inside a ZIP. A JSON manifest lists every selected file and change count. Exported ZIP contents are read back and compared byte-for-byte before saving.
+- Source files are never overwritten. UTF-8 decoding is strict: binary, malformed UTF-8, legacy-encoded documents, `.docx` and `.xlsx` are not supported. CSV cells and Markdown syntax are treated as literal text; review replacements that affect delimiters or formatting.
+
+Unit and Chromium end-to-end tests verify Chinese content, BOM and CRLF behavior,
+error handling, the actual ZIP bytes and visible UI. Tauri Mac release acceptance
+is still separate from GitHub CI.
+
 ## Stack
 
 - React + TypeScript + Vite for the desktop UI
