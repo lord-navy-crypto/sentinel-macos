@@ -77,12 +77,12 @@ export default function ChartDesk(){
          <input className="field" maxLength={80} value={title} onChange={e=>setTitle(e.target.value)}/>
        </label>
        <label className="field-label">{kind==="scatter"?"X numeric column":"Category column"}
-         <select className="field" value={category} onChange={e=>setCategory(Number(e.target.value))} disabled={!parsed.table}>
+         <select className="field" data-testid="chart-x-column" value={category} onChange={e=>setCategory(Number(e.target.value))} disabled={!parsed.table}>
            {parsed.table?.headers.map((h,i)=><option key={i} value={i}>{h}</option>)}
          </select>
        </label>
        <label className="field-label">{kind==="scatter"?"Y numeric column":"Value column"}
-         <select className="field" value={value} onChange={e=>setValue(Number(e.target.value))} disabled={!parsed.table}>
+         <select className="field" data-testid="chart-y-column" value={value} onChange={e=>setValue(Number(e.target.value))} disabled={!parsed.table}>
            {parsed.table?.headers.map((h,i)=><option key={i} value={i}>{h}</option>)}
          </select>
        </label>
@@ -109,14 +109,14 @@ export default function ChartDesk(){
        <div><span>Maximum</span><strong>{visualization.data.maximum.toLocaleString()}</strong></div>
      </div>
      <div className="chart-preview-frame" data-testid="chart-preview-frame">
-       <img alt={"Chart titled "+(title||"Offline data chart")+" with "+visualization.data.points.length+" categories"}
+       <img data-testid="chart-preview-image" alt={"Chart titled "+(title||"Offline data chart")+" with "+visualization.data.points.length+" categories"}
          src={"data:image/svg+xml;charset=utf-8,"+encodeURIComponent(visualization.svg)}/>
      </div>
      <p className="subtle">{kind==="scatter"?
        "Scientific scatter: 1–250 finite decimal XY observations, ±1e12 range; missing pairs skipped, partially missing rows rejected. Original decimal strings (including trailing zeroes) are retained in exported CSV. Repeated X values are separate points; no fitted line or invented interpolation.":
        "Category charts: blank numeric values are ignored for sum/average. Maximum 24 categories. Aggregated values are not necessarily the original rows."} SVG contains no executable scripts.</p>
      <div className="actions">
-       <button className="primary-button" type="button" disabled={busy} onClick={()=>{void saveSvg();}}>Export chart SVG</button>
+       <button className="primary-button" type="button" data-testid="chart-save-svg" disabled={busy} onClick={()=>{void saveSvg();}}>Export chart SVG</button>
        <button className="secondary-button" type="button" data-testid="chart-save-csv" disabled={busy} onClick={()=>{void saveSummary();}}>{kind==="scatter"?"Export XY source CSV":"Export aggregated CSV"}</button>
      </div>
    </>}
