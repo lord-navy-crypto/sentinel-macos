@@ -42,6 +42,17 @@ test("Scientific XY scatter plots real numeric positions and exports unchanged o
   assert.match(csv,/0\.0000123000,1\.2300/u);
   assert.match(csv,/0\.0000123000,2\.000/u);
   assert.match(csv,/-1\.5e-3,-0\.50/u);
+  await page.locator('[data-testid="chart-show-fit"]').check();
+  await page.locator('[data-testid="chart-fit-details"]').waitFor();
+  assert.match(await page.locator('[data-testid="chart-fit-r2"]').innerText(),/R² = .*n = 3/u);
+  const fitUri=await page.locator('[data-testid="chart-preview-image"]').getAttribute("src");
+  assert.ok(decodeURIComponent(fitUri.split(",")[1]).includes('data-series="least-squares"'));
+  const fittedSvg=await save(page,'[data-testid="chart-save-svg"]',"universal-box-data-chart.svg");
+  assert.match(fittedSvg,/data-series="least-squares"/u);
+  const fitReport=await save(page,'[data-testid="chart-export-fit"]',"universal-box-linear-fit.txt");
+  assert.match(fitReport,/Method: ordinary least squares \\(unweighted\\)/u);
+  assert.match(fitReport,/Observations: 3/u);
+  assert.match(fitReport,/R squared: /u);
   await page.locator("#chart-csv").fill("X,Y\n1,=HYPERLINK('bad')");
   assert.match(await page.getByRole("alert").last().innerText(),/requires finite decimal/i);
   assert.equal(await page.locator('[data-testid="chart-save-svg"]').count(),0,"Unsafe source has no export");
