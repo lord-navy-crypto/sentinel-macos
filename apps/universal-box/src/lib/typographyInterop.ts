@@ -21,8 +21,10 @@ const SPECIAL_TO_ASCII:Readonly<Record<string,string>>={
  "©":"(c)","®":"(R)","™":"(TM)","→":"->","←":"<-",
  "↔":"<->","✓":"[check]","✔":"[check]","×":"x","÷":"/",
  "±":"+/-","∞":"infinity","％":"%","\u00a0":" ",
+ "≤":"<=","≥":">=","≠":"!=","≈":"~","√":"sqrt","²":"^2","³":"^3",
+ "°":" degrees","§":"section","¶":"paragraph","№":"No.",
 };
-const symbolRegExp=/[“”„‘’‚—–−…•©®™→←↔✓✔×÷±∞％\u00a0]/gu;
+const symbolRegExp=/[“”„‘’‚—–−…•©®™→←↔✓✔×÷±∞％\u00a0≤≥≠≈√²³°§¶№]/gu;
 export function simplifySymbols(input:string):string{
  return input.replace(symbolRegExp,character=>SPECIAL_TO_ASCII[character]??character);
 }
