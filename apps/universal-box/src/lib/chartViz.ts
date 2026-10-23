@@ -95,3 +95,84 @@ export function chartSvg(chart:ChartData):string{
   +'<g font-family="sans-serif">'+shapes+'</g>'
   +'</svg>';
 }
+
+
+/** Scientific numeric XY scatter; unlike category charts it NEVER aggregates/reorders rows. */
+export type ScatterPoint={x:number;y:number;xText:string;yText:string};
+export type ScatterChartData={
+ kind:"scatter";title:string;unit:string;xLabel:string;yLabel:string;
+ points:ScatterPoint[];minimum:number;maximum:number;
+};
+const decimal=/^-?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/u;
+export function scatterChartModel(
+ table:DataTable,xColumn:number,yColumn:number,title:string,unit:string,
+):ScatterChartData{
+ if(!Number.isInteger(xColumn)||!Number.isInteger(yColumn)||xColumn===yColumn||
+  xColumn<0||yColumn<0||xColumn>=table.headers.length||yColumn>=table.headers.length)
+   throw Error("Select two different numeric X and Y columns.");
+ if(title.length>80||unit.length>18)throw Error("Chart title/unit is too long.");
+ if(table.rows.length>250)throw Error("XY scatter supports at most 250 data rows.");
+ const points:ScatterPoint[]=[];
+ for(let index=0;index<table.rows.length;index++){
+  const row=table.rows[index];
+  const xText=(row[xColumn]??"").trim(),yText=(row[yColumn]??"").trim();
+  // A blank pair represents an explicitly missing observation, never zero.
+  if(!xText&&!yText)continue;
+  if(!decimal.test(xText)||!decimal.test(yText))
+   throw Error("Scatter row "+(index+2)+" requires finite decimal X and Y numbers.");
+  const x=Number(xText),y=Number(yText);
+  if(!Number.isFinite(x)||!Number.isFinite(y)||Math.abs(x)>1e12||Math.abs(y)>1e12)
+   throw Error("Scatter row "+(index+2)+" exceeds supported numeric range ±1e12.");
+  points.push({x,y,xText,yText});
+ }
+ if(!points.length)throw Error("No numeric XY pairs found.");
+ const values=points.map(p=>p.y);
+ return {
+  kind:"scatter",points,title,unit,
+  xLabel:table.headers[xColumn],yLabel:table.headers[yColumn],
+  minimum:Math.min(...values),maximum:Math.max(...values),
+ };
+}
+function safeScatterDomain(values:number[]):[number,number]{
+ let low=Math.min(...values),high=Math.max(...values);
+ if(low===high){
+  const gap=Math.max(1,Math.abs(low)*.08);
+  low-=gap;high+=gap;
+ }
+ const padding=(high-low)*.08;
+ return [low-padding,high+padding];
+}
+const numberLabel=(value:number)=>Number(value.toPrecision(5)).toString();
+export function scatterChartSvg(chart:ScatterChartData):string{
+ if(chart.kind!=="scatter"||chart.points.length<1||chart.points.length>250)
+  throw Error("Invalid XY scatter data.");
+ const W=960,H=540,left=100,right=44,top=98,bottom=94;
+ const pw=W-left-right,ph=H-top-bottom;
+ const [xMin,xMax]=safeScatterDomain(chart.points.map(p=>p.x));
+ const [yMin,yMax]=safeScatterDomain(chart.points.map(p=>p.y));
+ if(![xMin,xMax,yMin,yMax].every(Number.isFinite)||xMax<=xMin||yMax<=yMin)
+  throw Error("Scatter axis scaling is not finite.");
+ const xp=(x:number)=>left+((x-xMin)/(xMax-xMin))*pw;
+ const yp=(y:number)=>top+ph-((y-yMin)/(yMax-yMin))*ph;
+ const ink="#16324d",muted="#60728b",grid="#dae4ef",point="#2563eb";
+ let marks="";
+ for(let i=0;i<=5;i++){
+  const x=xMin+(xMax-xMin)*i/5,px=xp(x);
+  const y=yMin+(yMax-yMin)*i/5,py=yp(y);
+  marks+='<line x1="'+px.toFixed(2)+'" y1="'+top+'" x2="'+px.toFixed(2)+'" y2="'+(top+ph)+'" stroke="'+grid+'"/>';
+  marks+='<text x="'+px.toFixed(2)+'" y="'+(top+ph+23)+'" text-anchor="middle" font-size="13" fill="'+muted+'">'+escapeXml(numberLabel(x))+'</text>';
+  marks+='<line x1="'+left+'" y1="'+py.toFixed(2)+'" x2="'+(left+pw)+'" y2="'+py.toFixed(2)+'" stroke="'+grid+'"/>';
+  marks+='<text x="'+(left-12)+'" y="'+(py+4).toFixed(2)+'" text-anchor="end" font-size="13" fill="'+muted+'">'+escapeXml(numberLabel(y))+'</text>';
+ }
+ const dots=chart.points.map(p=>'<circle cx="'+xp(p.x).toFixed(2)+'" cy="'+yp(p.y).toFixed(2)+'" r="5" fill="'+point+'" fill-opacity=".83" stroke="#ffffff" stroke-width="1.2"><title>'+
+   escapeXml(p.xText+", "+p.yText)+'</title></circle>').join("");
+ return '<?xml version="1.0" encoding="UTF-8"?>\n'+
+  '<svg xmlns="http://www.w3.org/2000/svg" role="img" aria-label="'+escapeXml(chart.title||"XY scatter plot")+'" viewBox="0 0 960 540">'+
+  '<rect width="960" height="540" rx="20" fill="#ffffff"/>'+
+  '<text x="100" y="48" font-family="sans-serif" font-weight="700" font-size="25" fill="'+ink+'">'+escapeXml(chart.title||"XY scatter plot")+'</text>'+
+  '<text x="100" y="72" font-family="sans-serif" font-size="13" fill="'+muted+'">Scientific XY scatter · '+chart.points.length+' observations</text>'+
+  '<g font-family="sans-serif">'+marks+
+  '<text x="508" y="513" text-anchor="middle" font-size="16" fill="'+ink+'">'+escapeXml(chart.xLabel)+'</text>'+
+  '<text x="23" y="274" transform="rotate(-90 23 274)" text-anchor="middle" font-size="16" fill="'+ink+'">'+escapeXml(chart.yLabel+(chart.unit?" ("+chart.unit+")":""))+'</text>'+
+  dots+'</g></svg>\n';
+}
