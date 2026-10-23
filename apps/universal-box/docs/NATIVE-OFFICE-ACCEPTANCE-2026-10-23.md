@@ -6,7 +6,14 @@ Scope: the Tauri product in `apps/universal-box`, **not** the root-level Sentine
 
 Use the test DMGs attached to the newest [Sentinel Box Desktop CI](https://github.com/lord-navy-crypto/sentinel-macos/actions) for the exact git commit in question. The CI artifact includes a `.dmg`, `.dmg.sha256`, and `.dmg.build.txt` with source commit and architecture. They are explicitly **ad-hoc signed and NOT notarized**. Never bypass macOS security controls or describe them as public release files.
 
-On the corresponding real Mac, first verify the checksum using `shasum -a 256 path/to/package.dmg`, compare with the artifact checksum, and run:
+After downloading and extracting the complete CI artifact ZIP into one directory, verify the **downloaded bytes**, not just the CI job's log:
+
+```bash
+cd "/path/to/extracted-artifact"
+shasum -a 256 -c ./*.dmg.sha256
+```
+
+The checksum sidecar references only the DMG filename (not the original CI build path), so it remains usable after download. A mismatch or missing DMG is a hard stop. Then, on the corresponding real Mac, run:
 
 ```bash
 cd apps/universal-box
@@ -59,7 +66,7 @@ bash scripts/build-notarized-macos.sh aarch64-apple-darwin
 # Separately build x86_64-apple-darwin, with an authorized Intel Mac for native testing.
 ```
 
-The builder refuses absent signing and notarization credentials, runs unit and native Rust checks, invokes Tauri with `APPLE_SIGNING_IDENTITY` (which overrides its ad-hoc Tauri setting), then requires Developer ID chain, Gatekeeper acceptance, attached notarization ticket and the correct architecture, followed by the saved hash and source provenance. It does **not** create a public release.
+The builder refuses absent signing and notarization credentials, runs unit and native Rust checks, invokes Tauri with `APPLE_SIGNING_IDENTITY` (which overrides its ad-hoc Tauri setting), then requires Developer ID chain, Gatekeeper acceptance, attached notarization ticket and the correct architecture, and refuses ambiguous or stale DMG candidates. It writes a portable checksum sidecar, immediately self-verifies it and saves source provenance. It does **not** create a public release.
 
 **No credentials should be shared in chat, screenshots, source control or unmasked CI logs.** GitHub Actions ad-hoc test DMGs are not suitable for Apple's notarization or for a public download.
 
