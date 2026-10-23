@@ -13,6 +13,8 @@ Under **Quick Tools → Batch text files**, explicitly select up to 20 local
 2 MB combined). No folder scanning or background clipboard access is used.
 
 - Find and replace literal text across multiple selected documents with a per-file preview and match count.
+- Paste **up to 20 find/replace rules** as two TAB-separated columns from a spreadsheet. Execute rules sequentially (case-sensitive, literal; later rules may match earlier replacement results), preview per-file totals and per-rule hit counts. The ZIP audit records only counts, not the user's literal rule phrases.
+- Add a bounded, user-entered prefix or suffix to **non-blank lines** across TXT/Markdown files, preserving indentation, original line endings and UTF-8 BOM. CSV/TSV is deliberately blocked for line-prefix/suffix operations because embedded multiline cells are unsafe for raw-line edits.
 - Convert line endings to LF (Unix/macOS) or CRLF (Windows).
 - For TXT and Markdown only: remove end-of-line spaces/tabs, remove blank or whitespace-only lines, or deduplicate exact (case-sensitive) lines without reformatting surviving CRLF/LF/CR endings. CSV/TSV is deliberately rejected for these line-oriented modes because quoted cells may contain embedded newlines.
 - Remove a UTF-8 BOM only when deliberately selected; other operations preserve the original BOM.

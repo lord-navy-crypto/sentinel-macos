@@ -140,3 +140,51 @@ test("Batch line cleanup safely previews whitespace edits and rejects CSV for li
   assert.deepEqual(errors,[]);
  }finally{await page.close();await browser.close();}
 });
+
+
+test("Batch multi-rule replacement and line-affix actions produce verified local file copies",{timeout:90000},async()=>{
+ const browser=await chromium.launch({headless:true,args:["--no-sandbox"]});
+ const page=await browser.newPage({acceptDownloads:true,viewport:{width:1440,height:920}});
+ const errors=[];page.on("pageerror",e=>errors.push(e.message));
+ try{
+  await page.goto(root,{waitUntil:"domcontentloaded"});await page.locator(".app-shell").waitFor();
+  await openTool(page,"Batch Text Files");
+  await page.locator('[data-testid="batch-text-picker"]').setInputFiles([
+   {name:"报价.csv",mimeType:"text/csv",buffer:Buffer.from("\ufeffName,Year\r\nA,2025\r\n")},
+   {name:"notes.md",mimeType:"text/markdown",buffer:Buffer.from("A and B\n")},
+  ]);
+  await page.locator('[data-testid="batch-text-mode"]').selectOption("multi-replace");
+  await page.locator('[data-testid="batch-text-rules"]').fill("A\tB\nB\tC\n2025\t2026");
+  assert.match(await page.locator('[data-testid="batch-rules-warning"]').innerText(),/sequentially/);
+  assert.match(await page.locator('[data-testid="batch-text-preview"]').innerText(),/2 selected/);
+  assert.match(await page.locator('[data-testid="batch-rule-counts"]').first().innerText(),/1: 1/);
+  const pending=page.waitForEvent("download",{timeout:30000});
+  await page.locator('[data-testid="batch-text-save"]').click();
+  const file=await pending;const dest=path.join(dir,"multi-rule-batch.zip");
+  await file.saveAs(dest);
+  const zip=await JSZip.loadAsync(fs.readFileSync(dest),{checkCRC32:true});
+  const csv=await zip.file("processed/报价.csv").async("nodebuffer");
+  assert.deepEqual(csv.subarray(0,3),Buffer.from([239,187,191]));
+  assert.equal(csv.subarray(3).toString("utf8"),"Name,Year\r\nC,2026\r\n");
+  assert.equal(await zip.file("processed/notes.md").async("string"),"C and C\n");
+  const manifest=JSON.parse(await zip.file("sentinel-box-batch-text-manifest.json").async("string"));
+  assert.equal(manifest.operation,"multi-replace");
+  assert.deepEqual(manifest.files[0].ruleCounts,[1,1,1]);
+  assert.equal(JSON.stringify(manifest).includes("2025"),false);
+  await page.locator('[data-testid="batch-text-mode"]').selectOption("prefix-lines");
+  assert.match(await page.locator('[data-testid="batch-text-error"]').innerText(),/TXT\/Markdown only/);
+  assert.equal(await page.locator('[data-testid="batch-text-save"]').isDisabled(),true);
+  await page.locator('[data-testid="batch-text-picker"]').setInputFiles([
+   {name:"memo.md",mimeType:"text/markdown",buffer:Buffer.from("One\r\n\r\nTwo\n")},
+  ]);
+  await page.locator('[data-testid="batch-text-affix"]').fill("• ");
+  assert.match(await page.locator('[data-testid="batch-text-preview"]').innerText(),/1 changed/);
+  const next=page.waitForEvent("download",{timeout:30000});
+  await page.locator('[data-testid="batch-text-save"]').click();
+  const affixFile=await next;const affixPath=path.join(dir,"line-affix-batch.zip");
+  await affixFile.saveAs(affixPath);
+  const pack=await JSZip.loadAsync(fs.readFileSync(affixPath),{checkCRC32:true});
+  assert.equal(await pack.file("processed/memo.md").async("string"),"• One\r\n\r\n• Two\n");
+  assert.deepEqual(errors,[]);
+ }finally{await page.close();await browser.close();}
+});

@@ -7,6 +7,9 @@ import {
 
 const OPS:{id:BatchTextMode;name:string}[]=[
   {id:"replace",name:"Batch literal find & replace · 多文件查找替换"},
+  {id:"multi-replace",name:"Many replacements at once · 一次执行多条替换规则"},
+  {id:"prefix-lines",name:"Add prefix to lines · 给每行添加前缀"},
+  {id:"suffix-lines",name:"Add suffix to lines · 给每行添加后缀"},
   {id:"lf",name:"Convert newlines to LF · 转 Unix 换行"},
   {id:"crlf",name:"Convert newlines to CRLF · 转 Windows 换行"},
   {id:"remove-bom",name:"Remove UTF-8 BOM · 删除 UTF-8 BOM"},
@@ -20,14 +23,16 @@ export default function BatchTextFilesDesk(){
   const [mode,setMode]=useState<BatchTextMode>("replace");
   const [find,setFind]=useState("");
   const [replacement,setReplacement]=useState("");
+  const [ruleText,setRuleText]=useState("");
+  const [lineAffix,setLineAffix]=useState("");
   const [busy,setBusy]=useState(false);
   const [status,setStatus]=useState("");
   const selection=useRef(0);
   const preview=useMemo(()=>{
     if(!files.length)return {rows:[],error:""};
-    try{return {rows:processBatchTextFiles(files,mode,find,replacement),error:""};}
+    try{return {rows:processBatchTextFiles(files,mode,find,replacement,ruleText,lineAffix),error:""};}
     catch(e){return {rows:[],error:msg(e)};}
-  },[files,mode,find,replacement]);
+  },[files,mode,find,replacement,ruleText,lineAffix]);
   const changed=preview.rows.filter(row=>row.changed);
   async function load(event:ChangeEvent<HTMLInputElement>){
     const chosen=Array.from(event.target.files??[]);
@@ -78,7 +83,21 @@ export default function BatchTextFilesDesk(){
       </div>
       <p className="subtle">Matches literal characters, not regex. Quoted CSV cells and Markdown markup are not structurally parsed; review the output when replacing commas or punctuation.</p>
     </>}
-    {(mode==="trim-trailing"||mode==="remove-blank"||mode==="dedupe-lines")&&<p className="subtle" data-testid="batch-line-warning">Line cleaning is available for TXT and Markdown only. It preserves each surviving line's CRLF/LF/CR ending and original UTF-8 BOM. Use the CSV Table Desk for CSV/TSV, whose quoted fields may contain line breaks. Deduplication is exact and case-sensitive; review line order before exporting.</p>}
+    {mode==="multi-replace"&&<>
+      <label htmlFor="batch-text-rules" className="field-label">Replace many phrases · 从表格粘贴两列（查找 Tab 替换）</label>
+      <textarea id="batch-text-rules" data-testid="batch-text-rules" className="field text-editor" rows={6}
+        maxLength={20000} value={ruleText} onChange={e=>{setRuleText(e.target.value);setStatus("");}}
+        placeholder={"旧名称\t新名称\n2025\t2026"}/>
+      <p className="subtle" data-testid="batch-rules-warning">Paste up to 20 TAB-separated rows from a spreadsheet: find phrase in column 1, replacement in column 2. Empty replacement deletes the phrase. Rules run sequentially (later rules can match earlier replacements), case-sensitive and literal, with no regex. No phrases are stored in the ZIP audit manifest, only match counts. Review any CSV delimiters and Markdown syntax before exporting.</p>
+    </>}
+    {(mode==="prefix-lines"||mode==="suffix-lines")&&<>
+      <label htmlFor="batch-text-affix" className="field-label">Text to add to each non-empty line · 行首/行尾内容（最多100字）</label>
+      <input id="batch-text-affix" data-testid="batch-text-affix" className="field"
+        maxLength={100} value={lineAffix} onChange={e=>{setLineAffix(e.target.value);setStatus("");}}
+        placeholder={mode==="prefix-lines"?"例如：- ":"例如：；"}/>
+      <p className="subtle" data-testid="batch-affix-warning">TXT/Markdown only. Blank and whitespace-only lines are untouched. Existing line breaks, indentation and UTF-8 BOM stay intact. Adding a prefix or suffix may change Markdown formatting; check the preview.</p>
+    </>}
+    {(mode==="trim-trailing"||mode==="remove-blank"||mode==="dedupe-lines"||mode==="prefix-lines"||mode==="suffix-lines")&&<p className="subtle" data-testid="batch-line-warning">Line cleaning is available for TXT and Markdown only. It preserves each surviving line's CRLF/LF/CR ending and original UTF-8 BOM. Use the CSV Table Desk for CSV/TSV, whose quoted fields may contain line breaks. Deduplication is exact and case-sensitive; review line order before exporting.</p>}
     <p className="subtle">LF / CRLF conversion keeps all other characters and UTF-8 BOM intact; BOM removal is a separate, explicit option. Only changed files appear inside the ZIP. A JSON report lists unchanged files too.</p>
     {preview.error&&<p role="alert" data-testid="batch-text-error" className="subtle">{preview.error}</p>}
     {preview.rows.length>0&&<div data-testid="batch-text-preview">
@@ -87,6 +106,7 @@ export default function BatchTextFilesDesk(){
         {preview.rows.map(row=><div className="task-row" key={row.name}>
           <div className="task-copy">
             <strong>{row.name}</strong> · {row.changed?"Changed":"Unchanged"} · {row.matches} operations · {row.beforeBytes} → {row.afterBytes} bytes
+            {row.ruleCounts&&<span className="subtle" data-testid="batch-rule-counts"> · Rule hits: {row.ruleCounts.map((count,i)=>`${i+1}: ${count}`).join(" · ")}</span>}
             {row.changed&&<pre className="analysis-result" style={{whiteSpace:"pre-wrap",overflowWrap:"anywhere",maxHeight:120,overflow:"auto"}}>{row.preview}{row.preview.length===250?"…":""}</pre>}
           </div>
         </div>)}
