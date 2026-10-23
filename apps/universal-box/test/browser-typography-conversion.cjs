@@ -80,8 +80,13 @@ test("Real font, symbol and safe text formats create inspectable DOCX/HTML/TXT",
   await page.locator('[data-testid="typography-file"]').setInputFiles({
    name:"import.txt",mimeType:"text/plain",buffer:Buffer.from("Imported 世界\nliteral <b>hi</b>","utf8")
   });
-  assert.equal(await page.locator('[data-testid="typography-input"]').inputValue(),
-   "Imported 世界\nliteral <b>hi</b>");
+  const importedText="Imported 世界\nliteral <b>hi</b>";
+  await page.waitForFunction(expected=>
+    document.querySelector('[data-testid="typography-input"]')?.value===expected,
+  importedText,{timeout:15000});
+  assert.equal(await page.locator('[data-testid="typography-input"]').inputValue(),importedText);
+  assert.match(await page.locator('[data-testid="typography-status"]').innerText(),
+    /Imported literal plain text/);
   await page.screenshot({path:path.join(dest,"typography-preview.png"),fullPage:true});
   assert.deepEqual(errors,[]);
  }finally{await page.close();await browser.close();}
