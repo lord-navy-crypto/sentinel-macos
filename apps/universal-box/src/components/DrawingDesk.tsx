@@ -1,6 +1,7 @@
 import { type PointerEvent, useEffect, useRef, useState } from "react";
 import type { DeskStroke } from "../lib/workspace";
 import { exportFile } from "../lib/output";
+import {drawingToSvg,shapeStroke,type ShapeMode} from "../lib/drawingVector";
 
 type Props = { strokes: DeskStroke[]; onChange: (strokes: DeskStroke[]) => void };
 const W = 1100;
@@ -25,6 +26,27 @@ export default function DrawingDesk({strokes,onChange}:Props) {
   const [color,setColor]=useState("#ffffff");
   const [width,setWidth]=useState(3);
   const [status,setStatus]=useState("");
+  const [mode,setMode]=useState<ShapeMode>("pen");
+  const previous=useRef<DeskStroke[][]>([]);
+  const future=useRef<DeskStroke[][]>([]);
+  function changeDrawing(next:DeskStroke[]){
+    previous.current.push(strokes);
+    if(previous.current.length>20)previous.current.shift();
+    future.current=[];
+    onChange(next);
+  }
+  function undo(){
+    const before=previous.current.pop();
+    if(!before)return;
+    future.current.push(strokes);
+    onChange(before);
+  }
+  function redo(){
+    const after=future.current.pop();
+    if(!after)return;
+    previous.current.push(strokes);
+    onChange(after);
+  }
   const redraw=()=>{
     const ctx=canvas.current?.getContext("2d");
     if(!ctx)return;
@@ -48,7 +70,15 @@ export default function DrawingDesk({strokes,onChange}:Props) {
   const move=(event:PointerEvent<HTMLCanvasElement>)=>{
     const current=active.current;
     if(!current)return;
-    const p=pointerPoint(event),prev=current.points[current.points.length-1];
+    const p=pointerPoint(event);
+    if(mode!=="pen"){
+      active.current=shapeStroke(mode,current.points[0],p,current.color,current.width);
+      redraw();
+      const ctx=canvas.current?.getContext("2d");
+      if(ctx)paint(ctx,active.current);
+      return;
+    }
+    const prev=current.points[current.points.length-1];
     if(Math.hypot(p[0]-prev[0],p[1]-prev[1])<.003||current.points.length>=400)return;
     const ctx=canvas.current?.getContext("2d");
     if(ctx){
@@ -60,7 +90,31 @@ export default function DrawingDesk({strokes,onChange}:Props) {
   const up=()=>{
     const current=active.current;
     active.current=null;
-    if(current)onChange([...strokes.slice(-99),current]);
+    if(current){
+      const finished=mode==="pen"?current:shapeStroke(mode,current.points[0],
+       current.points[mode==="line"?1:2]??current.points[0],current.color,current.width);
+      changeDrawing([...strokes.slice(-99),finished]);
+    }
+  };
+  const cancel=()=>{active.current=null;redraw();};
+  const copyDrawing=async()=>{
+    try{
+      const element=canvas.current;
+      if(!element||typeof ClipboardItem==="undefined"||!navigator.clipboard?.write)
+        throw Error("PNG clipboard unavailable.");
+      const blob=await new Promise<Blob>((resolve,reject)=>
+        element.toBlob(b=>b?resolve(b):reject(Error("PNG encoding failed.")),"image/png"));
+      await navigator.clipboard.write([new ClipboardItem({"image/png":blob})]);
+      setStatus("Copied PNG image to system clipboard.");
+    }catch(e){setStatus("Copy unavailable: "+String(e instanceof Error?e.message:e)+
+      " Use Save PNG instead.");}
+  };
+  const saveSvg=async()=>{
+    try{
+      const output=drawingToSvg(strokes);
+      const saved=await exportFile("daily-desk-drawing.svg",output);
+      setStatus(saved?"Saved editable vector paths as SVG.":"Save cancelled.");
+    }catch(e){setStatus(String(e instanceof Error?e.message:e));}
   };
   const exportDrawing=async()=>{
     try{
@@ -73,16 +127,31 @@ export default function DrawingDesk({strokes,onChange}:Props) {
   };
   return <section className="panel">
     <p className="eyebrow">DRAFT PAPER · OFFLINE SKETCHING</p><h2>Black drawing board</h2>
-    <p className="subtle">Mouse or stylus drawing, local undo/clear, and PNG export. Your strokes are saved with the workspace and can be restored from its backup.</p>
+    <p className="subtle">Freehand pen, straight lines and rectangles with undo/redo, PNG copy, and scalable SVG export. Local strokes remain in workspace backup; no image upload or cloud account.</p>
     <div className="actions">
+      <label className="field-label">Draw tool
+        <select className="field" data-testid="drawing-tool" value={mode}
+          onChange={e=>setMode(e.target.value as ShapeMode)}>
+          <option value="pen">Freehand pen</option>
+          <option value="line">Straight line</option>
+          <option value="rectangle">Rectangle outline</option>
+        </select>
+      </label>
       <label className="field-label">Ink <input type="color" value={color} onChange={e=>setColor(e.target.value)} /></label>
       <label className="field-label">Pen width <input className="field" type="number" min={1} max={24} value={width} onChange={e=>setWidth(Math.max(1,Math.min(24,Number(e.target.value)||3)))}/></label>
-      <button type="button" className="secondary-button" onClick={()=>onChange(strokes.slice(0,-1))} disabled={!strokes.length}>Undo</button>
-      <button type="button" className="secondary-button" onClick={()=>{if(window.confirm("Clear the entire drawing?"))onChange([]);}} disabled={!strokes.length}>Clear</button>
+      <button type="button" className="secondary-button" data-testid="drawing-undo"
+        onClick={undo} disabled={!previous.current.length}>Undo</button>
+      <button type="button" className="secondary-button" data-testid="drawing-redo"
+        onClick={redo} disabled={!future.current.length}>Redo</button>
+      <button type="button" className="secondary-button" onClick={()=>{if(window.confirm("Clear the entire drawing?"))changeDrawing([]);}} disabled={!strokes.length}>Clear</button>
       <button type="button" className="primary-button" onClick={()=>{void exportDrawing();}}>Save PNG</button>
+      <button type="button" className="secondary-button" data-testid="drawing-save-svg"
+        onClick={()=>{void saveSvg();}}>Save vector SVG</button>
+      <button type="button" className="secondary-button" data-testid="drawing-copy-png"
+        onClick={()=>{void copyDrawing();}}>Copy PNG</button>
     </div>
-    <canvas ref={canvas} className="drawing-canvas" width={W} height={H} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} aria-label="Black drawing canvas" style={{touchAction:"none"}}/>
-    <p className="subtle">{strokes.length} saved stroke(s) · limit 100 strokes of up to 400 points each.</p>
+    <canvas ref={canvas} className="drawing-canvas" width={W} height={H} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={cancel} aria-label="Black drawing canvas" style={{touchAction:"none"}}/>
+    <p className="subtle">{strokes.length} saved stroke(s) · limit 100 strokes of up to 400 points each. SVG exports vector geometry; PNG captures the rendered canvas. Clipboard permission depends on the operating system.</p>
     {status&&<p role="status" className="subtle">{status}</p>}
   </section>;
 }
