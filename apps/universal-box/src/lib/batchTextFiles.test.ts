@@ -24,6 +24,14 @@ describe("offline batch office text utility",()=>{
     expect(d.decode(clean[0].bytes)).toBe("A,B\r\n1,2\r\n");
     expect(clean[0].matches).toBe(1);
   });
+  it("does not silently consume a second U+FEFF in UTF-8 text",()=>{
+    const src=input("double-bom.txt","\ufeff\ufeffAlpha");
+    const result=processBatchTextFiles([src],"replace","Alpha","Beta")[0];
+    expect(result.bytes.slice(0,6)).toEqual(src.bytes.slice(0,6));
+    expect(d.decode(result.bytes.subarray(6))).toBe("Beta");
+    const cleaned=processBatchTextFiles([src],"remove-bom")[0];
+    expect(Array.from(cleaned.bytes.slice(0,3))).toEqual([0xef,0xbb,0xbf]);
+  });
   it("normalizes mixed CRLF, LF and CR in either direction",()=>{
     const src=input("a.txt","one\r\ntwo\nthree\rfour");
     const lf=processBatchTextFiles([src],"lf")[0];
