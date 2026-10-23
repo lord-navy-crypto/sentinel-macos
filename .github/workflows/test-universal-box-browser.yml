@@ -4,11 +4,13 @@ on:
     paths:
       - "apps/universal-box/**"
       - ".github/workflows/test-universal-box-browser.yml"
+      - ".github/workflows/release-daily-desk.yml"
   push:
     branches: [main]
     paths:
       - "apps/universal-box/**"
       - ".github/workflows/test-universal-box-browser.yml"
+      - ".github/workflows/release-daily-desk.yml"
 
 permissions:
   contents: read
@@ -35,6 +37,10 @@ jobs:
           npm ci
           npm install --no-save --no-package-lock playwright@1.58.2
           npx playwright install --with-deps chromium
+      - name: Verify release metadata and installer publishing contract
+        run: |
+          node scripts/release-preflight.cjs
+          node --test test/release-preflight.test.cjs
       - name: Check TypeScript and run file and workflow unit tests
         run: |
           npm run build
