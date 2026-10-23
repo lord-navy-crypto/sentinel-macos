@@ -53,6 +53,7 @@ test("rejects stale package lock, root lock package, Rust and Tauri independentl
 });
 test("Rust [package] version parser ignores dependency versions and prevents missing metadata",()=>{
  assert.equal(parseCargoPackageVersion(base.cargoToml),"0.36.0");
+ assert.equal(parseCargoPackageVersion("[package]\n\n# maintained version\nname = \"app\"\nversion = \"0.36.0\"\n\n[dependencies]\nversion = \"999.0.0\"\n"),"0.36.0");
  assert.throws(()=>parseCargoPackageVersion('[dependencies]\nversion = "9.0.0"\n'),
   /\[package\]/);
  assert.throws(()=>parseCargoPackageVersion("[package]\nname = \"app\"\n"),
