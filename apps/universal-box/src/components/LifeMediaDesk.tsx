@@ -1,5 +1,6 @@
 import {useMemo,useState,type ChangeEvent} from "react";
 import JSZip from "jszip";
+import LocalIcsImportDesk from "./LocalIcsImportDesk";
 import {exportFile} from "../lib/output";
 import {type SubtitleFormat} from "../lib/universalLab";
 import {generateCalendarBatch,planOrganizedArchive,resyncSubtitleCues,type AnchorTime} from "../lib/lifeMediaWorkflow";
@@ -149,6 +150,7 @@ export default function LifeMediaDesk({initialMode="subtitle"}:{initialMode?:Lif
     <div style={{maxHeight:250,overflow:"auto"}}>{calendar.value.events.map((e,i)=><p key={i}>{i+1}. {e.start} → {e.end} · <strong>{e.summary}</strong> · {e.location}</p>)}</div>
    </>}
    <button type="button" data-testid="life-calendar-export" className="primary-button" disabled={busy||!calendar.value} onClick={()=>void saveCalendar()}>导出多事件 .ics 日历</button>
+   <LocalIcsImportDesk/>
   </>}
   {status&&<p role="status" className="subtle">{status}</p>}
   <p className="subtle">设计限制：不改变原始字幕、视频或文件；本地分类只是打包副本；日历文件需用户自行导入，导入前应确认日期与 UTC 时区。</p>
