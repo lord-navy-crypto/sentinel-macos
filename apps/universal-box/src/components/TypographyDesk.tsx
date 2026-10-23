@@ -2,6 +2,7 @@ import {type ChangeEvent,useMemo,useState} from "react";
 import {exportFile} from "../lib/output";
 import {
  FONT_FAMILIES,DEFAULT_TYPOGRAPHY,typographyText,typographyToDocx,typographyToHtml,
+ typographyToClipboardHtml,extractOwnHtmlText,
  type TypographyOptions,
 } from "../lib/typographyInterop";
 const errorMessage=(e:unknown)=>e instanceof Error?e.message:String(e);
@@ -21,17 +22,36 @@ export default function TypographyDesk(){
   const file=event.target.files?.[0];event.target.value="";
   if(!file)return;
   try{
-   if(!/\.(txt|md|markdown)$/iu.test(file.name)||file.size>250_000||file.size<1)
-    throw Error("Select a .txt or .md UTF-8 file up to 250 KB.");
-   const input=new TextDecoder("utf-8",{fatal:true}).decode(await file.arrayBuffer()).replace(/^\uFEFF/u,"");
+   const isOwnHtml=/\.html?$/iu.test(file.name);
+   if(!/\.(txt|md|markdown|html?)$/iu.test(file.name)||
+      file.size>(isOwnHtml?450_000:250_000)||file.size<1)
+    throw Error("Select UTF-8 TXT/MD (≤250 KB) or Sentinel Box HTML (≤450 KB).");
+   const decoded=new TextDecoder("utf-8",{fatal:true}).decode(await file.arrayBuffer()).replace(/^\uFEFF/u,"");
+   const input=isOwnHtml?extractOwnHtmlText(decoded):decoded;
    if(input.length>100_000)throw Error("Imported text exceeds the character limit.");
    setSource(input);
-   setStatus("Imported as literal plain text. Markdown markup is not rendered or executed.");
+   setStatus(isOwnHtml?"Reopened Sentinel Box HTML as plain text without executing markup. Choose new styles before exporting.":"Imported literal plain text. Markdown is not rendered or executed.");
   }catch(e){setStatus("Import failed: "+errorMessage(e));}
  }
  async function copy(){
   try{await navigator.clipboard.writeText(result.value);setStatus("Copied plain text to clipboard.");}
   catch{setStatus("Clipboard unavailable; select the visible text and copy manually.");}
+ }
+ async function copyFormatted(){
+  try{
+   if(typeof ClipboardItem==="undefined"||!navigator.clipboard?.write)
+    throw Error("This system does not support copying rich HTML.");
+   const html=typographyToClipboardHtml(source,options);
+   const item=new ClipboardItem({
+    "text/html":new Blob([html],{type:"text/html"}),
+    "text/plain":new Blob([result.value],{type:"text/plain"}),
+   });
+   await navigator.clipboard.write([item]);
+   setStatus("Copied formatted HTML and plain-text fallback. Paste into a compatible rich-text editor.");
+  }catch(e){
+   setStatus("Formatted copy unavailable: "+errorMessage(e)+
+    " Use Save DOCX/HTML, or Copy text for plain-text applications.");
+  }
  }
  async function save(format:"txt"|"html"|"docx"){
   if(result.error||busy)return;
@@ -51,10 +71,10 @@ export default function TypographyDesk(){
  }
  return <section className="panel" data-testid="typography-desk">
   <h3>Typography & Symbols · 字体与特殊符号转换</h3>
-  <p className="subtle">Paste text or explicitly import UTF-8 TXT/Markdown. Choose font, size and styling, then export an editable DOCX, styled offline HTML or plain TXT. No uploaded files, subscriptions, macros or remote fonts.</p>
-  <label className="field-label" htmlFor="typography-file">Import TXT/MD as literal text (≤250 KB)</label>
+  <p className="subtle">Paste text or explicitly import UTF-8 TXT/Markdown, or reopen HTML exported by this tool. Choose font, size and styling, then export an editable DOCX, styled offline HTML or plain TXT. No uploaded files, subscriptions, macros or remote fonts.</p>
+  <label className="field-label" htmlFor="typography-file">Import UTF-8 TXT/MD or Sentinel Box HTML</label>
   <input className="field" id="typography-file" data-testid="typography-file"
-    type="file" accept=".txt,.md,.markdown,text/plain,text/markdown" onChange={e=>{void loadFile(e);}}/>
+    type="file" accept=".txt,.md,.markdown,.html,.htm,text/plain,text/markdown,text/html" onChange={e=>{void loadFile(e);}}/>
   <label className="field-label" htmlFor="typography-input">Your original text (max 100,000 characters)</label>
   <textarea className="field text-editor" id="typography-input" data-testid="typography-input"
    rows={6} maxLength={100000} value={source}
@@ -111,7 +131,9 @@ export default function TypographyDesk(){
    </label>
    <div className="actions">
     <button className="secondary-button" type="button" data-testid="typography-copy" disabled={busy}
-      onClick={()=>{void copy();}}>Copy text</button>
+      onClick={()=>{void copy();}}>Copy plain text</button>
+    <button className="secondary-button" type="button" data-testid="typography-copy-rich" disabled={busy}
+      onClick={()=>{void copyFormatted();}}>Copy with formatting</button>
     <button className="secondary-button" type="button" data-testid="typography-save-txt" disabled={busy}
       onClick={()=>{void save("txt");}}>Save TXT</button>
     <button className="secondary-button" type="button" data-testid="typography-save-html" disabled={busy}
@@ -120,7 +142,7 @@ export default function TypographyDesk(){
       onClick={()=>{void save("docx");}}>{busy?"Converting…":"Save editable DOCX"}</button>
    </div>
   </>}
-  <p className="subtle">Compatibility: TXT does not store font or alignment; DOCX/HTML preserve specified style declarations but may substitute unavailable fonts. Imported Markdown is literal text, not a full Markdown-to-HTML converter. Layout across Microsoft Word, Pages and browsers may differ. Originals stay unchanged.</p>
+  <p className="subtle">Compatibility: TXT does not store font or alignment; DOCX/HTML preserve specified style declarations but may substitute unavailable fonts. Imported Markdown is literal text; imported HTML must be generated by this tool, not an arbitrary webpage. Layout across Microsoft Word, Pages and browsers may differ. Originals stay unchanged.</p>
   {status&&<p className="subtle" role="status" data-testid="typography-status">{status}</p>}
  </section>;
 }
