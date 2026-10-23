@@ -1,6 +1,6 @@
 /** Bounded, deterministic CSV -> SVG chart model. Plain text SVG only, no scripts. */
 import {csvRows} from "../components/EverydayTools";
-import {makeDataTable,type DataTable} from "./tableTools";
+import {makeDataTable,tableToCsv,type DataTable} from "./tableTools";
 export type ChartKind="bar"|"line";
 export type ChartAggregate="sum"|"average"|"count";
 export type ChartPoint={label:string;value:number;items:number};
@@ -132,6 +132,21 @@ export function scatterChartModel(
   xLabel:table.headers[xColumn],yLabel:table.headers[yColumn],
   minimum:Math.min(...values),maximum:Math.max(...values),
  };
+}
+/** Safe CSV: headers use untrusted-text protection; verified decimal cells stay verbatim. */
+export function scatterChartCsv(data:ScatterChartData):string{
+ if(data.kind!=="scatter"||data.points.length<1||data.points.length>250)
+  throw Error("Invalid scatter export.");
+ const headers=tableToCsv({headers:[data.xLabel,data.yLabel],rows:[]});
+ const rows=data.points.map(p=>{
+  if(!decimal.test(p.xText)||!decimal.test(p.yText)||
+   !Number.isFinite(p.x)||!Number.isFinite(p.y)||
+   p.x!==Number(p.xText)||p.y!==Number(p.yText))
+    throw Error("Unverified numerical point cannot be exported.");
+  // Numeric cells cannot contain formula tokens, commas or newlines by regex.
+  return p.xText+","+p.yText;
+ });
+ return headers+"\r\n"+rows.join("\r\n")+"\r\n";
 }
 function safeScatterDomain(values:number[]):[number,number]{
  let low=Math.min(...values),high=Math.max(...values);
