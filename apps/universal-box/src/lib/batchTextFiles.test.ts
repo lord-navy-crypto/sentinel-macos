@@ -1,6 +1,6 @@
 import {describe,it,expect} from "vitest";
 import JSZip from "jszip";
-import {validateBatchTextSelection,processBatchTextFiles,zipBatchTextResults} from "./batchTextFiles";
+import {parseLiteralReplacementRules,validateBatchTextSelection,processBatchTextFiles,zipBatchTextResults} from "./batchTextFiles";
 const e=new TextEncoder(),d=new TextDecoder();
 const input=(name:string,contents:string)=>({name,bytes:e.encode(contents)});
 describe("offline batch office text utility",()=>{
@@ -90,6 +90,68 @@ describe("offline batch office text utility",()=>{
     expect(manifest.operation).toBe("trim-trailing");
     expect(manifest.files[0]).toMatchObject({original:"工作.md",matches:1,changed:true});
   });
+
+  it("parses pasted spreadsheet columns and allows explicit empty replacements",()=>{
+    expect(parseLiteralReplacementRules("旧名\t新名\r\n删除我\t\r\n2025\t2026")).toEqual([
+      {find:"旧名",replacement:"新名"},{find:"删除我",replacement:""},{find:"2025",replacement:"2026"},
+    ]);
+    expect(()=>parseLiteralReplacementRules("")).toThrow(/Enter 1/);
+    expect(()=>parseLiteralReplacementRules("no tab")).toThrow(/TAB/);
+    expect(()=>parseLiteralReplacementRules("a\tb\tc")).toThrow(/exactly one TAB/);
+    expect(()=>parseLiteralReplacementRules("a\tb\na\tc")).toThrow(/Duplicate/);
+    expect(()=>parseLiteralReplacementRules(" \tx")).toThrow(/invalid/);
+    expect(()=>parseLiteralReplacementRules("a\tb\n".repeat(21))).toThrow(/20 replacement rules/);
+    expect(()=>parseLiteralReplacementRules("x\ty".repeat(10001))).toThrow(/20,000/);
+  });
+  it("sequential multi-rule replacements preserve original files and count each rule",()=>{
+    const source=input("合同.md","甲方 A; 2025; 删除我; A");
+    const before=Uint8Array.from(source.bytes);
+    const rules="A\tB\nB\tC\n2025\t2026\n删除我\t";
+    const row=processBatchTextFiles([source],"multi-replace","","",rules)[0];
+    expect(d.decode(row.bytes)).toBe("甲方 C; 2026; ; C");
+    expect(row.ruleCounts).toEqual([2,2,1,1]);
+    expect(row.matches).toBe(6);
+    expect(source.bytes).toEqual(before);
+  });
+  it("can apply multiple replacement rules to CSV without touching BOM or CRLF",async()=>{
+    const source=input("供应商.csv","\ufeff名称,年份\r\nA,2025\r\n");
+    const rules="A\t新企业\n2025\t2026";
+    const rows=processBatchTextFiles([source],"multi-replace","","",rules);
+    expect(Array.from(rows[0].bytes.slice(0,3))).toEqual([239,187,191]);
+    expect(d.decode(rows[0].bytes.subarray(3))).toBe("名称,年份\r\n新企业,2026\r\n");
+    const zip=await JSZip.loadAsync(await zipBatchTextResults(rows,"multi-replace"),{checkCRC32:true});
+    const manifest=JSON.parse(await zip.file("sentinel-box-batch-text-manifest.json")!.async("string"));
+    expect(manifest.files[0].ruleCounts).toEqual([1,1]);
+    const manifestSource=await zip.file("sentinel-box-batch-text-manifest.json")!.async("string");
+    expect(manifestSource).not.toContain("新企业");
+    expect(manifestSource).not.toContain("2025");
+  });
+  it("rejects rule-driven output expansion beyond the existing non-destructive file limit",()=>{
+    const ruleText="a\t"+"b".repeat(500);
+    expect(()=>processBatchTextFiles([input("x.txt","a".repeat(1000))],"multi-replace","","",ruleText)).toThrow(/exceeds/);
+  });
+  it("adds a batch prefix or suffix to non-empty lines preserving original line endings and BOM",()=>{
+    const source=input("会议.md","\ufeff会议纪要\r\n\r\n  第二项\n \t\r第三项");
+    const bytes=Uint8Array.from(source.bytes);
+    const prefixed=processBatchTextFiles([source],"prefix-lines","","","","- ")[0];
+    expect(Array.from(prefixed.bytes.slice(0,3))).toEqual([239,187,191]);
+    expect(d.decode(prefixed.bytes.subarray(3))).toBe("- 会议纪要\r\n\r\n-   第二项\n \t\r- 第三项");
+    expect(prefixed.matches).toBe(3);
+    const suffixed=processBatchTextFiles([source],"suffix-lines","","","","。")[0];
+    expect(d.decode(suffixed.bytes.subarray(3))).toBe("会议纪要。\r\n\r\n  第二项。\n \t\r第三项。");
+    expect(suffixed.matches).toBe(3);
+    expect(source.bytes).toEqual(bytes);
+  });
+  it("rejects unsafe affixes and CSV/TSV line-affixing, leaving originals untouched",()=>{
+    expect(()=>processBatchTextFiles([input("a.md","ABC")],"prefix-lines")).toThrow(/printable/);
+    expect(()=>processBatchTextFiles([input("a.md","ABC")],"suffix-lines","","","","\n")).toThrow(/printable/);
+    expect(()=>processBatchTextFiles([input("a.md","ABC")],"prefix-lines","","","","X".repeat(101))).toThrow(/printable/);
+    for(const mode of ["prefix-lines","suffix-lines"] as const){
+      expect(()=>processBatchTextFiles([input("sheet.csv","a,b")],mode,"","","X")).toThrow(/TXT\/Markdown only/);
+      expect(()=>processBatchTextFiles([input("sheet.tsv","a\tb")],mode,"","","X")).toThrow(/TXT\/Markdown only/);
+    }
+  });
+
   it("packages changed copies only; JSON manifest and all exported bytes are verifiable",async()=>{
     const rows=processBatchTextFiles([
       input("报价.csv","旧价,5\r\n"),input("no-change.md","untouched"),
