@@ -163,7 +163,7 @@ export function scatterChartCsv(data:ScatterChartData):string{
     throw Error("Unverified numerical point cannot be exported.");
   // Numeric cells cannot contain spreadsheet formula tokens, commas or newlines.
   if(data.uncertaintyLabel!==undefined){
-   if(p.yErrorText===undefined||!decimal.test(p.yErrorText)||
+   if(p.yErrorText===undefined||p.yError===undefined||!decimal.test(p.yErrorText)||
       p.yError!==Number(p.yErrorText)||!Number.isFinite(p.yError)||p.yError<0)
     throw Error("Unverified uncertainty cannot be exported.");
    return p.xText+","+p.yText+","+p.yErrorText;
