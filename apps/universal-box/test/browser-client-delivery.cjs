@@ -17,7 +17,7 @@ test("Real selected client files are ZIP-packaged, SHA256/CRC verified and safel
   await page.locator('[data-testid="client-delivery-desk"]').waitFor();
   // No fabricated customer or delivery details on a new handoff.
   for(const name of ["project","recipient","reference","deliveryDate","note"]){
-   assert.equal(await page.locator('[data-testid="delivery-"+name]').inputValue(),"",name+" must start blank");
+   assert.equal(await page.locator('[data-testid="delivery-'+name+'"]').inputValue(),"",name+" must start blank");
   }
   assert.equal(await page.locator('[data-testid="delivery-export"]').count(),0);
   await page.locator('[data-testid="delivery-project"]').fill("Client design delivery");
