@@ -3,6 +3,7 @@ import {exportFile} from "../lib/output";
 import {chartModel,chartSvg,scatterChartModel,scatterChartSvg,scatterChartCsv,parseChartCsv,type ChartKind,type ChartAggregate} from "../lib/chartViz";
 import {tableToCsv} from "../lib/tableTools";
 import {fitScatterLine,formatRegressionNumber} from "../lib/scatterRegression";
+import {analyzeFitResiduals,residualAnalysisCsv,residualScatterChart} from "../lib/scatterResiduals";
 const errorMessage=(e:unknown)=>e instanceof Error?e.message:String(e);
 const SAMPLE="Month,Revenue,Orders\nJanuary,1420,24\nFebruary,1890,30\nMarch,1640,26\nApril,2180,38\nMay,2330,41\nJune,2710,48";
 export default function ChartDesk(){
@@ -13,6 +14,7 @@ export default function ChartDesk(){
  const [status,setStatus]=useState("");
  const [busy,setBusy]=useState(false);
  const [showFit,setShowFit]=useState(false);
+ const [showResiduals,setShowResiduals]=useState(false);
  const parsed=useMemo(()=>{
    try{return {table:parseChartCsv(source),error:""};}
    catch(e){return {table:null,error:errorMessage(e)};}
@@ -28,6 +30,16 @@ export default function ChartDesk(){
      return {data,svg,error:"",fit};
    }catch(e){return {data:null,svg:"",error:errorMessage(e),fit:null};}
  },[parsed,category,value,aggregate,kind,title,unit,showFit]);
+ const residuals=useMemo(()=>{
+   const data=visualization.data,fit=visualization.fit;
+   if(kind!=="scatter"||!showFit||!showResiduals||!data||data.kind!=="scatter"||!fit)
+     return {summary:null,svg:"",error:""};
+   try{
+     const summary=analyzeFitResiduals(data.points,fit);
+     const chart=residualScatterChart(data,summary);
+     return {summary,svg:scatterChartSvg(chart,null,true),error:""};
+   }catch(e){return {summary:null,svg:"",error:errorMessage(e)};}
+ },[kind,showFit,showResiduals,visualization]);
  async function choose(event:ChangeEvent<HTMLInputElement>){
    const file=event.target.files?.[0];event.target.value="";if(!file)return;
    setStatus("");
@@ -39,6 +51,19 @@ export default function ChartDesk(){
      parseChartCsv(incoming);setSource(incoming);setCategory(0);setValue(1);
      setStatus("Imported local CSV. No upload.");
    }catch(e){setStatus("Import failed: "+errorMessage(e));}
+   finally{setBusy(false);}
+ }
+ async function saveResidual(format:"csv"|"svg"){
+   const data=visualization.data;
+   if(kind!=="scatter"||!data||data.kind!=="scatter"||!residuals.summary||
+      !residuals.svg||busy)return;
+   setBusy(true);setStatus("");
+   try{
+     const bytes=format==="csv"?residualAnalysisCsv(data,residuals.summary):residuals.svg;
+     const name=format==="csv"?"universal-box-fit-residuals.csv":"universal-box-fit-residuals.svg";
+     const saved=await exportFile(name,bytes);
+     setStatus(saved?"Saved actual observed/predicted/residual values locally.":"Save cancelled.");
+   }catch(e){setStatus("Residual export failed: "+errorMessage(e));}
    finally{setBusy(false);}
  }
  async function saveFitReport(){
@@ -124,7 +149,13 @@ export default function ChartDesk(){
        </label>
        {kind==="scatter"&&<label className="field-label">
          <input type="checkbox" data-testid="chart-show-fit" checked={showFit}
-          onChange={e=>setShowFit(e.target.checked)}/> Show ordinary least-squares trendline
+          onChange={e=>{setShowFit(e.target.checked);if(!e.target.checked)setShowResiduals(false);}}/>
+         Show ordinary least-squares trendline
+       </label>}
+       {kind==="scatter"&&showFit&&<label className="field-label">
+         <input type="checkbox" data-testid="chart-show-residuals" checked={showResiduals}
+          onChange={e=>setShowResiduals(e.target.checked)}/>
+         Show residual diagnostics (observed − fitted)
        </label>}
        <label className="field-label">Unit (optional)
          <input className="field" maxLength={18} value={unit} onChange={e=>setUnit(e.target.value)}/>
@@ -152,8 +183,30 @@ export default function ChartDesk(){
        <img data-testid="chart-preview-image" alt={"Chart titled "+(title||"Offline data chart")+" with "+visualization.data.points.length+" categories"}
          src={"data:image/svg+xml;charset=utf-8,"+encodeURIComponent(visualization.svg)}/>
      </div>
+     {kind==="scatter"&&showFit&&showResiduals&&visualization.fit&&
+      (residuals.error?<p role="alert" className="subtle">{residuals.error}</p>:
+       residuals.summary&&<section className="panel" data-testid="chart-residuals">
+         <h3>Regression residuals · 回归残差</h3>
+         <p className="subtle">RMSE = {formatRegressionNumber(residuals.summary.rmse)}
+           {" · "}SSE = {formatRegressionNumber(residuals.summary.sse)}
+           {" · "}maximum |residual| = {formatRegressionNumber(residuals.summary.maxAbsoluteResidual)}
+         </p>
+         <p className="subtle">Residual = observed Y − fitted Y. Red dashed zero baseline;
+           values above zero are higher than the fit. These diagnostics are descriptive, not measurement error bars.</p>
+         <div className="chart-preview-frame">
+           <img data-testid="chart-residual-preview-image"
+            alt={"Residuals of "+(title||"scientific scatter")+" with "+residuals.summary.records.length+" measurements"}
+            src={"data:image/svg+xml;charset=utf-8,"+encodeURIComponent(residuals.svg)}/>
+         </div>
+         <div className="actions">
+           <button type="button" className="secondary-button" data-testid="chart-export-residual-csv"
+            disabled={busy} onClick={()=>{void saveResidual("csv");}}>Export residual CSV</button>
+           <button type="button" className="secondary-button" data-testid="chart-export-residual-svg"
+            disabled={busy} onClick={()=>{void saveResidual("svg");}}>Export residual SVG</button>
+         </div>
+       </section>)}
      <p className="subtle">{kind==="scatter"?
-       "Scientific scatter: 1–250 finite decimal XY observations, ±1e12 range; missing pairs skipped, partially missing rows rejected. Original decimal strings (including trailing zeroes) are retained in exported CSV. Repeated X values are separate points; optional linear fit is calculated, not a symbolic or causal model.":
+       "Scientific scatter: 1–250 finite decimal XY observations, ±1e12 range; missing pairs skipped, partially missing rows rejected. Original decimal strings (including trailing zeroes) are retained in exported CSV. Repeated X values are separate points. Optional least-squares fit and residuals use double-precision values, not a causal model or experimental error estimates.":
        "Category charts: blank numeric values are ignored for sum/average. Maximum 24 categories. Aggregated values are not necessarily the original rows."} SVG contains no executable scripts.</p>
      <div className="actions">
        <button className="primary-button" type="button" data-testid="chart-save-svg" disabled={busy} onClick={()=>{void saveSvg();}}>Export chart SVG</button>
