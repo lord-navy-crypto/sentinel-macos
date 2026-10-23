@@ -91,7 +91,9 @@ test("Batch TXT/CSV/Markdown edits are previewed and exported as verified ZIP co
   const filename=path.join(dir,"batch-text-edits.zip");
   await download.saveAs(filename);
   const zip=await JSZip.loadAsync(fs.readFileSync(filename),{checkCRC32:true});
-  assert.equal(await zip.file("processed/报价.csv").async("string"),"\ufeff新价,5\r\n");
+  const processed=await zip.file("processed/报价.csv").async("nodebuffer");
+  assert.deepEqual(processed.subarray(0,3),Buffer.from([0xef,0xbb,0xbf]));
+  assert.equal(processed.subarray(3).toString("utf8"),"新价,5\r\n");
   assert.equal(zip.file("processed/notes.md"),null);
   const manifest=JSON.parse(await zip.file("sentinel-box-batch-text-manifest.json").async("string"));
   assert.deepEqual(manifest.files.map(x=>x.changed),[true,false]);
