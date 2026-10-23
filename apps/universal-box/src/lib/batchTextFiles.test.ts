@@ -17,8 +17,10 @@ describe("offline batch office text utility",()=>{
   it("preserves UTF-8 BOM on replacement and removes it only when asked",()=>{
     const src=input("table.csv","\ufeffA,B\r\n1,2\r\n");
     const replace=processBatchTextFiles([src],"replace","A","C");
-    expect(d.decode(replace[0].bytes)).toBe("\ufeffC,B\r\n1,2\r\n");
+    expect(Array.from(replace[0].bytes.slice(0,3))).toEqual([0xef,0xbb,0xbf]);
+    expect(d.decode(replace[0].bytes.subarray(3))).toBe("C,B\r\n1,2\r\n");
     const clean=processBatchTextFiles([src],"remove-bom");
+    expect(Array.from(clean[0].bytes.slice(0,3))).not.toEqual([0xef,0xbb,0xbf]);
     expect(d.decode(clean[0].bytes)).toBe("A,B\r\n1,2\r\n");
     expect(clean[0].matches).toBe(1);
   });
