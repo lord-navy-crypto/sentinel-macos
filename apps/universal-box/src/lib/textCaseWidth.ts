@@ -1,5 +1,5 @@
 /** Small, explicit offline text conversions. Original input is never mutated. */
-export type TextCaseMode="upper"|"lower"|"title"|"halfwidth";
+export type TextCaseMode="upper"|"lower"|"title"|"halfwidth"|"fullwidth";
 export const TEXT_CASE_LIMIT=200_000;
 
 /** Only fullwidth ASCII and the ideographic space are converted: no lossy NFKC of CJK text. */
@@ -7,6 +7,14 @@ export function halfwidthAscii(input:string):string{
  return input.replace(/[\uFF01-\uFF5E\u3000]/gu,ch=>{
   const cp=ch.codePointAt(0)!;
   return cp===0x3000?" ":String.fromCodePoint(cp-0xFEE0);
+ });
+}
+
+/** Convert ASCII printable characters and ordinary spaces to fullwidth for intentional typography. */
+export function fullwidthAscii(input:string):string{
+ return input.replace(/[\x20-\x7E]/gu,ch=>{
+  const cp=ch.codePointAt(0)!;
+  return cp===0x20?"\u3000":String.fromCodePoint(cp+0xFEE0);
  });
 }
 
@@ -25,6 +33,7 @@ export function transformTextCase(input:string,mode:TextCaseMode):string{
   case "lower":return input.toLowerCase();
   case "title":return titleCase(input);
   case "halfwidth":return halfwidthAscii(input);
+  case "fullwidth":return fullwidthAscii(input);
   default:throw Error("Unsupported text transformation.");
  }
 }
