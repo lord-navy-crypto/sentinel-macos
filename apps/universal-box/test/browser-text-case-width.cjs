@@ -25,7 +25,7 @@ test("Case and width tool preserves Chinese and line endings and exports actual 
   await page.locator('[data-testid="quick-case-mode"]').selectOption("lower");
   assert.equal(await result.inputValue(),source.toLowerCase());
   await page.locator('[data-testid="quick-case-mode"]').selectOption("fullwidth");
-  assert.equal(await result.inputValue(),"ＨＥＬＬＯ　Ｗｏｒｌｄ！　中文①㎏\nＯ’ＮＥＩＬＬ".replace("！　", "！　"));
+  assert.equal(await result.inputValue(),"ＨＥＬＬＯ　Ｗｏｒｌｄ！　中文①㎏\nＯ’ＮＥＩＬＬ");
   await page.locator('[data-testid="quick-case-mode"]').selectOption("halfwidth");
   const pending=page.waitForEvent("download",{timeout:30000});
   await page.getByRole("button",{name:"Save as TXT"}).click();
