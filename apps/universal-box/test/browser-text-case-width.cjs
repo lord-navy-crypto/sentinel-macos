@@ -1,0 +1,38 @@
+"use strict";
+const {test}=require("node:test"),assert=require("node:assert/strict"),fs=require("node:fs"),path=require("node:path");
+const {chromium}=require("playwright");
+const url=process.env.UNIVERSAL_BOX_UI_URL||"http://127.0.0.1:1420/";
+const dest=path.join(__dirname,"browser-test-results","text-case-width");
+fs.mkdirSync(dest,{recursive:true});
+test("Case and width tool preserves Chinese and line endings and exports actual TXT",{timeout:65000},async()=>{
+ const browser=await chromium.launch({headless:true,args:["--no-sandbox"]});
+ const page=await browser.newPage({acceptDownloads:true,viewport:{width:1366,height:900}});
+ const errors=[];page.on("pageerror",e=>errors.push(e.message));
+ try{
+  await page.goto(url,{waitUntil:"domcontentloaded"});await page.locator(".app-shell").waitFor();
+  await page.locator('.sidebar button.nav-item[aria-label^="All tools"]').click();
+  await page.locator("#all-tools-search").fill("Text Case & Fullwidth");
+  assert.equal(await page.locator(".catalog-open").count(),1);
+  await page.locator(".catalog-open").click();
+  await page.locator('[data-testid="quick-case-source"]').waitFor();
+  assert.equal(await page.locator('[data-testid="quick-case-source"]').inputValue(),"");
+  const source="ＨＥＬＬＯ　Ｗｏｒｌｄ！ 中文①㎏\nＯ’ＮＥＩＬＬ";
+  await page.locator('[data-testid="quick-case-source"]').fill(source);
+  await page.locator('[data-testid="quick-case-mode"]').selectOption("halfwidth");
+  const result=page.locator("#quick-result");
+  const expected="HELLO World! 中文①㎏\nO’NEILL";
+  assert.equal(await result.inputValue(),expected);
+  await page.locator('[data-testid="quick-case-mode"]').selectOption("lower");
+  assert.equal(await result.inputValue(),source.toLowerCase());
+  await page.locator('[data-testid="quick-case-mode"]').selectOption("halfwidth");
+  const pending=page.waitForEvent("download",{timeout:30000});
+  await page.getByRole("button",{name:"Save as TXT"}).click();
+  const download=await pending;
+  assert.equal(download.suggestedFilename(),"converted-text.txt");
+  const file=path.join(dest,"case-width-output.txt");
+  await download.saveAs(file);
+  assert.equal(fs.readFileSync(file,"utf8"),expected);
+  await page.screenshot({path:path.join(dest,"case-width-tool.png"),fullPage:true});
+  assert.deepEqual(errors,[]);
+ }finally{await page.close();await browser.close();}
+});
