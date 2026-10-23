@@ -106,6 +106,9 @@ export function processBatchTextFiles(sources:readonly BatchTextSource[],mode:Ba
   if(!(["replace","lf","crlf","remove-bom","trim-trailing","remove-blank","dedupe-lines","multi-replace","prefix-lines","suffix-lines"] as string[]).includes(mode))throw Error("Unknown batch text operation.");
   if(mode==="replace"&&(!find||find.length>1000||replacement.length>10000))
     throw Error("Enter a literal search phrase (1–1,000 chars) and up to 10,000 replacement characters.");
+  const lineMode=(mode==="trim-trailing"||mode==="remove-blank"||mode==="dedupe-lines"||mode==="prefix-lines"||mode==="suffix-lines");
+  if(lineMode&&sources.some(file=>/\.(csv|tsv)$/iu.test(file.name)))
+    throw Error("This line cleanup is for TXT/Markdown only. CSV/TSV may contain multiline quoted cells; use the CSV Table Desk.");
   const rules=mode==="multi-replace"?parseLiteralReplacementRules(ruleText):[];
   if((mode==="prefix-lines"||mode==="suffix-lines")&&
     (!affix||affix.length>100||/[\u0000-\u001f\u007f]/u.test(affix)))
@@ -118,8 +121,7 @@ export function processBatchTextFiles(sources:readonly BatchTextSource[],mode:Ba
     try {original=decoder.decode(containsBom?bytes.subarray(3):bytes);}
     catch{throw Error(file.name+": invalid UTF-8. This tool does not guess or rewrite legacy encodings.");}
     if(original.includes("\u0000"))throw Error(file.name+": binary/NUL data detected. This tool only handles UTF-8 text.");
-    if((mode==="trim-trailing"||mode==="remove-blank"||mode==="dedupe-lines"||mode==="prefix-lines"||mode==="suffix-lines")&&/\.(csv|tsv)$/iu.test(file.name))
-      throw Error(file.name+": this line cleanup is for TXT/Markdown only. CSV/TSV can contain quoted multi-line fields; use the CSV table desk instead.");
+
     let next=original, matches=0;
     let ruleCounts:number[]|undefined;
     if(mode==="replace"){
