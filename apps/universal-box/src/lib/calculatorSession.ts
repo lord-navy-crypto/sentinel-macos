@@ -44,8 +44,16 @@ export function calculateExpression(source:string,lastAns:number|null=null):{
  result:string;numericAns:number|null;
 }{
  const expression=source.trim();
- if(!expression||expression.length>180||/[\n\r;]/u.test(expression))
+ if(!expression||expression.length>180||/[\n\r]/u.test(expression))
   throw Error("Enter one calculator expression (1–180 characters).");
+ // Math.js uses semicolons for matrix rows. Do not confuse them with statements.
+ let bracketDepth=0;
+ for(const ch of expression){
+  if(ch==="[")bracketDepth++;
+  else if(ch==="]")bracketDepth--;
+  else if(ch===";"&&bracketDepth<1)
+   throw Error("Enter one calculator expression (1–180 characters).");
+ }
  const ast=parse(expression);
  ast.traverse(node=>{
   if(!ALLOWED_NODES.has(node.type))
