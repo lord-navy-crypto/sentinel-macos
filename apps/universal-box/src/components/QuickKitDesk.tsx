@@ -111,7 +111,7 @@ export default function QuickKitDesk({initialMode="text"}:{initialMode?:QuickKit
       {!replaceResult.error&&<p className="subtle">{replaceResult.count} matches</p>}
     </>}
     {mode==="case-width"&&<>
-      <p className="subtle">将文字转成大写、小写、英文单词首字母大写，或只将全角 ASCII/空格转为半角。保留换行与中文原文；不使用可能改变其他汉字兼容字符的整体 NFKC 规范化。</p>
+      <p className="subtle">将文字转成大写、小写、英文单词首字母大写，或在全角与半角 ASCII/空格之间双向转换。保留换行与中文原文；不使用可能改变其他汉字兼容字符的整体 NFKC 规范化。</p>
       <label className="field-label" htmlFor="quick-case-source">原始文字 / Source text</label>
       <textarea id="quick-case-source" data-testid="quick-case-source" className="field text-editor"
         rows={6} maxLength={200000} value={caseSource} onChange={e=>{setCaseSource(e.target.value);setStatus("");}}/>
@@ -122,6 +122,7 @@ export default function QuickKitDesk({initialMode="text"}:{initialMode?:QuickKit
         <option value="lower">lowercase / 小写</option>
         <option value="title">Simple Title Case / 英文首字母大写</option>
         <option value="halfwidth">Fullwidth ASCII → Halfwidth / 全角转半角</option>
+        <option value="fullwidth">Halfwidth ASCII → Fullwidth / 半角转全角</option>
       </select>
     </>}
     {(mode==="text"||mode==="links"||mode==="replace"||mode==="case-width")&&<>
