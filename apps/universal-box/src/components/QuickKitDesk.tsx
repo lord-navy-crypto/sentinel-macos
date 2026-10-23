@@ -130,7 +130,7 @@ export default function QuickKitDesk({initialMode="text"}:{initialMode?:QuickKit
       <textarea id="quick-result" className="field text-editor" rows={6} value={output} readOnly aria-label="Quick Tool output"/>
       <div className="actions">
         <button className="primary-button" type="button" disabled={!!outputError} onClick={()=>{void copyResult();}}>Copy result</button>
-        <button className="secondary-button" type="button" disabled={!!(mode==="text"?textResult.error:mode==="links"?linkResult.error:replaceResult.error)} onClick={()=>{void saveResult();}}>Save as TXT</button>
+        <button className="secondary-button" type="button" disabled={!!outputError} onClick={()=>{void saveResult();}}>Save as TXT</button>
       </div>
       {outputError&&<p role="alert" className="subtle">{outputError}</p>}
     </>}
