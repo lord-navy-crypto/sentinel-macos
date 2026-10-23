@@ -68,6 +68,28 @@ test("Scientific XY scatter plots real numeric positions and exports unchanged o
   assert.match(residualCsv,/-1\.5e-3,-0\.50,/u);
   assert.match(residualCsv,/Predicted Y,Residual \(observed - predicted\)/u);
   assert.equal(residualCsv.trim().split(/\r\n/u).length,4);
+  // User-supplied ±Y uncertainty: do not fabricate values from regression residuals.
+  await page.locator("#chart-csv").fill(
+   "Time (s),Voltage (V),Y Uncertainty (V)\n0.0000123000,1.2300,0.0500\n"+
+   "0.0000123000,2.000,0.25\n-1.5e-3,-0.50,2e-2");
+  await page.locator('[data-testid="chart-uncertainty-column"]').selectOption("2");
+  const barsImage=await page.locator('[data-testid="chart-preview-image"]').getAttribute("src");
+  assert.ok(barsImage?.startsWith("data:image/svg+xml"));
+  const barsSvg=decodeURIComponent(barsImage.split(",")[1]);
+  assert.equal((barsSvg.match(/data-series="y-uncertainty"/g)||[]).length,3);
+  assert.ok(barsSvg.includes('data-series="least-squares"'),"Unweighted fit stays available");
+  const uncertaintyCsv=await save(page,'[data-testid="chart-save-csv"]',"universal-box-chart-data.csv");
+  assert.match(uncertaintyCsv,/Time \(s\),Voltage \(V\),Y Uncertainty \(V\)/u);
+  assert.match(uncertaintyCsv,/0\.0000123000,1\.2300,0\.0500/u);
+  assert.match(uncertaintyCsv,/-1\.5e-3,-0\.50,2e-2/u);
+  const uncertaintySvg=await save(page,'[data-testid="chart-save-svg"]',"universal-box-data-chart.svg");
+  assert.equal((uncertaintySvg.match(/data-series="y-uncertainty"/g)||[]).length,3);
+  const residualWithBars=await page.locator('[data-testid="chart-residual-preview-image"]').getAttribute("src");
+  assert.ok(!decodeURIComponent(residualWithBars.split(",")[1]).includes('data-series="y-uncertainty"'),
+   "Residual plot must not pass off instrument uncertainty as residuals");
+  await page.locator("#chart-csv").fill("X,Y,Error\n1,2,-0.4");
+  assert.match(await page.getByRole("alert").last().innerText(),/requires Y uncertainty/i);
+  await page.locator('[data-testid="chart-uncertainty-column"]').selectOption("none");
   await page.locator("#chart-csv").fill("X,Y\n1,=HYPERLINK('bad')");
   assert.match(await page.getByRole("alert").last().innerText(),/requires finite decimal/i);
   assert.equal(await page.locator('[data-testid="chart-save-svg"]').count(),0,"Unsafe source has no export");
