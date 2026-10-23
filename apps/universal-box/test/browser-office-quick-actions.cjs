@@ -49,6 +49,14 @@ test("Quick Text Cleaner user-click plain paste never imports formatting, copies
   assert.equal(await source.inputValue(),"","Clipboard must not be read or prefilled automatically.");
   await page.evaluate(()=>navigator.clipboard.writeText("  合同   草稿\n第二行\n"));
   await page.locator('[data-testid="quick-paste-plain"]').click();
+  await page.waitForFunction(()=>{
+    const text=document.querySelector("#quick-text-input")?.value??"";
+    const status=Array.from(document.querySelectorAll("p[role='status']"))
+      .map(x=>x.textContent??"").join(" ");
+    return text.length>0||/Plain-text paste unavailable/.test(status);
+  },null,{timeout:15000});
+  const pasteStatus=await page.locator('p[role="status"]').last().innerText();
+  assert.doesNotMatch(pasteStatus,/Plain-text paste unavailable/);
   assert.equal(await source.inputValue(),"  合同   草稿\n第二行\n");
   assert.equal(await page.locator("#quick-result").inputValue(),"合同 草稿\n第二行\n");
   await page.locator('[data-testid="quick-copy-result"]').click();
