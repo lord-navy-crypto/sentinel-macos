@@ -47,8 +47,8 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
-      - name: Install dependencies
-        run: npm install
+      - name: Install reproducible dependencies
+        run: npm ci
 
       - name: Check TypeScript and build frontend
         run: npm run build
@@ -67,6 +67,11 @@ jobs:
 
       - name: Rust storage validation tests
         run: cargo test --manifest-path src-tauri/Cargo.toml
+
+      - name: Validate native release QA scripts
+        run: |
+          bash -n scripts/verify-macos-dmg.sh
+          bash -n scripts/build-notarized-macos.sh
 
       - name: Build macOS desktop bundle
         run: npm run tauri:build -- --target ${{ matrix.target }}
@@ -104,10 +109,29 @@ jobs:
           echo "Validated app executable: $EXECUTABLE"
           echo "Validated macOS app icon: $ICON"
           echo "Verified DMG and mounted application for ${{ matrix.target }}"
+      - name: Verify DMG architecture and write artifact provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          DMG="$(find src-tauri/target/${{ matrix.target }}/release/bundle/dmg -maxdepth 1 -name '*.dmg' -print -quit)"
+          test -n "$DMG"
+          bash scripts/verify-macos-dmg.sh test "$DMG" "${{ matrix.target }}"
+          shasum -a 256 "$DMG" > "$DMG.sha256"
+          {
+            echo "Sentinel Box TEST DMG — ad-hoc signed, NOT Apple notarized"
+            echo "source_commit=$(git rev-parse HEAD)"
+            echo "architecture=${{ matrix.target }}"
+            echo "artifact=$(basename "$DMG")"
+            echo "sha256=$(shasum -a 256 "$DMG" | awk '{print $1}')"
+          } > "$DMG.build.txt"
+
       - name: Upload DMG for manual testing
         uses: actions/upload-artifact@v4
         with:
           name: SentinelBox-${{ matrix.target }}
-          path: apps/universal-box/src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
+          path: |
+            apps/universal-box/src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
+            apps/universal-box/src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg.sha256
+            apps/universal-box/src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg.build.txt
           if-no-files-found: error
           retention-days: 14
