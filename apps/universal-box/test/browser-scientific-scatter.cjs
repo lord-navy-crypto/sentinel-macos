@@ -50,7 +50,7 @@ test("Scientific XY scatter plots real numeric positions and exports unchanged o
   const fittedSvg=await save(page,'[data-testid="chart-save-svg"]',"universal-box-data-chart.svg");
   assert.match(fittedSvg,/data-series="least-squares"/u);
   const fitReport=await save(page,'[data-testid="chart-export-fit"]',"universal-box-linear-fit.txt");
-  assert.match(fitReport,/Method: ordinary least squares \\(unweighted\\)/u);
+  assert.ok(fitReport.includes("Method: ordinary least squares (unweighted)"));
   assert.match(fitReport,/Observations: 3/u);
   assert.match(fitReport,/R squared: /u);
   await page.locator("#chart-csv").fill("X,Y\n1,=HYPERLINK('bad')");
