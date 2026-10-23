@@ -22,6 +22,10 @@ export function chartModel(
  if(!Number.isSafeInteger(categoryColumn)||categoryColumn<0||categoryColumn>=table.headers.length
    ||!Number.isSafeInteger(valueColumn)||valueColumn<0||valueColumn>=table.headers.length)
    throw Error("Choose valid category and numeric columns.");
+ if(uncertaintyColumn!==null&&(!Number.isInteger(uncertaintyColumn)||
+  uncertaintyColumn<0||uncertaintyColumn>=table.headers.length||
+  uncertaintyColumn===xColumn||uncertaintyColumn===yColumn))
+  throw Error("Select a separate numeric Y uncertainty column.");
  if(title.length>80||unit.length>18)throw Error("Chart title/unit is too long.");
  const groups=new Map<string,{sum:number;items:number}>();
  for(let i=0;i<table.rows.length;i++){
@@ -99,14 +103,15 @@ export function chartSvg(chart:ChartData):string{
 
 
 /** Scientific numeric XY scatter; unlike category charts it NEVER aggregates/reorders rows. */
-export type ScatterPoint={x:number;y:number;xText:string;yText:string};
+export type ScatterPoint={x:number;y:number;xText:string;yText:string;yError?:number;yErrorText?:string};
 export type ScatterChartData={
  kind:"scatter";title:string;unit:string;xLabel:string;yLabel:string;
- points:ScatterPoint[];minimum:number;maximum:number;
+ points:ScatterPoint[];minimum:number;maximum:number;uncertaintyLabel?:string;
 };
 const decimal=/^-?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/u;
 export function scatterChartModel(
  table:DataTable,xColumn:number,yColumn:number,title:string,unit:string,
+ uncertaintyColumn:number|null=null,
 ):ScatterChartData{
  if(!Number.isInteger(xColumn)||!Number.isInteger(yColumn)||xColumn===yColumn||
   xColumn<0||yColumn<0||xColumn>=table.headers.length||yColumn>=table.headers.length)
@@ -117,19 +122,31 @@ export function scatterChartModel(
  for(let index=0;index<table.rows.length;index++){
   const row=table.rows[index];
   const xText=(row[xColumn]??"").trim(),yText=(row[yColumn]??"").trim();
+  const uncertaintyText=uncertaintyColumn===null?"":(row[uncertaintyColumn]??"").trim();
   // A blank pair represents an explicitly missing observation, never zero.
-  if(!xText&&!yText)continue;
+  if(!xText&&!yText){
+   if(uncertaintyText)throw Error("Scatter row "+(index+2)+" has uncertainty without XY measurements.");
+   continue;
+  }
   if(!decimal.test(xText)||!decimal.test(yText))
    throw Error("Scatter row "+(index+2)+" requires finite decimal X and Y numbers.");
   const x=Number(xText),y=Number(yText);
   if(!Number.isFinite(x)||!Number.isFinite(y)||Math.abs(x)>1e12||Math.abs(y)>1e12)
    throw Error("Scatter row "+(index+2)+" exceeds supported numeric range ±1e12.");
-  points.push({x,y,xText,yText});
+  if(uncertaintyColumn!==null){
+   if(!decimal.test(uncertaintyText))
+    throw Error("Scatter row "+(index+2)+" requires a nonnegative numeric Y uncertainty.");
+   const yError=Number(uncertaintyText);
+   if(!Number.isFinite(yError)||yError<0||yError>1e12)
+    throw Error("Scatter row "+(index+2)+" requires Y uncertainty from 0 to 1e12.");
+   points.push({x,y,xText,yText,yError,yErrorText:uncertaintyText});
+  }else points.push({x,y,xText,yText});
  }
  if(!points.length)throw Error("No numeric XY pairs found.");
  const values=points.map(p=>p.y);
  return {
   kind:"scatter",points,title,unit,
+  uncertaintyLabel:uncertaintyColumn===null?undefined:table.headers[uncertaintyColumn],
   xLabel:table.headers[xColumn],yLabel:table.headers[yColumn],
   minimum:Math.min(...values),maximum:Math.max(...values),
  };
@@ -138,13 +155,19 @@ export function scatterChartModel(
 export function scatterChartCsv(data:ScatterChartData):string{
  if(data.kind!=="scatter"||data.points.length<1||data.points.length>250)
   throw Error("Invalid scatter export.");
- const headers=tableToCsv({headers:[data.xLabel,data.yLabel],rows:[]});
+ const headers=tableToCsv({headers:[data.xLabel,data.yLabel,...(data.uncertaintyLabel===undefined?[]:[data.uncertaintyLabel])],rows:[]});
  const rows=data.points.map(p=>{
   if(!decimal.test(p.xText)||!decimal.test(p.yText)||
    !Number.isFinite(p.x)||!Number.isFinite(p.y)||
    p.x!==Number(p.xText)||p.y!==Number(p.yText))
     throw Error("Unverified numerical point cannot be exported.");
-  // Numeric cells cannot contain formula tokens, commas or newlines by regex.
+  // Numeric cells cannot contain spreadsheet formula tokens, commas or newlines.
+  if(data.uncertaintyLabel!==undefined){
+   if(p.yErrorText===undefined||!decimal.test(p.yErrorText)||
+      p.yError!==Number(p.yErrorText)||!Number.isFinite(p.yError)||p.yError<0)
+    throw Error("Unverified uncertainty cannot be exported.");
+   return p.xText+","+p.yText+","+p.yErrorText;
+  }
   return p.xText+","+p.yText;
  });
  return headers+"\r\n"+rows.join("\r\n")+"\r\n";
@@ -165,7 +188,8 @@ export function scatterChartSvg(chart:ScatterChartData,fit:LinearFit|null=null,z
  const W=960,H=540,left=100,right=44,top=98,bottom=94;
  const pw=W-left-right,ph=H-top-bottom;
  const [xMin,xMax]=safeScatterDomain(chart.points.map(p=>p.x));
- const [yMin,yMax]=safeScatterDomain(chart.points.map(p=>p.y));
+ const [yMin,yMax]=safeScatterDomain(chart.points.flatMap(p=>
+  p.yError===undefined?[p.y]:[p.y-p.yError,p.y+p.yError]));
  if(![xMin,xMax,yMin,yMax].every(Number.isFinite)||xMax<=xMin||yMax<=yMin)
   throw Error("Scatter axis scaling is not finite.");
  const xp=(x:number)=>left+((x-xMin)/(xMax-xMin))*pw;
@@ -184,6 +208,17 @@ export function scatterChartSvg(chart:ScatterChartData,fit:LinearFit|null=null,z
   '<line data-series="residual-zero" x1="'+left+'" y1="'+yp(0).toFixed(2)+'" x2="'+(left+pw)+'" y2="'+yp(0).toFixed(2)+'" stroke="#c2410c" stroke-width="2" stroke-dasharray="6 5"/>':"";
  const fitLine=fit?
   '<g clip-path="url(#scatter-plot-clip)"><line data-series="least-squares" x1="'+xp(fit.xMin).toFixed(2)+'" y1="'+yp(fit.yMean+fit.slope*(fit.xMin-fit.xMean)).toFixed(2)+'" x2="'+xp(fit.xMax).toFixed(2)+'" y2="'+yp(fit.yMean+fit.slope*(fit.xMax-fit.xMean)).toFixed(2)+'" stroke="#d97706" stroke-width="3.5" stroke-dasharray="9 5"/></g>':"";
+ const errorBars=chart.uncertaintyLabel===undefined?"":chart.points.map(p=>{
+  if(p.yError===undefined||!Number.isFinite(p.yError)||p.yError<0)
+   throw Error("Invalid chart uncertainty.");
+  const x=xp(p.x).toFixed(2),upper=yp(p.y+p.yError).toFixed(2),
+   lower=yp(p.y-p.yError).toFixed(2),capLeft=(xp(p.x)-6).toFixed(2),
+   capRight=(xp(p.x)+6).toFixed(2);
+  return '<g data-series="y-uncertainty" stroke="#64748b" stroke-width="2" fill="none">'+
+   '<line x1="'+x+'" y1="'+upper+'" x2="'+x+'" y2="'+lower+'"/>'+
+   '<line x1="'+capLeft+'" y1="'+upper+'" x2="'+capRight+'" y2="'+upper+'"/>'+
+   '<line x1="'+capLeft+'" y1="'+lower+'" x2="'+capRight+'" y2="'+lower+'"/></g>';
+ }).join("");
  const dots=chart.points.map(p=>'<circle cx="'+xp(p.x).toFixed(2)+'" cy="'+yp(p.y).toFixed(2)+'" r="5" fill="'+point+'" fill-opacity=".83" stroke="#ffffff" stroke-width="1.2"><title>'+
    escapeXml(p.xText+", "+p.yText)+'</title></circle>').join("");
  return '<?xml version="1.0" encoding="UTF-8"?>\n'+
@@ -192,7 +227,7 @@ export function scatterChartSvg(chart:ScatterChartData,fit:LinearFit|null=null,z
   '<text x="100" y="48" font-family="sans-serif" font-weight="700" font-size="25" fill="'+ink+'">'+escapeXml(chart.title||"XY scatter plot")+'</text>'+
   '<text x="100" y="72" font-family="sans-serif" font-size="13" fill="'+muted+'">Scientific XY scatter · '+chart.points.length+' observations</text>'+
   '<defs><clipPath id="scatter-plot-clip"><rect x="'+left+'" y="'+top+'" width="'+pw+'" height="'+ph+'"/></clipPath></defs>'+
-  '<g font-family="sans-serif">'+marks+zeroLine+fitLine+
+  '<g font-family="sans-serif">'+marks+zeroLine+fitLine+errorBars+
   '<text x="508" y="513" text-anchor="middle" font-size="16" fill="'+ink+'">'+escapeXml(chart.xLabel)+'</text>'+
   '<text x="23" y="274" transform="rotate(-90 23 274)" text-anchor="middle" font-size="16" fill="'+ink+'">'+escapeXml(chart.yLabel+(chart.unit?" ("+chart.unit+")":""))+'</text>'+
   dots+'</g></svg>\n';
