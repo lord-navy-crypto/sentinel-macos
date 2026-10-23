@@ -89,7 +89,7 @@ export default function TypographyDesk(){
    <label className="field-label">Font size (pt)
     <select className="field" data-testid="typography-size" value={options.sizePt}
      onChange={e=>update("sizePt",Number(e.target.value))}>
-     {[8,9,10,11,12,13,14,16,18,20,24,28,32,36,48].map(n=><option key={n} value={n}>{n} pt</option>)}
+     {Array.from({length:41},(_,i)=>i+8).map(n=><option key={n} value={n}>{n} pt</option>)}
     </select>
    </label>
    <label className="field-label">Alignment
