@@ -63,7 +63,7 @@ test("handles GitHub REST list pages with exactly 100 elements and no requested 
  assert.match(requests[0].url,/state=open&per_page=100&page=1/u);
  assert.equal(requests[0].options.headers.Authorization,"Bearer sample-token");
  assert.equal(requests[0].options.method,undefined);
- assert.throws(()=>analyzePrStack(data).maxDepth<1?new Error("bad"):null,/bad|/);
+ assert.equal(analyzePrStack(data).roots.length,101);
 });
 test("the API reader rejects bad repository names and incomplete HTTP responses",async()=>{
  await assert.rejects(()=>listOpenPrs("invalid"),/owner\/repo/);
