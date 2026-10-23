@@ -1,0 +1,97 @@
+/** Explicit, offline processing of bounded UTF-8 office text files. Never overwrites originals. */
+import JSZip from "jszip";
+import {replaceTextLiteral} from "./quickBatchText";
+
+export type BatchTextMode="replace"|"lf"|"crlf"|"remove-bom";
+export type BatchTextSource={name:string;bytes:Uint8Array};
+export type BatchTextResult={
+  name:string;outputName:string;matches:number;changed:boolean;
+  beforeBytes:number;afterBytes:number;preview:string;bytes:Uint8Array;
+};
+const EXT=/\.(txt|md|markdown|csv|tsv)$/iu;
+const MAX_FILES=20,MAX_FILE_BYTES=200_000,MAX_TOTAL_BYTES=2_000_000;
+const encoder=new TextEncoder();
+const decoder=new TextDecoder("utf-8",{fatal:true});
+const bom=new Uint8Array([0xef,0xbb,0xbf]);
+
+export function validateBatchTextSelection(files:readonly {name:string;size:number}[]):void{
+  if(files.length<1||files.length>MAX_FILES)throw Error("Select 1–20 local TXT, MD, CSV or TSV files.");
+  const seen=new Set<string>();
+  let total=0;
+  for(const file of files){
+    if(!file.name||file.name.length>180||/[\\/\u0000-\u001f\u007f]/u.test(file.name)||file.name==="."||file.name===".."||!EXT.test(file.name))
+      throw Error("Only safe .txt, .md, .markdown, .csv and .tsv filenames are supported.");
+    const key=file.name.toLocaleLowerCase("en");
+    if(seen.has(key))throw Error("Duplicate filenames (ignoring case) must be renamed before selection.");
+    seen.add(key);
+    if(!Number.isSafeInteger(file.size)||file.size<1||file.size>MAX_FILE_BYTES)
+      throw Error("Each input file must contain 1–200,000 bytes.");
+    total+=file.size;
+  }
+  if(total>MAX_TOTAL_BYTES)throw Error("Combined input exceeds 2 MB.");
+}
+
+function hasBom(data:Uint8Array):boolean{
+  return data.length>=3&&data[0]===bom[0]&&data[1]===bom[1]&&data[2]===bom[2];
+}
+function occurrences(value:string,regexp:RegExp):number{return Array.from(value.matchAll(regexp)).length;}
+
+export function processBatchTextFiles(sources:readonly BatchTextSource[],mode:BatchTextMode,find="",replacement=""):BatchTextResult[]{
+  validateBatchTextSelection(sources.map(x=>({name:x.name,size:x.bytes.length})));
+  if(mode!=="replace"&&mode!=="lf"&&mode!=="crlf"&&mode!=="remove-bom")throw Error("Unknown batch text operation.");
+  if(mode==="replace"&&(!find||find.length>1000||replacement.length>10000))
+    throw Error("Enter a literal search phrase (1–1,000 chars) and up to 10,000 replacement characters.");
+  const results:BatchTextResult[]=[];
+  for(const file of sources){
+    const bytes=file.bytes;
+    const containsBom=hasBom(bytes);
+    let original:string;
+    try {original=decoder.decode(containsBom?bytes.subarray(3):bytes);}
+    catch{throw Error(file.name+": invalid UTF-8. This tool does not guess or rewrite legacy encodings.");}
+    if(original.includes("\u0000"))throw Error(file.name+": binary/NUL data detected. This tool only handles UTF-8 text.");
+    let next=original, matches=0;
+    if(mode==="replace"){
+      ({text:next,count:matches}=replaceTextLiteral(original,find,replacement));
+    }else if(mode==="lf"){
+      matches=occurrences(original,/\r\n|\r/gu);
+      next=original.replace(/\r\n?|\n/gu,"\n");
+    }else if(mode==="crlf"){
+      matches=occurrences(original,/\r(?!\n)|(?<!\r)\n/gu);
+      next=original.replace(/\r\n?|\n/gu,"\r\n");
+    }else if(mode==="remove-bom"){
+      matches=containsBom?1:0;
+    }
+    const nextBytes=encoder.encode((containsBom&&mode!=="remove-bom"?"\ufeff":"")+next);
+    if(nextBytes.length>MAX_FILE_BYTES*2)throw Error(file.name+": transformed file exceeds 400 KB.");
+    const changed=bytes.length!==nextBytes.length||bytes.some((b,i)=>b!==nextBytes[i]);
+    results.push({
+      name:file.name,outputName:"processed/"+file.name,
+      matches,changed,beforeBytes:bytes.length,afterBytes:nextBytes.length,
+      preview:next.slice(0,250),bytes:nextBytes,
+    });
+  }
+  return results;
+}
+
+export async function zipBatchTextResults(rows:readonly BatchTextResult[],mode:BatchTextMode):Promise<Uint8Array>{
+  const changed=rows.filter(row=>row.changed);
+  if(!changed.length)throw Error("No changes to save. Originals were not modified.");
+  if(changed.length>MAX_FILES)throw Error("Too many output files.");
+  const zip=new JSZip();
+  for(const row of changed)zip.file(row.outputName,row.bytes);
+  const manifest={version:1,operation:mode,files:rows.map(({name,outputName,matches,changed,beforeBytes,afterBytes})=>({
+    original:name,output:changed?outputName:null,matches,changed,beforeBytes,afterBytes,
+  }))};
+  zip.file("sentinel-box-batch-text-manifest.json",JSON.stringify(manifest,null,2)+"\n");
+  const result=await zip.generateAsync({type:"uint8array",compression:"DEFLATE",compressionOptions:{level:3}});
+  if(result.length>20_000_000)throw Error("ZIP output exceeds the 20 MB export limit.");
+  const check=await JSZip.loadAsync(result,{checkCRC32:true});
+  for(const row of changed){
+    const found=check.file(row.outputName);
+    if(!found)throw Error("ZIP verification failed: missing "+row.name);
+    const actual=await found.async("uint8array");
+    if(actual.length!==row.bytes.length||actual.some((b,i)=>b!==row.bytes[i]))
+      throw Error("ZIP verification failed: altered bytes for "+row.name);
+  }
+  return result;
+}
