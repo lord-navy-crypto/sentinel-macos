@@ -1,6 +1,6 @@
 import {type ChangeEvent,useMemo,useState} from "react";
 import {exportFile} from "../lib/output";
-import {chartModel,chartSvg,scatterChartModel,scatterChartSvg,parseChartCsv,type ChartKind,type ChartAggregate} from "../lib/chartViz";
+import {chartModel,chartSvg,scatterChartModel,scatterChartSvg,scatterChartCsv,parseChartCsv,type ChartKind,type ChartAggregate} from "../lib/chartViz";
 import {tableToCsv} from "../lib/tableTools";
 const errorMessage=(e:unknown)=>e instanceof Error?e.message:String(e);
 const SAMPLE="Month,Revenue,Orders\nJanuary,1420,24\nFebruary,1890,30\nMarch,1640,26\nApril,2180,38\nMay,2330,41\nJune,2710,48";
@@ -53,7 +53,7 @@ export default function ChartDesk(){
    try{
      const data=visualization.data;
      const csv=data.kind==="scatter"?
-       tableToCsv({headers:[data.xLabel,data.yLabel],rows:data.points.map(p=>[p.xText,p.yText])}):
+       scatterChartCsv(data):
        tableToCsv({headers:["Category","Value","Source records"],
          rows:data.points.map(p=>[p.label,String(p.value),String(p.items)])});
      const saved=await exportFile("universal-box-chart-data.csv",csv);
