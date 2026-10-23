@@ -8,8 +8,11 @@ test("Live graph outputs genuine high-res PNG plus unchanged SVG",{timeout:85000
  const page=await browser.newPage({acceptDownloads:true,viewport:{width:1400,height:920}});
  const errors=[];page.on("pageerror",e=>errors.push(e.message));
  async function download(btn,name){
-  const pending=page.waitForEvent("download",{timeout:30000});
-  await btn.click();const file=await pending;
+  assert.equal(await btn.count(),1,"Expected one visible graph export control for "+name);
+  const [file]=await Promise.all([
+    page.waitForEvent("download",{timeout:15000}),
+    btn.click({timeout:15000}),
+  ]);
   assert.equal(file.suggestedFilename(),name);
   const target=path.join(dir,name);await file.saveAs(target);return fs.readFileSync(target);
  }
