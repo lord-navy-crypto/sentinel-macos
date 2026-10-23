@@ -6,13 +6,15 @@ import {
 import {exportFile} from "../lib/output";
 import {replaceTextLiteral} from "../lib/quickBatchText";
 import {addClip,combineClips} from "../lib/multiCopy";
+import {transformTextCase,type TextCaseMode} from "../lib/textCaseWidth";
 
-export type QuickKitMode="text"|"links"|"dates"|"grades"|"multi-copy"|"replace";
+export type QuickKitMode="text"|"links"|"dates"|"grades"|"multi-copy"|"replace"|"case-width";
 const title:Record<QuickKitMode,string>={
   text:"Text cleaner · 文本整理",links:"Tracking-link cleaner · 链接净化",
   dates:"Date planner · 日期计算",grades:"Weighted grades · 成绩规划",
   "multi-copy":"Multi-copy · 多段合并复制",
   replace:"Literal replace · 批量查找替换",
+  "case-width":"Case & width · 大小写和全角转半角",
 };
 const number=(n:number)=>String(Number(n.toFixed(6)));
 export default function QuickKitDesk({initialMode="text"}:{initialMode?:QuickKitMode}){
@@ -29,6 +31,8 @@ export default function QuickKitDesk({initialMode="text"}:{initialMode?:QuickKit
   const [status,setStatus]=useState("");
   const [findLiteral,setFindLiteral]=useState("");
   const [replacement,setReplacement]=useState("");
+  const [caseSource,setCaseSource]=useState("");
+  const [caseMode,setCaseMode]=useState<TextCaseMode>("upper");
   const [clipDraft,setClipDraft]=useState("");
   const [clips,setClips]=useState<string[]>([]);
   const [clipSeparator,setClipSeparator]=useState<"newline"|"blank"|"space">("newline");
@@ -51,7 +55,14 @@ export default function QuickKitDesk({initialMode="text"}:{initialMode?:QuickKit
     catch(e){return {value:null,error:String(e instanceof Error?e.message:e)};}
   },[gradeData,target]);
   const replaceResult=useMemo(()=>{try{return {...replaceTextLiteral(source,findLiteral,replacement),error:""};}catch(e){return {text:"",count:0,error:String(e instanceof Error?e.message:e)};}},[source,findLiteral,replacement]);
-  const output=mode==="text"?textResult.value:mode==="links"?linkResult.text:mode==="replace"?replaceResult.text:"";
+  const caseResult=useMemo(()=>{
+    try{return {value:transformTextCase(caseSource,caseMode),error:""};}
+    catch(e){return {value:"",error:String(e instanceof Error?e.message:e)};}
+  },[caseSource,caseMode]);
+  const output=mode==="text"?textResult.value:mode==="links"?linkResult.text:
+    mode==="replace"?replaceResult.text:mode==="case-width"?caseResult.value:"";
+  const outputError=mode==="text"?textResult.error:mode==="links"?linkResult.error:
+    mode==="replace"?replaceResult.error:mode==="case-width"?caseResult.error:"";
   async function copyResult(){
     try{
       await navigator.clipboard.writeText(output);
@@ -60,7 +71,7 @@ export default function QuickKitDesk({initialMode="text"}:{initialMode?:QuickKit
   }
   async function saveResult(){
     try{
-      const saved=await exportFile(mode==="links"?"clean-links.txt":mode==="replace"?"replaced-text.txt":"clean-text.txt",output);
+      const saved=await exportFile(mode==="links"?"clean-links.txt":mode==="replace"?"replaced-text.txt":mode==="case-width"?"converted-text.txt":"clean-text.txt",output);
       setStatus(saved?"Saved locally.":"Save cancelled.");
     }catch(e){setStatus(String(e instanceof Error?e.message:e));}
   }
@@ -68,9 +79,9 @@ export default function QuickKitDesk({initialMode="text"}:{initialMode?:QuickKit
   return <section className="panel">
     <p className="eyebrow">QUICKKIT · 轻量快捷工具 · OFFLINE</p>
     <h2>Quick Tools / 快捷小工具</h2>
-    <p className="subtle">Four tiny tasks without accounts or online uploads. Local input stays in this window; text/links are exported only when you click. Date calculations use calendar days, not elapsed 24-hour periods.</p>
+    <p className="subtle">Small tasks without accounts or online uploads. Local input stays in this window; text/links are exported only when you click. Date calculations use calendar days, not elapsed 24-hour periods.</p>
     <div className="pill-row" role="group" aria-label="Quick tool">
-      {(["text","links","replace","multi-copy","dates","grades"] as const).map(key=><button type="button" key={key}
+      {(["text","links","replace","case-width","multi-copy","dates","grades"] as const).map(key=><button type="button" key={key}
         className={mode===key?"pill active-pill":"pill"} onClick={()=>{setMode(key);setStatus("");}}>{title[key]}</button>)}
     </div>
     {mode==="text"&&<>
@@ -99,14 +110,28 @@ export default function QuickKitDesk({initialMode="text"}:{initialMode?:QuickKit
       </div>
       {!replaceResult.error&&<p className="subtle">{replaceResult.count} matches</p>}
     </>}
-    {(mode==="text"||mode==="links"||mode==="replace")&&<>
+    {mode==="case-width"&&<>
+      <p className="subtle">将文字转成大写、小写、英文单词首字母大写，或只将全角 ASCII/空格转为半角。保留换行与中文原文；不使用可能改变其他汉字兼容字符的整体 NFKC 规范化。</p>
+      <label className="field-label" htmlFor="quick-case-source">原始文字 / Source text</label>
+      <textarea id="quick-case-source" data-testid="quick-case-source" className="field text-editor"
+        rows={6} maxLength={200000} value={caseSource} onChange={e=>{setCaseSource(e.target.value);setStatus("");}}/>
+      <label className="field-label" htmlFor="quick-case-mode">转换方式 / Conversion</label>
+      <select id="quick-case-mode" data-testid="quick-case-mode" className="field"
+        value={caseMode} onChange={e=>{setCaseMode(e.target.value as TextCaseMode);setStatus("");}}>
+        <option value="upper">UPPERCASE / 大写</option>
+        <option value="lower">lowercase / 小写</option>
+        <option value="title">Simple Title Case / 英文首字母大写</option>
+        <option value="halfwidth">Fullwidth ASCII → Halfwidth / 全角转半角</option>
+      </select>
+    </>}
+    {(mode==="text"||mode==="links"||mode==="replace"||mode==="case-width")&&<>
       <label className="field-label" htmlFor="quick-result">Processed output</label>
       <textarea id="quick-result" className="field text-editor" rows={6} value={output} readOnly aria-label="Quick Tool output"/>
       <div className="actions">
-        <button className="primary-button" type="button" disabled={!!(mode==="text"?textResult.error:mode==="links"?linkResult.error:replaceResult.error)} onClick={()=>{void copyResult();}}>Copy result</button>
+        <button className="primary-button" type="button" disabled={!!outputError} onClick={()=>{void copyResult();}}>Copy result</button>
         <button className="secondary-button" type="button" disabled={!!(mode==="text"?textResult.error:mode==="links"?linkResult.error:replaceResult.error)} onClick={()=>{void saveResult();}}>Save as TXT</button>
       </div>
-      {(mode==="text"?textResult.error:mode==="links"?linkResult.error:replaceResult.error)&&<p role="alert" className="subtle">{mode==="text"?textResult.error:mode==="links"?linkResult.error:replaceResult.error}</p>}
+      {outputError&&<p role="alert" className="subtle">{outputError}</p>}
     </>}
     {mode==="multi-copy"&&<>
       <p className="subtle">Collect up to 30 text snippets in this window, reorder by removal, then copy them as one. No background clipboard monitoring; no saved history or cloud sync. Passwords and private data should not be collected.</p>
