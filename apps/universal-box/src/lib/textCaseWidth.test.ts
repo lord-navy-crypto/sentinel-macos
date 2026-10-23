@@ -1,5 +1,5 @@
 import {describe,expect,it} from "vitest";
-import {halfwidthAscii,TEXT_CASE_LIMIT,transformTextCase} from "./textCaseWidth";
+import {halfwidthAscii,fullwidthAscii,TEXT_CASE_LIMIT,transformTextCase} from "./textCaseWidth";
 
 describe("QuickKit text case and ASCII width actions",()=>{
  it("uppercases and lowercases selected text while preserving newlines, spaces and CJK",()=>{
@@ -15,6 +15,13 @@ describe("QuickKit text case and ASCII width actions",()=>{
   const source="ＡＢＣ１２３，ａ＋ｂ＝３！　中文①㎏";
   expect(halfwidthAscii(source)).toBe("ABC123,a+b=3! 中文①㎏");
   expect(transformTextCase(source,"halfwidth")).toBe("ABC123,a+b=3! 中文①㎏");
+ });
+ it("explicitly supports reversible printable ASCII width conversion without changing Chinese or emoji",()=>{
+  const input="A 1?! 中文 🚀";
+  const wide=transformTextCase(input,"fullwidth");
+  expect(wide).toBe("Ａ　１？！　中文　🚀");
+  expect(fullwidthAscii("a+2")).toBe("ａ＋２");
+  expect(halfwidthAscii(wide)).toBe(input);
  });
  it("preserves empty text, tabs and CRLF with width changes only",()=>{
   expect(transformTextCase("","upper")).toBe("");
