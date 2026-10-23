@@ -188,3 +188,52 @@ test("Batch multi-rule replacement and line-affix actions produce verified local
   assert.deepEqual(errors,[]);
  }finally{await page.close();await browser.close();}
 });
+
+
+test("Office line filtering and numbering exports genuine TXT/Markdown copies and protects CSV",{timeout:90000},async()=>{
+ const browser=await chromium.launch({headless:true,args:["--no-sandbox"]});
+ const page=await browser.newPage({acceptDownloads:true,viewport:{width:1440,height:920}});
+ const errors=[];page.on("pageerror",e=>errors.push(e.message));
+ try{
+  await page.goto(root,{waitUntil:"domcontentloaded"});await page.locator(".app-shell").waitFor();
+  await openTool(page,"Batch Text Files");
+  const src=Buffer.from("\ufeffTODO: 甲\r\n已完成\nTODO: 乙\r\n");
+  await page.locator('[data-testid="batch-text-picker"]').setInputFiles([
+   {name:"会议.md",mimeType:"text/markdown",buffer:src},
+  ]);
+  await page.locator('[data-testid="batch-text-mode"]').selectOption("keep-matching");
+  await page.locator('[data-testid="batch-line-needle"]').fill("TODO:");
+  assert.match(await page.locator('[data-testid="batch-text-preview"]').innerText(),/1 changed/);
+  assert.match(await page.locator('[data-testid="batch-filter-warning"]').innerText(),/case-sensitive/);
+  const downloadPending=page.waitForEvent("download",{timeout:30000});
+  await page.locator('[data-testid="batch-text-save"]').click();
+  const download=await downloadPending;
+  const outfile=path.join(dir,"keep-matching-lines.zip");await download.saveAs(outfile);
+  const zip=await JSZip.loadAsync(fs.readFileSync(outfile),{checkCRC32:true});
+  const file=await zip.file("processed/会议.md").async("nodebuffer");
+  assert.deepEqual(file.subarray(0,3),Buffer.from([239,187,191]));
+  assert.equal(file.subarray(3).toString("utf8"),"TODO: 甲\r\nTODO: 乙\r\n");
+  const manifest=JSON.parse(await zip.file("sentinel-box-batch-text-manifest.json").async("string"));
+  assert.equal(manifest.operation,"keep-matching");assert.equal(manifest.files[0].matches,2);
+  assert.equal(JSON.stringify(manifest).includes("TODO:"),false);
+  await page.locator('[data-testid="batch-text-mode"]').selectOption("drop-matching");
+  assert.match(await page.locator('[data-testid="batch-text-preview"]').innerText(),/已完成/);
+  await page.locator('[data-testid="batch-text-mode"]').selectOption("number-lines");
+  assert.match(await page.locator('[data-testid="batch-number-warning"]').innerText(),/Numbers non-blank lines/);
+  const numberedPending=page.waitForEvent("download",{timeout:30000});
+  await page.locator('[data-testid="batch-text-save"]').click();
+  const numberedDownload=await numberedPending;
+  const numberedPath=path.join(dir,"numbered-lines.zip");await numberedDownload.saveAs(numberedPath);
+  const numbered=await JSZip.loadAsync(fs.readFileSync(numberedPath),{checkCRC32:true});
+  const numberedBytes=await numbered.file("processed/会议.md").async("nodebuffer");
+  assert.deepEqual(numberedBytes.subarray(0,3),Buffer.from([239,187,191]));
+  assert.equal(numberedBytes.subarray(3).toString("utf8"),"1. TODO: 甲\r\n2. 已完成\n3. TODO: 乙\r\n");
+  await page.locator('[data-testid="batch-text-picker"]').setInputFiles([
+   {name:"bad.csv",mimeType:"text/csv",buffer:Buffer.from("A,B\n1,2\n")},
+  ]);
+  assert.match(await page.locator('[data-testid="batch-text-error"]').innerText(),/TXT\/Markdown only/);
+  assert.equal(await page.locator('[data-testid="batch-text-save"]').isDisabled(),true);
+  assert.deepEqual(src,Buffer.from("\ufeffTODO: 甲\r\n已完成\nTODO: 乙\r\n"));
+  assert.deepEqual(errors,[]);
+ }finally{await page.close();await browser.close();}
+});
