@@ -1,0 +1,46 @@
+"use strict";
+const {test}=require("node:test"),assert=require("node:assert/strict"),fs=require("node:fs"),path=require("node:path");
+const {chromium}=require("playwright");
+const origin=process.env.UNIVERSAL_BOX_UI_URL||"http://127.0.0.1:1420/";
+const dir=path.join(__dirname,"browser-test-results","calculator-history");
+fs.mkdirSync(dir,{recursive:true});
+test("Calculator keyboard, Ans, history reuse and real TXT readback",{timeout:70000},async()=>{
+ const browser=await chromium.launch({headless:true,args:["--no-sandbox"]});
+ const page=await browser.newPage({acceptDownloads:true,viewport:{width:1400,height:920}});
+ const errors=[];page.on("pageerror",e=>errors.push(e.message));
+ try{
+  await page.goto(origin,{waitUntil:"domcontentloaded"});await page.locator(".app-shell").waitFor();
+  await page.locator('.sidebar button.nav-item[aria-label^="All tools"]').click();
+  await page.locator("#all-tools-search").fill("Calculator / 计算器");
+  const matches=page.locator(".catalog-open");
+  assert.equal(await matches.count(),1);
+  await matches.click();
+  const input=page.locator("#calc-expression");
+  await input.fill("1+2");
+  await input.press("Enter");
+  assert.equal(await page.locator('[data-testid="calculator-result"]').innerText(),"3");
+  assert.equal(await page.locator('[data-testid="calculator-ans"]').innerText(),"Ans = 3");
+  await input.fill("Ans * 4");
+  await page.locator('[data-testid="calculator-compute"]').click();
+  assert.equal(await page.locator('[data-testid="calculator-result"]').innerText(),"12");
+  assert.equal(await page.locator('[data-testid="calculator-reuse"]').count(),2);
+  const waiting=page.waitForEvent("download",{timeout:30000});
+  await page.locator('[data-testid="calculator-save-history"]').click();
+  const dl=await waiting;assert.equal(dl.suggestedFilename(),"sentinel-calculator-history.txt");
+  const saved=path.join(dir,"history.txt");await dl.saveAs(saved);
+  assert.equal(fs.readFileSync(saved,"utf8"),"1+2 = 3\nAns * 4 = 12\n");
+  await page.locator('[data-testid="calculator-reuse"]').last().click();
+  assert.equal(await input.inputValue(),"1+2");
+  assert.equal(await page.locator('[data-testid="calculator-result"]').count(),0);
+  await input.fill("x=5");
+  await page.locator('[data-testid="calculator-compute"]').click();
+  assert.match(await page.locator("p[role=status]").last().innerText(),/Unsupported calculation syntax/);
+  assert.equal(await page.locator('[data-testid="calculator-reuse"]').count(),2);
+  page.once("dialog",dialog=>dialog.accept());
+  await page.locator('[data-testid="calculator-clear-history"]').click();
+  assert.equal(await page.locator('[data-testid="calculator-history"]').count(),0);
+  assert.equal(await page.locator('[data-testid="calculator-ans"]').count(),0);
+  await page.screenshot({path:path.join(dir,"calculator.png"),fullPage:true});
+  assert.deepEqual(errors,[]);
+ }finally{await page.close();await browser.close();}
+});
