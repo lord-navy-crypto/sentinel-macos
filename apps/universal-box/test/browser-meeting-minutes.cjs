@@ -24,7 +24,7 @@ test("Meetings produce genuine editable Word, action CSV and truthful attendee/t
   await page.locator('[data-testid="meeting-minutes-desk"]').waitFor();
   // New meetings are blank: never accidentally export the fictional sample record.
   for(const key of ["title","meetingDate","attendees","agenda","discussion","decisions"]){
-   assert.equal(await page.locator('[data-testid="meeting-"+key]').inputValue(),"",key+" must start empty");
+   assert.equal(await page.locator('[data-testid="meeting-'+key+'"]').inputValue(),"",key+" must start empty");
   }
   assert.equal(await page.locator('[data-testid="meeting-actions-csv"]').inputValue(),
    "id,task,owner,due_date,priority,status,notes");
