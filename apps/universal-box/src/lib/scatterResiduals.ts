@@ -67,7 +67,7 @@ export function residualScatterChart(data:ScatterChartData,summary:ResidualSumma
   x:r.x,y:r.residual,xText:r.observedX,yText:String(r.residual),
  }));
  const vals=points.map(p=>p.y);
- return {...data,points,minimum:Math.min(0,...vals),maximum:Math.max(0,...vals),
+ return {...data,points,uncertaintyLabel:undefined,minimum:Math.min(0,...vals),maximum:Math.max(0,...vals),
   title:(data.title||"XY scatter")+" · residuals",
   yLabel:"Residual (observed − predicted)",
  };
