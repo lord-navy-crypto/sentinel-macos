@@ -1,6 +1,7 @@
 /** Bounded, deterministic CSV -> SVG chart model. Plain text SVG only, no scripts. */
 import {csvRows} from "../components/EverydayTools";
 import {makeDataTable,tableToCsv,type DataTable} from "./tableTools";
+import type {LinearFit} from "./scatterRegression";
 export type ChartKind="bar"|"line";
 export type ChartAggregate="sum"|"average"|"count";
 export type ChartPoint={label:string;value:number;items:number};
@@ -158,7 +159,7 @@ function safeScatterDomain(values:number[]):[number,number]{
  return [low-padding,high+padding];
 }
 const numberLabel=(value:number)=>Number(value.toPrecision(5)).toString();
-export function scatterChartSvg(chart:ScatterChartData):string{
+export function scatterChartSvg(chart:ScatterChartData,fit:LinearFit|null=null):string{
  if(chart.kind!=="scatter"||chart.points.length<1||chart.points.length>250)
   throw Error("Invalid XY scatter data.");
  const W=960,H=540,left=100,right=44,top=98,bottom=94;
@@ -179,6 +180,8 @@ export function scatterChartSvg(chart:ScatterChartData):string{
   marks+='<line x1="'+left+'" y1="'+py.toFixed(2)+'" x2="'+(left+pw)+'" y2="'+py.toFixed(2)+'" stroke="'+grid+'"/>';
   marks+='<text x="'+(left-12)+'" y="'+(py+4).toFixed(2)+'" text-anchor="end" font-size="13" fill="'+muted+'">'+escapeXml(numberLabel(y))+'</text>';
  }
+ const fitLine=fit?
+  '<g clip-path="url(#scatter-plot-clip)"><line data-series="least-squares" x1="'+xp(fit.xMin).toFixed(2)+'" y1="'+yp(fit.slope*fit.xMin+fit.intercept).toFixed(2)+'" x2="'+xp(fit.xMax).toFixed(2)+'" y2="'+yp(fit.slope*fit.xMax+fit.intercept).toFixed(2)+'" stroke="#d97706" stroke-width="3.5" stroke-dasharray="9 5"/></g>':"";
  const dots=chart.points.map(p=>'<circle cx="'+xp(p.x).toFixed(2)+'" cy="'+yp(p.y).toFixed(2)+'" r="5" fill="'+point+'" fill-opacity=".83" stroke="#ffffff" stroke-width="1.2"><title>'+
    escapeXml(p.xText+", "+p.yText)+'</title></circle>').join("");
  return '<?xml version="1.0" encoding="UTF-8"?>\n'+
@@ -186,7 +189,8 @@ export function scatterChartSvg(chart:ScatterChartData):string{
   '<rect width="960" height="540" rx="20" fill="#ffffff"/>'+
   '<text x="100" y="48" font-family="sans-serif" font-weight="700" font-size="25" fill="'+ink+'">'+escapeXml(chart.title||"XY scatter plot")+'</text>'+
   '<text x="100" y="72" font-family="sans-serif" font-size="13" fill="'+muted+'">Scientific XY scatter · '+chart.points.length+' observations</text>'+
-  '<g font-family="sans-serif">'+marks+
+  '<defs><clipPath id="scatter-plot-clip"><rect x="'+left+'" y="'+top+'" width="'+pw+'" height="'+ph+'"/></clipPath></defs>'+
+  '<g font-family="sans-serif">'+marks+fitLine+
   '<text x="508" y="513" text-anchor="middle" font-size="16" fill="'+ink+'">'+escapeXml(chart.xLabel)+'</text>'+
   '<text x="23" y="274" transform="rotate(-90 23 274)" text-anchor="middle" font-size="16" fill="'+ink+'">'+escapeXml(chart.yLabel+(chart.unit?" ("+chart.unit+")":""))+'</text>'+
   dots+'</g></svg>\n';
