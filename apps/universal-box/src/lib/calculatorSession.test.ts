@@ -31,7 +31,7 @@ describe("Offline calculator history and controlled expression engine",()=>{
   expect(()=>calculateExpression("sin(x)")).toThrow(/restricted variable/);
   expect(()=>calculateExpression("2;3")).toThrow(/one calculator expression/);
   expect(()=>calculateExpression("1/0")).toThrow(/not finite/);
-  expect(()=>calculateExpression("import('https://example.invalid')")).toThrow(/Unsupported/);
+  expect(()=>calculateExpression("import('https://example.invalid')")).toThrow(/not available|restricted/);
   expect(()=>calculateExpression("a".repeat(181))).toThrow(/1–180/);
  });
  it("caps session history and produces user-visible plain text without implicit storage",()=>{
