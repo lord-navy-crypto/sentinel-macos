@@ -3,7 +3,8 @@ import {AlignmentType,Document,Packer,Paragraph,TextRun,UnderlineType} from "doc
 export const TYPOGRAPHY_TEXT_LIMIT=100_000;
 export const TYPOGRAPHY_LINE_LIMIT=3000;
 export const FONT_FAMILIES=[
- "Arial","Times New Roman","Georgia","Courier New","Helvetica","Noto Sans CJK SC",
+ "Arial","Times New Roman","Georgia","Courier New","Helvetica",
+ "PingFang SC","Microsoft YaHei","SimSun","Noto Sans CJK SC",
 ] as const;
 export type FontFamily=typeof FONT_FAMILIES[number];
 export type TextAlignment="left"|"center"|"right";
