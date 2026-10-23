@@ -1,5 +1,13 @@
 # Universal Box · verified free-utility replacement roadmap
 
+> **2026-10-23 — Office-first scope correction (current governing decision).**
+> Sentinel Box is a **free, simple, offline-first everyday clerical/office micro-tool collection**.
+> Prioritize PDF, Word/Excel data handoff, file management, image conversion, clipboard/text cleanup, OCR and batch office tasks.
+> **Do not build more scientific plotting/regression/residual/error-bar or specialized symbolic features as release priorities.**
+> Existing Draft PRs #121–#126 are paused and must not be portrayed as shipped. Office candidates #84/#85/#118/#119/#120 require normal QA and integration.
+> **Implementation and acceptance details:** [OFFICE-FIRST-RESET-2026-10-23.md](docs/OFFICE-FIRST-RESET-2026-10-23.md).
+> This direction takes precedence over older opportunity queues below; preserve historical entries as history, not current commitments.
+
 Last reviewed: 2026-10-19
 Scope: Daily Desk standalone macOS app, `apps/daily-desk/**`; preserve AP ReasonLab website separately.
 
