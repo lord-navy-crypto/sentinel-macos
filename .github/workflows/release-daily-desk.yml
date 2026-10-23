@@ -26,7 +26,7 @@ jobs:
       - name: Verify all four app versions and the release tag
         run: node scripts/release-preflight.cjs
       - name: Unit test offline release validation
-        run: node --test test/release-preflight.test.cjs
+        run: node --test test/release-preflight.node.cjs
 
   build-macos:
     needs: verify-release-source
