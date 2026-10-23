@@ -1,19 +1,23 @@
 import {useMemo,useState,type ChangeEvent} from "react";
 import {exportFile} from "../lib/output";
 import {
- planMeetingMinutes,MEETING_ACTION_SAMPLE,MEETING_ACTION_HEADERS,MEETING_SAMPLE,
+ planMeetingMinutes,MEETING_ACTION_SAMPLE,MEETING_ACTION_HEADERS,
  type MeetingInput,
 } from "../lib/meetingMinutes";
 import {exportMeetingMinutes} from "../lib/meetingMinutesExport";
 const fail=(err:unknown)=>err instanceof Error?err.message:String(err);
 export default function MeetingMinutesDesk(){
- const [details,setDetails]=useState<MeetingInput>(MEETING_SAMPLE);
- const [actionsCsv,setActionsCsv]=useState(MEETING_ACTION_SAMPLE);
+ const [details,setDetails]=useState<MeetingInput>({
+  title:"",meetingDate:"",location:"",facilitator:"",
+  attendees:"",agenda:"",discussion:"",decisions:"",nextMeetingDate:"",
+ });
+ const [actionsCsv,setActionsCsv]=useState(MEETING_ACTION_HEADERS.join(","));
+ const [touched,setTouched]=useState(false);
  const [busy,setBusy]=useState(false),[status,setStatus]=useState("");
  const planned=useMemo(()=>{try{return {value:planMeetingMinutes(details,actionsCsv),error:""};}
   catch(e){return {value:null,error:fail(e)};}},[details,actionsCsv]);
  function update(field:keyof MeetingInput,value:string){
-  setDetails(p=>({...p,[field]:value}));setStatus("");
+  setDetails(p=>({...p,[field]:value}));setTouched(true);setStatus("");
  }
  async function importCsv(e:ChangeEvent<HTMLInputElement>){
   const file=e.target.files?.[0];e.target.value="";setStatus("");
@@ -22,7 +26,7 @@ export default function MeetingMinutesDesk(){
    if(!/\.csv$/iu.test(file.name)||file.size<1||file.size>150_000)
     throw Error("Choose a UTF-8 action CSV up to 150 KB.");
    const decoded=new TextDecoder("utf-8",{fatal:true}).decode(await file.arrayBuffer());
-   setActionsCsv(decoded.replace(/^\uFEFF/u,""));
+   setActionsCsv(decoded.replace(/^\uFEFF/u,""));setTouched(true);
    setStatus("Loaded action items from "+file.name+" locally. Review the assignments before export.");
   }catch(e){setStatus("Action CSV import failed: "+fail(e));}
  }
@@ -82,10 +86,13 @@ export default function MeetingMinutesDesk(){
   </label>
   <label className="field-label">任务列表 CSV：ID、任务、负责人、截止日期、优先级、状态、备注
    <textarea data-testid="meeting-actions-csv" className="field text-editor" rows={7} maxLength={150000}
-    spellCheck={false} value={actionsCsv} onChange={e=>{setActionsCsv(e.target.value);setStatus("");}}/>
+    spellCheck={false} value={actionsCsv} onChange={e=>{setActionsCsv(e.target.value);setTouched(true);setStatus("");}}/>
   </label>
   <p className="subtle">列名必须是 <code>{MEETING_ACTION_HEADERS.join(", ")}</code>；优先级 high / normal / low，状态 todo / in_progress / done。保留 001 等任务编号，导出 CSV 时防止公式注入；最多 80 项任务。</p>
-  {planned.error?<p data-testid="meeting-error" role="alert" className="subtle">{planned.error}</p>:planned.value&&<>
+  {!touched?<p className="subtle" data-testid="meeting-empty-guide">
+   请先输入真实的会议主题、日期和任务。没有预置参会人或决议；示例 CSV 仅供单独下载参考。
+  </p>:null}
+  {touched&&planned.error?<p data-testid="meeting-error" role="alert" className="subtle">{planned.error}</p>:planned.value&&<>
    <div data-testid="meeting-summary" className="metrics">
     <span>{planned.value.actions.length} 个明确分配的任务</span>
     <span>{planned.value.counts.todo} 待开始</span>
