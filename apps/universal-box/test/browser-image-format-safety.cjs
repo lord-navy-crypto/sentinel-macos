@@ -36,6 +36,16 @@ test("Existing batch image tool refuses spoofing and exports real JPEG in ZIP",{
   assert.equal(entries.length,1);
   const jpeg=await zip.file(entries[0]).async("nodebuffer");
   assert.deepEqual([...jpeg.subarray(0,3)],[255,216,255]);
+  const report=JSON.parse(await zip.file("sentinel-box-image-conversion-report.json").async("string"));
+  assert.equal(report.format,"image/jpeg");
+  assert.equal(report.records.length,1);
+  assert.equal(report.records[0].source,"real.png");
+  assert.equal(report.records[0].target,entries[0]);
+  assert.equal(report.records[0].sourceBytes,png.length);
+  assert.equal(report.records[0].outputBytes,jpeg.length);
+  assert.equal(report.records[0].deltaBytes,jpeg.length-png.length);
+  assert.match(await page.locator('[data-testid="image-size-report"]').innerText(),/Real file size comparison/);
+  assert.match(await page.locator('[data-testid="image-size-report"]').innerText(),/real.png/);
   // Try a misleading file extension, which must not yield a fake image result.
   await page.locator("#batch-image-files").setInputFiles([
    {name:"fake.jpg",mimeType:"image/jpeg",buffer:png}
