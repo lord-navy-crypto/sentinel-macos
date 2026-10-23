@@ -147,8 +147,8 @@ describe("offline batch office text utility",()=>{
     expect(()=>processBatchTextFiles([input("a.md","ABC")],"suffix-lines","","","","\n")).toThrow(/printable/);
     expect(()=>processBatchTextFiles([input("a.md","ABC")],"prefix-lines","","","","X".repeat(101))).toThrow(/printable/);
     for(const mode of ["prefix-lines","suffix-lines"] as const){
-      expect(()=>processBatchTextFiles([input("sheet.csv","a,b")],mode,"","","X")).toThrow(/TXT\/Markdown only/);
-      expect(()=>processBatchTextFiles([input("sheet.tsv","a\tb")],mode,"","","X")).toThrow(/TXT\/Markdown only/);
+      expect(()=>processBatchTextFiles([input("sheet.csv","a,b")],mode,"","","","X")).toThrow(/TXT\/Markdown only/);
+      expect(()=>processBatchTextFiles([input("sheet.tsv","a\tb")],mode,"","","","X")).toThrow(/TXT\/Markdown only/);
     }
   });
 
