@@ -2,6 +2,7 @@ import {type ChangeEvent,useMemo,useState} from "react";
 import {exportFile} from "../lib/output";
 import {chartModel,chartSvg,scatterChartModel,scatterChartSvg,scatterChartCsv,parseChartCsv,type ChartKind,type ChartAggregate} from "../lib/chartViz";
 import {tableToCsv} from "../lib/tableTools";
+import {fitScatterLine,formatRegressionNumber} from "../lib/scatterRegression";
 const errorMessage=(e:unknown)=>e instanceof Error?e.message:String(e);
 const SAMPLE="Month,Revenue,Orders\nJanuary,1420,24\nFebruary,1890,30\nMarch,1640,26\nApril,2180,38\nMay,2330,41\nJune,2710,48";
 export default function ChartDesk(){
@@ -11,6 +12,7 @@ export default function ChartDesk(){
  const [title,setTitle]=useState("Monthly revenue"),[unit,setUnit]=useState("USD");
  const [status,setStatus]=useState("");
  const [busy,setBusy]=useState(false);
+ const [showFit,setShowFit]=useState(false);
  const parsed=useMemo(()=>{
    try{return {table:parseChartCsv(source),error:""};}
    catch(e){return {table:null,error:errorMessage(e)};}
@@ -21,10 +23,11 @@ export default function ChartDesk(){
      const data=kind==="scatter"?
        scatterChartModel(parsed.table,category,value,title,unit):
        chartModel(parsed.table,category,value,aggregate,kind,title,unit);
-     const svg=data.kind==="scatter"?scatterChartSvg(data):chartSvg(data);
-     return {data,svg,error:""};
+     const fit=data.kind==="scatter"&&showFit?fitScatterLine(data.points):null;
+     const svg=data.kind==="scatter"?scatterChartSvg(data,fit):chartSvg(data);
+     return {data,svg,error:"",fit};
    }catch(e){return {data:null,svg:"",error:errorMessage(e)};}
- },[parsed,category,value,aggregate,kind,title,unit]);
+ },[parsed,category,value,aggregate,kind,title,unit,showFit]);
  async function choose(event:ChangeEvent<HTMLInputElement>){
    const file=event.target.files?.[0];event.target.value="";if(!file)return;
    setStatus("");
@@ -36,6 +39,27 @@ export default function ChartDesk(){
      parseChartCsv(incoming);setSource(incoming);setCategory(0);setValue(1);
      setStatus("Imported local CSV. No upload.");
    }catch(e){setStatus("Import failed: "+errorMessage(e));}
+   finally{setBusy(false);}
+ }
+ async function saveFitReport(){
+   if(kind!=="scatter"||!visualization.fit||busy)return;
+   const fit=visualization.fit;
+   const report=[
+     "Sentinel Box · Scientific Scatter Linear Regression",
+     "Method: ordinary least squares (unweighted); descriptive, not causal",
+     "Equation: y = slope * x + intercept",
+     "Slope: "+String(fit.slope),
+     "Intercept: "+String(fit.intercept),
+     "R squared: "+(fit.rSquared===null?"undefined (constant Y)":String(fit.rSquared)),
+     "Observations: "+fit.observations,
+     "X range: "+fit.xMin+" to "+fit.xMax,
+     "Values use double-precision arithmetic. Repeated X measurements are preserved.",
+   ].join("\n")+"\n";
+   setBusy(true);setStatus("");
+   try{
+     const saved=await exportFile("universal-box-linear-fit.txt",report);
+     setStatus(saved?"Saved fitted numerical parameters as TXT.":"Save cancelled.");
+   }catch(e){setStatus("Regression export failed: "+errorMessage(e));}
    finally{setBusy(false);}
  }
  async function saveSvg(){
@@ -57,7 +81,8 @@ export default function ChartDesk(){
        tableToCsv({headers:["Category","Value","Source records"],
          rows:data.points.map(p=>[p.label,String(p.value),String(p.items)])});
      const saved=await exportFile("universal-box-chart-data.csv",csv);
-     setStatus(saved?"Saved chart's aggregated dataset as CSV.":"Save cancelled.");
+     setStatus(saved?(data.kind==="scatter"?
+       "Saved verified raw X/Y observations as CSV.":"Saved chart's aggregated dataset as CSV."):"Save cancelled.");
    }catch(e){setStatus("Data export failed: "+errorMessage(e));}
    finally{setBusy(false);}
  }
@@ -97,6 +122,10 @@ export default function ChartDesk(){
            <option value="scatter">Scientific XY scatter (numeric axes)</option>
          </select>
        </label>
+       {kind==="scatter"&&<label className="field-label">
+         <input type="checkbox" data-testid="chart-show-fit" checked={showFit}
+          onChange={e=>setShowFit(e.target.checked)}/> Show ordinary least-squares trendline
+       </label>}
        <label className="field-label">Unit (optional)
          <input className="field" maxLength={18} value={unit} onChange={e=>setUnit(e.target.value)}/>
        </label>
@@ -104,20 +133,34 @@ export default function ChartDesk(){
    </div>
    {visualization.error?<p className="subtle" role="alert">{visualization.error}</p>:visualization.data&&<>
      <div className="chart-stat-strip" aria-label="Chart statistics">
-       <div><span>Categories</span><strong>{visualization.data.points.length}</strong></div>
+       <div><span>{kind==="scatter"?"Observations":"Categories"}</span><strong>{visualization.data.points.length}</strong></div>
        <div><span>Minimum</span><strong>{visualization.data.minimum.toLocaleString()}</strong></div>
        <div><span>Maximum</span><strong>{visualization.data.maximum.toLocaleString()}</strong></div>
      </div>
+     {kind==="scatter"&&showFit&&<div className="panel" data-testid="chart-fit-details">
+       {visualization.fit?<>
+         <p><strong>Least-squares fit:</strong> y = ({formatRegressionNumber(visualization.fit.slope)})x
+          + ({formatRegressionNumber(visualization.fit.intercept)})</p>
+         <p data-testid="chart-fit-r2">R² = {visualization.fit.rSquared===null?
+           "undefined for constant Y":formatRegressionNumber(visualization.fit.rSquared)}
+           {" · "}n = {visualization.fit.observations}</p>
+         <p className="subtle">Dashed orange line. Unweighted numerical regression; not proof of causation.
+           R² describes fit quality only and does not quantify experimental uncertainty.</p>
+       </>:<p role="status" className="subtle">Linear fit unavailable: provide at least two observations with distinct X coordinates.</p>}
+     </div>}
      <div className="chart-preview-frame" data-testid="chart-preview-frame">
        <img data-testid="chart-preview-image" alt={"Chart titled "+(title||"Offline data chart")+" with "+visualization.data.points.length+" categories"}
          src={"data:image/svg+xml;charset=utf-8,"+encodeURIComponent(visualization.svg)}/>
      </div>
      <p className="subtle">{kind==="scatter"?
-       "Scientific scatter: 1–250 finite decimal XY observations, ±1e12 range; missing pairs skipped, partially missing rows rejected. Original decimal strings (including trailing zeroes) are retained in exported CSV. Repeated X values are separate points; no fitted line or invented interpolation.":
+       "Scientific scatter: 1–250 finite decimal XY observations, ±1e12 range; missing pairs skipped, partially missing rows rejected. Original decimal strings (including trailing zeroes) are retained in exported CSV. Repeated X values are separate points; optional linear fit is calculated, not a symbolic or causal model.":
        "Category charts: blank numeric values are ignored for sum/average. Maximum 24 categories. Aggregated values are not necessarily the original rows."} SVG contains no executable scripts.</p>
      <div className="actions">
        <button className="primary-button" type="button" data-testid="chart-save-svg" disabled={busy} onClick={()=>{void saveSvg();}}>Export chart SVG</button>
        <button className="secondary-button" type="button" data-testid="chart-save-csv" disabled={busy} onClick={()=>{void saveSummary();}}>{kind==="scatter"?"Export XY source CSV":"Export aggregated CSV"}</button>
+       {kind==="scatter"&&showFit&&<button className="secondary-button" type="button"
+        data-testid="chart-export-fit" disabled={busy||!visualization.fit}
+        onClick={()=>{void saveFitReport();}}>Export regression TXT</button>}
      </div>
    </>}
    {status&&<p role="status" className="subtle">{status}</p>}
