@@ -17,7 +17,7 @@ const title:Record<QuickKitMode,string>={
 const number=(n:number)=>String(Number(n.toFixed(6)));
 export default function QuickKitDesk({initialMode="text"}:{initialMode?:QuickKitMode}){
   const [mode,setMode]=useState<QuickKitMode>(initialMode);
-  const [source,setSource]=useState("  Copy   from a PDF\nLine two\nLine two");
+  const [source,setSource]=useState("");
   const [options,setOptions]=useState<CleanupOptions>(DEFAULT_CLEANUP);
   const [urls,setUrls]=useState("https://example.com/article?id=123&utm_source=newsletter&fbclid=abc");
   const [dateA,setDateA]=useState("2026-10-19");
@@ -52,6 +52,18 @@ export default function QuickKitDesk({initialMode="text"}:{initialMode?:QuickKit
   },[gradeData,target]);
   const replaceResult=useMemo(()=>{try{return {...replaceTextLiteral(source,findLiteral,replacement),error:""};}catch(e){return {text:"",count:0,error:String(e instanceof Error?e.message:e)};}},[source,findLiteral,replacement]);
   const output=mode==="text"?textResult.value:mode==="links"?linkResult.text:mode==="replace"?replaceResult.text:"";
+  async function pastePlainText(){
+    try{
+      if(!navigator.clipboard?.readText)throw Error("Clipboard reading is unavailable in this system.");
+      const text=await navigator.clipboard.readText();
+      if(text.length>200_000)throw Error("Clipboard text exceeds 200,000 characters.");
+      setSource(text);
+      setStatus("Pasted clipboard as plain text. Formatting was not imported; review before copying or saving.");
+    }catch(e){
+      setStatus("Plain-text paste unavailable: "+(e instanceof Error?e.message:String(e))+
+        ". Paste manually into the text box.");
+    }
+  }
   async function copyResult(){
     try{
       await navigator.clipboard.writeText(output);
@@ -68,14 +80,20 @@ export default function QuickKitDesk({initialMode="text"}:{initialMode?:QuickKit
   return <section className="panel">
     <p className="eyebrow">QUICKKIT · 轻量快捷工具 · OFFLINE</p>
     <h2>Quick Tools / 快捷小工具</h2>
-    <p className="subtle">Four tiny tasks without accounts or online uploads. Local input stays in this window; text/links are exported only when you click. Date calculations use calendar days, not elapsed 24-hour periods.</p>
+    <p className="subtle">Everyday local office actions without accounts or online uploads. Local input stays in this window; text/links are exported only when you click. Date calculations use calendar days, not elapsed 24-hour periods.</p>
     <div className="pill-row" role="group" aria-label="Quick tool">
       {(["text","links","replace","multi-copy","dates","grades"] as const).map(key=><button type="button" key={key}
         className={mode===key?"pill active-pill":"pill"} onClick={()=>{setMode(key);setStatus("");}}>{title[key]}</button>)}
     </div>
     {mode==="text"&&<>
+      <div className="actions">
+        <button type="button" className="primary-button" data-testid="quick-paste-plain"
+          onClick={()=>{void pastePlainText();}}>Paste clipboard as plain text</button>
+        <span className="subtle">Only reads the clipboard after you click. No history or background monitoring.</span>
+      </div>
       <label htmlFor="quick-text-input" className="field-label">Messy copied text · 粘贴原文</label>
-      <textarea id="quick-text-input" className="field text-editor" rows={6} maxLength={200000} value={source} onChange={e=>setSource(e.target.value)}/>
+      <textarea id="quick-text-input" className="field text-editor" rows={6} maxLength={200000}
+        value={source} onChange={e=>{setSource(e.target.value);setStatus("");}}/>
       <div className="actions">
         <label><input type="checkbox" checked={options.collapseSpaces} onChange={e=>toggle("collapseSpaces",e.target.checked)}/> Collapse repeated spaces</label>
         <label><input type="checkbox" checked={options.removeEmptyLines} onChange={e=>toggle("removeEmptyLines",e.target.checked)}/> Remove blank lines</label>
@@ -103,7 +121,7 @@ export default function QuickKitDesk({initialMode="text"}:{initialMode?:QuickKit
       <label className="field-label" htmlFor="quick-result">Processed output</label>
       <textarea id="quick-result" className="field text-editor" rows={6} value={output} readOnly aria-label="Quick Tool output"/>
       <div className="actions">
-        <button className="primary-button" type="button" disabled={!!(mode==="text"?textResult.error:mode==="links"?linkResult.error:replaceResult.error)} onClick={()=>{void copyResult();}}>Copy result</button>
+        <button data-testid="quick-copy-result" className="primary-button" type="button" disabled={!output||!!(mode==="text"?textResult.error:mode==="links"?linkResult.error:replaceResult.error)} onClick={()=>{void copyResult();}}>Copy result</button>
         <button className="secondary-button" type="button" disabled={!!(mode==="text"?textResult.error:mode==="links"?linkResult.error:replaceResult.error)} onClick={()=>{void saveResult();}}>Save as TXT</button>
       </div>
       {(mode==="text"?textResult.error:mode==="links"?linkResult.error:replaceResult.error)&&<p role="alert" className="subtle">{mode==="text"?textResult.error:mode==="links"?linkResult.error:replaceResult.error}</p>}
