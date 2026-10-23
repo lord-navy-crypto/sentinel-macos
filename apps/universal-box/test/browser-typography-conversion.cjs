@@ -51,8 +51,13 @@ test("Real font, symbol and safe text formats create inspectable DOCX/HTML/TXT",
   await page.locator('[data-testid="typography-file"]').setInputFiles({
     name:"roundtrip.html",mimeType:"text/html",buffer:Buffer.from(html,"utf8"),
   });
-  // The safe HTML roundtrip restores the original literal text; optional symbol conversion is a view/export choice.
-  assert.equal(await page.locator('[data-testid="typography-input"]').inputValue(),raw);
+  // Exported HTML contains the user-selected ASCII conversions, not the lost original glyphs.
+  await page.waitForFunction(expected=>
+    document.querySelector('[data-testid="typography-input"]')?.value===expected,
+  normalized,{timeout:15000});
+  assert.equal(await page.locator('[data-testid="typography-input"]').inputValue(),normalized);
+  assert.match(await page.locator('[data-testid="typography-status"]').innerText(),
+    /Reopened Sentinel Box HTML/);
   await page.locator('[data-testid="typography-copy-rich"]').click();
   await page.waitForFunction(()=>{
     const text=document.querySelector('[data-testid="typography-status"]')?.textContent??"";
