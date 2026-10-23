@@ -4,6 +4,7 @@ import { save } from "@tauri-apps/plugin-dialog";
 const MIME: Record<string, string> = {
   pdf: "application/pdf",
   txt: "text/plain;charset=utf-8",
+  html: "text/html;charset=utf-8",
   md: "text/markdown;charset=utf-8",
   ts: "text/plain;charset=utf-8",
   tsv: "text/tab-separated-values;charset=utf-8",
