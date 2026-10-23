@@ -3,6 +3,7 @@ import Flashcards from "./components/Flashcards";
 import FocusTimer from "./components/FocusTimer";
 import EverydayTools, {type Utility} from "./components/EverydayTools";
 import ToolLaunchpad, {LOCAL_TOOLS} from "./components/ToolLaunchpad";
+import {searchPalette,addPaletteRecent,sanitizePaletteHistory,type PaletteCommand} from "./lib/commandDiscovery";
 import CommonsDesk from "./components/CommonsDesk";
 import WebCaptureHub from "./components/WebCaptureHub";
 import CreativeStudioDesk, {type CreativeMode} from "./components/CreativeStudioDesk";
@@ -134,6 +135,22 @@ export default function App() {
   });
   const [commandOpen,setCommandOpen]=useState(false);
   const [commandQuery,setCommandQuery]=useState("");
+  const paletteCatalog=useMemo<PaletteCommand[]>(()=>[
+    ...menu.map(item=>({id:"view-"+item.id,name:item.name,description:item.description,view:item.id})),
+    ...LOCAL_TOOLS.map(item=>({id:"tool-"+item.id,name:item.name,description:item.area,view:item.view,module:item.module})),
+  ],[]);
+  const validPaletteIds=useMemo(()=>new Set(paletteCatalog.map(item=>item.id)),[paletteCatalog]);
+  const [pinnedCommands,setPinnedCommands]=useState<string[]>(()=>{
+    try{return sanitizePaletteHistory(JSON.parse(localStorage.getItem("sentinel-box-palette-pins-v1")||"[]"),new Set([
+      ...menu.map(item=>"view-"+item.id),...LOCAL_TOOLS.map(item=>"tool-"+item.id)
+    ]),20);}catch{return [];}
+  });
+  const [recentCommands,setRecentCommands]=useState<string[]>(()=>{
+    try{return sanitizePaletteHistory(JSON.parse(localStorage.getItem("sentinel-box-palette-recent-v1")||"[]"),new Set([
+      ...menu.map(item=>"view-"+item.id),...LOCAL_TOOLS.map(item=>"tool-"+item.id)
+    ]),12);}catch{return [];}
+  });
+  const [commandIndex,setCommandIndex]=useState(0);
   const [accessPreferences,setAccessPreferences]=useState<AccessPreferences>(readAccessPreferences);
   const commandInputRef=useRef<HTMLInputElement>(null);
   const commandDialogRef=useRef<HTMLDivElement>(null);
@@ -146,17 +163,23 @@ export default function App() {
   function toggleFavorite(id:View){
     setFavoriteViews(previous=>previous.includes(id)?previous.filter(v=>v!==id):[...previous,id].slice(0,12));
   }
-  const commands=useMemo(()=>{
-    const term=commandQuery.trim().toLocaleLowerCase();
-    const values=[
-      ...menu.map(item=>({id:"view-"+item.id,name:item.name,description:item.description,view:item.id as string,module:undefined as string|undefined})),
-      ...LOCAL_TOOLS.map(item=>({id:"tool-"+item.id,name:item.name,description:item.area,view:item.view,module:item.module})),
-    ];
-    return (term?values.filter(item=>(item.name+" "+item.description).toLocaleLowerCase().includes(term)):values.filter(item=>["binary-compare","system-health","file-intake","all-tools","workflows","files","charts","office-privacy","free-formats"].includes(item.view))).slice(0,12);
-  },[commandQuery]);
+  const commands=useMemo(()=>searchPalette(paletteCatalog,commandQuery,pinnedCommands,recentCommands,12),
+    [paletteCatalog,commandQuery,pinnedCommands,recentCommands]);
+  function runPaletteCommand(item:PaletteCommand){
+    setRecentCommands(prev=>addPaletteRecent(prev,item.id,validPaletteIds));
+    openTool(item.view,item.module);
+    setCommandIndex(0);
+  }
+  function togglePalettePin(id:string){
+    if(!validPaletteIds.has(id))return;
+    setPinnedCommands(prev=>prev.includes(id)?prev.filter(x=>x!==id):[...prev,id].slice(0,20));
+  }
   useEffect(()=>{
     try{localStorage.setItem("universal-box-theme",theme);}catch{/* preferences are optional */}
   },[theme]);
+  useEffect(()=>{try{localStorage.setItem("sentinel-box-palette-pins-v1",JSON.stringify(pinnedCommands));}catch{/* optional local preferences */}},[pinnedCommands]);
+  useEffect(()=>{try{localStorage.setItem("sentinel-box-palette-recent-v1",JSON.stringify(recentCommands));}catch{/* optional local preferences */}},[recentCommands]);
+  useEffect(()=>{setCommandIndex(0);},[commandQuery,commandOpen]);
   useEffect(()=>{
     try{localStorage.setItem("universal-box-favorite-views",JSON.stringify(favoriteViews));}catch{/* preferences are optional */}
   },[favoriteViews]);
@@ -560,21 +583,44 @@ export default function App() {
             else if(!event.shiftKey&&(focused===last||!dialog.contains(focused))){event.preventDefault();first.focus();}
           }}>
           <div className="command-search-head"><span aria-hidden="true">⌕</span>
-            <input ref={commandInputRef} className="command-input" type="search" placeholder="Find a tool or workspace…" value={commandQuery} onChange={event=>setCommandQuery(event.target.value)}
-              onKeyDown={event=>{if(event.key==="Enter"&&commands[0])openTool(commands[0].view,commands[0].module);}}/>
+            <input ref={commandInputRef} className="command-input" type="search" data-testid="palette-search"
+              role="combobox" aria-autocomplete="list" aria-controls="sentinel-command-results"
+              aria-expanded={true} aria-activedescendant={commands[commandIndex]?"sentinel-palette-option-"+commandIndex:undefined}
+              placeholder="Search tool, task or action / 搜索工具…" value={commandQuery}
+              onChange={event=>setCommandQuery(event.target.value)}
+              onKeyDown={event=>{
+                if(event.key==="ArrowDown"){event.preventDefault();setCommandIndex(old=>commands.length?(old+1)%commands.length:0);}
+                else if(event.key==="ArrowUp"){event.preventDefault();setCommandIndex(old=>commands.length?(old-1+commands.length)%commands.length:0);}
+                else if(event.key==="Home"){event.preventDefault();setCommandIndex(0);}
+                else if(event.key==="End"){event.preventDefault();setCommandIndex(Math.max(0,commands.length-1));}
+                else if(event.key==="Enter"&&commands[commandIndex]){
+                  event.preventDefault();runPaletteCommand(commands[commandIndex]);
+                }
+              }}/>
             <button type="button" className="command-close" onClick={()=>setCommandOpen(false)} aria-label="Close tool search">ESC</button>
           </div>
-          <div className="command-meta">{commandQuery?"MATCHING TOOLS":"SUGGESTED WORKSPACES"}</div>
-          <div className="command-results">
-            {commands.length===0?<p className="empty-state">No matches. Try PDF, Excel, image, chart or ZIP.</p>
-              :commands.map((item,index)=><button key={item.id} type="button" className="command-result"
-                onClick={()=>openTool(item.view,item.module)}>
-                <span className="command-result-icon">{item.module?"◇":"▦"}</span>
-                <span className="command-result-text"><strong>{item.name}</strong><small>{item.description}</small></span>
-                {index===0&&<kbd>↵</kbd>}
-              </button>)}
+          <div className="command-meta">{commandQuery?"MATCHING TOOLS":"PINNED · RECENT · ESSENTIALS"}</div>
+          <div id="sentinel-command-results" className="command-results" role="listbox" aria-label="Tool search results">
+            {commands.length===0?<p className="empty-state">No matching tools / 没有匹配项。Try OCR, 压缩PDF, 发票 or HEIC.</p>
+              :commands.map((item,index)=><div key={item.id} role="presentation"
+                className={commandIndex===index?"command-row command-selected":"command-row"}>
+                <button id={"sentinel-palette-option-"+index} data-testid="palette-result" type="button" role="option"
+                  aria-selected={commandIndex===index} className="command-result"
+                  onMouseEnter={()=>setCommandIndex(index)} onClick={()=>runPaletteCommand(item)}>
+                  <span className="command-result-icon">{item.module?"◇":"▦"}</span>
+                  <span className="command-result-text"><strong>{item.name}</strong><small>{item.description}</small></span>
+                  {index===commandIndex&&<kbd>↵</kbd>}
+                </button>
+                <button type="button" className="command-pin" data-testid="palette-pin"
+                  aria-label={(pinnedCommands.includes(item.id)?"Unpin ":"Pin ")+item.name}
+                  aria-pressed={pinnedCommands.includes(item.id)}
+                  onClick={()=>togglePalettePin(item.id)}
+                  title={pinnedCommands.includes(item.id)?"Remove from quick search pins":"Pin in quick search"}>
+                  {pinnedCommands.includes(item.id)?"★":"☆"}
+                </button>
+              </div>)}
           </div>
-          <div className="command-footer"><span>Enter opens first match · Esc closes</span><span>PRIVATE • ON DEVICE</span></div>
+          <div className="command-footer"><span>↑ ↓ Select · Enter Open · ★ Pin · Esc Close</span><span>LOCAL ONLY · NO CLIPBOARD READING</span></div>
         </div>
       </div>}
     </main>

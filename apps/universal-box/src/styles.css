@@ -392,6 +392,14 @@ pre { white-space:pre-wrap; word-break:break-word; }
 .command-results {overflow-y:auto;padding:0 13px 12px;}
 .command-result {display:flex;align-items:center;gap:13px;width:100%;border:0;border-radius:11px;background:transparent;padding:12px 11px;color:var(--ub-text);text-align:left;}
 .command-result:hover,.command-result:focus-visible {background:var(--ub-tint);}
+.command-row {display:flex;align-items:stretch;gap:5px;border-radius:11px;}
+.command-row .command-result {flex:1;min-width:0;}
+.command-row.command-selected {background:var(--ub-tint);}
+.command-row.command-selected .command-result {background:transparent;}
+.command-pin {flex:0 0 39px;align-self:center;border:1px solid transparent;border-radius:9px;background:transparent;color:var(--ub-muted);font-size:21px;min-height:40px;cursor:pointer;}
+.command-pin:hover,.command-pin:focus-visible {background:var(--ub-subtle);border-color:var(--ub-border);}
+.command-pin[aria-pressed="true"] {color:var(--ub-primary);}
+.command-row .command-result:focus-visible,.command-pin:focus-visible {outline:2px solid var(--ub-primary);outline-offset:1px;}
 .command-result-icon {width:36px;height:36px;flex-shrink:0;background:var(--ub-subtle);border-radius:11px;display:grid;place-items:center;color:var(--ub-primary);font-size:20px;}
 .command-result-text {min-width:0;flex:1;display:grid;gap:3px;}
 .command-result-text strong {font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
