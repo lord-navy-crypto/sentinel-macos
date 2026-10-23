@@ -4,6 +4,8 @@ import SheetClipDesk,{type SheetClipMode} from "./SheetClipDesk";
 import QualityReviewDesk,{type QualityMode} from "./QualityReviewDesk";
 import OfficeDataBatchPanel, {type OfficeDataMode} from "./OfficeDataBatchPanel";
 import BusinessBillingDesk from "./BusinessBillingDesk";
+import MeetingMinutesDesk from "./MeetingMinutesDesk";
+import ClientDeliveryDesk from "./ClientDeliveryDesk";
 import JSZip from "jszip";
 import {exportFile} from "../lib/output";
 import {inspectZip,type ZipInspection} from "../lib/zipInspector";
@@ -14,8 +16,10 @@ import {
 } from "../lib/imageWorkflow";
 import {planQuickZip} from "../lib/quickZipPack";
 
-export type WorkflowMode="business-billing"|"sheet-select"|"clip-basket"|"word-diff"|"wav-silence"|"pdf-audit"|"unified"|"mail-merge"|"csv-key-join"|"text-file-batch"|"zip-selective"|"image-batch"|"zip-pack";
+export type WorkflowMode="client-delivery"|"meeting-minutes"|"business-billing"|"sheet-select"|"clip-basket"|"word-diff"|"wav-silence"|"pdf-audit"|"unified"|"mail-merge"|"csv-key-join"|"text-file-batch"|"zip-selective"|"image-batch"|"zip-pack";
 const TABS:{id:WorkflowMode;label:string}[]=[
+ {id:"client-delivery",label:"客户文件交付包 / Verified Delivery"},
+ {id:"meeting-minutes",label:"会议纪要与任务分配 / Meeting Minutes"},
  {id:"business-billing",label:"商务发票与报价单 / Business Billing"},
  {id:"sheet-select",label:"Excel 多工作表转 CSV"},
  {id:"clip-basket",label:"多段文字收集篮"},
@@ -177,6 +181,8 @@ export default function WorkflowDesk({initialMode="zip-selective"}:{initialMode?
    </div>
    {mode==="unified"&&<UnifiedWorkflowPanel/>}
    {mode==="business-billing"&&<BusinessBillingDesk/>}
+   {mode==="meeting-minutes"&&<MeetingMinutesDesk/>}
+   {mode==="client-delivery"&&<ClientDeliveryDesk/>}
    {(["sheet-select","clip-basket"] as WorkflowMode[]).includes(mode)&&<SheetClipDesk mode={mode as SheetClipMode}/>}
    {(["word-diff","wav-silence","pdf-audit"] as WorkflowMode[]).includes(mode)&&<QualityReviewDesk mode={mode as QualityMode}/>}
    {(["mail-merge","csv-key-join","text-file-batch"] as WorkflowMode[]).includes(mode)&&<OfficeDataBatchPanel mode={mode as OfficeDataMode}/>}
