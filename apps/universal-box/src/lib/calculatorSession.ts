@@ -50,8 +50,8 @@ export function calculateExpression(source:string,lastAns:number|null=null):{
  ast.traverse(node=>{
   if(!ALLOWED_NODES.has(node.type))
    throw Error("Unsupported calculation syntax: "+node.type+".");
-  if(node.type==="SymbolNode"&&!ALLOWED_SYMBOLS.has((node as {name:string}).name))
-   throw Error("Unknown or restricted variable: "+(node as {name:string}).name+".");
+  if(node.type==="SymbolNode"&&!ALLOWED_SYMBOLS.has((node as unknown as {name:string}).name))
+   throw Error("Unknown or restricted variable: "+(node as unknown as {name:string}).name+".");
   if(node.type==="FunctionNode"){
    const n=(node as {fn?:{name?:string}}).fn?.name;
    if(!n||!ALLOWED_FUNCTIONS.has(n))
