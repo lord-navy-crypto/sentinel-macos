@@ -159,7 +159,7 @@ function safeScatterDomain(values:number[]):[number,number]{
  return [low-padding,high+padding];
 }
 const numberLabel=(value:number)=>Number(value.toPrecision(5)).toString();
-export function scatterChartSvg(chart:ScatterChartData,fit:LinearFit|null=null):string{
+export function scatterChartSvg(chart:ScatterChartData,fit:LinearFit|null=null,zeroBaseline=false):string{
  if(chart.kind!=="scatter"||chart.points.length<1||chart.points.length>250)
   throw Error("Invalid XY scatter data.");
  const W=960,H=540,left=100,right=44,top=98,bottom=94;
@@ -180,6 +180,8 @@ export function scatterChartSvg(chart:ScatterChartData,fit:LinearFit|null=null):
   marks+='<line x1="'+left+'" y1="'+py.toFixed(2)+'" x2="'+(left+pw)+'" y2="'+py.toFixed(2)+'" stroke="'+grid+'"/>';
   marks+='<text x="'+(left-12)+'" y="'+(py+4).toFixed(2)+'" text-anchor="end" font-size="13" fill="'+muted+'">'+escapeXml(numberLabel(y))+'</text>';
  }
+ const zeroLine=zeroBaseline&&yMin<=0&&yMax>=0?
+  '<line data-series="residual-zero" x1="'+left+'" y1="'+yp(0).toFixed(2)+'" x2="'+(left+pw)+'" y2="'+yp(0).toFixed(2)+'" stroke="#c2410c" stroke-width="2" stroke-dasharray="6 5"/>':"";
  const fitLine=fit?
   '<g clip-path="url(#scatter-plot-clip)"><line data-series="least-squares" x1="'+xp(fit.xMin).toFixed(2)+'" y1="'+yp(fit.yMean+fit.slope*(fit.xMin-fit.xMean)).toFixed(2)+'" x2="'+xp(fit.xMax).toFixed(2)+'" y2="'+yp(fit.yMean+fit.slope*(fit.xMax-fit.xMean)).toFixed(2)+'" stroke="#d97706" stroke-width="3.5" stroke-dasharray="9 5"/></g>':"";
  const dots=chart.points.map(p=>'<circle cx="'+xp(p.x).toFixed(2)+'" cy="'+yp(p.y).toFixed(2)+'" r="5" fill="'+point+'" fill-opacity=".83" stroke="#ffffff" stroke-width="1.2"><title>'+
@@ -190,7 +192,7 @@ export function scatterChartSvg(chart:ScatterChartData,fit:LinearFit|null=null):
   '<text x="100" y="48" font-family="sans-serif" font-weight="700" font-size="25" fill="'+ink+'">'+escapeXml(chart.title||"XY scatter plot")+'</text>'+
   '<text x="100" y="72" font-family="sans-serif" font-size="13" fill="'+muted+'">Scientific XY scatter · '+chart.points.length+' observations</text>'+
   '<defs><clipPath id="scatter-plot-clip"><rect x="'+left+'" y="'+top+'" width="'+pw+'" height="'+ph+'"/></clipPath></defs>'+
-  '<g font-family="sans-serif">'+marks+fitLine+
+  '<g font-family="sans-serif">'+marks+zeroLine+fitLine+
   '<text x="508" y="513" text-anchor="middle" font-size="16" fill="'+ink+'">'+escapeXml(chart.xLabel)+'</text>'+
   '<text x="23" y="274" transform="rotate(-90 23 274)" text-anchor="middle" font-size="16" fill="'+ink+'">'+escapeXml(chart.yLabel+(chart.unit?" ("+chart.unit+")":""))+'</text>'+
   dots+'</g></svg>\n';
