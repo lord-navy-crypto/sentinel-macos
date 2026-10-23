@@ -9,6 +9,7 @@ const SAMPLE="Month,Revenue,Orders\nJanuary,1420,24\nFebruary,1890,30\nMarch,164
 export default function ChartDesk(){
  const [source,setSource]=useState(SAMPLE);
  const [category,setCategory]=useState(0),[value,setValue]=useState(1);
+ const [uncertaintyColumn,setUncertaintyColumn]=useState<number|null>(null);
  const [kind,setKind]=useState<ChartKind|"scatter">("bar"),[aggregate,setAggregate]=useState<ChartAggregate>("sum");
  const [title,setTitle]=useState("Monthly revenue"),[unit,setUnit]=useState("USD");
  const [status,setStatus]=useState("");
@@ -23,13 +24,13 @@ export default function ChartDesk(){
    if(!parsed.table)return {data:null,svg:"",error:parsed.error,fit:null};
    try{
      const data=kind==="scatter"?
-       scatterChartModel(parsed.table,category,value,title,unit):
+       scatterChartModel(parsed.table,category,value,title,unit,uncertaintyColumn):
        chartModel(parsed.table,category,value,aggregate,kind,title,unit);
      const fit=data.kind==="scatter"&&showFit?fitScatterLine(data.points):null;
      const svg=data.kind==="scatter"?scatterChartSvg(data,fit):chartSvg(data);
      return {data,svg,error:"",fit};
    }catch(e){return {data:null,svg:"",error:errorMessage(e),fit:null};}
- },[parsed,category,value,aggregate,kind,title,unit,showFit]);
+ },[parsed,category,value,uncertaintyColumn,aggregate,kind,title,unit,showFit]);
  const residuals=useMemo(()=>{
    const data=visualization.data,fit=visualization.fit;
    if(kind!=="scatter"||!showFit||!showResiduals||!data||data.kind!=="scatter"||!fit)
@@ -48,7 +49,7 @@ export default function ChartDesk(){
      if(!/\.csv$/iu.test(file.name)||file.size>120_000)
        throw Error("Choose a .csv file within 120 KB.");
      const incoming=await file.text();
-     parseChartCsv(incoming);setSource(incoming);setCategory(0);setValue(1);
+     parseChartCsv(incoming);setSource(incoming);setCategory(0);setValue(1);setUncertaintyColumn(null);
      setStatus("Imported local CSV. No upload.");
    }catch(e){setStatus("Import failed: "+errorMessage(e));}
    finally{setBusy(false);}
@@ -136,6 +137,16 @@ export default function ChartDesk(){
            {parsed.table?.headers.map((h,i)=><option key={i} value={i}>{h}</option>)}
          </select>
        </label>
+       {kind==="scatter"&&<label className="field-label">Y uncertainty (± values, optional)
+         <select className="field" data-testid="chart-uncertainty-column"
+           value={uncertaintyColumn===null?"none":String(uncertaintyColumn)}
+           onChange={e=>setUncertaintyColumn(e.target.value==="none"?null:Number(e.target.value))}
+           disabled={!parsed.table}>
+           <option value="none">No uncertainty column</option>
+           {parsed.table?.headers.map((h,i)=><option key={i} value={String(i)}
+             disabled={i===category||i===value}>{h}</option>)}
+         </select>
+       </label>}
        <label className="field-label">Aggregation
          <select className="field" value={aggregate} disabled={kind==="scatter"} onChange={e=>setAggregate(e.target.value as ChartAggregate)}>
            <option value="sum">Sum values</option><option value="average">Average value</option><option value="count">Count records</option>
@@ -175,7 +186,7 @@ export default function ChartDesk(){
          <p data-testid="chart-fit-r2">R² = {visualization.fit.rSquared===null?
            "undefined for constant Y":formatRegressionNumber(visualization.fit.rSquared)}
            {" · "}n = {visualization.fit.observations}</p>
-         <p className="subtle">Dashed orange line. Unweighted numerical regression; not proof of causation.
+         <p className="subtle">Dashed orange line. Unweighted numerical regression; provided uncertainty bars do not change fitting weights. Not proof of causation.
            R² describes fit quality only and does not quantify experimental uncertainty.</p>
        </>:<p role="status" className="subtle">Linear fit unavailable: provide at least two observations with distinct X coordinates.</p>}
      </div>}
@@ -206,7 +217,7 @@ export default function ChartDesk(){
          </div>
        </section>)}
      <p className="subtle">{kind==="scatter"?
-       "Scientific scatter: 1–250 finite decimal XY observations, ±1e12 range; missing pairs skipped, partially missing rows rejected. Original decimal strings (including trailing zeroes) are retained in exported CSV. Repeated X values are separate points. Optional least-squares fit and residuals use double-precision values, not a causal model or experimental error estimates.":
+       "Scientific scatter: 1–250 finite decimal XY observations, ±1e12 range; optional separate nonnegative Y uncertainty column draws ± error bars without guessing uncertainty from residuals. Original numeric strings are retained in exported CSV. Regression remains unweighted and does not calculate confidence intervals.":
        "Category charts: blank numeric values are ignored for sum/average. Maximum 24 categories. Aggregated values are not necessarily the original rows."} SVG contains no executable scripts.</p>
      <div className="actions">
        <button className="primary-button" type="button" data-testid="chart-save-svg" disabled={busy} onClick={()=>{void saveSvg();}}>Export chart SVG</button>
