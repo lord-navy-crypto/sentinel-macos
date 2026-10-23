@@ -26,7 +26,7 @@ describe("Offline iCalendar nonrecurring CSV export",()=>{
  it("reads single-event generator without modifying the event",()=>{
   const original=makeIcsEvent({
    start:"2026-11-12T09:00",end:"2026-11-12T10:00",summary:"Writing, Design",
-   location:"Room 3",description:"Line 1\nLine 2",uid:"sample-1@local",
+   location:"Room 3",description:"Line 1\nLine 2",uid:"sample-1@daily-desk.local",
   });
   const parsed=parseLocalIcs(original,byteCount(original));
   expect(parsed.events).toHaveLength(1);
