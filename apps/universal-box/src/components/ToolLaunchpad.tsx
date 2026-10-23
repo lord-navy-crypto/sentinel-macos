@@ -2,6 +2,7 @@ import {useEffect,useMemo,useState} from "react";
 
 export type LocalTool = {id:string;name:string;area:string;view:string;module?:string};
 export const LOCAL_TOOLS:LocalTool[] = [
+ {id:"business-billing",name:"Business Invoices & Quotes · 批量发票报价单 Word/PDF",area:"Office",view:"workflows",module:"business-billing"},
  {id:"scan-pdf-compress",name:"Scanned PDF Image Compressor · DPI / JPEG 扫描件压缩",area:"Files",view:"pdf-mini",module:"scan-compress"},
  {id:"pdf-measured-optimize",name:"PDF Size Optimizer · 实测文件大小优化",area:"Files",view:"pdf-mini",module:"optimize"},
  {id:"speech-timed-srt-vtt",name:"Speech Timed Subtitles · Apple Speech 音频时间戳转 SRT/VTT",area:"Media",view:"media-files",module:"speech"},
