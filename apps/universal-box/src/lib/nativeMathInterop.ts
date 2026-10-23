@@ -68,6 +68,15 @@ class Parser{
   if(ch==="\\")return this.command(depth);
   if(ch==="}"||ch==="^"||ch==="_")issue("unexpected "+ch+".");
   if(ch==="$"||ch==="\n")issue("unexpected delimiter or line break.");
+  if(/[0-9]/u.test(ch)){
+   let numeric=this.consume();
+   while(/[0-9]/u.test(this.peek()))numeric+=this.consume();
+   if(this.peek()==="."){
+    numeric+=this.consume();
+    while(/[0-9]/u.test(this.peek()))numeric+=this.consume();
+   }
+   return [new MathRun(numeric)];
+  }
   this.consume();
   return [new MathRun(ch)];
  }
