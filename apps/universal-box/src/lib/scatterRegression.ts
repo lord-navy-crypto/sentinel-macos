@@ -1,7 +1,7 @@
 import type {ScatterPoint} from "./chartViz";
 export type LinearFit={
  slope:number;intercept:number;rSquared:number|null;observations:number;
- xMin:number;xMax:number;
+ xMin:number;xMax:number;xMean:number;yMean:number;
 };
 /** Ordinary least-squares y = mx + b; no rounding, interpolation or data mutation. */
 export function fitScatterLine(points:ReadonlyArray<ScatterPoint>):LinearFit|null{
@@ -36,6 +36,6 @@ export function fitScatterLine(points:ReadonlyArray<ScatterPoint>):LinearFit|nul
  if(!Number.isFinite(error))return null;
  // R² is undefined when Y is constant; do not invent a perfect correlation.
  const rSquared=syy===0?null:Math.max(0,Math.min(1,1-error/syy));
- return {slope,intercept,rSquared,observations:n,xMin,xMax};
+ return {slope,intercept,rSquared,observations:n,xMin,xMax,xMean,yMean};
 }
 export const formatRegressionNumber=(value:number):string=>Number(value.toPrecision(9)).toString();
