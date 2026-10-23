@@ -54,6 +54,10 @@ test("Real font, symbol and safe text formats create inspectable DOCX/HTML/TXT",
   // The safe HTML roundtrip restores the original literal text; optional symbol conversion is a view/export choice.
   assert.equal(await page.locator('[data-testid="typography-input"]').inputValue(),raw);
   await page.locator('[data-testid="typography-copy-rich"]').click();
+  await page.waitForFunction(()=>{
+    const text=document.querySelector('[data-testid="typography-status"]')?.textContent??"";
+    return /Copied formatted|Formatted copy unavailable/u.test(text);
+  },null,{timeout:15000});
   const copiedStatus=await page.locator('[data-testid="typography-status"]').innerText();
   assert.match(copiedStatus,/Copied formatted|Formatted copy unavailable/);
   const docx=await downloadAs(page,"typography-save-docx","formatted-text.docx");
