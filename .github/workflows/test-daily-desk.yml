@@ -116,7 +116,23 @@ jobs:
           DMG="$(find src-tauri/target/${{ matrix.target }}/release/bundle/dmg -maxdepth 1 -name '*.dmg' -print -quit)"
           test -n "$DMG"
           bash scripts/verify-macos-dmg.sh test "$DMG" "${{ matrix.target }}"
-          shasum -a 256 "$DMG" > "$DMG.sha256"
+          # A controlled test artifact must NEVER pass the public-release gate.
+          GUARD_LOG="$(mktemp)"
+          if bash scripts/verify-macos-dmg.sh release "$DMG" "${{ matrix.target }}" > "$GUARD_LOG" 2>&1; then
+            echo "SECURITY FAILURE: ad-hoc test DMG accepted by release verifier" >&2
+            cat "$GUARD_LOG" >&2
+            rm -f "$GUARD_LOG"
+            exit 1
+          fi
+          if ! grep -Fq "RELEASE REFUSED: app is only ad-hoc signed." "$GUARD_LOG"; then
+            echo "Unexpected release-verification failure; fail closed." >&2
+            cat "$GUARD_LOG" >&2
+            rm -f "$GUARD_LOG"
+            exit 1
+          fi
+          rm -f "$GUARD_LOG"
+          printf '%s  %s\n' "$(shasum -a 256 "$DMG" | awk '{print $1}')" "$(basename "$DMG")" > "$DMG.sha256"
+          (cd "$(dirname "$DMG")" && shasum -a 256 -c "$(basename "$DMG").sha256")
           {
             echo "Sentinel Box TEST DMG — ad-hoc signed, NOT Apple notarized"
             echo "source_commit=$(git rev-parse HEAD)"
