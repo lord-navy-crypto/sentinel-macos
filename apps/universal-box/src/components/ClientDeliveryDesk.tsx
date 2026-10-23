@@ -6,8 +6,8 @@ import {
 const fail=(e:unknown)=>e instanceof Error?e.message:String(e);
 export default function ClientDeliveryDesk(){
  const [details,setDetails]=useState<DeliveryInput>({
-  project:"Example project delivery",recipient:"Example client",reference:"",
-  deliveryDate:"2026-10-21",note:"Included files are the agreed project deliverables. Please review before acceptance.",
+  project:"",recipient:"",reference:"",
+  deliveryDate:"",note:"",
  });
  const [files,setFiles]=useState<File[]>([]),[busy,setBusy]=useState(false);
  const [status,setStatus]=useState(""),[progress,setProgress]=useState("");
