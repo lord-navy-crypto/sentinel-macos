@@ -9,6 +9,7 @@ import PdfTextDesk from "./PdfTextDesk";
 import PdfFreedomDesk from "./PdfFreedomDesk";
 import PdfConvertDesk from "./PdfConvertDesk";
 import { parsePdfOrder } from "../lib/pdfPageOrder";
+import {inspectOfficePdfMerge,mergeOfficePdfs,type PdfMergePlan} from "../lib/officePdfMerge";
 import BatchImageDesk from "./BatchImageDesk";
 import ImageAnnotationDesk from "./ImageAnnotationDesk";
 import InteractiveCropDesk from "./InteractiveCropDesk";
@@ -77,6 +78,7 @@ export default function FileDesk({ onSendToWriting, initialTab = "pdf", initialP
   const [rotation, setRotation] = useState(90);
   const [splitEach, setSplitEach] = useState(false);
   const [pdfCount, setPdfCount] = useState(0);
+  const [mergePlan,setMergePlan] = useState<PdfMergePlan|null>(null);
   const [image, setImage] = useState<File | null>(null);
   const [imageMode, setImageMode] = useState<"convert" | "crop">("convert");
   const [cropLeft, setCropLeft] = useState(0);
@@ -105,21 +107,28 @@ export default function FileDesk({ onSendToWriting, initialTab = "pdf", initialP
   }, [image]);
 
   async function onPdfChange(event: ChangeEvent<HTMLInputElement>) {
-    const selected = [...(event.target.files ?? [])].slice(0, 20);
-    setFiles(selected);
-    setPdfCount(0);
-    setPages("1-");
-    setStatus("");
-    const first = selected[0];
-    if (!first) return;
-    try {
-      const document = await PDFDocument.load(await first.arrayBuffer());
-      const n = document.getPageCount();
-      setPdfCount(n);
-      setPages(`1-${n}`);
-    } catch {
-      setStatus("Could not read the selected PDF. Choose an unencrypted PDF file.");
-    }
+    const selected=[...(event.target.files??[])];
+    event.target.value="";
+    setFiles([]);setMergePlan(null);setPdfCount(0);setPages("1-");setStatus("");
+    if(!selected.length)return;
+    if(selected.length>20){setStatus("Choose no more than 20 PDFs; nothing was loaded.");return;}
+    try{
+      if(pdfMode==="merge"){
+        const plan=await inspectOfficePdfMerge(selected);
+        setMergePlan(plan);setFiles(selected);
+        setPdfCount(plan.files[0].pages);
+        setPages("1-"+plan.files[0].pages);
+        setStatus("Verified "+plan.files.length+" source PDFs. Review merge order before saving.");
+      }else{
+        if(selected.length!==1)throw Error("Choose exactly one PDF for this operation.");
+        const first=selected[0];
+        if(first.size<1||first.size>18_000_000)throw Error("PDF source must be 1 byte–18 MB.");
+        const document=await PDFDocument.load(await first.arrayBuffer());
+        const n=document.getPageCount();
+        if(n<1)throw Error("Empty PDF.");
+        setPdfCount(n);setPages("1-"+n);setFiles([first]);
+      }
+    }catch(e){setStatus("PDF import failed: "+errorMessage(e));}
   }
 
   async function processPdf() {
@@ -128,14 +137,10 @@ export default function FileDesk({ onSendToWriting, initialTab = "pdf", initialP
     setStatus("");
     try {
       if (pdfMode === "merge") {
-        const output = await PDFDocument.create();
-        for (const file of files) {
-          const source = await PDFDocument.load(await file.arrayBuffer());
-          const copied = await output.copyPages(source, source.getPageIndices());
-          copied.forEach((page) => output.addPage(page));
-        }
-        const saved = await exportFile("merged.pdf", await output.save());
-        setStatus(saved ? `Merged ${files.length} PDFs locally.` : "Save cancelled.");
+        const output=await mergeOfficePdfs(files);
+        const saved=await exportFile("merged.pdf",output.bytes);
+        const change=output.outputBytes-output.sourceBytes;
+        setStatus(saved?`Verified ${output.pages} pages from ${files.length} PDFs. Actual size: ${output.sourceBytes.toLocaleString()} → ${output.outputBytes.toLocaleString()} bytes (${change>=0?"+":""}${change.toLocaleString()}); file size can increase.`:"Save cancelled.");
       } else {
         const file = files[0];
         const source = await PDFDocument.load(await file.arrayBuffer());
@@ -265,17 +270,23 @@ export default function FileDesk({ onSendToWriting, initialTab = "pdf", initialP
       </div>
       {tab === "pdf" && <>
         <div className="pill-row compact" role="group" aria-label="PDF operation">
-          {(["merge", "split", "rotate", "organize", "decorate", "convert", "compress"] as const).map((item) => <button type="button" key={item} onClick={() => { setPdfMode(item); setFiles([]); setStatus(""); }} className={pdfMode === item ? "pill active-pill" : "pill"}>{item === "compress" ? "Optimize (light)" : item === "decorate" ? "Add text / sign / watermark" : item === "convert" ? "Image ↔ PDF" : item[0].toUpperCase() + item.slice(1)}</button>)}
+          {(["merge", "split", "rotate", "organize", "decorate", "convert", "compress"] as const).map((item) => <button type="button" key={item} onClick={() => { setPdfMode(item); setFiles([]);setMergePlan(null); setStatus(""); }} className={pdfMode === item ? "pill active-pill" : "pill"}>{item === "compress" ? "Optimize (light)" : item === "decorate" ? "Add text / sign / watermark" : item === "convert" ? "Image ↔ PDF" : item[0].toUpperCase() + item.slice(1)}</button>)}
         </div>
         <label htmlFor="pdf-picker" className="field-label">{pdfMode === "merge" ? "Choose up to 20 PDFs in order" : pdfMode === "convert" ? "Optional PDF source (for PDF → images)" : "Choose a PDF"}</label>
         <input id="pdf-picker" className="field" type="file" accept=".pdf,application/pdf" multiple={pdfMode === "merge"} onChange={(event) => { void onPdfChange(event); }} />
         {files.length > 0 && <p className="subtle">Selected: {files.map((file) => file.name).join(" · ")} {pdfCount > 0 && `· first PDF ${pdfCount} page(s)`}</p>}
+        {pdfMode==="merge"&&mergePlan&&<section className="panel" data-testid="pdf-merge-preflight">
+          <h4>Merge preview · 合并顺序检查</h4>
+          <p className="subtle">{mergePlan.files.length} PDFs · {mergePlan.totalPages} total pages · {mergePlan.sourceBytes.toLocaleString()} source bytes.</p>
+          {mergePlan.files.map((item,i)=><p className="subtle" key={i}>{i+1}. {item.name} · {item.pages} page(s) · {item.sourceBytes.toLocaleString()} bytes</p>)}
+          <p className="subtle">Pages are appended in the displayed order. The output PDF is reopened and its page count verified before saving. Merging can increase file size; original files remain unchanged.</p>
+        </section>}
         {(pdfMode === "split" || pdfMode === "rotate" || pdfMode === "organize") && <><label className="field-label" htmlFor="pdf-pages">{pdfMode === "organize" ? "Pages in desired order (e.g. 3,1,2,5-8). Omit pages to remove them." : "Pages (e.g. 1-3,5,7-)"}</label><input id="pdf-pages" className="field" value={pages} onChange={(e) => setPages(e.target.value)} /></>}
         {pdfMode === "organize" && <p className="subtle">Reorder pages or remove unwanted pages by listing only those you want. Each page may appear once. No changes are made to the original file.</p>}
         {pdfMode === "split" && <label className="field-label"><input type="checkbox" checked={splitEach} onChange={e => setSplitEach(e.target.checked)} /> Export each selected page as its own PDF inside a ZIP (up to 50 pages)</label>}
         {pdfMode === "rotate" && <><label className="field-label" htmlFor="pdf-angle">Degrees clockwise</label><select id="pdf-angle" className="field" value={rotation} onChange={(e) => setRotation(Number(e.target.value))}><option value={90}>90°</option><option value={180}>180°</option><option value={270}>270°</option></select></>}
         {pdfMode === "compress" && <p className="subtle">Like the web's light-compress mode, this reserializes PDF objects. Scanned/image-heavy PDFs may not shrink.</p>}
-        {pdfMode !== "decorate" && pdfMode !== "convert" && <div className="actions"><button type="button" className="primary-button" disabled={!files.length || busy} onClick={() => { void processPdf(); }}>{busy ? "Processing…" : "Process & save PDF"}</button></div>}
+        {pdfMode !== "decorate" && pdfMode !== "convert" && <div className="actions"><button type="button" className="primary-button" disabled={!files.length || busy || (pdfMode==="merge"&&!mergePlan)} onClick={() => { void processPdf(); }}>{busy ? "Processing…" : "Process & save PDF"}</button></div>}
         {pdfMode === "decorate" && <PdfFreedomDesk file={files[0]??null} pageCount={pdfCount}/>}
         {pdfMode === "convert" && <PdfConvertDesk pdfFile={files[0]??null} pageCount={pdfCount}/>}
         {files.length > 0 && <PdfPagePreview file={files[0]} onPickPage={page=>{if(pdfMode!=="organize")setPages(String(page));}} />}
