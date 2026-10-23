@@ -66,7 +66,7 @@ const menu: { id: View; name: string; symbol: string; description: string }[] = 
   { id: "file-intake", name: "File Intake / 统一文件工作台", symbol: "⇪", description: "Drop files, inspect true formats, SHA-256 hashes, duplicates and safe CSV inventory" },
   { id: "commons", name: "Universal Commons / 免费团队共享", symbol: "◎", description: "Offline team rooms: file handoff, messages, tasks and verified ZIP packages" },
   { id: "all-tools", name: "All tools / 全部工具", symbol: "▦", description: "Search and open every available tool" },
-  { id: "quick-tools", name: "Quick Tools / 快捷小工具", symbol: "✂", description: "Text cleaning, cleaner links, dates and grades" },
+  { id: "quick-tools", name: "Quick Tools / 快捷小工具", symbol: "✂", description: "Offline text, clipboard and selected-file batch processing" },
   { id: "universal", name: "Universal Tools / 综合工具", symbol: "◈", description: "JSON conversion, timezones, hashes, passwords and photo privacy" },
   { id: "universal-box", name: "Sentinel Box / 万用工具箱", symbol: "▧", description: "Offline QR batches, calendar invites, ID generators" },
   { id: "universal-lab", name: "Sentinel Box Lab / 免费工具实验室", symbol: "▤", description: "Local text, subtitles, photo sheets and URL diagnostics" },
