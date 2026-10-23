@@ -11,7 +11,7 @@ describe("Offline scientific CSV XY scatter and safe data roundtrip",()=>{
   expect(model.points[2].x).toBe(-0.0015);
   expect(model.minimum).toBe(-0.5);
   const csv=scatterChartCsv(model);
-  expect(csv).toContain("0.0000123000,1.2300\\r\\n".replace(/\\\\/g,"\\"));
+  expect(csv).toContain("0.0000123000,1.2300\r\n");
   expect(csv).toContain("-1.5e-3,-0.50");
   expect(csv).not.toContain("'-1.5e-3");
   const xml=scatterChartSvg(model);
@@ -31,9 +31,9 @@ describe("Offline scientific CSV XY scatter and safe data roundtrip",()=>{
   expect(xml).not.toContain("onload=\"bad()\"");
  });
  it("escapes formula-like column headers while preserving safe negative scientific numeric cells",()=>{
-  const data=scatterChartModel(parseChartCsv("=1+1,Voltage\\n-1.5e-3,2.000"),0,1,"","");
+  const data=scatterChartModel(parseChartCsv("=1+1,Voltage\n-1.5e-3,2.000"),0,1,"","");
   const csv=scatterChartCsv(data);
-  expect(csv.split("\\r\\n")[0]).toBe("'=1+1,Voltage");
+  expect(csv.split("\r\n")[0]).toBe("'=1+1,Voltage");
   expect(csv).toContain("-1.5e-3,2.000");
   expect(csv).not.toContain("'-1.5e-3");
  });
