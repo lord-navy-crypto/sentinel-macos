@@ -22,10 +22,6 @@ export function chartModel(
  if(!Number.isSafeInteger(categoryColumn)||categoryColumn<0||categoryColumn>=table.headers.length
    ||!Number.isSafeInteger(valueColumn)||valueColumn<0||valueColumn>=table.headers.length)
    throw Error("Choose valid category and numeric columns.");
- if(uncertaintyColumn!==null&&(!Number.isInteger(uncertaintyColumn)||
-  uncertaintyColumn<0||uncertaintyColumn>=table.headers.length||
-  uncertaintyColumn===xColumn||uncertaintyColumn===yColumn))
-  throw Error("Select a separate numeric Y uncertainty column.");
  if(title.length>80||unit.length>18)throw Error("Chart title/unit is too long.");
  const groups=new Map<string,{sum:number;items:number}>();
  for(let i=0;i<table.rows.length;i++){
@@ -116,6 +112,10 @@ export function scatterChartModel(
  if(!Number.isInteger(xColumn)||!Number.isInteger(yColumn)||xColumn===yColumn||
   xColumn<0||yColumn<0||xColumn>=table.headers.length||yColumn>=table.headers.length)
    throw Error("Select two different numeric X and Y columns.");
+ if(uncertaintyColumn!==null&&(!Number.isInteger(uncertaintyColumn)||
+  uncertaintyColumn<0||uncertaintyColumn>=table.headers.length||
+  uncertaintyColumn===xColumn||uncertaintyColumn===yColumn))
+  throw Error("Select a separate numeric Y uncertainty column.");
  if(title.length>80||unit.length>18)throw Error("Chart title/unit is too long.");
  if(table.rows.length>250)throw Error("XY scatter supports at most 250 data rows.");
  const points:ScatterPoint[]=[];
