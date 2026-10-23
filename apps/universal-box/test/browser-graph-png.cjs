@@ -22,9 +22,9 @@ test("Live graph outputs genuine high-res PNG plus unchanged SVG",{timeout:85000
   await page.locator("#all-tools-search").fill("Advanced Graph / 高级绘图");
   const open=page.locator(".catalog-open");assert.equal(await open.count(),1);await open.click();
   await page.locator("#advanced-graph-svg").waitFor();
-  const svg=await download(page,page.getByRole("button",{name:"Export SVG"}),"daily-desk-graph.svg");
+  const svg=await download(page.getByRole("button",{name:"Export SVG"}),"daily-desk-graph.svg");
   assert.match(svg.toString("utf8"),/<svg/u);
-  const png=await download(page,page.locator('[data-testid="graph-export-png"]'),"daily-desk-graph.png");
+  const png=await download(page.locator('[data-testid="graph-export-png"]'),"daily-desk-graph.png");
   assert.deepEqual([...png.subarray(0,8)],[137,80,78,71,13,10,26,10]);
   assert.equal(png.readUInt32BE(16),1560);assert.equal(png.readUInt32BE(20),940);
   assert.ok(png.length>3500,"Expected meaningful nonblank graph image");
