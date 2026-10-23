@@ -1,6 +1,7 @@
 /** Keyboard-first command search for existing Sentinel Box tools; no network or file indexing. */
 export type PaletteCommand={id:string;name:string;description:string;view:string;module?:string};
 const ALIASES:Record<string,string[]>={
+ "tool-typography-symbols":["font size","font converter","font styling","symbol to text","format text","字体转换","字体字号","字体格式","符号转换","特殊符号","txt转docx","文字转html"],
  "tool-scan-pdf-compress":["compress pdf","reduce pdf","pdf扫描压缩","扫描件压缩","压缩pdf"],
  "tool-pdf-measured-optimize":["pdf size","smaller pdf","pdf大小","优化pdf","压缩pdf"],
  "tool-screen-frame-capture":["screen capture","screenshot ocr","截图识字","屏幕识字","截图复制"],
