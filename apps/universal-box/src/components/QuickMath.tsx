@@ -1,5 +1,6 @@
 import {useState} from "react";
-import {compile} from "mathjs";
+import {functionTable} from "../lib/functionTableExport";
+import {exportFile} from "../lib/output";
 import {baseConvert,quadraticRoots,descriptiveStats,twoByTwo} from "../lib/quickMath";
 
 type Mode = "base"|"equation"|"stats"|"matrix"|"table";
@@ -13,7 +14,10 @@ export default function QuickMath(){
   const [tableExpr,setTableExpr]=useState("x^2");
   const [start,setStart]=useState(-5),[step,setStep]=useState(1),[count,setCount]=useState(11);
   const [result,setResult]=useState("");
+  const [tableCsv,setTableCsv]=useState("");
+  const [tableStatus,setTableStatus]=useState("");
   function calc(){
+    setTableCsv("");setTableStatus("");
     try{
       if(mode==="base")setResult(baseConvert(value,from,to));
       if(mode==="equation")setResult(quadraticRoots(a,b,c).map((x,i)=>"x"+(i+1)+" = "+x).join("\n"));
@@ -26,10 +30,9 @@ export default function QuickMath(){
         setResult(`x = ${s.x}\ny = ${s.y}\nDeterminant = ${s.det}`);
       }
       if(mode==="table"){
-        if(!Number.isInteger(count)||count<2||count>50)throw Error("Rows must be between 2 and 50.");
-        const fn=compile(tableExpr);
-        const rows=Array.from({length:count},(_,i)=>{const x=start+i*step;const y:unknown=fn.evaluate({x});return x+"\t"+(typeof y==="number"&&Number.isFinite(y)?String(y):"undefined")});
-        setResult("x\tf(x)\n"+rows.join("\n"));
+        const table=functionTable(tableExpr,start,step,count);
+        setTableCsv(table.csv);
+        setResult(table.display);
       }
     }catch(error){setResult("Error: "+String(error instanceof Error?error.message:error));}
   }
@@ -38,7 +41,7 @@ export default function QuickMath(){
     <p className="subtle">Fast classroom conversions, quadratic equations, basic statistics, and two simultaneous equations.</p>
     <div className="pill-row" role="group" aria-label="Calculator extras">
       {([["base","BASE-N"],["equation","Quadratic"],["stats","1-var STAT"],["matrix","2×2 equations"],["table","Function table"]] as const).map(([id,label])=>
-      <button key={id} className={mode===id?"pill active-pill":"pill"} onClick={()=>{setMode(id);setResult("");}} type="button">{label}</button>)}
+      <button key={id} className={mode===id?"pill active-pill":"pill"} onClick={()=>{setMode(id);setResult("");setTableCsv("");setTableStatus("");}} type="button">{label}</button>)}
     </div>
     {mode==="base"&&<div className="tools-pair">
       <label className="field-label">Integer<input className="field" value={value} onChange={ev=>setValue(ev.target.value)} maxLength={40}/></label>
@@ -53,10 +56,10 @@ export default function QuickMath(){
       })}</div>
     </>}
     {mode==="table"&&<div className="tools-pair">
-      <label className="field-label">f(x) <input className="field" value={tableExpr} onChange={event=>setTableExpr(event.target.value)}/></label>
-      <label className="field-label">Start x <input className="field" type="number" value={start} onChange={event=>setStart(Number(event.target.value))}/></label>
-      <label className="field-label">Step <input className="field" type="number" value={step} onChange={event=>setStep(Number(event.target.value))}/></label>
-      <label className="field-label">Rows (2–50) <input className="field" type="number" min={2} max={50} value={count} onChange={event=>setCount(Number(event.target.value))}/></label>
+      <label className="field-label">f(x) <input className="field" value={tableExpr} onChange={event=>{setTableExpr(event.target.value);setTableCsv("");}}/></label>
+      <label className="field-label">Start x <input className="field" type="number" value={start} onChange={event=>{setStart(Number(event.target.value));setTableCsv("");}}/></label>
+      <label className="field-label">Step <input className="field" type="number" value={step} onChange={event=>{setStep(Number(event.target.value));setTableCsv("");}}/></label>
+      <label className="field-label">Rows (2–50) <input className="field" type="number" min={2} max={50} value={count} onChange={event=>{setCount(Number(event.target.value));setTableCsv("");}}/></label>
     </div>}
     {mode==="stats"&&<><label className="field-label">Numbers (comma or whitespace-separated)</label>
       <textarea className="field text-editor" rows={5} value={data} onChange={ev=>setData(ev.target.value)} /></>}
@@ -66,6 +69,11 @@ export default function QuickMath(){
         <label key={label} className="field-label">{label}<input className="field" type="number" value={n} onChange={ev=>set(Number(ev.target.value))}/></label>)}</div>
     </>}
     <button className="primary-button" type="button" onClick={calc}>Calculate</button>
+    {mode==="table"&&<button className="secondary-button" type="button" data-testid="function-table-export"
+     disabled={!tableCsv} onClick={()=>{void exportFile("daily-desk-function-table.csv",tableCsv)
+      .then(saved=>setTableStatus(saved?"Saved calculated numerical table as CSV.":"Save cancelled."))
+      .catch(e=>setTableStatus(String(e instanceof Error?e.message:e)));}}>Save table CSV</button>}
     {result&&<pre className="analysis-result" role="status">{result}</pre>}
+    {tableStatus&&<p className="subtle" role="status">{tableStatus}</p>}
   </section>;
 }

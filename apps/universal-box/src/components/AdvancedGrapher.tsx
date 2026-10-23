@@ -1,6 +1,7 @@
 import { useMemo, useState, type PointerEvent, type WheelEvent } from "react";
 import { DEFAULT_WINDOW, panWindow, sampleGraph, validateWindow, zoomWindow, type GraphCurve, type GraphMode, type GraphWindow } from "../lib/graphModel";
 import { exportFile } from "../lib/output";
+import {graphSegmentsToCsv,nearestGraphTrace,type GraphTrace} from "../lib/graphDataExport";
 
 const WIDTH = 780, HEIGHT = 470;
 const COLORS = ["#3269b6", "#c96946", "#27936d", "#9166aa"];
@@ -15,6 +16,7 @@ export default function AdvancedGrapher({ onChooseY1 }: { onChooseY1?: (value: s
   const [parameterMax, setParameterMax] = useState(2*Math.PI);
   const [drag, setDrag] = useState<DragPoint | null>(null);
   const [status, setStatus] = useState("");
+  const [trace, setTrace] = useState<GraphTrace|null>(null);
 
   const scaleX = WIDTH / (windowRect.xMax - windowRect.xMin);
   const scaleY = HEIGHT / (windowRect.yMax - windowRect.yMin);
@@ -28,6 +30,14 @@ export default function AdvancedGrapher({ onChooseY1 }: { onChooseY1?: (value: s
     }
   }), [curves, mode, windowRect, parameterMin, parameterMax]);
 
+  const segments=useMemo(()=>plotted.map(p=>p.segments),[plotted]);
+  async function saveCsv(){
+    try{
+      const csv=graphSegmentsToCsv(segments,mode);
+      const saved=await exportFile("daily-desk-graph-points.csv",csv);
+      setStatus(saved?"Saved actual visible-viewport curve samples as CSV; discontinuous segments remain separate.":"Save cancelled.");
+    }catch(e){setStatus(e instanceof Error?e.message:String(e));}
+  }
   const ticks = (low: number, high: number) => {
     const interval = (high-low)/8;
     return Array.from({length:9}, (_,i) => low+i*interval);
@@ -37,7 +47,12 @@ export default function AdvancedGrapher({ onChooseY1 }: { onChooseY1?: (value: s
     return {x:(event.clientX-bounds.left)*WIDTH/bounds.width, y:(event.clientY-bounds.top)*HEIGHT/bounds.height};
   };
   function move(event: PointerEvent<SVGSVGElement>) {
-    if (!drag) return;
+    if(!drag){
+      const pt=toLocal(event);
+      setTrace(nearestGraphTrace(segments,windowRect,pt.x,pt.y,WIDTH,HEIGHT));
+      return;
+    }
+    setTrace(null);
     const next = toLocal(event);
     setWindowRect(rect => panWindow(rect, -(next.x-drag.x)/scaleX, (next.y-drag.y)/scaleY));
     setDrag(next);
@@ -51,6 +66,7 @@ export default function AdvancedGrapher({ onChooseY1 }: { onChooseY1?: (value: s
   }
   function switchMode(next:GraphMode) {
     setMode(next);
+    setTrace(null);
     setWindowRect(DEFAULT_WINDOW);
     setCurves(next==="cartesian" ? initial : next==="polar" ? [{first:"2+sin(5*t)"}] : [{first:"3*cos(t)", second:"2*sin(t)"}]);
   }
@@ -67,7 +83,7 @@ export default function AdvancedGrapher({ onChooseY1 }: { onChooseY1?: (value: s
 
   return <section className="graph-workbench">
     <h3>Advanced interactive grapher</h3>
-    <p className="subtle">Local Cartesian, parametric and polar curves. Drag to pan, scroll or use buttons to zoom. Export the graph as SVG. Numerical rendering is approximate near discontinuities.</p>
+    <p className="subtle">Local Cartesian, parametric and polar curves. Drag to pan, scroll or use buttons to zoom. Export an SVG or numerical CSV of the currently sampled graph. Move near a curve for coordinates. The CSV is numerical sampling, not exact symbolic solutions; near discontinuities it may be approximate.</p>
     <div className="pill-row" role="group" aria-label="Graph coordinate mode">
       {(["cartesian","parametric","polar"] as const).map(next =>
         <button key={next} type="button" className={mode===next?"pill active-pill":"pill"} onClick={()=>switchMode(next)}>{next==="cartesian"?"Y(x)":next==="parametric"?"Parametric x(t),y(t)":"Polar r(θ)"}</button>
@@ -96,11 +112,13 @@ export default function AdvancedGrapher({ onChooseY1 }: { onChooseY1?: (value: s
       <button type="button" className="secondary-button" onClick={()=>setWindowRect(r=>zoomWindow(r,1.35))}>Zoom −</button>
       <button type="button" className="secondary-button" onClick={()=>setWindowRect(DEFAULT_WINDOW)}>Reset view</button>
       <button type="button" className="secondary-button" onClick={()=>{void saveSvg();}}>Export SVG</button>
+      <button type="button" className="secondary-button" data-testid="graph-export-csv" onClick={()=>{void saveCsv();}}>Export points CSV</button>
     </div>
     <svg id="advanced-graph-svg" xmlns="http://www.w3.org/2000/svg" className="math-graph advanced-graph" viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
       role="img" aria-label="Interactive mathematical graph" onWheel={wheel}
       onPointerDown={e=>{setDrag(toLocal(e));e.currentTarget.setPointerCapture(e.pointerId);}}
-      onPointerMove={move} onPointerUp={e=>{setDrag(null);if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId);}}
+      onPointerMove={move} onPointerLeave={()=>{if(!drag)setTrace(null);}}
+      onPointerUp={e=>{setDrag(null);if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId);}}
       onPointerCancel={()=>setDrag(null)} onDoubleClick={()=>setWindowRect(DEFAULT_WINDOW)}
       style={{touchAction:"none",cursor:drag?"grabbing":"grab"}}>
       <rect width={WIDTH} height={HEIGHT} fill="#ffffff"/>
@@ -120,7 +138,13 @@ export default function AdvancedGrapher({ onChooseY1 }: { onChooseY1?: (value: s
           points={part.map(p=>`${xPixel(p.x)},${yPixel(p.y)}`).join(" ")}
           fill="none" stroke={COLORS[i]} strokeWidth={2.5} strokeLinejoin="round"/>))}
       </g>
+      {trace&&<g data-testid="graph-trace-point" pointerEvents="none">
+        <circle cx={xPixel(trace.point.x)} cy={yPixel(trace.point.y)} r="6" fill="#fff" stroke={COLORS[(trace.curve-1)%COLORS.length]} strokeWidth="2.5"/>
+      </g>}
     </svg>
+    <p className="subtle" data-testid="graph-trace-reading" role="status">{trace?
+      `Curve ${trace.curve} · x=${Number(trace.point.x.toPrecision(10))} · y=${Number(trace.point.y.toPrecision(10))}`:
+      "Move near a plotted curve to read its numerical coordinates."}</p>
     <div className="graph-equations">
       {plotted.map((curve,i)=>curve.error&&<p className="subtle" role="status" key={i}>Curve {i+1}: {curve.error}</p>)}
       <p className="subtle">Window: x [{windowRect.xMin.toFixed(2)}, {windowRect.xMax.toFixed(2)}], y [{windowRect.yMin.toFixed(2)}, {windowRect.yMax.toFixed(2)}].</p>
