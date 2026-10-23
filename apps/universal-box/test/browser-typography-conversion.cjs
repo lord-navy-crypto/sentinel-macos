@@ -47,6 +47,14 @@ test("Real font, symbol and safe text formats create inspectable DOCX/HTML/TXT",
   assert.match(html,/text-align:center/u);
   assert.match(html,/&lt;script&gt;alert\(&quot;no&quot;\)&lt;\/script&gt;/u);
   assert.equal(html.includes('<script>alert("no")</script>'),false);
+  // Reopen only our own safe HTML export; raw markup remains inert literal text.
+  await page.locator('[data-testid="typography-file"]').setInputFiles({
+    name:"roundtrip.html",mimeType:"text/html",buffer:Buffer.from(html,"utf8"),
+  });
+  assert.equal(await page.locator('[data-testid="typography-input"]').inputValue(),normalized);
+  await page.locator('[data-testid="typography-copy-rich"]').click();
+  const copiedStatus=await page.locator('[data-testid="typography-status"]').innerText();
+  assert.match(copiedStatus,/Copied formatted|Formatted copy unavailable/);
   const docx=await downloadAs(page,"typography-save-docx","formatted-text.docx");
   const zip=await JSZip.loadAsync(docx,{checkCRC32:true});
   const xml=await zip.file("word/document.xml").async("string");
