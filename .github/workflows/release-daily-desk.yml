@@ -12,7 +12,24 @@ permissions:
   contents: write
 
 jobs:
+  verify-release-source:
+    name: Verify tag, app version and release identity
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/universal-box
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Verify all four app versions and the release tag
+        run: node scripts/release-preflight.cjs
+      - name: Unit test offline release validation
+        run: node --test test/release-preflight.test.cjs
+
   build-macos:
+    needs: verify-release-source
     name: Build DMG (${{ matrix.target }})
     runs-on: macos-14
     strategy:
@@ -93,18 +110,34 @@ jobs:
   publish-release:
     name: Publish versioned GitHub Release
     if: startsWith(github.ref, 'refs/tags/daily-desk-v') || startsWith(github.ref, 'refs/tags/universal-box-v') || startsWith(github.ref, 'refs/tags/sentinel-box-v')
-    needs: build-macos
+    needs: [verify-release-source, build-macos]
     runs-on: ubuntu-latest
     steps:
       - name: Download both validated DMGs
         uses: actions/download-artifact@v4
         with:
-          pattern: UniversalBox-*
+          pattern: SentinelBox-*
           path: release
           merge-multiple: true
-      - name: Publish GitHub Release
+      - name: Verify both architectures and create release checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          dmgs=(release/*.dmg)
+          if [[ "${#dmgs[@]}" -ne 2 ]]; then
+            echo "::error::Expected exactly 2 validated macOS DMG artifacts (Intel + Apple Silicon), got ${#dmgs[@]}."
+            exit 1
+          fi
+          (cd release && sha256sum ./*.dmg > SHA256SUMS.txt)
+          (cd release && sha256sum -c SHA256SUMS.txt)
+          cat release/SHA256SUMS.txt
+      - name: Publish draft GitHub Release for final macOS review
         uses: softprops/action-gh-release@v2
         with:
+          draft: true
           generate_release_notes: true
-          files: release/*.dmg
+          files: |
+            release/*.dmg
+            release/SHA256SUMS.txt
           fail_on_unmatched_files: true
