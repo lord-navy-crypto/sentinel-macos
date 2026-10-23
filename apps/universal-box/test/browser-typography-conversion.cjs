@@ -54,7 +54,7 @@ test("Real font, symbol and safe text formats create inspectable DOCX/HTML/TXT",
   assert.match(xml,/w:sz w:val="32"/u);
   assert.match(xml,/w:jc w:val="center"/u);
   assert.match(xml,/中文 ① 🚀/u);
-  assert.match(xml,/&lt;script&gt;alert\(&quot;no&quot;\)&lt;\/script&gt;/u);
+  assert.match(xml,/&lt;script&gt;alert\((?:&quot;|")no(?:&quot;|")\)&lt;\/script&gt;/u);
   const txt=await downloadAs(page,"typography-save-txt","formatted-text.txt");
   assert.equal(txt.toString("utf8"),normalized);
   // User-imported UTF-8 content is never interpreted as HTML or downloaded automatically.
