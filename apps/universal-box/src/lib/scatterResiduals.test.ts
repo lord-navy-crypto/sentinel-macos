@@ -57,6 +57,9 @@ describe("Scientific residual diagnostics and safe data export",()=>{
   expect(()=>analyzeFitResiduals(b.points,a.fit)).toThrow(/does not match/);
   expect(()=>residualAnalysisCsv(b,a.summary)).toThrow(/does not match/);
   expect(()=>residualScatterChart(b,a.summary)).toThrow(/do not match/);
+  const sameLengthEdited=scatterChartModel(parseChartCsv("X,Y\n1,2\n2,3\n3,6"),0,1,"","");
+  expect(()=>residualAnalysisCsv(sameLengthEdited,a.summary)).toThrow(/does not match/);
+  expect(()=>residualScatterChart(sameLengthEdited,a.summary)).toThrow(/does not match/);
  });
  it("does not produce calculations for invalid values or unsupported floating-point ranges",()=>{
   const fit=fitScatterLine(scatterChartModel(parseChartCsv("X,Y\n1,2\n2,3"),0,1,"","").points)!;
