@@ -2,7 +2,7 @@
 import JSZip from "jszip";
 import {replaceTextLiteral} from "./quickBatchText";
 
-export type BatchTextMode="replace"|"lf"|"crlf"|"remove-bom";
+export type BatchTextMode="replace"|"lf"|"crlf"|"remove-bom"|"trim-trailing"|"remove-blank"|"dedupe-lines";
 export type BatchTextSource={name:string;bytes:Uint8Array};
 export type BatchTextResult={
   name:string;outputName:string;matches:number;changed:boolean;
@@ -37,9 +37,44 @@ function hasBom(data:Uint8Array):boolean{
 }
 function occurrences(value:string,regexp:RegExp):number{return Array.from(value.matchAll(regexp)).length;}
 
+/** Preserve each surviving line's original CRLF/LF/CR bytes; never normalize unrelated lines. */
+function splitPhysicalLines(source:string):{content:string;ending:string}[]{
+  const tokens=source.split(/(\r\n|\r|\n)/u);
+  const lines:{content:string;ending:string}[]=[];
+  for(let i=0;i<tokens.length;i+=2){
+    const content=tokens[i],ending=tokens[i+1]??"";
+    // A terminator at EOF is not an additional blank physical line.
+    if(content===""&&ending===""&&i===tokens.length-1)continue;
+    lines.push({content,ending});
+  }
+  return lines;
+}
+function cleanupPhysicalLines(source:string,mode:"trim-trailing"|"remove-blank"|"dedupe-lines"):{text:string;count:number}{
+  const rows=splitPhysicalLines(source);
+  let count=0;
+  const seen=new Set<string>(),out:string[]=[];
+  for(const row of rows){
+    if(mode==="remove-blank"&&/^[ \t]*$/u.test(row.content)){count++;continue;}
+    if(mode==="dedupe-lines"){
+      // Exact, case-sensitive matching: this is not a CSV record parser.
+      if(seen.has(row.content)){count++;continue;}
+      seen.add(row.content);
+    }
+    let value=row.content;
+    if(mode==="trim-trailing"){
+      const cleaned=value.replace(/[ \t]+$/u,"");
+      if(value!==cleaned)count++;
+      value=cleaned;
+    }
+    out.push(value+row.ending);
+  }
+  return {text:out.join(""),count};
+}
+
+
 export function processBatchTextFiles(sources:readonly BatchTextSource[],mode:BatchTextMode,find="",replacement=""):BatchTextResult[]{
   validateBatchTextSelection(sources.map(x=>({name:x.name,size:x.bytes.length})));
-  if(mode!=="replace"&&mode!=="lf"&&mode!=="crlf"&&mode!=="remove-bom")throw Error("Unknown batch text operation.");
+  if(!(["replace","lf","crlf","remove-bom","trim-trailing","remove-blank","dedupe-lines"] as string[]).includes(mode))throw Error("Unknown batch text operation.");
   if(mode==="replace"&&(!find||find.length>1000||replacement.length>10000))
     throw Error("Enter a literal search phrase (1–1,000 chars) and up to 10,000 replacement characters.");
   const results:BatchTextResult[]=[];
@@ -50,6 +85,8 @@ export function processBatchTextFiles(sources:readonly BatchTextSource[],mode:Ba
     try {original=decoder.decode(containsBom?bytes.subarray(3):bytes);}
     catch{throw Error(file.name+": invalid UTF-8. This tool does not guess or rewrite legacy encodings.");}
     if(original.includes("\u0000"))throw Error(file.name+": binary/NUL data detected. This tool only handles UTF-8 text.");
+    if((mode==="trim-trailing"||mode==="remove-blank"||mode==="dedupe-lines")&&/\.(csv|tsv)$/iu.test(file.name))
+      throw Error(file.name+": this line cleanup is for TXT/Markdown only. CSV/TSV can contain quoted multi-line fields; use the CSV table desk instead.");
     let next=original, matches=0;
     if(mode==="replace"){
       ({text:next,count:matches}=replaceTextLiteral(original,find,replacement));
@@ -61,6 +98,8 @@ export function processBatchTextFiles(sources:readonly BatchTextSource[],mode:Ba
       next=original.replace(/\r\n?|\n/gu,"\r\n");
     }else if(mode==="remove-bom"){
       matches=containsBom?1:0;
+    }else if(mode==="trim-trailing"||mode==="remove-blank"||mode==="dedupe-lines"){
+      ({text:next,count:matches}=cleanupPhysicalLines(original,mode));
     }
     const nextBytes=encoder.encode((containsBom&&mode!=="remove-bom"?"\ufeff":"")+next);
     if(nextBytes.length>MAX_FILE_BYTES*2)throw Error(file.name+": transformed file exceeds 400 KB.");

@@ -105,3 +105,38 @@ test("Batch TXT/CSV/Markdown edits are previewed and exported as verified ZIP co
   assert.deepEqual(errors,[]);
  }finally{await page.close();await browser.close();}
 });
+
+
+test("Batch line cleanup safely previews whitespace edits and rejects CSV for line operations",{timeout:85000},async()=>{
+ const browser=await chromium.launch({headless:true,args:["--no-sandbox"]});
+ const page=await browser.newPage({acceptDownloads:true,viewport:{width:1440,height:920}});
+ const errors=[];page.on("pageerror",e=>errors.push(e.message));
+ try{
+  await page.goto(root,{waitUntil:"domcontentloaded"});await page.locator(".app-shell").waitFor();
+  await openTool(page,"Batch Text Files");
+  await page.locator('[data-testid="batch-text-picker"]').setInputFiles([
+   {name:"会议记录.md",mimeType:"text/markdown",buffer:Buffer.from("Agenda  \r\n\r\nAgenda  \r\nNotes\t\r\n")},
+  ]);
+  await page.locator('[data-testid="batch-text-mode"]').selectOption("trim-trailing");
+  assert.match(await page.locator('[data-testid="batch-text-preview"]').innerText(),/1 changed/);
+  assert.match(await page.locator('[data-testid="batch-line-warning"]').innerText(),/TXT and Markdown only/);
+  const pending=page.waitForEvent("download",{timeout:30000});
+  await page.locator('[data-testid="batch-text-save"]').click();
+  const download=await pending;
+  const dest=path.join(dir,"batch-trim-line-copies.zip");
+  await download.saveAs(dest);
+  const zip=await JSZip.loadAsync(fs.readFileSync(dest),{checkCRC32:true});
+  assert.deepEqual(await zip.file("processed/会议记录.md").async("nodebuffer"),Buffer.from("Agenda\r\n\r\nAgenda\r\nNotes\r\n"));
+  await page.locator('[data-testid="batch-text-mode"]').selectOption("remove-blank");
+  assert.match(await page.locator('[data-testid="batch-text-preview"]').innerText(),/1 changed/);
+  await page.locator('[data-testid="batch-text-mode"]').selectOption("dedupe-lines");
+  assert.match(await page.locator('[data-testid="batch-text-preview"]').innerText(),/1 changed/);
+  await page.locator('[data-testid="batch-text-picker"]').setInputFiles([
+   {name:"sheet.csv",mimeType:"text/csv",buffer:Buffer.from("name,age\nA,20\n")},
+  ]);
+  assert.match(await page.locator('[data-testid="batch-text-status"]').innerText(),/Selected 1/);
+  assert.match(await page.locator('[data-testid="batch-text-error"]').innerText(),/TXT\/Markdown only/);
+  assert.equal(await page.locator('[data-testid="batch-text-save"]').isDisabled(),true);
+  assert.deepEqual(errors,[]);
+ }finally{await page.close();await browser.close();}
+});
