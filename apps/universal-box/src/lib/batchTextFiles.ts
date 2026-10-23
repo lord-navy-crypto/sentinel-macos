@@ -11,7 +11,8 @@ export type BatchTextResult={
 const EXT=/\.(txt|md|markdown|csv|tsv)$/iu;
 const MAX_FILES=20,MAX_FILE_BYTES=200_000,MAX_TOTAL_BYTES=2_000_000;
 const encoder=new TextEncoder();
-const decoder=new TextDecoder("utf-8",{fatal:true});
+// BOM handling is explicit below; never let TextDecoder silently strip an additional U+FEFF.
+const decoder=new TextDecoder("utf-8",{fatal:true,ignoreBOM:true});
 const bom=new Uint8Array([0xef,0xbb,0xbf]);
 
 export function validateBatchTextSelection(files:readonly {name:string;size:number}[]):void{
