@@ -29,6 +29,11 @@ test("Live graph outputs genuine high-res PNG plus unchanged SVG",{timeout:85000
   assert.equal(png.readUInt32BE(16),1560);assert.equal(png.readUInt32BE(20),940);
   assert.ok(png.length>3500,"Expected meaningful nonblank graph image");
   await page.locator('[data-testid="graph-copy-png"]').click();
+  await page.waitForFunction(()=>{
+    const status=Array.from(document.querySelectorAll(".graph-workbench p[role='status']"))
+      .map(e=>e.textContent??"").join(" ");
+    return /Copied high-resolution|Graph copy unavailable/u.test(status);
+  },null,{timeout:15000});
   const status=await page.locator(".graph-workbench p[role=status]").last().innerText();
   assert.match(status,/Copied high-resolution|Graph copy unavailable/);
   await page.screenshot({path:path.join(dir,"graph-highres.png"),fullPage:true});
