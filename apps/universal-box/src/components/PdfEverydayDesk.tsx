@@ -6,14 +6,16 @@ import {
 } from "../lib/pdfEveryday";
 import PdfPagePreview from "./PdfPagePreview";
 import PdfStructureOptimizationPanel from "./PdfStructureOptimizationPanel";
+import ScanPdfCompressionPanel from "./ScanPdfCompressionPanel";
 import PdfLinkRegionPicker from "./PdfLinkRegionPicker";
 import {
  type PdfExternalLink,inspectPdfExternalLinks,editPdfExternalLink,addPdfExternalLink,
  parseBatchPdfPages,previewPdfBatchLinks,batchEditPdfExternalLinks,pdfLinkInventoryCsv,
 } from "../lib/pdfLinks";
 
-export type PdfEverydayMode="optimize"|"metadata"|"crop"|"blank"|"form"|"pages"|"links";
+export type PdfEverydayMode="scan-compress"|"optimize"|"metadata"|"crop"|"blank"|"form"|"pages"|"links";
 const tabs:{id:PdfEverydayMode;label:string}[]=[
+  {id:"scan-compress",label:"Compress Scanned PDF · 扫描件真压缩"},
   {id:"optimize",label:"Compress PDF · 文件体积优化"},
   {id:"metadata",label:"Properties · 文件属性"},
   {id:"crop",label:"Crop margins · 裁边"},
@@ -173,6 +175,7 @@ export default function PdfEverydayDesk({initialMode="metadata"}:{initialMode?:P
         <span><strong>{(file.size/1_000_000).toFixed(2)}</strong> MB</span>
         <span><strong>{Math.round(info.dimensions[0].width)}×{Math.round(info.dimensions[0].height)}</strong> pt first page</span>
       </div>
+      {mode==="scan-compress"&&bytes&&<ScanPdfCompressionPanel key={file.name} source={bytes}/>}
       {mode==="optimize"&&bytes&&<PdfStructureOptimizationPanel key={file.name} source={bytes}/>}
       {mode==="metadata"&&<>
         <p className="subtle">Edit standard PDF document properties, without modifying page contents. This does <strong>not</strong> remove embedded XMP metadata, attachments, author traces or prior saved revisions; do not treat it as full anonymization.</p>
