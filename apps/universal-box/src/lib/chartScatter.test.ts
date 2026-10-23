@@ -1,5 +1,5 @@
 import {describe,expect,it} from "vitest";
-import {parseChartCsv,scatterChartModel,scatterChartSvg} from "./chartViz";
+import {parseChartCsv,scatterChartModel,scatterChartSvg,scatterChartCsv} from "./chartViz";
 describe("Offline scientific CSV XY scatter and safe data roundtrip",()=>{
  it("plots actual numeric XY without category aggregation and retains original decimal precision",()=>{
   const input=parseChartCsv("Time (s),Voltage (V)\n0.0000123000,1.2300\n0.0000123000,2.000\n-1.5e-3,-0.50");
@@ -10,6 +10,10 @@ describe("Offline scientific CSV XY scatter and safe data roundtrip",()=>{
   expect(model.points[1].yText).toBe("2.000");
   expect(model.points[2].x).toBe(-0.0015);
   expect(model.minimum).toBe(-0.5);
+  const csv=scatterChartCsv(model);
+  expect(csv).toContain("0.0000123000,1.2300\\r\\n".replace(/\\\\/g,"\\"));
+  expect(csv).toContain("-1.5e-3,-0.50");
+  expect(csv).not.toContain("'-1.5e-3");
   const xml=scatterChartSvg(model);
   expect(xml).toContain('viewBox="0 0 960 540"');
   expect((xml.match(/<circle /g)||[])).toHaveLength(3);
@@ -25,6 +29,13 @@ describe("Offline scientific CSV XY scatter and safe data roundtrip",()=>{
   expect(xml).toContain('m&amp;V');
   expect(xml).not.toContain('<script>');
   expect(xml).not.toContain("onload=\"bad()\"");
+ });
+ it("escapes formula-like column headers while preserving safe negative scientific numeric cells",()=>{
+  const data=scatterChartModel(parseChartCsv("=1+1,Voltage\\n-1.5e-3,2.000"),0,1,"","");
+  const csv=scatterChartCsv(data);
+  expect(csv.split("\\r\\n")[0]).toBe("'=1+1,Voltage");
+  expect(csv).toContain("-1.5e-3,2.000");
+  expect(csv).not.toContain("'-1.5e-3");
  });
  it("rejects absent, partially missing, unsafe and non-decimal numeric pairs",()=>{
   const missing=parseChartCsv("X,Y\n,\n1,2\n,\n3,4");
