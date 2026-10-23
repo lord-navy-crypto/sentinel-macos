@@ -55,7 +55,7 @@ test("handles GitHub REST list pages with exactly 100 elements and no requested 
  const requests=[];
  const fetcher=async(url,options)=>{
   requests.push({url,options});
-  return {ok:true,json:async()=>url.includes("page=1")?page1:page2};
+  return {ok:true,json:async()=>new URL(url).searchParams.get("page")==="1"?page1:page2};
  };
  const data=await listOpenPrs("example/repo","sample-token",fetcher);
  assert.equal(data.length,101);
