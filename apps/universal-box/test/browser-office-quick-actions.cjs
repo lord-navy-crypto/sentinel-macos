@@ -64,3 +64,44 @@ test("Quick Text Cleaner user-click plain paste never imports formatting, copies
   assert.deepEqual(errors,[]);
  }finally{await page.close();await context.close();await browser.close();}
 });
+
+
+test("Batch TXT/CSV/Markdown edits are previewed and exported as verified ZIP copies", {timeout:85000},async()=>{
+ const browser=await chromium.launch({headless:true,args:["--no-sandbox"]});
+ const page=await browser.newPage({acceptDownloads:true,viewport:{width:1440,height:900}});
+ const errors=[];page.on("pageerror",e=>errors.push(e.message));
+ try{
+  await page.goto(root,{waitUntil:"domcontentloaded"});await page.locator(".app-shell").waitFor();
+  await openTool(page,"Batch Text Files");
+  const original=Buffer.from("\ufeff旧价,5\r\n");
+  await page.locator('[data-testid="batch-text-picker"]').setInputFiles([
+   {name:"报价.csv",mimeType:"text/csv",buffer:original},
+   {name:"notes.md",mimeType:"text/markdown",buffer:Buffer.from("no matches")},
+  ]);
+  await page.locator('[data-testid="batch-text-find"]').fill("旧价");
+  await page.locator('[data-testid="batch-text-replacement"]').fill("新价");
+  await page.locator('[data-testid="batch-text-preview"]').waitFor();
+  const preview=await page.locator('[data-testid="batch-text-preview"]').innerText();
+  assert.match(preview,/2 selected/);assert.match(preview,/1 changed/);
+  assert.match(preview,/报价.csv/);assert.match(preview,/新价/);
+  const pending=page.waitForEvent("download",{timeout:30000});
+  await page.locator('[data-testid="batch-text-save"]').click();
+  const download=await pending;
+  assert.equal(download.suggestedFilename(),"sentinel-box-text-file-copies.zip");
+  const filename=path.join(dir,"batch-text-edits.zip");
+  await download.saveAs(filename);
+  const zip=await JSZip.loadAsync(fs.readFileSync(filename),{checkCRC32:true});
+  const processed=await zip.file("processed/报价.csv").async("nodebuffer");
+  assert.deepEqual(processed.subarray(0,3),Buffer.from([0xef,0xbb,0xbf]));
+  assert.equal(processed.subarray(3).toString("utf8"),"新价,5\r\n");
+  assert.equal(zip.file("processed/notes.md"),null);
+  const manifest=JSON.parse(await zip.file("sentinel-box-batch-text-manifest.json").async("string"));
+  assert.deepEqual(manifest.files.map(x=>x.changed),[true,false]);
+  assert.equal(manifest.files[0].matches,1);
+  assert.equal(original.toString("utf8"),"\ufeff旧价,5\r\n");
+  await page.locator('[data-testid="batch-text-mode"]').selectOption("remove-bom");
+  assert.match(await page.locator('[data-testid="batch-text-preview"]').innerText(),/1 changed/);
+  await page.screenshot({path:path.join(dir,"batch-text-preview.png"),fullPage:true});
+  assert.deepEqual(errors,[]);
+ }finally{await page.close();await browser.close();}
+});

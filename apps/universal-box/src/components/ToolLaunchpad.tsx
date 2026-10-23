@@ -95,6 +95,7 @@ export const LOCAL_TOOLS:LocalTool[] = [
  {id:"photo-metadata-clean",name:"Image Metadata Cleaner · 照片隐私清理",area:"Privacy",view:"universal",module:"image-privacy"},
  {id:"quick-multi-copy",name:"Multi-copy Text Basket · 一次复制多段文字",area:"Text",view:"quick-tools",module:"multi-copy"},
  {id:"quick-literal-replace",name:"Literal Find and Replace · 批量查找替换",area:"Text",view:"quick-tools",module:"replace"},
+ {id:"batch-text-files",name:"Batch Text Files · 多文件 TXT CSV Markdown 查找替换／换行符／BOM 清理",area:"Office",view:"quick-tools",module:"batch-files"},
  {id:"quick-clean-text",name:"Text Cleaner · 一键文本整理",area:"Text",view:"quick-tools",module:"text"},
  {id:"quick-clean-links",name:"Tracking Link Cleaner · 清理追踪链接",area:"Text",view:"quick-tools",module:"links"},
  {id:"quick-date",name:"Date Difference & Date Shift",area:"Study",view:"quick-tools",module:"dates"},
