@@ -35,10 +35,18 @@ export function analyzeFitResiduals(points:ReadonlyArray<ScatterPoint>,fit:Linea
   throw Error("Residual diagnostics exceed the supported numerical range.");
  return {records,sse,rmse,meanResidual:sum/records.length,maxAbsoluteResidual};
 }
-/** Safely serialize only verified numeric cells, preserving original measured strings. */
-export function residualAnalysisCsv(data:ScatterChartData,summary:ResidualSummary):string{
+function assertSameObservations(data:ScatterChartData,summary:ResidualSummary):void{
  if(data.kind!=="scatter"||summary.records.length!==data.points.length)
   throw Error("Residual report does not match the current scatter plot.");
+ for(let i=0;i<summary.records.length;i++){
+  const r=summary.records[i],p=data.points[i];
+  if(r.x!==p.x||r.y!==p.y||r.observedX!==p.xText||r.observedY!==p.yText)
+   throw Error("Residual report does not match the current scatter plot.");
+ }
+}
+/** Safely serialize only verified numeric cells, preserving original measured strings. */
+export function residualAnalysisCsv(data:ScatterChartData,summary:ResidualSummary):string{
+ assertSameObservations(data,summary);
  const csvHeader=tableToCsv({headers:[
   data.xLabel,data.yLabel,"Predicted Y","Residual (observed - predicted)"
  ],rows:[]});
@@ -54,8 +62,7 @@ export function residualAnalysisCsv(data:ScatterChartData,summary:ResidualSummar
  return csvHeader+"\r\n"+rows.join("\r\n")+"\r\n";
 }
 export function residualScatterChart(data:ScatterChartData,summary:ResidualSummary):ScatterChartData{
- if(data.kind!=="scatter"||summary.records.length!==data.points.length)
-  throw Error("Residuals do not match the current dataset.");
+ assertSameObservations(data,summary);
  const points:ScatterPoint[]=summary.records.map(r=>({
   x:r.x,y:r.residual,xText:r.observedX,yText:String(r.residual),
  }));
