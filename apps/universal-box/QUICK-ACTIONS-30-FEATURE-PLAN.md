@@ -1,5 +1,10 @@
 # Universal Box — 30 everyday workflows, deduplicated execution plan
 
+> **Current product gate (2026-10-23):** This is an *office micro-utility* plan, not a target to deliver 30 buttons or a scientific workstation.
+> Prioritize small user-initiated tasks: PDF/image resize/convert/merge, clipboard text and OCR, batch rename with preview, Word/XLSX/CSV mail merge, secure local file packaging.
+> Deduplicate before adding. Show a result that can be verified, copied or saved in a few steps. Pause scientific graph/math feature expansion.
+> See [the office-first reset](docs/OFFICE-FIRST-RESET-2026-10-23.md) for release order, first-party reference evidence, PR triage and actual Mac acceptance criteria.
+
 Reviewed: 2026-10-19. Baseline: main v0.29; pending PRs #302 (image interpolation/sharpen) and #303 (PDF extraction/reordering) are NOT shipped and must be treated as conditional. Source-of-truth inventory: `UNIVERSAL-BOX-ROADMAP.md`, `src/components/ToolLaunchpad.tsx`, `src/App.tsx`, and implementation tests. This is a **plan**, not a claim that unbuilt features work.
 
 ## Product and safety contract
