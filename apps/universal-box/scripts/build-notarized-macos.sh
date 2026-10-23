@@ -54,11 +54,24 @@ cargo test --manifest-path src-tauri/Cargo.toml
 npx tauri icon src-tauri/app-icon.svg
 # Tauri v2 uses APPLE_SIGNING_IDENTITY to override signingIdentity:"-".
 # Tauri v2 notarizes when complete Apple account or App Store Connect credentials exist.
+BUILD_MARKER="$(mktemp -t sentinel-box-build.XXXXXX)"
+trap 'rm -f "$BUILD_MARKER"' EXIT
 npm run tauri:build -- --target "$TARGET"
-DMG="$(find "src-tauri/target/$TARGET/release/bundle/dmg" -maxdepth 1 -name '*.dmg' -type f -print -quit)"
-[[ -n "$DMG" && -s "$DMG" ]] || { echo "Signed DMG is missing." >&2;exit 1; }
+DMG_DIR="src-tauri/target/$TARGET/release/bundle/dmg"
+[[ -d "$DMG_DIR" ]] || { echo "Signed DMG output directory is missing." >&2;exit 1; }
+DMG=""
+DMG_COUNT=0
+while IFS= read -r candidate; do
+  DMG="$candidate"
+  ((DMG_COUNT += 1))
+done < <(find "$DMG_DIR" -maxdepth 1 -name '*.dmg' -type f -newer "$BUILD_MARKER" -print)
+if (( DMG_COUNT != 1 )) || [[ ! -s "$DMG" ]]; then
+  echo "Refusing release: expected exactly one freshly built DMG; found $DMG_COUNT. Old or ambiguous files must not be signed off." >&2
+  exit 1
+fi
 bash scripts/verify-macos-dmg.sh release "$DMG" "$TARGET"
-shasum -a 256 "$DMG" > "$DMG.sha256"
+printf '%s  %s\n' "$(shasum -a 256 "$DMG" | awk '{print $1}')" "$(basename "$DMG")" > "$DMG.sha256"
+(cd "$(dirname "$DMG")" && shasum -a 256 -c "$(basename "$DMG").sha256")
 {
   printf 'Sentinel Box signed/notarized CANDIDATE; native QA and explicit publication still required.\n'
   printf 'source_commit=%s\n' "$(git -C "$REPO" rev-parse HEAD)"
