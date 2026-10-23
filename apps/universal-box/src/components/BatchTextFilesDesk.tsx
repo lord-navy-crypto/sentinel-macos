@@ -10,6 +10,9 @@ const OPS:{id:BatchTextMode;name:string}[]=[
   {id:"lf",name:"Convert newlines to LF · 转 Unix 换行"},
   {id:"crlf",name:"Convert newlines to CRLF · 转 Windows 换行"},
   {id:"remove-bom",name:"Remove UTF-8 BOM · 删除 UTF-8 BOM"},
+  {id:"trim-trailing",name:"Trim trailing spaces/tabs · 清理行尾空格"},
+  {id:"remove-blank",name:"Remove blank lines · 删除空行"},
+  {id:"dedupe-lines",name:"Remove duplicate lines · 删除重复行"},
 ];
 const msg=(e:unknown)=>e instanceof Error?e.message:String(e);
 export default function BatchTextFilesDesk(){
@@ -75,10 +78,11 @@ export default function BatchTextFilesDesk(){
       </div>
       <p className="subtle">Matches literal characters, not regex. Quoted CSV cells and Markdown markup are not structurally parsed; review the output when replacing commas or punctuation.</p>
     </>}
+    {(mode==="trim-trailing"||mode==="remove-blank"||mode==="dedupe-lines")&&<p className="subtle" data-testid="batch-line-warning">Line cleaning is available for TXT and Markdown only. It preserves each surviving line's CRLF/LF/CR ending and original UTF-8 BOM. Use the CSV Table Desk for CSV/TSV, whose quoted fields may contain line breaks. Deduplication is exact and case-sensitive; review line order before exporting.</p>}
     <p className="subtle">LF / CRLF conversion keeps all other characters and UTF-8 BOM intact; BOM removal is a separate, explicit option. Only changed files appear inside the ZIP. A JSON report lists unchanged files too.</p>
     {preview.error&&<p role="alert" data-testid="batch-text-error" className="subtle">{preview.error}</p>}
     {preview.rows.length>0&&<div data-testid="batch-text-preview">
-      <p className="stat-pill">{preview.rows.length} selected · {changed.length} changed · {preview.rows.reduce((sum,row)=>sum+row.matches,0)} replacements/line endings/BOM changes</p>
+      <p className="stat-pill">{preview.rows.length} selected · {changed.length} changed · {preview.rows.reduce((sum,row)=>sum+row.matches,0)} operations</p>
       <div className="task-list">
         {preview.rows.map(row=><div className="task-row" key={row.name}>
           <div className="task-copy">
