@@ -56,7 +56,7 @@ jobs:
       - name: Simulate navigating every catalog entry and run office workflows
         env:
           UNIVERSAL_BOX_UI_URL: http://127.0.0.1:1420/
-        run: node --test --test-concurrency=1 test/browser-ui-smoke.cjs test/browser-creative-studio.cjs test/browser-extra-tools.cjs test/browser-daily-expansion.cjs test/browser-life-media.cjs test/browser-vision-workflows.cjs test/browser-unified-workflow.cjs test/browser-office-data-batch.cjs test/browser-quality-review.cjs test/browser-speech-portable.cjs test/browser-expanded-workflows.cjs test/browser-daily-pdf-ocr.cjs test/browser-scan-pdf.cjs test/browser-photo-preview-heic.cjs test/browser-business-billing.cjs test/browser-smart-command-palette.cjs
+        run: node --test --test-concurrency=1 test/browser-ui-smoke.cjs test/browser-creative-studio.cjs test/browser-extra-tools.cjs test/browser-daily-expansion.cjs test/browser-life-media.cjs test/browser-vision-workflows.cjs test/browser-unified-workflow.cjs test/browser-office-data-batch.cjs test/browser-quality-review.cjs test/browser-speech-portable.cjs test/browser-expanded-workflows.cjs test/browser-daily-pdf-ocr.cjs test/browser-scan-pdf.cjs test/browser-photo-preview-heic.cjs test/browser-business-billing.cjs test/browser-smart-command-palette.cjs test/browser-office-quick-actions.cjs
       - name: Save browser screenshots and extracted files
         uses: actions/upload-artifact@v4
         if: always()
