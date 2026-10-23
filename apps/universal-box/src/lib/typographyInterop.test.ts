@@ -1,6 +1,6 @@
 import {describe,expect,it} from "vitest";
 import JSZip from "jszip";
-import {DEFAULT_TYPOGRAPHY,simplifySymbols,typographyText,typographyToDocx,typographyToHtml,typographyToClipboardHtml,extractOwnHtmlText} from "./typographyInterop";
+import {FONT_FAMILIES,DEFAULT_TYPOGRAPHY,simplifySymbols,typographyText,typographyToDocx,typographyToHtml,typographyToClipboardHtml,extractOwnHtmlText} from "./typographyInterop";
 
 describe("Offline formatted text and symbol-safe compatibility conversions",()=>{
  it("does not rewrite text or Unicode unless symbol simplification is explicitly selected",()=>{
@@ -19,6 +19,12 @@ describe("Offline formatted text and symbol-safe compatibility conversions",()=>
   expect(html).toContain('font-size:18pt');
   expect(html).toContain('text-align:center');
   expect(html).not.toMatch(/<link |<img |@import|fetch\(/u);
+ });
+ it("offers mainstream macOS and Windows CJK font choices and 8–48 pt validation",()=>{
+  for(const name of ["PingFang SC","Microsoft YaHei","SimSun","Noto Sans CJK SC"]){
+   expect(FONT_FAMILIES).toContain(name);
+   expect(()=>typographyText("中文",{...DEFAULT_TYPOGRAPHY,font:name as never,sizePt:37})).not.toThrow();
+  }
  });
  it("exports a real editable DOCX with CJK, font attributes and paragraph alignment",async()=>{
   const options={...DEFAULT_TYPOGRAPHY,font:"Times New Roman" as const,sizePt:14,bold:true,
