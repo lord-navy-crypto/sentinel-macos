@@ -61,6 +61,38 @@ export function typographyToHtml(text:string,options:TypographyOptions):string{
   'text-align:'+options.align+';}</style></head><body><main>'+
   escapeHtml(converted)+'</main></body></html>\n';
 }
+/** Clipboard fragment: styled markup only, with original text safely escaped. */
+export function typographyToClipboardHtml(text:string,options:TypographyOptions):string{
+ const converted=typographyText(text,options).replace(/\r\n?/gu,"\n");
+ return '<div style="white-space:pre-wrap;overflow-wrap:anywhere;font-family:&quot;'+
+  options.font+'&quot;,sans-serif;font-size:'+options.sizePt+'pt;font-weight:'+
+  (options.bold?"700":"400")+';font-style:'+(options.italic?"italic":"normal")+
+  ';text-decoration:'+(options.underline?"underline":"none")+
+  ';text-align:'+options.align+';">'+escapeHtml(converted)+'</div>';
+}
+/**
+ * Safely reopen ONLY the HTML produced by this app. Uses no DOM/HTML parser,
+ * loads no images/scripts/styles, and never executes imported markup.
+ * Arbitrary webpages and more complex HTML are explicitly unsupported.
+ */
+export function extractOwnHtmlText(html:string):string{
+ if(html.length>450_000)throw Error("HTML exceeds the 450 KB import limit.");
+ if(!html.startsWith('<!doctype html>\n<html lang="zh-CN">')||
+  !html.includes('<title>Sentinel Box formatted text</title>'))
+  throw Error("Only HTML previously exported by Sentinel Box Typography can be imported.");
+ const match=/<\/head><body><main>([\s\S]*?)<\/main><\/body><\/html>\s*$/u.exec(html);
+ if(!match)throw Error("Unsupported HTML structure; import the original Sentinel Box export.");
+ const body=match[1];
+ if(body.includes("<")||/&(?!(?:amp|lt|gt|quot|#39);)/u.test(body))
+  throw Error("Unsupported markup or entity in HTML content.");
+ const replacements:Readonly<Record<string,string>>={
+  "&amp;":"&","&lt;":"<","&gt;":">","&quot;":'"',"&#39;":"'",
+ };
+ const decoded=body.replace(/&(?:amp|lt|gt|quot|#39);/gu,key=>replacements[key]??key);
+ if(decoded.length>TYPOGRAPHY_TEXT_LIMIT)throw Error("Imported HTML text exceeds the character limit.");
+ if(decoded.split("\n").length>TYPOGRAPHY_LINE_LIMIT)throw Error("Imported HTML contains too many lines.");
+ return decoded;
+}
 export async function typographyToDocx(text:string,options:TypographyOptions):Promise<Uint8Array>{
  const converted=typographyText(text,options).replace(/\r\n?/gu,"\n");
  const alignments={left:AlignmentType.LEFT,center:AlignmentType.CENTER,right:AlignmentType.RIGHT};
