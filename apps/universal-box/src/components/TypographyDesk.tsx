@@ -110,7 +110,7 @@ export default function TypographyDesk(){
    <label><input data-testid="typography-ascii" type="checkbox" checked={options.asciiSymbols}
      onChange={e=>update("asciiSymbols",e.target.checked)}/> Special symbols → ASCII equivalents</label>
   </div>
-  <p className="subtle">Optional symbol conversion: curly quotes → straight quotes, © → (c), ™ → (TM), arrows → ASCII arrows, ellipsis → ... and selected mathematical signs → descriptions. This changes characters and may lose mathematical meaning; off by default.</p>
+  <p className="subtle">Optional symbol conversion: curly quotes → straight quotes, © → (c), ™ → (TM), arrows → ASCII arrows, ellipsis → ..., ≤ → &lt;= and ≥ → &gt;=, plus selected mathematical and office symbols. This changes characters and may lose mathematical meaning; off by default.</p>
   {result.error?<p className="subtle" role="alert" data-testid="typography-error">{result.error}</p>:<>
    <p className="subtle">Converted text preview — literal content only; never interpreted as HTML:</p>
    <div data-testid="typography-preview" className="panel" aria-label="Formatted text preview"
