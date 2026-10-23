@@ -22,6 +22,27 @@ test("Meetings produce genuine editable Word, action CSV and truthful attendee/t
   assert.equal(await page.locator(".catalog-open").count(),1);
   await page.locator(".catalog-open").click();
   await page.locator('[data-testid="meeting-minutes-desk"]').waitFor();
+  // New meetings are blank: never accidentally export the fictional sample record.
+  for(const key of ["title","meetingDate","attendees","agenda","discussion","decisions"]){
+   assert.equal(await page.locator('[data-testid="meeting-"+key]').inputValue(),"",key+" must start empty");
+  }
+  assert.equal(await page.locator('[data-testid="meeting-actions-csv"]').inputValue(),
+   "id,task,owner,due_date,priority,status,notes");
+  assert.equal(await page.locator('[data-testid="meeting-export"]').count(),0);
+  assert.equal(await page.locator('[data-testid="meeting-empty-guide"]').count(),1);
+  // Enter the test fixture explicitly, as a real user would.
+  await page.locator('[data-testid="meeting-title"]').fill("Project status and next steps");
+  await page.locator('[data-testid="meeting-meetingDate"]').fill("2026-10-21");
+  await page.locator('[data-testid="meeting-location"]').fill("Meeting room / video call");
+  await page.locator('[data-testid="meeting-facilitator"]').fill("Jordan");
+  await page.locator('[data-testid="meeting-attendees"]').fill("Alex\\nJordan\\nLee".replaceAll("\\n","\\n"));
+  await page.locator('[data-testid="meeting-agenda"]').fill("Review current progress\\nDiscuss outstanding issues\\nAssign next steps".replaceAll("\\n","\\n"));
+  await page.locator('[data-testid="meeting-discussion"]').fill("Prototype ready for review.\\nTwo open issues were discussed.".replaceAll("\\n","\\n"));
+  await page.locator('[data-testid="meeting-decisions"]').fill("Keep the next release scope focused.\\nUse the shared handover checklist.".replaceAll("\\n","\\n"));
+  await page.locator('[data-testid="meeting-actions-csv"]').fill(
+   "id,task,owner,due_date,priority,status,notes\\n"+
+   "A-001,Review prototype changes,Alex,2026-11-02,high,todo,Check accessibility\\n"+
+   "A-002,Share project checklist,Jordan,2026-11-04,normal,in_progress,Use team template");
   const summary=await page.locator('[data-testid="meeting-summary"]').innerText();
   assert.match(summary,/2 个明确分配的任务/);
   assert.match(summary,/3 位记录的参会者/);
