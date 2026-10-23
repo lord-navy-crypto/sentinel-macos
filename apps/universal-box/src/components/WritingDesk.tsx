@@ -130,14 +130,14 @@ export default function WritingDesk({ markdown, onChange }: Props) {
   return <section className="panel writing-workbench">
     <p className="eyebrow">FULLER LOCAL DOCUMENT EDITOR</p>
     <h2>Writing workbench</h2>
-    <p className="subtle">Markdown and LaTeX live preview, structured document outline, formatting tools, find/replace, templates, file import, Word export and system printing.</p>
+    <p className="subtle">Markdown and LaTeX live preview, structured document outline, formatting tools, find/replace, templates, file import, Word export with native editable formulas and system PDF printing.</p>
     <div className="actions">
       <label className="field-label" htmlFor="writing-name">Document title</label>
       <input className="field" id="writing-name" value={filename} onChange={e=>setFilename(e.target.value)} maxLength={80}/>
       <label className="secondary-button" htmlFor="writing-import">Import .md / .txt</label>
       <input id="writing-import" className="sr-only" type="file" accept=".md,.markdown,.txt,text/plain,text/markdown" onChange={e=>{void openMarkdown(e);}}/>
       <button className="secondary-button" type="button" onClick={()=>{void saveDocument("md");}}>Save Markdown</button>
-      <button className="secondary-button" type="button" onClick={()=>{void saveDocument("docx");}}>Export Word .docx</button>
+      <button className="secondary-button" type="button" onClick={()=>{void saveDocument("docx");}}>Export Word .docx (editable equations)</button>
       <button className="secondary-button" type="button" onClick={()=>{void saveDocument("txt");}}>Save text</button>
       <button className="primary-button" type="button" onClick={()=>window.print()}>Print / Save PDF</button>
     </div>
@@ -169,7 +169,22 @@ export default function WritingDesk({ markdown, onChange }: Props) {
       <button type="button" onClick={()=>decorate("`","`","code")}>Inline code</button>
       <button type="button" onClick={()=>decorate("[","](https://example.com)","link text")}>Link</button>
       <button type="button" onClick={()=>insertSnippet("\n| Column 1 | Column 2 |\n| --- | --- |\n| Value | Value |\n")}>Table</button>
-      <button type="button" onClick={()=>insertSnippet("\n$E = mc^2$\n")}>Math</button>
+      <button type="button" onClick={()=>insertSnippet("\n$E = mc^2$\n")}>Inline math</button>
+      <button type="button" data-testid="writing-block-equation" onClick={()=>insertSnippet("\n$\\frac{a}{b} = \\sqrt{x_2}$\n")}>Equation block</button>
+      <label className="field-label" htmlFor="writing-math-symbols">Insert symbol
+       <select className="field" id="writing-math-symbols" data-testid="writing-math-symbols" defaultValue=""
+        onChange={e=>{if(e.target.value)insertSnippet(e.target.value);e.target.value="";}}>
+        <option value="">Choose math symbol</option>
+        <option value="\\alpha">α (LaTeX)</option>
+        <option value="\\beta">β (LaTeX)</option>
+        <option value="\\pi">π (LaTeX)</option>
+        <option value="\\Delta">Δ (LaTeX)</option>
+        <option value="\\times">× (LaTeX)</option>
+        <option value="\\leq">≤ (LaTeX)</option>
+        <option value="\\geq">≥ (LaTeX)</option>
+        <option value="\\infty">∞ (LaTeX)</option>
+       </select>
+      </label>
     </div>
     <div className="document-find">
       <label className="field-label">Find <input className="field" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search text"/></label>
@@ -192,12 +207,12 @@ export default function WritingDesk({ markdown, onChange }: Props) {
       </div>}
       {preview!=="editor"&&<div>
         <span className="field-label">Live formatted preview</span>
-        <article className="markdown-preview printable-document" aria-label="Document preview">
+        <article className="markdown-preview printable-document" aria-label="Document preview" data-testid="writing-math-preview">
           <Markdown remarkPlugins={[remarkGfm,remarkMath]} rehypePlugins={[rehypeKatex]}>{markdown}</Markdown>
         </article>
       </div>}
     </div>
-    <p className="subtle">Word export now retains headings, actual bullet lists and basic bold/italic/strike/inline-code styling. Complex tables, links, embedded images and LaTeX remain simplified. The system Print dialog and PDF layout still need Mac testing.</p>
+    <p className="subtle">Word DOCX export supports editable Office Math for a bounded LaTeX subset (fractions, roots, scripts, Greek letters and common operators). Unsupported formula commands stop DOCX export rather than being silently flattened. Save Markdown preserves the original formulas, while Print / Save PDF uses the rendered KaTeX preview and system print dialog. Complex matrices, advanced align environments, equation numbering, exact Word/PDF layout matching, and native Mac PDF printing remain unverified.</p>
     {status&&<p className="subtle" role="status">{status}</p>}
   </section>;
 }
