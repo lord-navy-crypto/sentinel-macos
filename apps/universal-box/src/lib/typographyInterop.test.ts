@@ -36,6 +36,11 @@ describe("Offline formatted text and symbol-safe compatibility conversions",()=>
   expect(xml).toContain("<w:i");
   expect(xml).toContain("<w:u");
  });
+ it("converts common math and office symbols only on explicit request",()=>{
+  expect(simplifySymbols("x≤3, y≥2, a≠b, z≈4, √9=3, m² §2 ¶3 №7"))
+   .toBe("x<=3, y>=2, a!=b, z~4, sqrt9=3, m^2 section2 paragraph3 No.7");
+  expect(typographyText("x≤3",{...DEFAULT_TYPOGRAPHY,asciiSymbols:false})).toBe("x≤3");
+ });
  it("reopens own exported HTML without loading or running arbitrary HTML",()=>{
   const text='<img src="https://example.invalid/track.png">\n中文 & “测试” 🚀';
   const html=typographyToHtml(text,{...DEFAULT_TYPOGRAPHY,font:"Georgia"});
