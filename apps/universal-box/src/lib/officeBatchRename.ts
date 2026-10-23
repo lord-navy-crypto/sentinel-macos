@@ -30,7 +30,7 @@ export function planOfficeBatchRename(inputs:readonly RenameSource[],options:Ren
   const cleanedStem=options.find?stem.split(options.find).join(options.replace):stem;
   const sequence=String(options.start+index).padStart(2,"0");
   const output=safeOfficeName(options.prefix+cleanedStem+"-"+sequence+ext);
-  const collisionKey=output.normalize("NFC").toLocaleLowerCase("und");
+  const collisionKey=output.normalize("NFC").toLowerCase();
   if(seen.has(collisionKey))throw Error("Duplicate output filename: "+output);
   seen.add(collisionKey);
   return {index,source:file.name,filename:output,size:file.size};
