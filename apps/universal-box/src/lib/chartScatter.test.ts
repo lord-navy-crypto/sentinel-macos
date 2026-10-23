@@ -33,7 +33,10 @@ describe("Offline scientific CSV XY scatter and safe data roundtrip",()=>{
    expect(()=>scatterChartModel(parseChartCsv("X,Y\n"+bad),0,1,"","")).toThrow(/row 2/i);
   }
   expect(()=>scatterChartModel(missing,0,0,"","")).toThrow(/different/);
-  expect(()=>scatterChartModel(parseChartCsv("X,Y\n,\n,"),0,1,"","")).toThrow(/No numeric/);
+  expect(()=>parseChartCsv("X,Y\n,\n,")).toThrow(/1–700 data rows/);
+  const emptyModelInput=parseChartCsv("X,Y\n1,2");
+  emptyModelInput.rows[0]=["",""];
+  expect(()=>scatterChartModel(emptyModelInput,0,1,"","")).toThrow(/No numeric/);
  });
  it("rejects excessive rows and supports identical constant coordinates",()=>{
   const many="X,Y\n"+Array.from({length:251},(_,i)=>i+","+i).join("\n");
