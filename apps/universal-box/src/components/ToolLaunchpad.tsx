@@ -2,6 +2,10 @@ import {useEffect,useMemo,useState} from "react";
 
 export type LocalTool = {id:string;name:string;area:string;view:string;module?:string};
 export const LOCAL_TOOLS:LocalTool[] = [
+ {id:"typography-symbols",name:"Font & Symbol Converter · 字体字号／特殊符号／TXT→DOCX/HTML",area:"Text",view:"free-formats",module:"typography"},
+ {id:"case-width",name:"Text Case & Fullwidth → Halfwidth · 大小写转换／全角半角",area:"Text",view:"quick-tools",module:"case-width"},
+ {id:"client-delivery",name:"Verified Client File Handoff · SHA-256 客户交付 ZIP",area:"Office",view:"workflows",module:"client-delivery"},
+ {id:"meeting-minutes",name:"Meeting Minutes & Assigned Tasks · 会议纪要 Word＋行动 CSV",area:"Office",view:"workflows",module:"meeting-minutes"},
  {id:"business-billing",name:"Business Invoices & Quotes · 批量发票报价单 Word/PDF",area:"Office",view:"workflows",module:"business-billing"},
  {id:"scan-pdf-compress",name:"Scanned PDF Image Compressor · DPI / JPEG 扫描件压缩",area:"Files",view:"pdf-mini",module:"scan-compress"},
  {id:"pdf-measured-optimize",name:"PDF Size Optimizer · 实测文件大小优化",area:"Files",view:"pdf-mini",module:"optimize"},

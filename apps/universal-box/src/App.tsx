@@ -436,16 +436,28 @@ export default function App() {
           {view === "overview" && <>
             <div className="welcome-heading"><div>
               <p className="eyebrow">YOUR PRIVATE DIGITAL TOOLBOX</p>
-              <h1>Everything useful. All in one place.</h1>
-              <p className="intro">Sentinel Box is a free, offline-first macOS utility suite for Word and PowerPoint creation, document and media processing, local OCR, creative design, file organization and privacy-first automation — no required account or subscriptions.</p>
+              <h1>Free everyday office tools, without the fuss.</h1>
+              <p className="intro">Sentinel Box is a free, offline-first macOS toolbox for ordinary document, PDF, image, text and file jobs. Select a task, check the result, and save it — without a required account or subscription.</p>
             </div></div>
+            <section className="panel" data-testid="office-home-shortcuts" aria-label="Everyday office shortcuts">
+              <h3>Start a common office task · 常用办公操作</h3>
+              <p className="subtle">Choose what you need. These shortcuts open the existing tools — no duplicate app, no extra setup.</p>
+              <div className="pill-row">
+                <button type="button" data-testid="home-office-pdf" className="pill" onClick={()=>openTool("files","pdf")}>PDF merge &amp; pages · PDF 合并拆分</button>
+                <button type="button" data-testid="home-office-image" className="pill" onClick={()=>openTool("files","images")}>Image resize &amp; convert · 图片转换</button>
+                <button type="button" data-testid="home-office-text" className="pill" onClick={()=>openTool("quick-tools","text")}>Text &amp; clipboard · 文字与复制</button>
+                <button type="button" data-testid="home-office-rename" className="pill" onClick={()=>openTool("utilities","rename")}>Batch rename · 批量改名</button>
+                <button type="button" data-testid="home-office-ocr" className="pill" onClick={()=>openTool("vision-workflows","ocr")}>Image to text · 识别图片文字</button>
+                <button type="button" data-testid="home-office-word" className="pill" onClick={()=>openTool("workflows","mail-merge")}>Word &amp; CSV · 文档与表格</button>
+              </div>
+            </section>
             <div className="hero-card">
               <div className="hero-copy">
                 <p className="card-eyebrow">WELCOME TO SENTINEL BOX</p>
                 <h2>Your tools.<br/>Your rules.</h2>
                 <p>Work faster with a connected desktop toolbox, not a maze of websites.</p>
                 <div className="hero-actions">
-                  <button type="button" className="hero-primary" onClick={()=>openTool("all-tools")}>Explore {LOCAL_TOOLS.length} tool entries <span aria-hidden="true">↗</span></button>
+                  <button type="button" className="hero-primary" onClick={()=>openTool("all-tools")}>Browse all tools <span aria-hidden="true">↗</span></button>
                   <button type="button" className="hero-secondary" onClick={()=>{setCommandOpen(true);setCommandQuery("");}}>⌘K Quick launch</button>
                 </div>
               </div>

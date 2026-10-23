@@ -4,9 +4,11 @@ import {tableToCsv,tableToJson,type DataTable} from "../lib/tableTools";
 import {csvToXlsxTable,tableToXlsx,xlsxToTable} from "../lib/spreadsheetInterop";
 import {diffImages,blendImages,type ImageDiffResult} from "../lib/imageDiff";
 import {encodeHtmlEntities,decodeHtmlEntities,normalizeText} from "../lib/textCodec";
+import TypographyDesk from "./TypographyDesk";
 
-export type FreeFormatsMode="spreadsheet"|"image-diff"|"text-codec";
+export type FreeFormatsMode="spreadsheet"|"image-diff"|"text-codec"|"typography";
 const modes:{id:FreeFormatsMode;name:string}[]=[
+ {id:"typography",name:"Typography & Symbols / 字体与符号转换"},
  {id:"spreadsheet",name:"Excel XLSX ↔ CSV"},
  {id:"image-diff",name:"Image Difference / 图片比较"},
  {id:"text-codec",name:"HTML Entities / Unicode"},
@@ -136,11 +138,12 @@ export default function FreeFormatsDesk({initialMode="spreadsheet"}:{initialMode
  }
  return <section className="panel">
    <p className="eyebrow">SENTINEL BOX · FREE FORMATS LAB</p>
-   <h2>Spreadsheets, visual comparison & text codes</h2>
-   <p className="subtle">Three real offline utilities with no subscription, account, watermark, forced cloud upload or background file access. All exports create new user-selected files.</p>
+   <h2>File formats, text styling & compatibility</h2>
+   <p className="subtle">Offline utilities with no subscription, account, watermark, forced cloud upload or background file access. All exports create new user-selected files.</p>
    <div className="pill-row" role="group" aria-label="Free formats laboratory">
      {modes.map(item=><button key={item.id} type="button" className={mode===item.id?"pill active-pill":"pill"} onClick={()=>{setMode(item.id);setStatus("");}}>{item.name}</button>)}
    </div>
+   {mode==="typography"&&<TypographyDesk/>}
    {mode==="spreadsheet"&&<>
      <p className="subtle">Basic Excel XLSX interoperability: convert CSV into a standard single-sheet XLSX, or inspect the first sheet of an XLSX and export its cached values to CSV or JSON. Supports 1,000 data rows × 50 columns, 4 MB XLSX files. CSV text remains text (including leading zeroes and strings beginning with "="). No macro execution, formula recalculation, charts, formatting, merged layout or sheet editing.</p>
      <label className="field-label" htmlFor="excel-csv-file">Import CSV (≤500 KB)</label>
