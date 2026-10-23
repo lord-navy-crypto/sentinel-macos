@@ -7,14 +7,16 @@ import {exportFile} from "../lib/output";
 import {replaceTextLiteral} from "../lib/quickBatchText";
 import {addClip,combineClips} from "../lib/multiCopy";
 import {transformTextCase,type TextCaseMode} from "../lib/textCaseWidth";
+import BatchTextFilesDesk from "./BatchTextFilesDesk";
 
-export type QuickKitMode="text"|"links"|"dates"|"grades"|"multi-copy"|"replace"|"case-width";
+export type QuickKitMode="text"|"links"|"dates"|"grades"|"multi-copy"|"replace"|"case-width"|"batch-files";
 const title:Record<QuickKitMode,string>={
   text:"Text cleaner · 文本整理",links:"Tracking-link cleaner · 链接净化",
   dates:"Date planner · 日期计算",grades:"Weighted grades · 成绩规划",
   "multi-copy":"Multi-copy · 多段合并复制",
   replace:"Literal replace · 批量查找替换",
   "case-width":"Case & width · 大小写和全角转半角",
+  "batch-files":"Batch text files · 多文件文本处理",
 };
 const number=(n:number)=>String(Number(n.toFixed(6)));
 export default function QuickKitDesk({initialMode="text"}:{initialMode?:QuickKitMode}){
@@ -93,7 +95,7 @@ export default function QuickKitDesk({initialMode="text"}:{initialMode?:QuickKit
     <h2>Quick Tools / 快捷小工具</h2>
     <p className="subtle">Everyday local office actions without accounts or online uploads. Local input stays in this window; text/links are exported only when you click. Date calculations use calendar days, not elapsed 24-hour periods.</p>
     <div className="pill-row" role="group" aria-label="Quick tool">
-      {(["text","links","replace","case-width","multi-copy","dates","grades"] as const).map(key=><button type="button" key={key}
+      {(["text","links","replace","batch-files","case-width","multi-copy","dates","grades"] as const).map(key=><button type="button" key={key}
         className={mode===key?"pill active-pill":"pill"} onClick={()=>{setMode(key);setStatus("");}}>{title[key]}</button>)}
     </div>
     {mode==="text"&&<>
@@ -151,6 +153,7 @@ export default function QuickKitDesk({initialMode="text"}:{initialMode?:QuickKit
       </div>
       {outputError&&<p role="alert" className="subtle">{outputError}</p>}
     </>}
+    {mode==="batch-files"&&<BatchTextFilesDesk/>}
     {mode==="multi-copy"&&<>
       <p className="subtle">Collect up to 30 text snippets in this window, reorder by removal, then copy them as one. No background clipboard monitoring; no saved history or cloud sync. Passwords and private data should not be collected.</p>
       <label className="field-label" htmlFor="clip-draft">Text to add · 待添加文本</label>
