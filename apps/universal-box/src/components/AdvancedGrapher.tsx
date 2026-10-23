@@ -1,6 +1,7 @@
 import { useMemo, useState, type PointerEvent, type WheelEvent } from "react";
 import { DEFAULT_WINDOW, panWindow, sampleGraph, validateWindow, zoomWindow, type GraphCurve, type GraphMode, type GraphWindow } from "../lib/graphModel";
 import { exportFile } from "../lib/output";
+import {graphToPng} from "../lib/graphRasterExport";
 
 const WIDTH = 780, HEIGHT = 470;
 const COLORS = ["#3269b6", "#c96946", "#27936d", "#9166aa"];
@@ -65,9 +66,29 @@ export default function AdvancedGrapher({ onChooseY1 }: { onChooseY1?: (value: s
     } catch (e) { setStatus(e instanceof Error ? e.message : String(e)); }
   }
 
+  async function makeGraphPng(copy:boolean){
+    try{
+      const svg=document.getElementById("advanced-graph-svg");
+      if(!(svg instanceof SVGSVGElement))throw Error("Graph is unavailable.");
+      const png=await graphToPng(svg);
+      if(copy){
+        if(typeof ClipboardItem==="undefined"||!navigator.clipboard?.write)
+          throw Error("This system cannot copy PNG images.");
+        await navigator.clipboard.write([new ClipboardItem({"image/png":new Blob([new Uint8Array(png)],{type:"image/png"})})]);
+        setStatus("Copied high-resolution graph PNG to the clipboard.");
+      }else{
+        const saved=await exportFile("daily-desk-graph.png",png);
+        setStatus(saved?"Saved genuine 1560 × 940 PNG from the graph.":"Save cancelled.");
+      }
+    }catch(e){
+      setStatus((copy?"Graph copy unavailable: ":"Graph PNG failed: ")+
+        (e instanceof Error?e.message:String(e))+
+        (copy?" Use Export PNG or SVG instead.":""));
+    }
+  }
   return <section className="graph-workbench">
     <h3>Advanced interactive grapher</h3>
-    <p className="subtle">Local Cartesian, parametric and polar curves. Drag to pan, scroll or use buttons to zoom. Export the graph as SVG. Numerical rendering is approximate near discontinuities.</p>
+    <p className="subtle">Local Cartesian, parametric and polar curves. Drag to pan, scroll or use buttons to zoom. Export an editable SVG or a true 2× PNG for Word, presentations and sharing. The user-click Copy PNG action depends on clipboard permissions. Numerical rendering is approximate near discontinuities.</p>
     <div className="pill-row" role="group" aria-label="Graph coordinate mode">
       {(["cartesian","parametric","polar"] as const).map(next =>
         <button key={next} type="button" className={mode===next?"pill active-pill":"pill"} onClick={()=>switchMode(next)}>{next==="cartesian"?"Y(x)":next==="parametric"?"Parametric x(t),y(t)":"Polar r(θ)"}</button>
@@ -96,6 +117,10 @@ export default function AdvancedGrapher({ onChooseY1 }: { onChooseY1?: (value: s
       <button type="button" className="secondary-button" onClick={()=>setWindowRect(r=>zoomWindow(r,1.35))}>Zoom −</button>
       <button type="button" className="secondary-button" onClick={()=>setWindowRect(DEFAULT_WINDOW)}>Reset view</button>
       <button type="button" className="secondary-button" onClick={()=>{void saveSvg();}}>Export SVG</button>
+      <button type="button" className="secondary-button" data-testid="graph-export-png"
+        onClick={()=>{void makeGraphPng(false);}}>Export PNG (2×)</button>
+      <button type="button" className="secondary-button" data-testid="graph-copy-png"
+        onClick={()=>{void makeGraphPng(true);}}>Copy PNG</button>
     </div>
     <svg id="advanced-graph-svg" xmlns="http://www.w3.org/2000/svg" className="math-graph advanced-graph" viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
       role="img" aria-label="Interactive mathematical graph" onWheel={wheel}
