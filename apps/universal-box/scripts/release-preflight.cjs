@@ -7,11 +7,16 @@ const RELEASE_TAG=/^(?:daily-desk|universal-box|sentinel-box)-v([0-9]+\.[0-9]+\.
 const SEMVER=/^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?$/u;
 
 function parseCargoPackageVersion(content){
- const section=/^\[package\]\s*$([\s\S]*?)(?=^\[|\s*$)/mu.exec(content);
- if(!section)throw Error("Cargo.toml has no [package] section.");
- const m=/^version\s*=\s*"([^"]+)"\s*$/mu.exec(section[1]);
- if(!m)throw Error("Cargo.toml [package] has no version.");
- return m[1];
+ const lines=content.replace(/\r\n?/gu,"\n").split("\n");
+ const index=lines.findIndex(line=>line.trim()==="[package]");
+ if(index<0)throw Error("Cargo.toml has no [package] section.");
+ for(let i=index+1;i<lines.length;i++){
+  const line=lines[i];
+  if(/^\s*\[/u.test(line))break;
+  const version=/^\s*version\s*=\s*"([^"]+)"\s*(?:#.*)?$/u.exec(line);
+  if(version)return version[1];
+ }
+ throw Error("Cargo.toml [package] has no version.");
 }
 function validateReleaseMetadata({packageJson,lockJson,tauriJson,cargoToml,refType="",refName=""}){
  const version=packageJson?.version;
