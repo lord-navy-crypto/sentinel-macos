@@ -50,6 +50,46 @@ describe("offline batch office text utility",()=>{
     expect(()=>processBatchTextFiles([input("data.txt","abc\u0000def")],"lf")).toThrow(/binary/);
     expect(()=>processBatchTextFiles([input("a.txt","hi")],"replace","", "x")).toThrow(/Enter a literal/);
   });
+
+  it("trims trailing ASCII spaces and tabs but preserves CRLF, lone CR and leading indentation",()=>{
+    const src=input("report.md","  Title  \r\n\tItem\t\n中文  \rEnd\t ");
+    const before=Uint8Array.from(src.bytes);
+    const row=processBatchTextFiles([src],"trim-trailing")[0];
+    expect(d.decode(row.bytes)).toBe("  Title\r\n\tItem\n中文\rEnd");
+    expect(row.matches).toBe(4);
+    expect(src.bytes).toEqual(before);
+    expect(processBatchTextFiles([input("a.txt","  Title\r\n")],"trim-trailing")[0].changed).toBe(false);
+  });
+  it("removes ASCII-space or tab-only blank lines without touching surviving line endings",()=>{
+    const row=processBatchTextFiles([input("memo.txt","第一段\r\n \t\r\n第二段\n\n第三段\r")],"remove-blank")[0];
+    expect(d.decode(row.bytes)).toBe("第一段\r\n第二段\n第三段\r");
+    expect(row.matches).toBe(2);
+    expect(processBatchTextFiles([input("a.md","Word\r\nNext")],"remove-blank")[0].changed).toBe(false);
+  });
+  it("deduplicates exact physical lines in their original order and keeps surviving EOLs",()=>{
+    const row=processBatchTextFiles([input("notes.md","Alpha\r\nBeta\nAlpha\rGamma\nBeta")],"dedupe-lines")[0];
+    expect(d.decode(row.bytes)).toBe("Alpha\r\nBeta\nGamma\n");
+    expect(row.matches).toBe(2);
+    expect(d.decode(processBatchTextFiles([input("x.txt","a\nA\n")],"dedupe-lines")[0].bytes)).toBe("a\nA\n");
+  });
+  it("rejects line-cleanup on CSV and TSV to avoid corrupting quoted multi-line cells",()=>{
+    for(const mode of ["trim-trailing","remove-blank","dedupe-lines"] as const){
+      expect(()=>processBatchTextFiles([input("sheet.csv","header\nvalue")],mode)).toThrow(/TXT\/Markdown only/);
+      expect(()=>processBatchTextFiles([input("sheet.tsv","a\tb")],mode)).toThrow(/TXT\/Markdown only/);
+    }
+  });
+  it("keeps BOM bytes on line cleanup and exports a CRC-checked ZIP with accurate counters",async()=>{
+    const original=input("工作.md","\ufeffFirst  \r\nSecond\r\n");
+    const result=processBatchTextFiles([original],"trim-trailing");
+    expect(Array.from(result[0].bytes.slice(0,3))).toEqual([239,187,191]);
+    const zip=await JSZip.loadAsync(await zipBatchTextResults(result,"trim-trailing"),{checkCRC32:true});
+    const bytes=await zip.file("processed/工作.md")!.async("uint8array");
+    expect(Array.from(bytes.slice(0,3))).toEqual([239,187,191]);
+    expect(d.decode(bytes.subarray(3))).toBe("First\r\nSecond\r\n");
+    const manifest=JSON.parse(await zip.file("sentinel-box-batch-text-manifest.json")!.async("string"));
+    expect(manifest.operation).toBe("trim-trailing");
+    expect(manifest.files[0]).toMatchObject({original:"工作.md",matches:1,changed:true});
+  });
   it("packages changed copies only; JSON manifest and all exported bytes are verifiable",async()=>{
     const rows=processBatchTextFiles([
       input("报价.csv","旧价,5\r\n"),input("no-change.md","untouched"),
