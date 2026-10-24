@@ -3,6 +3,7 @@ import Flashcards from "./components/Flashcards";
 import FocusTimer from "./components/FocusTimer";
 import EverydayTools, {type Utility} from "./components/EverydayTools";
 import ToolLaunchpad, {LOCAL_TOOLS} from "./components/ToolLaunchpad";
+import {OFFICE_MAIN_SHORTCUTS,OFFICE_FAST_ACTIONS} from "./lib/officeHomeShortcuts";
 import {searchPalette,addPaletteRecent,sanitizePaletteHistory,type PaletteCommand} from "./lib/commandDiscovery";
 import CommonsDesk from "./components/CommonsDesk";
 import WebCaptureHub from "./components/WebCaptureHub";
@@ -97,11 +98,10 @@ const menu: { id: View; name: string; symbol: string; description: string }[] = 
 ];
 
 const navigationGroups:{title:string;items:View[]}[]=[
-  {title:"DISCOVER",items:["overview","workflows","vision-workflows","creative-studio","extra-studio","daily-studio","life-media","web-capture","file-intake","commons","access","all-tools","charts"]},
-  {title:"FILES & CREATION",items:["workflows","vision-workflows","creative-studio","extra-studio","daily-studio","life-media","files","binary-compare","pdf-mini","free-formats","writing","drawing","tables"]},
-  {title:"SENTINEL BOX",items:["quick-tools","universal","universal-box","universal-lab","media-files","office-privacy","workflows","utilities","external"]},
-  {title:"STUDY & SCIENCE",items:["local-ai","math","learning","reading","cards","focus"]},
-  {title:"PERSONAL WORKSPACE",items:["tasks","notes","code","presets","data","system-health"]},
+  {title:"EVERYDAY OFFICE · 常用办公",items:["overview","files","pdf-mini","quick-tools","vision-workflows","utilities","creative-studio","workflows","all-tools"]},
+  {title:"DOCUMENTS & FILES · 文件与文档",items:["media-files","file-intake","free-formats","office-privacy","web-capture","writing","life-media","binary-compare"]},
+  {title:"MORE WORKSPACES · 更多工作台",items:["universal","universal-box","universal-lab","extra-studio","daily-studio","commons","tables","drawing","access","external"]},
+  {title:"OTHER & STUDY · 其他工具",items:["tasks","notes","cards","focus","math","learning","reading","presets","code","data","charts","local-ai","system-health"]},
 ];
 
 function todayIso(): string {
@@ -440,17 +440,28 @@ export default function App() {
               <p className="intro">Sentinel Box is a free, offline-first macOS toolbox for ordinary document, PDF, image, text and file jobs. Select a task, check the result, and save it — without a required account or subscription.</p>
             </div></div>
             <section className="panel" data-testid="office-home-shortcuts" aria-label="Everyday office shortcuts">
-              <h3>Start a common office task · 常用办公操作</h3>
-              <p className="subtle">Choose what you need. These shortcuts open the existing tools — no duplicate app, no extra setup.</p>
-              <div className="pill-row">
-                <button type="button" data-testid="home-office-pdf" className="pill" onClick={()=>openTool("files","pdf")}>PDF merge &amp; pages · PDF 合并拆分</button>
-                <button type="button" data-testid="home-office-image" className="pill" onClick={()=>openTool("files","images")}>Image resize &amp; convert · 图片转换</button>
-                <button type="button" data-testid="home-office-text" className="pill" onClick={()=>openTool("quick-tools","text")}>Text &amp; clipboard · 文字与复制</button>
-                <button type="button" data-testid="home-office-rename" className="pill" onClick={()=>openTool("utilities","rename")}>Batch rename · 批量改名</button>
-                <button type="button" data-testid="home-office-ocr" className="pill" onClick={()=>openTool("vision-workflows","ocr")}>Image to text · 识别图片文字</button>
-                <button type="button" data-testid="home-office-word" className="pill" onClick={()=>openTool("workflows","mail-merge")}>Word &amp; CSV · 文档与表格</button>
+              <h2>常用办公 · Choose a job</h2>
+              <p className="subtle">选一个具体任务，直接进入现有工具。处理前检查预览，保存结果为新文件；无需账号或上传私有文档。</p>
+              <div className="tool-grid overview-grid" data-testid="office-first-task-grid">
+                {OFFICE_MAIN_SHORTCUTS.map(item=><button key={item.id} type="button" data-testid={item.id}
+                  className="tool-card" onClick={()=>openTool(item.view,item.module)}>
+                  <span className="tool-icon" aria-hidden="true">{item.icon}</span>
+                  <strong>{item.title}</strong><span className="subtle">{item.hint}</span>
+                  <span className="tool-state">打开现有工具 →</span>
+                </button>)}
               </div>
             </section>
+            <section className="panel" data-testid="office-fast-actions" aria-label="Common one-click office workflows">
+              <h3>直达常用操作 · Quick actions</h3>
+              <p className="subtle">不增加第二套转换器：直接打开已有的 PDF 体积优化、照片目标 KB 压缩、PPT 制作与 ZIP 打包。</p>
+              <div className="pill-row">
+                {OFFICE_FAST_ACTIONS.map(item=><button key={item.id} type="button" data-testid={item.id}
+                  className="pill" title={item.hint} onClick={()=>openTool(item.view,item.module)}>{item.title}</button>)}
+              </div>
+            </section>
+            <details className="panel" data-testid="office-more-workflows">
+              <summary>更多专业工作流 · 文件校验、网页捕获、二进制比较与其他功能</summary>
+              <p className="subtle">常用操作已经放在首页上方。只有需要高级功能时才展开这里；所有工作台仍可通过侧边栏或 ⌘K 搜索打开。</p>
             <div className="hero-card">
               <div className="hero-copy">
                 <p className="card-eyebrow">WELCOME TO SENTINEL BOX</p>
@@ -513,6 +524,7 @@ export default function App() {
               </div>
               <div className="insight-card"><span>LOCAL WORKSPACE</span><strong>{workspace.cards.length}</strong><small>flashcards available</small></div>
             </div>
+            </details>
             <div className="section-heading"><div><p className="eyebrow">GO STRAIGHT TO WHAT MATTERS</p><h2>{favoriteViews.length?"Your favorites":"Start creating"}</h2>
               <p className="subtle">Pin workspaces with the star in the top bar. Favorite choices stay on this device.</p></div>
               <button className="secondary-button" type="button" onClick={()=>openTool("all-tools")}>All tools ↗</button>
