@@ -101,8 +101,15 @@ export function decodePublicRoomFrame(raw:unknown,room:string):PublicRoomFrame|n
   default:return null;
  }
 }
-export function roomSendReady(channel:RTCDataChannel|null):boolean{
- return !!channel&&channel.readyState==="open"&&channel.bufferedAmount<=PUBLIC_ROOM_MAX_BUFFER;
+/** Count the next frame before sending; bufferedAmount alone is not a cap. */
+export function roomSendReady(channel:RTCDataChannel|null,payloadBytes=0):boolean{
+ return !!channel&&channel.readyState==="open"&&
+  Number.isSafeInteger(payloadBytes)&&payloadBytes>=0&&payloadBytes<=PUBLIC_ROOM_MAX_BUFFER&&
+  channel.bufferedAmount<=PUBLIC_ROOM_MAX_BUFFER-payloadBytes;
+}
+/** Resend an unanswered ping with its original UUID, so delayed pongs still match. */
+export function nextRoomHeartbeatPingId(pendingId:string,newId:()=>string):string{
+ return pendingId||newId();
 }
 /** Do not display duplicate delivery of the same sender/UUID pair. Bounded volatile history. */
 export function rememberRoomMessage(seen:Set<string>,sender:string,id:string):boolean{
