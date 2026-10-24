@@ -157,8 +157,9 @@ fn apply_request(data: &mut ChatData, request: ChatRequest) -> Result<ChatSnapsh
     data.presence.insert(nickname.into(), Instant::now());
     if let Some(text) = request.text {
         let text = text.trim();
-        if !good_label(text, 1000) || text.len() > 4000 {
-            return Err("Message must be 1–1000 visible characters and at most 4 KB".into());
+        if text.is_empty() || text.chars().count() > 1000 || text.len() > 4000 ||
+            text.chars().any(|c| c.is_control() && c != '\n' && c != '\t') {
+            return Err("Message must be 1–1000 characters and at most 4 KB".into());
         }
         let id = request.message_id.ok_or("Message needs a unique ID")?;
         if id.len() < 16 || id.len() > 64
@@ -343,5 +344,9 @@ mod tests {
     assert!(apply_request(&mut d,ChatRequest{nickname:"N".into(),
         text:Some("x".repeat(1001)),message_id:Some("manywords0000000000000".into()),
         since:0}).is_err());
+    let multiline=apply_request(&mut d,ChatRequest{nickname:"N".into(),
+        text:Some("项目进度\n- 本周完成".into()),
+        message_id:Some("multiline-123456789012345".into()),since:0});
+    assert!(multiline.is_ok(),"Ordinary multiline notes should be accepted in chat");
  }
 }
