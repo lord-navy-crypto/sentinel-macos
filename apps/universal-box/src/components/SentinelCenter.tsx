@@ -41,11 +41,11 @@ const LENSES:Lens[] = [
 function prettyJson(value:unknown):string {
  try {return JSON.stringify(value,null,2)??String(value);} catch{return String(value);}
 }
-export default function SentinelCenter({initialLens="overview",onSendToTables,onSendToPrivacy}:{initialLens?:string;onSendToTables:(csv:string)=>void;onSendToPrivacy:(text:string)=>void}){
+export default function SentinelCenter({initialLens="overview",initialRead="",onSendToTables,onSendToPrivacy}:{initialLens?:string;initialRead?:string;onSendToTables:(csv:string)=>void;onSendToPrivacy:(text:string)=>void}){
  const [lens,setLens]=useState(()=>LENSES.some(x=>x.id===initialLens)?initialLens:"overview");
  const [engine,setEngine]=useState<EngineStatus|null>(null);
  const [working,setWorking]=useState(false);
- const [selected,setSelected]=useState<ReadOperation|null>(null);
+ const [selected,setSelected]=useState<ReadOperation|null>(()=>LENSES.flatMap(x=>x.reads).find(x=>x.id===initialRead)??null);
  const [result,setResult]=useState<unknown>(null);
  const [error,setError]=useState("");
  const [loading,setLoading]=useState(false);
@@ -202,6 +202,7 @@ export default function SentinelCenter({initialLens="overview",onSendToTables,on
    </div>
   </div>
   {selected&&<div className="panel" style={{marginTop:16}}>
+   {result===null&&!loading&&<p className="subtle">该功能已定位到原 Go 引擎中的「{selected.name}」。启动服务后点击「读取/刷新」才会查询真实系统数据；不会只展示演示内容。</p>}
    <h3>{selected.name} · 来自原 Sentinel Go 引擎</h3>
    <div className="actions">
     <button type="button" className="secondary-button" disabled={loading||!engine?.running} onClick={()=>void (selected.id==="search"?searchSentinel():read(selected))}>刷新并比较</button>
