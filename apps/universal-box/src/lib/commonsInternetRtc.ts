@@ -73,3 +73,38 @@ export function buildCommonsIceServers(config:CommonsIceOptions):RTCIceServer[]{
  servers.push({urls:url,username:config.turnUsername,credential:config.turnCredential});
  return servers;
 }
+
+/** Report the selected ICE candidate types without revealing raw IPs or ports.
+ * A configured TURN server does not prove that it was actually selected.
+ */
+export type IceRouteSummary={kind:"direct"|"relay"|"unknown";localType:string;remoteType:string};
+export function summarizeCommonsIceRoute(report:RTCStatsReport):IceRouteSummary{
+ const records=new Map<string,RTCStats>();
+ report.forEach((value,key)=>records.set(key,value));
+ let selected:RTCStats|undefined;
+ for(const item of records.values()){
+  const transport=item as RTCStats & {selectedCandidatePairId?:string};
+  if(item.type==="transport"&&transport.selectedCandidatePairId){
+   selected=records.get(transport.selectedCandidatePairId);
+   if(selected)break;
+  }
+ }
+ if(!selected){
+  for(const item of records.values()){
+   const pair=item as RTCStats & {selected?:boolean;nominated?:boolean;state?:string};
+   if(item.type==="candidate-pair"&&pair.selected&&pair.state==="succeeded"){selected=item;break;}
+  }
+ }
+ if(!selected)return {kind:"unknown",localType:"unknown",remoteType:"unknown"};
+ const pair=selected as RTCStats & {localCandidateId?:string;remoteCandidateId?:string};
+ const local=pair.localCandidateId?records.get(pair.localCandidateId):undefined;
+ const remote=pair.remoteCandidateId?records.get(pair.remoteCandidateId):undefined;
+ const valid=(item:RTCStats|undefined):string=>{
+  const type=(item as RTCStats & {candidateType?:unknown}|undefined)?.candidateType;
+  return type==="host"||type==="srflx"||type==="prflx"||type==="relay"?type:"unknown";
+ };
+ const localType=valid(local),remoteType=valid(remote);
+ return {kind:localType==="relay"||remoteType==="relay"?"relay":
+    localType!=="unknown"&&remoteType!=="unknown"?"direct":"unknown",
+  localType,remoteType};
+}
