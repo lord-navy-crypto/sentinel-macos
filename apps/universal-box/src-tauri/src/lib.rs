@@ -1,3 +1,4 @@
+mod commons_chat;
 mod commons_p2p;
 mod commons_lan;
 mod vision_ocr;
@@ -168,9 +169,11 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(commons_lan::CommonsLanState::default())
+        .manage(commons_chat::CommonsChatState::default())
         .on_window_event(|window, event| {
             if matches!(event, tauri::WindowEvent::Destroyed) {
                 window.state::<commons_lan::CommonsLanState>().stop();
+                window.state::<commons_chat::CommonsChatState>().stop();
             }
         })
         .invoke_handler(tauri::generate_handler![
@@ -187,7 +190,10 @@ pub fn run() {
             commons_lan::commons_lan_status,
             commons_lan::commons_lan_discover,
             commons_p2p::commons_p2p_stun_probe,
-            commons_lan::commons_lan_receive
+            commons_lan::commons_lan_receive,
+            commons_chat::commons_chat_host,
+            commons_chat::commons_chat_stop,
+            commons_chat::commons_chat_exchange
         ])
         .run(tauri::generate_context!())
         .expect("error while running Daily Desk");
