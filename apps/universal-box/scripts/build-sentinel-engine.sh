@@ -8,8 +8,8 @@ if [[ "$(uname -s)" != "Darwin" ]]; then
   exit 2
 fi
 case "${SENTINEL_TARGET_ARCH:-$(uname -m)}" in
-  arm64|aarch64) ARCH=arm64 ;;
-  x86_64|amd64) ARCH=amd64 ;;
+  arm64|aarch64|aarch64-apple-darwin) ARCH=arm64 ;;
+  x86_64|amd64|x86_64-apple-darwin) ARCH=amd64 ;;
   *) echo "Unsupported Sentinel macOS architecture" >&2; exit 2 ;;
 esac
 mkdir -p "$(dirname "$OUT")"
