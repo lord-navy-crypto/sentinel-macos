@@ -1,5 +1,6 @@
 import {useEffect,useMemo,useState} from "react";
 import {visualToolFamily,VISUAL_TOOL_FAMILIES} from "../lib/toolVisualCategories";
+import {SENTINEL_EXTRA_READS} from "../lib/sentinelSurfaceCatalog";
 
 export type LocalTool = {id:string;name:string;area:string;view:string;module?:string};
 export const LOCAL_TOOLS:LocalTool[] = [
@@ -16,6 +17,7 @@ export const LOCAL_TOOLS:LocalTool[] = [
  {id:"sentinel-safe-recovery",name:"Sentinel · 原 WebView 恢复中心与安全审批",area:"Sentinel",view:"sentinel-actions",module:"doctor"},
  {id:"sentinel-permissions",name:"Sentinel · 权限、可见性、运行日志",area:"Sentinel",view:"sentinel-limits",module:"visibility"},
  {id:"sentinel-log-redactor",name:"Sentinel · 诊断日志隐私清理",area:"Sentinel",view:"quick-tools",module:"log-privacy"},
+ ...SENTINEL_EXTRA_READS.map(item=>({id:"sentinel-original-"+item.id,name:"Sentinel · "+item.name+" / "+item.description,area:"Sentinel",view:item.lens==="overview"?"sentinel":"sentinel-"+item.lens,module:item.id})),
  {id:"typography-symbols",name:"Font & Symbol Converter · 字体字号／特殊符号／TXT→DOCX/HTML",area:"Text",view:"free-formats",module:"typography"},
  {id:"case-width",name:"Text Case & Fullwidth → Halfwidth · 大小写转换／全角半角",area:"Text",view:"quick-tools",module:"case-width"},
  {id:"client-delivery",name:"Verified Client File Handoff · SHA-256 客户交付 ZIP",area:"Office",view:"workflows",module:"client-delivery"},
