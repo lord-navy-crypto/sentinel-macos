@@ -121,6 +121,7 @@ export default function EverydayTools({ initial = "stats" }: { initial?: Utility
   const [find,setFind] = useState("");
   const [replace,setReplace] = useState("");
   const [start,setStart] = useState(1);
+  const [numbered,setNumbered] = useState(true);
   const [renameBusy,setRenameBusy] = useState(false);
 
   const stats = useMemo(() => {
@@ -130,9 +131,9 @@ export default function EverydayTools({ initial = "stats" }: { initial?: Utility
     return {words,sentences,paragraphs,characters:input.length,lines:input?input.split(/\r?\n/u).length:0,reading:Math.ceil(words/200)};
   },[input]);
   const renamePlan=useMemo(()=>{
-    try{return {rows:planOfficeBatchRename(files,{prefix,find,replace,start}),error:""};}
+    try{return {rows:planOfficeBatchRename(files,{prefix,find,replace,start,numbered}),error:""};}
     catch(e){return {rows:[],error:e instanceof Error?e.message:String(e)};}
-  },[files,prefix,find,replace,start]);
+  },[files,prefix,find,replace,start,numbered]);
   const renamed=renamePlan.rows.map(item=>({file:files[item.index],filename:item.filename}));
 
   function compute() {
@@ -237,14 +238,15 @@ export default function EverydayTools({ initial = "stats" }: { initial?: Utility
         if(selected.length>50){setFiles([]);setStatus("Select no more than 50 files.");return;}
         setFiles(selected);setStatus("");
       }} />
-        <div className="tools-pair"><label className="field-label">Prefix <input className="field" value={prefix} onChange={e=>setPrefix(e.target.value)} /></label><label className="field-label">Start number <input className="field" type="number" value={start} onChange={e=>setStart(Number(e.target.value)||1)} /></label>
+        <div className="tools-pair"><label className="field-label">Prefix <input className="field" value={prefix} onChange={e=>setPrefix(e.target.value)} /></label><label className="field-label">Start number <input className="field" type="number" value={start} disabled={!numbered||renameBusy} onChange={e=>setStart(Number(e.target.value)||1)} /></label>
         <label className="field-label">Find text <input className="field" value={find} onChange={e=>setFind(e.target.value)} /></label><label className="field-label">Replace <input className="field" value={replace} onChange={e=>setReplace(e.target.value)} /></label></div>
+        <label className="field-label"><input data-testid="rename-numbered" type="checkbox" checked={numbered} disabled={renameBusy} onChange={e=>setNumbered(e.target.checked)}/> Add sequence numbers (01, 02…) · turn off for simple find-and-replace or prefix only</label>
         <div className="actions">
           <button type="button" className="secondary-button" disabled={!files.length||renameBusy} onClick={()=>{void exportNames("txt");}}>Export names TXT</button>
           <button type="button" className="secondary-button" disabled={!files.length||renameBusy} onClick={()=>{void exportNames("csv");}}>Export names CSV</button>
           <button type="button" data-testid="rename-save-zip" className="primary-button" disabled={!renamed.length||renameBusy||!!renamePlan.error} onClick={()=>{void exportRenamedZip();}}>{renameBusy?"Creating ZIP…":"Save all renamed copies as ZIP"}</button><span className="subtle">Limit: 50 files, 16 MB input. Each original is preserved.</span></div>
         {renamePlan.error&&files.length>0&&<p role="alert" data-testid="rename-error" className="subtle">{renamePlan.error}</p>}
-        {renamed.length>0&&<p className="subtle" data-testid="rename-preflight">Preview {renamed.length} old → new filenames. Case-insensitive collisions are blocked. ZIP includes a change manifest; no originals are modified.</p>}
+        {renamed.length>0&&<p className="subtle" data-testid="rename-preflight">Preview {renamed.length} old → new filenames. Case-insensitive collisions and reserved ZIP manifest names are blocked. ZIP includes a change manifest; no originals are modified.</p>}
         <div className="task-list" data-testid="rename-preview">{renamed.map(({file,filename},i)=><div key={i} className="task-row"><span className="task-copy">{file.name} → {filename}</span><button type="button" className="secondary-button" onClick={()=>{void renameFile(file,filename).catch(e=>setStatus(String(e)));}}>Save copy</button></div>)}</div>
       </>:<>
         <label className="field-label" htmlFor="utility-input">{tab==="groups"?"Names, separated by lines or commas":tab==="csv"?"CSV or TSV data":tab==="qr"?"URL or text":"Enter text"}</label>
