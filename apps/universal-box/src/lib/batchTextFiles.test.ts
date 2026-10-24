@@ -153,6 +153,61 @@ describe("offline batch office text utility",()=>{
     }
   });
 
+
+  it("keeps only literal matching lines without altering source or mixed newline bytes",()=>{
+    const src=input("行动计划.md","\ufeffTODO: 甲\r\n已完成\nTODO: 乙\r第三项\n");
+    const original=Uint8Array.from(src.bytes);
+    const row=processBatchTextFiles([src],"keep-matching","TODO")[0];
+    expect(row.matches).toBe(2);
+    expect(row.changed).toBe(true);
+    expect(Array.from(row.bytes.subarray(0,3))).toEqual([239,187,191]);
+    expect(d.decode(row.bytes.subarray(3))).toBe("TODO: 甲\r\nTODO: 乙\r");
+    expect(src.bytes).toEqual(original);
+    const insensitive=processBatchTextFiles([input("x.txt","todo\nTODO\n")],"keep-matching","TODO")[0];
+    expect(d.decode(insensitive.bytes)).toBe("TODO\n");
+  });
+  it("removes lines with an exact phrase, but retains nonmatching lines and their endings",()=>{
+    const source=input("events.txt","保留一\r\nDEBUG debug\r删除?\n保留二");
+    const row=processBatchTextFiles([source],"drop-matching","DEBUG")[0];
+    expect(d.decode(row.bytes)).toBe("保留一\r\n删除?\n保留二");
+    expect(row.matches).toBe(1);
+    expect(processBatchTextFiles([source],"drop-matching","NOT-FOUND")[0].changed).toBe(false);
+  });
+  it("lets keep-matching produce an explicitly empty changed copy when there are no matches",async()=>{
+    const src=input("notes.md","one\r\ntwo");
+    const row=processBatchTextFiles([src],"keep-matching","missing")[0];
+    expect(row.changed).toBe(true);
+    expect(row.matches).toBe(0);
+    expect(row.afterBytes).toBe(0);
+    const zip=await JSZip.loadAsync(await zipBatchTextResults([row],"keep-matching"),{checkCRC32:true});
+    expect((await zip.file("processed/notes.md")!.async("uint8array")).length).toBe(0);
+    const manifest=JSON.parse(await zip.file("sentinel-box-batch-text-manifest.json")!.async("string"));
+    expect(manifest.files[0]).toMatchObject({changed:true,afterBytes:0,matches:0});
+    expect(src.bytes.length).toBeGreaterThan(0);
+  });
+  it("numbers only nonempty physical lines with per-file resets, preserving BOM and line endings",()=>{
+    const src=input("会议.txt","\ufeff第一项\r\n\r\n   第二项\n \t\r第三项");
+    const second=input("followup.md","One\nTwo\n");
+    const originals=[Uint8Array.from(src.bytes),Uint8Array.from(second.bytes)];
+    const rows=processBatchTextFiles([src,second],"number-lines");
+    expect(d.decode(rows[0].bytes.subarray(3))).toBe("1. 第一项\r\n\r\n2.    第二项\n \t\r3. 第三项");
+    expect(Array.from(rows[0].bytes.slice(0,3))).toEqual([239,187,191]);
+    expect(rows[0].matches).toBe(3);
+    expect(d.decode(rows[1].bytes)).toBe("1. One\n2. Two\n");
+    expect(rows[1].matches).toBe(2);
+    expect(src.bytes).toEqual(originals[0]);
+    expect(second.bytes).toEqual(originals[1]);
+  });
+  it("rejects invalid line filter input and CSV/TSV line modes before any file mutation",()=>{
+    expect(()=>processBatchTextFiles([input("a.txt","abc")],"keep-matching")).toThrow(/literal line filter phrase/);
+    expect(()=>processBatchTextFiles([input("a.txt","abc")],"drop-matching","\n")).toThrow(/literal line filter phrase/);
+    expect(()=>processBatchTextFiles([input("a.txt","abc")],"keep-matching","a".repeat(1001))).toThrow(/literal line filter phrase/);
+    for(const mode of ["keep-matching","drop-matching","number-lines"] as const){
+      expect(()=>processBatchTextFiles([input("sheet.csv","col,header\nA,B")],mode)).toThrow(/TXT\/Markdown only/);
+      expect(()=>processBatchTextFiles([input("sheet.tsv","A\tB")],mode,"A")).toThrow(/TXT\/Markdown only/);
+    }
+  });
+
   it("packages changed copies only; JSON manifest and all exported bytes are verifiable",async()=>{
     const rows=processBatchTextFiles([
       input("报价.csv","旧价,5\r\n"),input("no-change.md","untouched"),

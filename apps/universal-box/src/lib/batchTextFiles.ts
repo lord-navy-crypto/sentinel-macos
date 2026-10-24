@@ -2,7 +2,7 @@
 import JSZip from "jszip";
 import {replaceTextLiteral} from "./quickBatchText";
 
-export type BatchTextMode="replace"|"lf"|"crlf"|"remove-bom"|"trim-trailing"|"remove-blank"|"dedupe-lines"|"multi-replace"|"prefix-lines"|"suffix-lines";
+export type BatchTextMode="replace"|"lf"|"crlf"|"remove-bom"|"trim-trailing"|"remove-blank"|"dedupe-lines"|"multi-replace"|"prefix-lines"|"suffix-lines"|"keep-matching"|"drop-matching"|"number-lines";
 export type BatchTextSource={name:string;bytes:Uint8Array};
 export type BatchTextResult={
   name:string;outputName:string;matches:number;changed:boolean;ruleCounts?:number[];
@@ -101,14 +101,38 @@ function addAffixToLines(source:string,mode:"prefix-lines"|"suffix-lines",affix:
   return {text,count};
 }
 
+/** Literal physical-line filter or numbering; CSV/TSV are intentionally excluded. */
+function processDocumentLines(source:string,mode:"keep-matching"|"drop-matching"|"number-lines",needle:string):{text:string;count:number}{
+  const lines=splitPhysicalLines(source);
+  const output:string[]=[];
+  let count=0,number=0;
+  for(const line of lines){
+    if(mode==="number-lines"){
+      if(line.content.trim()){
+        number++;
+        count++;
+        output.push(number+". "+line.content+line.ending);
+      }else output.push(line.content+line.ending);
+    }else{
+      const hit=line.content.includes(needle);
+      const keep=mode==="keep-matching"?hit:!hit;
+      if(keep)output.push(line.content+line.ending);
+      if(hit)count++;
+    }
+  }
+  return {text:output.join(""),count};
+}
+
 export function processBatchTextFiles(sources:readonly BatchTextSource[],mode:BatchTextMode,find="",replacement="",ruleText="",affix=""):BatchTextResult[]{
   validateBatchTextSelection(sources.map(x=>({name:x.name,size:x.bytes.length})));
-  if(!(["replace","lf","crlf","remove-bom","trim-trailing","remove-blank","dedupe-lines","multi-replace","prefix-lines","suffix-lines"] as string[]).includes(mode))throw Error("Unknown batch text operation.");
+  if(!(["replace","lf","crlf","remove-bom","trim-trailing","remove-blank","dedupe-lines","multi-replace","prefix-lines","suffix-lines","keep-matching","drop-matching","number-lines"] as string[]).includes(mode))throw Error("Unknown batch text operation.");
   if(mode==="replace"&&(!find||find.length>1000||replacement.length>10000))
     throw Error("Enter a literal search phrase (1–1,000 chars) and up to 10,000 replacement characters.");
-  const lineMode=(mode==="trim-trailing"||mode==="remove-blank"||mode==="dedupe-lines"||mode==="prefix-lines"||mode==="suffix-lines");
+  const lineMode=(mode==="trim-trailing"||mode==="remove-blank"||mode==="dedupe-lines"||mode==="prefix-lines"||mode==="suffix-lines"||mode==="keep-matching"||mode==="drop-matching"||mode==="number-lines");
   if(lineMode&&sources.some(file=>/\.(csv|tsv)$/iu.test(file.name)))
     throw Error("This line cleanup is for TXT/Markdown only. CSV/TSV may contain multiline quoted cells; use the CSV Table Desk.");
+  if((mode==="keep-matching"||mode==="drop-matching")&&(!find||find.length>1000||/[\u0000-\u001f\u007f]/u.test(find)))
+    throw Error("Enter a literal line filter phrase (1–1,000 printable characters, no tabs or newlines).");
   const rules=mode==="multi-replace"?parseLiteralReplacementRules(ruleText):[];
   if((mode==="prefix-lines"||mode==="suffix-lines")&&
     (!affix||affix.length>100||/[\u0000-\u001f\u007f]/u.test(affix)))
@@ -134,6 +158,8 @@ export function processBatchTextFiles(sources:readonly BatchTextSource[],mode:Ba
       }
     }else if(mode==="prefix-lines"||mode==="suffix-lines"){
       ({text:next,count:matches}=addAffixToLines(original,mode,affix));
+    }else if(mode==="keep-matching"||mode==="drop-matching"||mode==="number-lines"){
+      ({text:next,count:matches}=processDocumentLines(original,mode,find));
     }else if(mode==="lf"){
       matches=occurrences(original,/\r\n|\r/gu);
       next=original.replace(/\r\n?|\n/gu,"\n");
