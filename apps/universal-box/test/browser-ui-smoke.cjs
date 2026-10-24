@@ -222,7 +222,9 @@ test("Public Internet WebRTC direct UI requires deliberate signaling and explici
   const direct=page.getByRole("region",{name:"Experimental internet direct chat"});
   await direct.waitFor();
   assert.equal(await direct.getByTestId("p2p-stun-opt-in").isChecked(),false,"No public STUN contact without opt-in");
-  assert.match(await direct.innerText(),/没有 TURN 中继/);
+  assert.match(await direct.innerText(),/不会提供默认 TURN 服务器/);
+  assert.equal(await direct.getByTestId("p2p-own-turn").isChecked(),false);
+  assert.equal(await direct.getByTestId("p2p-turn-url").count(),0,"No TURN inputs or connection by default");
   assert.equal(await direct.getByTestId("p2p-offer").isDisabled(),true);
   await direct.getByTestId("p2p-nickname").fill("测试用户");
   assert.equal(await direct.getByTestId("p2p-offer").isDisabled(),false);
@@ -233,6 +235,17 @@ test("Public Internet WebRTC direct UI requires deliberate signaling and explici
   await page.waitForFunction(()=>document.querySelector('[data-testid="p2p-status"]')?.textContent?.includes("无法应答连接"));
   assert.match(await direct.getByTestId("p2p-status").innerText(),/Connection description size is invalid|完整 JSON/);
   assert.equal(await direct.getByTestId("p2p-local-description").count(),0);
+  await direct.getByTestId("p2p-own-turn").check();
+  await direct.getByTestId("p2p-turn-url").fill("turn:relay.example.org:0");
+  await direct.getByTestId("p2p-turn-username").fill("temporary-user");
+  await direct.getByTestId("p2p-turn-credential").fill("temporary-test-secret");
+  assert.equal(await direct.getByTestId("p2p-turn-credential").getAttribute("type"),"password");
+  await direct.getByTestId("p2p-offer").click();
+  await page.waitForFunction(()=>document.querySelector('[data-testid="p2p-status"]')?.textContent?.includes("TURN port"));
+  assert.match(await direct.getByTestId("p2p-status").innerText(),/TURN port must be between/);
+  assert.equal(await direct.getByTestId("p2p-local-description").count(),0);
+  await direct.getByTestId("p2p-close").click();
+  assert.equal(await direct.getByTestId("p2p-turn-credential").inputValue(),"","Closing clears the TURN secret");
   assert.deepEqual(errors,[]);
  }finally{await page.close();await browser.close();}
 });
