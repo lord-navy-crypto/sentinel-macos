@@ -109,7 +109,7 @@ export default function QuickKitDesk({initialMode="text"}:{initialMode?:QuickKit
     }catch(e){setStatus(String(e instanceof Error?e.message:e));}
   }
   const toggle=(name:keyof CleanupOptions,checked:boolean)=>setOptions(o=>({...o,[name]:checked}));
-  return <section className="panel">
+  return <section className="panel" aria-label="Quick Tools">
     <p className="eyebrow">QUICKKIT · 轻量快捷工具 · OFFLINE</p>
     <h2>Quick Tools / 快捷小工具</h2>
     <p className="subtle">Everyday local office actions without accounts or online uploads. Local input stays in this window; text/links are exported only when you click. Date calculations use calendar days, not elapsed 24-hour periods.</p>
