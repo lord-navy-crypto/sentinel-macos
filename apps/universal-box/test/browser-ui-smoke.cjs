@@ -29,6 +29,13 @@ test("Desktop redesign: office home, command search, categorized list, and expli
   await page.getByTestId("redesigned-home").waitFor();
   assert.ok(await page.getByTestId("office-first-task-grid").locator("button").count()>=5);
   assert.ok(await page.getByTestId("home-recent-exports").isVisible());
+  await page.getByTestId("home-file-input").setInputFiles({
+   name:"home-dropped-document.txt",mimeType:"text/plain",buffer:Buffer.from("office file check")
+  });
+  await page.locator('[aria-label="Scan review"]').waitFor({timeout:15000});
+  assert.equal(await page.getByTestId("intake-staged-row").count(),1);
+  await page.locator(".sidebar-brand").click();
+  await page.getByTestId("redesigned-home").waitFor();
   await page.getByTestId("home-find-tool").click();
   await page.getByTestId("palette-search").fill("PDF");
   assert.ok(await page.getByTestId("palette-result").count()>0);
