@@ -475,7 +475,7 @@ export default function App() {
           {view === "cards" && <Flashcards cards={workspace.cards} onChange={(cards) => setWorkspace((current) => ({ ...current, cards }))} />}
           <div hidden={view !== "focus"}><FocusTimer /></div>
           {view === "notes" && <section className="panel"><p className="eyebrow">LOCAL NOTES</p><h2>Keep ideas close at hand.</h2><p className="subtle">Your notes are automatically saved in this application. Export backups in Backup & privacy.</p><label className="field-label" htmlFor="my-notes">My notebook</label><textarea id="my-notes" className="field text-editor" rows={20} maxLength={50000} placeholder="Capture a thought, write a draft or summarise a concept…" value={workspace.notes} onChange={(event) => setWorkspace((current) => ({ ...current, notes: event.target.value }))}/><p className="subtle">{workspace.notes.length.toLocaleString()} characters</p></section>}
-          {view === "commons" && <CommonsDesk />}
+          {view === "commons" && <CommonsDesk onOpenTool={openTool} />}
           {view === "creative-studio" && <CreativeStudioDesk key={toolMode} initialMode={(toolMode||"word") as CreativeMode}/> }
           {view === "extra-studio" && <ExtraCreationDesk key={toolMode} initialMode={(toolMode||"office") as ExtraMode}/> }
           {view === "life-media" && <LifeMediaDesk key={toolMode} initialMode={(toolMode||"subtitle") as LifeMediaMode}/> }
