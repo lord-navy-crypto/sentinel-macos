@@ -16,6 +16,12 @@ export function parseCommonsChatInvite(text:string):{address:string;port:number;
 export function canJoinCommonsChat(text:string):boolean{
  try{parseCommonsChatInvite(text);return true;}catch{return false;}
 }
+/** Only authenticated server errors mean a new member credential is required.
+ * Plain TCP reachability errors must NOT discard a still-valid session.
+ */
+export function lanChatNeedsNewSession(reason:string):boolean{
+ return /Member not connected|Session token does not match|Join the room before polling or sending/.test(reason);
+}
 export type LanChatLine={seq:number;nickname:string;text:string;timestampMs:number};
 export type LanChatSnapshot={
  room:string;messages:LanChatLine[];participants:string[];hasMore:boolean;
