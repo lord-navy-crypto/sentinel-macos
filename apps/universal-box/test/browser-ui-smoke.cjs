@@ -177,7 +177,7 @@ test("Commons UI separates offline room, explicit LAN steps and opt-in public di
   assert.equal(await page.locator('[data-testid="commons-lan-workflow"]').count(),0);
   assert.equal(await page.locator('[data-testid="commons-public-research"]').count(),1);
   assert.equal(await page.getByRole("button",{name:/STUN 映射对比/}).isDisabled(),true);
-  assert.match(await page.locator('[data-testid="commons-public-research"]').innerText(),/当前不会自动开放公网端口/);
+  assert.match(await page.locator('[data-testid="commons-public-research"]').innerText(),/不会开放公网 TCP 监听/);
   await page.getByRole("group",{name:"Communication transport"}).getByRole("button",{name:/局域网发送与接收/}).click();
   assert.equal(await page.locator('[data-testid="commons-lan-workflow"]').count(),1);
   assert.deepEqual(errors,[]);
