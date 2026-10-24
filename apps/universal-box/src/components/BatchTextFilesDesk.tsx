@@ -21,6 +21,9 @@ const OPS:{id:BatchTextMode;name:string}[]=[
   {id:"dedupe-list",name:"Remove near-duplicate list items (TXT) · 忽略大小写与首尾空格去重"},
   {id:"strip-list-markers",name:"Remove list bullets / numbering (TXT) · 清除清单项目符号和序号"},
   {id:"trim-boundary-blank",name:"Trim blank lines at document edges (TXT) · 清除文本首尾空行"},
+  {id:"normalize-nbsp",name:"Replace non-breaking spaces (TXT) · 不换行空格转普通空格"},
+  {id:"remove-zwsp",name:"Remove hidden zero-width spaces (TXT) · 移除零宽空格"},
+  {id:"remove-soft-hyphen",name:"Remove invisible soft hyphens (TXT) · 移除隐藏软连字符"},
   {id:"lf",name:"Convert newlines to LF · 转 Unix 换行"},
   {id:"crlf",name:"Convert newlines to CRLF · 转 Windows 换行"},
   {id:"remove-bom",name:"Remove UTF-8 BOM · 删除 UTF-8 BOM"},
@@ -130,6 +133,8 @@ export default function BatchTextFilesDesk(){
       </label>
       <p className="subtle" data-testid="batch-filter-warning">This action uses exact, case-sensitive substring matching within each physical line, not regex. A file with no matches may yield an empty copy when keeping lines. Check the preview and byte counts before exporting. Works only on TXT/Markdown, not multiline CSV/TSV.</p>
     </>}
+    {(mode==="normalize-nbsp"||mode==="remove-zwsp"||mode==="remove-soft-hyphen")&&
+      <p className="subtle" data-testid="batch-invisible-warning">TXT only. Explicit copied-text cleanup: non-breaking space (U+00A0) and narrow no-break space (U+202F) become ordinary spaces; zero-width space (U+200B) or soft hyphen (U+00AD) are removed only by their respective operations. Ordinary hyphens, figure spaces, emoji zero-width joiners and line endings are preserved. These invisible characters can be intentional in multilingual content, so compare preview and operation counts before exporting a copy.</p>}
     {(mode==="strip-list-markers"||mode==="trim-boundary-blank")&&<p className="subtle" data-testid="batch-plain-list-warning">
       TXT only. List-marker cleanup removes simple bullets (-, *, +, •) and 1. / 1) style numbering when followed by text; it leaves original indentation, unrelated lines and line endings untouched. Blank-edge cleanup removes only empty or space/tab-only physical lines at the start and end of each file, preserving all interior blank lines. Inspect the preview before exporting; no source file is overwritten.
     </p>}

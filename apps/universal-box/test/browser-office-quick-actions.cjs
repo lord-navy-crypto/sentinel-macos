@@ -432,3 +432,57 @@ test("Plain TXT list marker and surrounding blank cleanup downloads verified ZIP
   assert.deepEqual(errors,[]);
  }finally{await page.close();await browser.close();}
 });
+
+
+test("Copied-text hidden-space cleanup produces verified ZIP files and protects emoji joins",{timeout:90000},async()=>{
+ const browser=await chromium.launch({headless:true,args:["--no-sandbox"]});
+ const page=await browser.newPage({acceptDownloads:true,viewport:{width:1440,height:920}});
+ const errors=[];page.on("pageerror",e=>errors.push(e.message));
+ try{
+  await page.goto(root,{waitUntil:"domcontentloaded"});await page.locator(".app-shell").waitFor();
+  await openTool(page,"Batch Text Files");
+  const source=Buffer.from("\ufeffA\u00a0B\u202fC\r\nX\u2007Y\n");
+  await page.locator('[data-testid="batch-text-picker"]').setInputFiles([
+   {name:"copied.txt",mimeType:"text/plain",buffer:source},
+  ]);
+  await page.locator('[data-testid="batch-text-mode"]').selectOption("normalize-nbsp");
+  assert.match(await page.locator('[data-testid="batch-invisible-warning"]').innerText(),/U\+00A0/);
+  assert.match(await page.locator('[data-testid="batch-text-preview"]').innerText(),/1 changed/);
+  const first=page.waitForEvent("download",{timeout:30000});
+  await page.locator('[data-testid="batch-text-save"]').click();
+  const file=await first;const output=path.join(dir,"copied-nbsp-cleanup.zip");await file.saveAs(output);
+  const zip=await JSZip.loadAsync(fs.readFileSync(output),{checkCRC32:true});
+  assert.deepEqual(await zip.file("processed/copied.txt").async("nodebuffer"),
+   Buffer.from("\ufeffA B C\r\nX\u2007Y\n"));
+  const manifest=JSON.parse(await zip.file("sentinel-box-batch-text-manifest.json").async("string"));
+  assert.equal(manifest.operation,"normalize-nbsp");
+  assert.equal(manifest.files[0].matches,2);
+
+  const joined=Buffer.from("\ufeff👩‍💻\u200bA\u00adB\r\n");
+  await page.locator('[data-testid="batch-text-picker"]').setInputFiles([
+   {name:"emoji.txt",mimeType:"text/plain",buffer:joined},
+  ]);
+  await page.locator('[data-testid="batch-text-mode"]').selectOption("remove-zwsp");
+  const second=page.waitForEvent("download",{timeout:30000});
+  await page.locator('[data-testid="batch-text-save"]').click();
+  const file2=await second;const output2=path.join(dir,"copied-zwsp-cleanup.zip");await file2.saveAs(output2);
+  const zip2=await JSZip.loadAsync(fs.readFileSync(output2),{checkCRC32:true});
+  assert.deepEqual(await zip2.file("processed/emoji.txt").async("nodebuffer"),
+   Buffer.from("\ufeff👩‍💻A\u00adB\r\n"));
+
+  await page.locator('[data-testid="batch-text-mode"]').selectOption("remove-soft-hyphen");
+  const third=page.waitForEvent("download",{timeout:30000});
+  await page.locator('[data-testid="batch-text-save"]').click();
+  const file3=await third;const output3=path.join(dir,"copied-soft-hyphen.zip");await file3.saveAs(output3);
+  const zip3=await JSZip.loadAsync(fs.readFileSync(output3),{checkCRC32:true});
+  assert.deepEqual(await zip3.file("processed/emoji.txt").async("nodebuffer"),
+   Buffer.from("\ufeff👩‍💻\u200bAB\r\n"));
+  await page.locator('[data-testid="batch-text-picker"]').setInputFiles([
+   {name:"quoted.csv",mimeType:"text/csv",buffer:Buffer.from('"a\nb",c\n')},
+  ]);
+  assert.match(await page.locator('[data-testid="batch-text-error"]').innerText(),/TXT-only/);
+  assert.equal(await page.locator('[data-testid="batch-text-save"]').isDisabled(),true);
+  assert.deepEqual(source,Buffer.from("\ufeffA\u00a0B\u202fC\r\nX\u2007Y\n"));
+  assert.deepEqual(errors,[]);
+ }finally{await page.close();await browser.close();}
+});
