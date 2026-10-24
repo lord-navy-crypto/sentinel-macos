@@ -41,6 +41,10 @@ test("Existing photo tool previews real compressed output and byte-level size co
   assert.match(await s.page.locator('[data-testid="photo-size-summary"]').innerText(),/压缩合计/);
   const thumb=await s.page.locator('[data-testid="photo-actual-preview"] img').evaluate(el=>({loaded:el.complete,w:el.naturalWidth}));
   assert.ok(thumb.loaded&&thumb.w>0,"actual output preview image must decode");
+  // Compare the exact converted preview blob to the ZIP image member after the local
+  // integrity gate. Showing a nice preview is insufficient if a different file is saved.
+  const previewBytes=await s.page.locator('[data-testid="photo-actual-preview"] img')
+    .evaluate(async img=>[...new Uint8Array(await (await fetch(img.src)).arrayBuffer())]);
   const pending=s.page.waitForEvent("download",{timeout:30000});
   await s.page.locator('[data-testid="photo-save"]').click();
   const saved=await pending,file=path.join(out,"batch-photo-preview.zip");
@@ -48,14 +52,31 @@ test("Existing photo tool previews real compressed output and byte-level size co
   const archive=await JSZip.loadAsync(fs.readFileSync(file),{checkCRC32:true});
   const manifest=JSON.parse(await archive.file("reports/manifest.json").async("string"));
   assert.equal(manifest.files.length,2);
-  for(const r of manifest.files){
+  for(const [i,r] of manifest.files.entries()){
    const img=await archive.file(r.outputName).async("uint8array");
+   if(i===0)assert.deepEqual([...img],previewBytes,"saved JPEG must exactly match displayed preview");
    assert.equal(img.length,r.outputBytes);
    assert.equal(r.sizeDeltaBytes,r.originalBytes-r.outputBytes);
    assert.equal(r.smallerThanSource,r.outputBytes<r.originalBytes);
   }
   await s.page.locator('[data-testid="photo-target-kb"]').fill("200");
   assert.equal(await s.page.locator('[data-testid="photo-actual-preview"] img').count(),0,"changing settings invalidates stale preview");
+  assert.equal(await s.page.locator('[data-testid="photo-size-summary"]').count(),0,"old size reports cannot pass as current settings");
+  // The direct one-click compression path remains available, but it also validates the
+  // generated ZIP and real magic bytes before the save dialog is allowed.
+  const next=s.page.waitForEvent("download",{timeout:30000});
+  await s.page.locator('[data-testid="photo-save"]').click();
+  const direct=await next;const directFile=path.join(out,"batch-photo-direct-verified.zip");
+  await direct.saveAs(directFile);
+  const directZip=await JSZip.loadAsync(fs.readFileSync(directFile),{checkCRC32:true});
+  const directMeta=JSON.parse(await directZip.file("reports/manifest.json").async("string"));
+  assert.equal(directMeta.settings.targetKB,200);
+  assert.equal(directMeta.files.length,2);
+  for(const rec of directMeta.files){
+   const bytes=await directZip.file(rec.outputName).async("uint8array");
+   assert.equal(bytes.length,rec.outputBytes);
+   assert.deepEqual([...bytes.slice(0,3)],[255,216,255]);
+  }
   await s.page.screenshot({path:path.join(out,"photo-preview.png"),fullPage:true});
   assert.deepEqual(s.errors,[]);
  }finally{await s.page.close();await s.browser.close();}

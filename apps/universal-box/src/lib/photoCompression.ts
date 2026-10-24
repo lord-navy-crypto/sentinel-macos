@@ -103,3 +103,51 @@ export async function compressPhotoBatch(files:readonly File[],settings:PhotoSet
  if(zip.length>20_000_000)throw Error("Photo ZIP exceeds 20 MB.");
  return {zip,reports};
 }
+
+/** Reopen the exact export bytes, CRC-check every member and cross-check image formats and
+ * the user-visible byte report against the manifest before claiming successful processing.
+ */
+export async function verifyPhotoZipOutput(output:{zip:Uint8Array;reports:PhotoReport[]},
+ settings:PhotoSettings,signal?:AbortSignal):Promise<JSZip>{
+ checkPhotoCancel(signal);
+ if(!output.reports.length||output.reports.length>10||output.zip.length>20_000_000)
+  throw Error("Photo archive or report count is outside the supported limits.");
+ const archive=await JSZip.loadAsync(output.zip,{checkCRC32:true});
+ checkPhotoCancel(signal);
+ const manifestFile=archive.file("reports/manifest.json");
+ if(!manifestFile)throw Error("Photo ZIP is missing its report manifest.");
+ let manifest:unknown;
+ try{manifest=JSON.parse(await manifestFile.async("string"));}catch{throw Error("Photo ZIP manifest is unreadable.");}
+ if(!manifest||typeof manifest!=="object")throw Error("Photo ZIP manifest is invalid.");
+ const info=manifest as {files?:PhotoReport[];settings?:PhotoSettings};
+ if(!Array.isArray(info.files)||info.files.length!==output.reports.length||
+  info.settings?.format!==settings.format||info.settings?.targetKB!==settings.targetKB||
+  info.settings?.maxDimension!==settings.maxDimension)
+  throw Error("Photo ZIP manifest does not match prepared settings or report count.");
+ const paths=new Set<string>();
+ for(const [index,report] of output.reports.entries()){
+  checkPhotoCancel(signal);
+  const recorded=info.files[index];
+  if(!recorded||recorded.source!==report.source||recorded.outputName!==report.outputName||
+   recorded.outputBytes!==report.outputBytes||recorded.originalBytes!==report.originalBytes||
+   recorded.width!==report.width||recorded.height!==report.height||
+   recorded.targetMet!==report.targetMet)
+   throw Error("Photo ZIP report mismatch at image "+(index+1)+".");
+  if(paths.has(report.outputName)||!/^images\/[0-9]{3}-[^/]+\.(?:jpg|webp)$/u.test(report.outputName))
+   throw Error("Photo ZIP image entry name is invalid or duplicated.");
+  paths.add(report.outputName);
+  const entry=archive.file(report.outputName);
+  if(!entry)throw Error("Photo ZIP is missing "+report.outputName);
+  const bytes=await entry.async("uint8array");
+  checkPhotoCancel(signal);
+  if(bytes.length!==report.outputBytes||bytes.length<12)throw Error("Photo ZIP image size does not match the report.");
+  const jpeg=bytes[0]===255&&bytes[1]===216&&bytes[2]===255;
+  const webp=String.fromCharCode(...bytes.slice(0,4))==="RIFF"&&String.fromCharCode(...bytes.slice(8,12))==="WEBP";
+  if(settings.format==="jpeg"?!jpeg||!report.outputName.endsWith(".jpg"):!webp||!report.outputName.endsWith(".webp"))
+   throw Error("Photo ZIP contains an image with the wrong actual output format.");
+ }
+ const actualImages=Object.keys(archive.files).filter(x=>x.startsWith("images/")&&!archive.files[x].dir);
+ if(actualImages.length!==paths.size)throw Error("Photo ZIP contains unexpected or extra image entries.");
+ checkPhotoCancel(signal);
+ return archive;
+}
