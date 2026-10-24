@@ -58,9 +58,10 @@ export function decodePublicRoomFrame(raw:unknown,room:string):PublicRoomFrame|n
   case "leave":return {v:1,room,kind:"leave"};
   case "ack":return typeof d.id==="string"&&MESSAGE_ID.test(d.id)?{v:1,room,kind:"ack",id:d.id}:null;
   case "receipt":return typeof d.id==="string"&&MESSAGE_ID.test(d.id)&&
+   typeof d.acked==="number"&&typeof d.total==="number"&&
    Number.isInteger(d.acked)&&Number.isInteger(d.total)&&
-   typeof d.total==="number"&&d.total>=0&&d.total<=PUBLIC_ROOM_GUEST_LIMIT&&
-   typeof d.acked==="number"&&d.acked>=0&&d.acked<=d.total?
+   d.total>=0&&d.total<=PUBLIC_ROOM_GUEST_LIMIT&&
+   d.acked>=0&&d.acked<=d.total?
     {v:1,room,kind:"receipt",id:d.id,acked:d.acked,total:d.total}:null;
   case "chat":
    return typeof d.id==="string"&&MESSAGE_ID.test(d.id)
