@@ -23,6 +23,7 @@ export default function CommonsLiveChatDesk({visible}:{visible:boolean}){
  const [error,setError]=useState("");
  const [networkState,setNetworkState]=useState("");
  const cursor=useRef(0);
+ const memberSession=useRef("");
  const session=useRef(0);
  const polling=useRef(false);
  const applySnapshot=useCallback((snapshot:LanChatSnapshot)=>{
@@ -38,6 +39,7 @@ export default function CommonsLiveChatDesk({visible}:{visible:boolean}){
   try{
    const snapshot=await invoke<LanChatSnapshot>("commons_chat_exchange",{
     invite,nickname:as,text:null,messageId:null,since:cursor.current,
+    join:false,leave:false,sessionToken:memberSession.current,
    });
    if(session.current!==revision)return;
    applySnapshot(snapshot);setError("");setNetworkState("已连接 · 群消息已同步");
@@ -66,8 +68,11 @@ export default function CommonsLiveChatDesk({visible}:{visible:boolean}){
    // Host joins its own group through the same encrypted wire protocol as guests.
    const first=await invoke<LanChatSnapshot>("commons_chat_exchange",{
     invite:loopback,nickname:nickname.trim(),text:null,messageId:null,since:0,
+    join:true,leave:false,sessionToken:null,
    });
-   session.current++;cursor.current=0;setMessages([]);setParticipants([]);
+   if(!first.sessionToken)throw Error("Host did not issue a group member session.");
+   session.current++;cursor.current=0;memberSession.current=first.sessionToken;
+   setMessages([]);setParticipants([]);
    setHosting(true);setRoom(host.room);setShareInvite(host.invites.find(v=>!v.includes("127.0.0.1:"))??loopback);
    applySnapshot(first);setActiveInvite(loopback);setNetworkState("已创建临时局域网群聊");
   }catch(e){
@@ -82,8 +87,11 @@ export default function CommonsLiveChatDesk({visible}:{visible:boolean}){
    const invite=joinText.trim();
    const first=await invoke<LanChatSnapshot>("commons_chat_exchange",{
     invite,nickname:nickname.trim(),text:null,messageId:null,since:0,
+    join:true,leave:false,sessionToken:null,
    });
-   session.current++;cursor.current=0;setMessages([]);setParticipants([]);
+   if(!first.sessionToken)throw Error("Group host did not issue a member session.");
+   session.current++;cursor.current=0;memberSession.current=first.sessionToken;
+   setMessages([]);setParticipants([]);
    setHosting(false);setShareInvite("");applySnapshot(first);setActiveInvite(invite);
    setNetworkState("已加入局域网群聊");
   }catch(e){setError("加入失败："+messageError(e));}
@@ -94,6 +102,14 @@ export default function CommonsLiveChatDesk({visible}:{visible:boolean}){
   setBusy(true);session.current++;
   try{
    if(hosting)await invoke("commons_chat_stop");
+   else if(activeInvite&&memberSession.current){
+    try{
+     await invoke("commons_chat_exchange",{invite:activeInvite,nickname:nickname.trim(),
+      text:null,messageId:null,since:cursor.current,
+      join:false,leave:true,sessionToken:memberSession.current});
+    }catch{/* Offline member leaves locally; the host expires inactive sessions within 20 seconds. */}
+   }
+   memberSession.current="";
    setActiveInvite("");setShareInvite("");setHosting(false);setRoom("");
    setMessages([]);setParticipants([]);cursor.current=0;setDraft("");setError("");
    setNetworkState(hosting?"已停止群聊，所有连接和临时记录失效。":"已退出群聊。");
@@ -109,6 +125,7 @@ export default function CommonsLiveChatDesk({visible}:{visible:boolean}){
    const snapshot=await invoke<LanChatSnapshot>("commons_chat_exchange",{
     invite:activeInvite,nickname:nickname.trim(),text,
     messageId:crypto.randomUUID(),since:cursor.current,
+    join:false,leave:false,sessionToken:memberSession.current,
    });
    applySnapshot(snapshot);setDraft("");setNetworkState("消息已写入群聊主机");
   }catch(e){setError("发送失败："+messageError(e));}
@@ -125,7 +142,7 @@ export default function CommonsLiveChatDesk({visible}:{visible:boolean}){
   <p className="eyebrow">LIVE GROUP CHAT · SAME LOCAL NETWORK · NO CLOUD</p>
   <h3>局域网实时群聊 · Live LAN Group</h3>
   <p className="subtle">创建临时聊天室、邀请同一局域网的设备加入并实时交流。最多 12 个近期在线昵称，主机最多保存最近 200 条消息，房间最多开放一小时。消息只在主机内存中，不是持久化聊天记录。</p>
-  <p className="subtle">聊天使用共享邀请密钥加密传送到群聊主机；主机能看到消息，昵称不代表已验证的真实身份。邀请一旦泄露，持有者就能读写群消息。</p>
+  <p className="subtle">聊天使用共享邀请密钥加密传送到群聊主机。加入后每位成员取得独立临时会话凭证，不能直接以其他在线昵称发送；但昵称仍不代表已验证的真实身份，主机能看到消息，邀请泄露仍允许新成员加入。</p>
   {!native&&<p role="status" className="subtle">实时群聊仅支持原生 Mac 桌面应用；当前浏览器只展示操作界面，不会启动 TCP 监听或访问网络。</p>}
   {!activeInvite?<div className="panel">
    <div className="tools-pair">
