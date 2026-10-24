@@ -12,3 +12,13 @@ export function combineClips(items:string[], separator:"newline"|"blank"|"space"
   if(divider===null)throw Error("Unsupported joining mode.");
   return items.join(divider);
 }
+
+/** Move a deliberately collected snippet one position. Returns a new array, preserving originals. */
+export function moveClip(items:readonly string[],index:number,direction:-1|1):string[]{
+ if(!Number.isSafeInteger(index)||index<0||index>=items.length||(direction!==-1&&direction!==1))
+  throw Error("Invalid clip index or movement.");
+ const moved=[...items],target=index+direction;
+ if(target<0||target>=items.length)return moved;
+ [moved[index],moved[target]]=[moved[target],moved[index]];
+ return moved;
+}
