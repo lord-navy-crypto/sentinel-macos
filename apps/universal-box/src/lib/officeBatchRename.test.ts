@@ -1,5 +1,5 @@
 import {describe,expect,it} from "vitest";
-import {planOfficeBatchRename,renamePlanManifest} from "./officeBatchRename";
+import {planOfficeBatchRename,renamePlanManifest,renamePlanCsv} from "./officeBatchRename";
 describe("Office batch rename preview, collision safety and original-file preservation",()=>{
  it("retains extensions and Chinese/emoji names, with reversible old/new manifest",()=>{
   const plan=planOfficeBatchRename([
@@ -43,6 +43,20 @@ describe("Office batch rename preview, collision safety and original-file preser
    {prefix:"",find:"",replace:"",start:99999})).toThrow(/exceed 99,999/);
   expect(()=>planOfficeBatchRename([{name:"a.txt",size:1},{name:"b.txt",size:1}],
    {prefix:"",find:"",replace:"",start:99999,numbered:false})).not.toThrow();
+ });
+ it("exports Excel-safe old/new CSV with quoted commas, Chinese and formula-prefixed filenames",()=>{
+  const options={prefix:"",find:"",replace:"",start:1,numbered:false};
+  const plan=planOfficeBatchRename([
+   {name:'中文,"汇总".txt',size:12},{name:"=1+2.txt",size:7},
+   {name:"+Budget.csv",size:44}],options);
+  const csv=renamePlanCsv(plan);
+  expect(csv.startsWith("\uFEFF")).toBe(true);
+  expect(csv).toContain('"中文,""汇总"".txt"');
+  expect(csv).toContain('"\'=1+2.txt"');
+  expect(csv).toContain('"\'+Budget.csv"');
+  expect(csv).toContain('"Original filename","Renamed copy","Bytes"\r\n');
+  expect(csv.endsWith('"44"\r\n')).toBe(true);
+  expect(()=>renamePlanCsv([])).toThrow(/1–50/);
  });
  it("normalizes and cleans unsafe characters without changing file bytes",()=>{
   const plan=planOfficeBatchRename([{name:"my?file.docx",size:10}],
