@@ -316,6 +316,7 @@ export default function CommonsPublicRoomDesk(){
      setStatus(resume?"已提交加密临时凭据，等待主持人恢复原会话…":"已建立加密 DataChannel，等待主持人接受加入请求…");
     };
     dc.onmessage=event=>{
+     if(guestChannelRef.current!==dc)return; // Ignore late events from the retired transport.
      const frame=decodePublicRoomFrame(event.data,expectedRoom);
      if(!frame)return;
      if(frame.kind==="welcome"){
