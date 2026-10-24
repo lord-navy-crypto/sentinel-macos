@@ -233,13 +233,13 @@ export default function EverydayTools({ initial = "stats" }: { initial?: Utility
         <div className="contrast-preview" style={{color:foreground,backgroundColor:background}}>Readable sample text · Aa 123</div>
         <p className="subtle">Contrast: {ratio(foreground,background).toFixed(2)}:1 · Normal AA {ratio(foreground,background)>=4.5?"pass":"fail"} · Large AA {ratio(foreground,background)>=3?"pass":"fail"}</p>
       </div>:tab==="rename"?<>
-        <label className="field-label" htmlFor="rename-files">Choose files (originals stay unchanged)</label><input id="rename-files" className="field" type="file" multiple onChange={e=>{
+        <label className="field-label" htmlFor="rename-files">Choose files (originals stay unchanged)</label><input id="rename-files" className="field" type="file" multiple disabled={renameBusy} onChange={e=>{
         const selected=[...(e.target.files??[])];e.target.value="";
         if(selected.length>50){setFiles([]);setStatus("Select no more than 50 files.");return;}
         setFiles(selected);setStatus("");
       }} />
-        <div className="tools-pair"><label className="field-label">Prefix <input className="field" value={prefix} onChange={e=>setPrefix(e.target.value)} /></label><label className="field-label">Start number <input className="field" type="number" value={start} disabled={!numbered||renameBusy} onChange={e=>setStart(Number(e.target.value)||1)} /></label>
-        <label className="field-label">Find text <input className="field" value={find} onChange={e=>setFind(e.target.value)} /></label><label className="field-label">Replace <input className="field" value={replace} onChange={e=>setReplace(e.target.value)} /></label></div>
+        <div className="tools-pair"><label className="field-label">Prefix <input className="field" value={prefix} disabled={renameBusy} onChange={e=>setPrefix(e.target.value)} /></label><label className="field-label">Start number <input className="field" type="number" value={start} disabled={!numbered||renameBusy} onChange={e=>setStart(Number(e.target.value)||1)} /></label>
+        <label className="field-label">Find text <input className="field" value={find} disabled={renameBusy} onChange={e=>setFind(e.target.value)} /></label><label className="field-label">Replace <input className="field" value={replace} disabled={renameBusy} onChange={e=>setReplace(e.target.value)} /></label></div>
         <label className="field-label"><input data-testid="rename-numbered" type="checkbox" checked={numbered} disabled={renameBusy} onChange={e=>setNumbered(e.target.checked)}/> Add sequence numbers (01, 02…) · turn off for simple find-and-replace or prefix only</label>
         <div className="actions">
           <button type="button" className="secondary-button" disabled={!files.length||renameBusy} onClick={()=>{void exportNames("txt");}}>Export names TXT</button>
