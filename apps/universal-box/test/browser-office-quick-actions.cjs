@@ -556,8 +556,8 @@ test("unnumbered batch rename produces real files, previews collisions and prote
   assert.equal((await zip.file("Final-Approved 合同.docx").async("nodebuffer")).toString(),"DOC-1");
   assert.equal((await zip.file("Final-memo.pdf").async("nodebuffer")).toString(),"%PDF-1.7 TEST");
   assert.equal(JSON.parse(await zip.file("sentinel-box-rename-plan.json").async("string")).files.length,2);
-  await page.locator('label:has-text("Prefix") input').fill("");
-  await page.locator('label:has-text("Find text") input').fill("");
+  await page.getByTestId("rename-prefix").fill("");
+  await page.getByTestId("rename-find").fill("");
   await page.locator("#rename-files").setInputFiles([
    {name:"a.txt",mimeType:"text/plain",buffer:Buffer.from("1")},
    {name:"A.txt",mimeType:"text/plain",buffer:Buffer.from("2")},
