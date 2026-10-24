@@ -3,15 +3,25 @@ import {decodeDirectSignal,encodeDirectSignal,validDirectChatText} from "./commo
 /** Experimental host-forwarded WebRTC room. Room identifiers are NOT passwords or identity proof. */
 export const PUBLIC_ROOM_GUEST_LIMIT=3;
 export const PUBLIC_ROOM_MAX_BUFFER=64*1024;
+/** Heartbeats monitor application responsiveness, not proof of real-world identity.
+ * A generous timeout reduces false timeouts during momentary Mac sleep/wake.
+ */
+export const PUBLIC_ROOM_HEARTBEAT_MS=12_000;
+export const PUBLIC_ROOM_STALE_MS=48_000;
+export function publicRoomTimedOut(lastReplyMs:number,nowMs:number):boolean{
+ return Number.isFinite(lastReplyMs)&&Number.isFinite(nowMs)&&
+  lastReplyMs>0&&nowMs>=lastReplyMs&&nowMs-lastReplyMs>PUBLIC_ROOM_STALE_MS;
+}
 const ROOM_ID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MESSAGE_ID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export type PublicRoomSignal={v:1;room:string;type:"offer"|"answer";sdp:string};
 export type PublicRoomFrame=
- |{v:1;room:string;kind:"join";name:string;resumeToken?:string}
- |{v:1;room:string;kind:"welcome";resumeToken?:string}
+ |{v:1;room:string;kind:"join";name:string;resumeToken?:string;heartbeat?:true}
+ |{v:1;room:string;kind:"welcome";resumeToken?:string;heartbeat?:true}
  |{v:1;room:string;kind:"deny";reason:"full"|"name"|"invalid"}
  |{v:1;room:string;kind:"leave"}
  |{v:1;room:string;kind:"ack";id:string}
+ |{v:1;room:string;kind:"ping"|"pong";id:string}
  |{v:1;room:string;kind:"receipt";id:string;acked:number;total:number}
  |{v:1;room:string;kind:"chat";id:string;name:string;text:string};
 
@@ -59,15 +69,24 @@ export function decodePublicRoomFrame(raw:unknown,room:string):PublicRoomFrame|n
  switch(d.kind){
   case "join":
    return typeof d.name==="string"&&validPublicRoomName(d.name)&&
-    (d.resumeToken===undefined||validRoomResumeToken(d.resumeToken))?
-    {v:1,room,kind:"join",name:d.name,...(d.resumeToken===undefined?{}:{resumeToken:d.resumeToken as string})}:null;
+    (d.resumeToken===undefined||validRoomResumeToken(d.resumeToken))&&
+    (d.heartbeat===undefined||d.heartbeat===true)?
+    {v:1,room,kind:"join",name:d.name,
+     ...(d.resumeToken===undefined?{}:{resumeToken:d.resumeToken as string}),
+     ...(d.heartbeat===true?{heartbeat:true as const}:{})}:null;
   case "welcome":
-   return d.resumeToken===undefined?{v:1,room,kind:"welcome"}:
-    validRoomResumeToken(d.resumeToken)?{v:1,room,kind:"welcome",resumeToken:d.resumeToken as string}:null;
+   return (d.resumeToken===undefined||validRoomResumeToken(d.resumeToken))&&
+    (d.heartbeat===undefined||d.heartbeat===true)?
+    {v:1,room,kind:"welcome",
+     ...(d.resumeToken===undefined?{}:{resumeToken:d.resumeToken as string}),
+     ...(d.heartbeat===true?{heartbeat:true as const}:{})}:null;
   case "deny":return d.reason==="full"||d.reason==="name"||d.reason==="invalid"?
    {v:1,room,kind:"deny",reason:d.reason}:null;
   case "leave":return {v:1,room,kind:"leave"};
   case "ack":return typeof d.id==="string"&&MESSAGE_ID.test(d.id)?{v:1,room,kind:"ack",id:d.id}:null;
+  case "ping":
+  case "pong":return typeof d.id==="string"&&MESSAGE_ID.test(d.id)?
+   {v:1,room,kind:d.kind,id:d.id}:null;
   case "receipt":return typeof d.id==="string"&&MESSAGE_ID.test(d.id)&&
    typeof d.acked==="number"&&typeof d.total==="number"&&
    Number.isInteger(d.acked)&&Number.isInteger(d.total)&&

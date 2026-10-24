@@ -1,6 +1,6 @@
 import {describe,it,expect} from "vitest";
 import {decodePublicRoomSignal,encodePublicRoomSignal,decodePublicRoomFrame,encodePublicRoomFrame,
- rememberRoomMessage,roomSendReady,validPublicRoomName,authorizeRoomResume,validRoomResumeToken,PUBLIC_ROOM_GUEST_LIMIT} from "./commonsPublicRoom";
+ rememberRoomMessage,roomSendReady,validPublicRoomName,authorizeRoomResume,validRoomResumeToken,publicRoomTimedOut,PUBLIC_ROOM_HEARTBEAT_MS,PUBLIC_ROOM_STALE_MS,PUBLIC_ROOM_GUEST_LIMIT} from "./commonsPublicRoom";
 
 const room="12345678-1234-4234-9234-123456789abc";
 const fingerprint="AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99";
@@ -65,6 +65,35 @@ describe("Manual host-forwarded public room protocol",()=>{
   expect(decodePublicRoomFrame(JSON.stringify({...join,resumeToken:"invalid"}),room)).toBeNull();
   expect(decodePublicRoomFrame(JSON.stringify({...welcome,resumeToken:"invalid"}),room)).toBeNull();
   expect(decodePublicRoomFrame(JSON.stringify(join),"aaaaaaaa-1234-4234-9234-123456789abc")).toBeNull();
+ });
+ it("negotiates heartbeats without breaking legacy join and welcome frames",()=>{
+  const legacyJoin={v:1 as const,room,kind:"join" as const,name:"成员A"};
+  const modernJoin={...legacyJoin,heartbeat:true as const};
+  const legacyWelcome={v:1 as const,room,kind:"welcome" as const};
+  const modernWelcome={...legacyWelcome,heartbeat:true as const};
+  for(const frame of [legacyJoin,modernJoin,legacyWelcome,modernWelcome])
+   expect(decodePublicRoomFrame(encodePublicRoomFrame(frame),room)).toEqual(frame);
+  for(const value of [false,1,"true",null])
+   expect(decodePublicRoomFrame(JSON.stringify({...modernJoin,heartbeat:value}),room)).toBeNull();
+ });
+ it("validates room-scoped heartbeat ping/pong and rejects unexpected identifiers",()=>{
+  const ping={v:1 as const,room,kind:"ping" as const,id};
+  const pong={v:1 as const,room,kind:"pong" as const,id};
+  expect(decodePublicRoomFrame(encodePublicRoomFrame(ping),room)).toEqual(ping);
+  expect(decodePublicRoomFrame(encodePublicRoomFrame(pong),room)).toEqual(pong);
+  for(const kind of ["ping","pong"]){
+   expect(decodePublicRoomFrame(JSON.stringify({v:1,room,kind,id:"unsafe"}),room)).toBeNull();
+   expect(decodePublicRoomFrame(JSON.stringify({v:1,room,kind,id}),"aaaaaaaa-1234-4234-9234-123456789abc")).toBeNull();
+  }
+ });
+ it("uses a generous heartbeat timeout and never mistakes missing or reversed clocks for success",()=>{
+  expect(PUBLIC_ROOM_HEARTBEAT_MS).toBe(12000);
+  expect(PUBLIC_ROOM_STALE_MS).toBe(48000);
+  expect(publicRoomTimedOut(1000,49000)).toBe(false);
+  expect(publicRoomTimedOut(1000,49001)).toBe(true);
+  expect(publicRoomTimedOut(0,999999)).toBe(false);
+  expect(publicRoomTimedOut(50000,40000)).toBe(false);
+  expect(publicRoomTimedOut(Number.NaN,999999)).toBe(false);
  });
  it("only queues data on an open channel with room-specific backpressure",()=>{
   const channel=(readyState:string,bufferedAmount:number)=>({readyState,bufferedAmount}) as RTCDataChannel;
