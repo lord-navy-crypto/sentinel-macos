@@ -1,5 +1,5 @@
 import { describe,expect,it } from "vitest";
-import {makeDataTable,filterSortTable,replaceTableCells,selectTableColumns,tableToCsv,tableToTsv,tableToJson,tableToMarkdown} from "./tableTools";
+import {makeDataTable,filterSortTable,replaceTableCells,selectTableColumns,addTableRowNumbers,tableToCsv,tableToTsv,tableToJson,tableToMarkdown} from "./tableTools";
 
 describe("offline table workbench",()=>{
   const table=makeDataTable([["Name","Score","Name"],["Ada","10","A"],["Bob","2","B"],["Ada","10","A"]]);
@@ -174,6 +174,49 @@ describe("offline table workbench",()=>{
         .toThrow(/Invalid duplicate-key column/);
     }
     expect(original.rows).toEqual([["a","甲"]]);
+  });
+  it("adds consecutive sequence numbers to selected, sorted and filtered rows without editing original data",()=>{
+    const raw=makeDataTable([
+      ["Name","Score"],["甲","10"],["乙","2"],["丙","9"],
+    ]);
+    const snapshot=JSON.stringify(raw);
+    const reordered=filterSortTable(raw,"",null,1,false);
+    const withIndex=addTableRowNumbers(reordered);
+    expect(withIndex.headers).toEqual(["Row #","Name","Score"]);
+    expect(withIndex.rows).toEqual([
+      ["1","乙","2"],["2","丙","9"],["3","甲","10"],
+    ]);
+    expect(tableToCsv(withIndex)).toBe("Row #,Name,Score\r\n1,乙,2\r\n2,丙,9\r\n3,甲,10");
+    expect(JSON.parse(tableToJson(withIndex))).toEqual([
+      {"Row #":"1",Name:"乙",Score:"2"},{"Row #":"2",Name:"丙",Score:"9"},{"Row #":"3",Name:"甲",Score:"10"},
+    ]);
+    expect(JSON.stringify(raw)).toBe(snapshot);
+  });
+  it("keeps duplicate-header naming unique and preserves the original Row # field",()=>{
+    const table=makeDataTable([["Row #","Team"],["ref-A","Alpha"]]);
+    const result=addTableRowNumbers(table);
+    expect(result.headers).toEqual(["Row # (2)","Row #","Team"]);
+    expect(result.rows).toEqual([["1","ref-A","Alpha"]]);
+    expect(table.headers[0]).toBe("Row #");
+    expect(tableToTsv(result)).toBe("Row # (2)\tRow #\tTeam\r\n1\tref-A\tAlpha");
+  });
+  it("blocks row-number insertion when original table has all 100 allowed columns",()=>{
+    const headers=Array.from({length:100},(_,i)=>"Header"+i);
+    const table=makeDataTable([headers,Array.from({length:100},()=>"value")]);
+    expect(()=>addTableRowNumbers(table)).toThrow(/at most 99 existing columns/);
+    expect(table.headers.length).toBe(100);
+    expect(addTableRowNumbers(makeDataTable([["A"]])).rows).toEqual([]);
+  });
+  it("numbers remain consecutive after filtering, ID deduplication, and selected-column projection",()=>{
+    const source=makeDataTable([
+      ["ID","Name","Kind"],
+      ["1","张","yes"],["1","别","no"],["2","李","yes"],["3","赵","yes"],
+    ]);
+    const filtered=filterSortTable(source,"yes",2,null,false,true,false,0);
+    const projected=selectTableColumns(filtered,[1]);
+    const numbered=addTableRowNumbers(projected);
+    expect(numbered.rows).toEqual([["1","张"],["2","李"],["3","赵"]]);
+    expect(source.rows).toHaveLength(4);
   });
   it("rejects excessive columns",()=>{
     expect(()=>makeDataTable([Array.from({length:101},()=>"" )])).toThrow(/100 columns/);
