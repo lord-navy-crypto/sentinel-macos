@@ -1,5 +1,5 @@
 import {describe,it,expect} from "vitest";
-import {parseCommonsChatInvite,canJoinCommonsChat,mergeLanChatLines} from "./commonsChatUi";
+import {parseCommonsChatInvite,canJoinCommonsChat,mergeLanChatLines,chatHistoryGap,nextChatPage,type LanChatSnapshot} from "./commonsChatUi";
 const key="B".repeat(43);
 describe("LAN group chat UI preflight",()=>{
  it("allows standard private, link-local and localhost invitations",()=>{
@@ -24,5 +24,29 @@ describe("LAN group chat UI preflight",()=>{
   expect(mergeLanChatLines([a],[b])).toEqual([a,b]);
   expect(mergeLanChatLines([],
     Array.from({length:230},(_,i)=>({...a,seq:i+1})))).toHaveLength(200);
+ });
+});
+
+describe("LAN chat history recovery / cursor contracts",()=>{
+ const make=(first:number,count:number,hasMore:boolean):LanChatSnapshot=>({
+  room:"团队",participants:["Alex"],hasMore,oldestSeq:first,latestSeq:200,
+  messages:Array.from({length:count},(_,i)=>({
+   seq:first+i,nickname:"Alex",text:"测试 "+(first+i),timestampMs:1000+i,
+  })),
+ });
+ it("reports a factual loss when host history has expired but still retrieves available pages",()=>{
+  expect(chatHistoryGap(0,make(16,12,true))).toBe(15);
+  expect(chatHistoryGap(15,make(16,12,true))).toBe(0);
+  expect(chatHistoryGap(50,make(16,12,true))).toBe(0);
+  expect(nextChatPage(0,make(16,12,true))).toBe(27);
+  expect(nextChatPage(27,make(28,12,true))).toBe(39);
+ });
+ it("rejects empty hasMore responses and non-monotonic message sequences",()=>{
+  expect(()=>nextChatPage(10,make(11,0,true))).toThrow(/empty page/);
+  expect(nextChatPage(12,make(11,2,false))).toBe(12);
+  expect(()=>nextChatPage(12,{...make(11,2,false),
+   messages:[{seq:12,nickname:"A",text:"1",timestampMs:0},
+    {seq:11,nickname:"A",text:"2",timestampMs:0}]})).toThrow(/Out-of-order/);
+  expect(chatHistoryGap(0,{...make(0,0,false),oldestSeq:0})).toBe(0);
  });
 });
