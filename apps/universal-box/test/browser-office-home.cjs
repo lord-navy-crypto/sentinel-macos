@@ -37,7 +37,7 @@ test("Office-first homepage links ten existing working office tasks and keeps th
    else assert.match(await page.locator("#main-content").innerText(),new RegExp(action.text,"i"));
   }
   const direct=[
-   {id:"home-fast-pdf-size",marker:'[data-testid="pdf-structure-optimizer"]'},
+   {id:"home-fast-pdf-size",marker:"#mini-pdf-input"},
    {id:"home-fast-photo-kb",marker:'[data-testid="photo-files"]'},
    {id:"home-fast-slides",marker:'[data-testid="creative-slide-outline"]'},
    {id:"home-fast-zip",marker:"#zip-pack-files"},
@@ -46,6 +46,7 @@ test("Office-first homepage links ten existing working office tasks and keeps th
    await home();
    await page.locator('[data-testid="'+task.id+'"]').click();
    await page.locator(task.marker).waitFor();
+   if(task.id==="home-fast-pdf-size")assert.match(await page.locator('[aria-label="PDF mini editor modes"] .active-pill').innerText(),/Compress PDF/);
   }
   await home();
   await page.locator('[data-testid="office-more-workflows"] summary').click();
