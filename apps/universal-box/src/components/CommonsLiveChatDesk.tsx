@@ -1,0 +1,191 @@
+import {useCallback,useEffect,useRef,useState} from "react";
+import {invoke,isTauri} from "@tauri-apps/api/core";
+import {canJoinCommonsChat,mergeLanChatLines,type LanChatLine,type LanChatSnapshot} from "../lib/commonsChatUi";
+
+type HostInfo={active:boolean;room:string;invites:string[];secondsRemaining:number};
+const messageError=(error:unknown)=>error instanceof Error?error.message:String(error);
+
+/** An ephemeral chat attached to the existing Commons workspace; not the offline ZIP message log. */
+export default function CommonsLiveChatDesk({visible}:{visible:boolean}){
+ const native=isTauri();
+ const [title,setTitle]=useState("项目讨论");
+ const [nickname,setNickname]=useState("");
+ const [joinText,setJoinText]=useState("");
+ const [activeInvite,setActiveInvite]=useState("");
+ const [shareInvite,setShareInvite]=useState("");
+ const [room,setRoom]=useState("");
+ const [hosting,setHosting]=useState(false);
+ const [revealed,setRevealed]=useState(false);
+ const [messages,setMessages]=useState<LanChatLine[]>([]);
+ const [participants,setParticipants]=useState<string[]>([]);
+ const [draft,setDraft]=useState("");
+ const [busy,setBusy]=useState(false);
+ const [error,setError]=useState("");
+ const [networkState,setNetworkState]=useState("");
+ const cursor=useRef(0);
+ const session=useRef(0);
+ const polling=useRef(false);
+ const applySnapshot=useCallback((snapshot:LanChatSnapshot)=>{
+  setRoom(snapshot.room);
+  setMessages(old=>mergeLanChatLines(old,snapshot.messages));
+  setParticipants(snapshot.participants);
+  const last=snapshot.messages.at(-1)?.seq;
+  if(last&&last>cursor.current)cursor.current=last;
+ },[]);
+ const poll=useCallback(async(invite:string,as:string,revision:number)=>{
+  if(polling.current)return;
+  polling.current=true;
+  try{
+   const snapshot=await invoke<LanChatSnapshot>("commons_chat_exchange",{
+    invite,nickname:as,text:null,messageId:null,since:cursor.current,
+   });
+   if(session.current!==revision)return;
+   applySnapshot(snapshot);setError("");setNetworkState("已连接 · 群消息已同步");
+  }catch(e){
+   if(session.current===revision){setNetworkState("与局域网群聊暂时失去连接");setError(messageError(e));}
+  }finally{polling.current=false;}
+ },[applySnapshot]);
+ useEffect(()=>{
+  if(!native||!visible||!activeInvite)return;
+  const revision=session.current;
+  void poll(activeInvite,nickname,revision);
+  const id=window.setInterval(()=>void poll(activeInvite,nickname,revision),2500);
+  return ()=>window.clearInterval(id);
+ },[activeInvite,nickname,native,visible,poll]);
+ useEffect(()=>()=>{
+  session.current++;
+  if(isTauri())void invoke("commons_chat_stop").catch(()=>{});
+ },[]);
+ async function createRoom(){
+  if(!native||busy||!nickname.trim()||!title.trim())return;
+  setBusy(true);setError("");
+  try{
+   const host=await invoke<HostInfo>("commons_chat_host",{roomName:title.trim()});
+   const loopback=host.invites.find(v=>v.includes("127.0.0.1:"))??host.invites[0];
+   if(!loopback)throw Error("No local invitation available.");
+   // Host joins its own group through the same encrypted wire protocol as guests.
+   const first=await invoke<LanChatSnapshot>("commons_chat_exchange",{
+    invite:loopback,nickname:nickname.trim(),text:null,messageId:null,since:0,
+   });
+   session.current++;cursor.current=0;setMessages([]);setParticipants([]);
+   setHosting(true);setRoom(host.room);setShareInvite(host.invites.find(v=>!v.includes("127.0.0.1:"))??loopback);
+   applySnapshot(first);setActiveInvite(loopback);setNetworkState("已创建临时局域网群聊");
+  }catch(e){
+   setError("创建群聊失败："+messageError(e));
+   await invoke("commons_chat_stop").catch(()=>{});
+  }finally{setBusy(false);}
+ }
+ async function joinRoom(){
+  if(!native||busy||!nickname.trim()||!canJoinCommonsChat(joinText))return;
+  setBusy(true);setError("");
+  try{
+   const invite=joinText.trim();
+   const first=await invoke<LanChatSnapshot>("commons_chat_exchange",{
+    invite,nickname:nickname.trim(),text:null,messageId:null,since:0,
+   });
+   session.current++;cursor.current=0;setMessages([]);setParticipants([]);
+   setHosting(false);setShareInvite("");applySnapshot(first);setActiveInvite(invite);
+   setNetworkState("已加入局域网群聊");
+  }catch(e){setError("加入失败："+messageError(e));}
+  finally{setBusy(false);}
+ }
+ async function leave(){
+  if(busy)return;
+  setBusy(true);session.current++;
+  try{
+   if(hosting)await invoke("commons_chat_stop");
+   setActiveInvite("");setShareInvite("");setHosting(false);setRoom("");
+   setMessages([]);setParticipants([]);cursor.current=0;setDraft("");setError("");
+   setNetworkState(hosting?"已停止群聊，所有连接和临时记录失效。":"已退出群聊。");
+  }catch(e){setError("退出失败："+messageError(e));}
+  finally{setBusy(false);}
+ }
+ async function sendMessage(){
+  const text=draft.trim();
+  if(!native||!activeInvite||busy||!text||[...text].length>1000
+    ||new TextEncoder().encode(text).length>4000)return;
+  setBusy(true);setError("");
+  try{
+   const snapshot=await invoke<LanChatSnapshot>("commons_chat_exchange",{
+    invite:activeInvite,nickname:nickname.trim(),text,
+    messageId:crypto.randomUUID(),since:cursor.current,
+   });
+   applySnapshot(snapshot);setDraft("");setNetworkState("消息已写入群聊主机");
+  }catch(e){setError("发送失败："+messageError(e));}
+  finally{setBusy(false);}
+ }
+ async function copyInvite(){
+  try{await navigator.clipboard.writeText(shareInvite);setNetworkState("邀请已复制；请仅私下交给计划加入的成员。");}
+  catch(e){setError("无法自动复制："+messageError(e));}
+ }
+ const canSend=activeInvite&&draft.trim()&&[...draft.trim()].length<=1000
+  &&new TextEncoder().encode(draft.trim()).length<=4000;
+ return <section className="panel" data-testid="commons-live-lan-chat"
+   aria-label="Live LAN group chat" style={{display:visible?"block":"none",marginTop:16}}>
+  <p className="eyebrow">LIVE GROUP CHAT · SAME LOCAL NETWORK · NO CLOUD</p>
+  <h3>局域网实时群聊 · Live LAN Group</h3>
+  <p className="subtle">创建临时聊天室、邀请同一局域网的设备加入并实时交流。最多 12 个近期在线昵称，主机最多保存最近 200 条消息，房间最多开放一小时。消息只在主机内存中，不是持久化聊天记录。</p>
+  <p className="subtle">聊天使用共享邀请密钥加密传送到群聊主机；主机能看到消息，昵称不代表已验证的真实身份。邀请一旦泄露，持有者就能读写群消息。</p>
+  {!native&&<p role="status" className="subtle">实时群聊仅支持原生 Mac 桌面应用；当前浏览器只展示操作界面，不会启动 TCP 监听或访问网络。</p>}
+  {!activeInvite?<div className="panel">
+   <div className="tools-pair">
+    <label className="field-label">你在群里的昵称
+     <input className="field" data-testid="chat-nickname" maxLength={24} value={nickname}
+      onChange={e=>setNickname(e.target.value)} placeholder="例如 Alex"/>
+    </label>
+    <label className="field-label">群聊名称（创建时使用）
+     <input className="field" data-testid="chat-room-name" maxLength={48} value={title}
+      onChange={e=>setTitle(e.target.value)}/>
+    </label>
+   </div>
+   <div className="actions">
+    <button type="button" className="primary-button" data-testid="chat-create" disabled={!native||busy||!nickname.trim()||!title.trim()}
+     onClick={()=>void createRoom()}>创建局域网群聊</button>
+   </div>
+   <label className="field-label">加入他人的群聊 · 粘贴完整邀请
+    <input className="field" type="password" data-testid="chat-join-invite" autoComplete="off"
+     maxLength={180} value={joinText} onChange={e=>setJoinText(e.target.value)}
+     placeholder="uboxchat://192.168.1.20:端口/私有密钥"/>
+   </label>
+   <button type="button" className="secondary-button" data-testid="chat-join"
+    disabled={!native||busy||!nickname.trim()||!canJoinCommonsChat(joinText)}
+    onClick={()=>void joinRoom()}>验证邀请并加入</button>
+  </div>:<div className="panel">
+   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap"}}>
+    <h4 data-testid="chat-active-room">{room} · {hosting?"正在主持":"已加入"}</h4>
+    <button type="button" className="secondary-button" data-testid="chat-leave" disabled={busy}
+     onClick={()=>void leave()}>{hosting?"结束群聊":"退出群聊"}</button>
+   </div>
+   {hosting&&<div>
+    <label className="field-label">私密邀请（由主持人私下发送）
+     <input data-testid="chat-share-invite" className="field" type={revealed?"text":"password"}
+      readOnly value={shareInvite} aria-label="LAN group private invitation"/>
+    </label>
+    <div className="actions">
+     <label className="subtle"><input type="checkbox" data-testid="chat-reveal-invite"
+       checked={revealed} onChange={e=>setRevealed(e.target.checked)}/> 显示私密邀请</label>
+     <button type="button" className="secondary-button" onClick={()=>void copyInvite()}>复制群聊邀请</button>
+    </div>
+   </div>}
+   <p className="subtle" data-testid="chat-online-members">
+    最近在线昵称（未经身份验证）：{participants.join("、")||"暂无"}
+   </p>
+   <div data-testid="chat-history" role="log" aria-label="Group chat messages"
+    style={{maxHeight:360,overflowY:"auto",padding:12,border:"1px solid var(--line,#cbd5e1)",borderRadius:10}}>
+    {messages.length===0?<p className="subtle">尚无消息，可以发送第一条内容。</p>:
+     messages.map(item=><div key={item.seq} className="task-row" data-testid="chat-message">
+      <div><strong>{item.nickname}</strong> <span className="subtle">#{item.seq}</span>
+       <p style={{whiteSpace:"pre-wrap",overflowWrap:"anywhere"}}>{item.text}</p></div>
+     </div>)}
+   </div>
+   <label className="field-label">发送群聊消息
+    <textarea className="field text-editor" data-testid="chat-draft" maxLength={1000} rows={3}
+     value={draft} onChange={e=>setDraft(e.target.value)} placeholder="输入消息，所有持有群聊邀请的成员都可查看"/>
+   </label>
+   <button type="button" className="primary-button" data-testid="chat-send"
+    disabled={!canSend||!native||busy} onClick={()=>void sendMessage()}>发送消息</button>
+  </div>}
+  {networkState&&<p role="status" data-testid="chat-network-state" className="subtle">{networkState}</p>}
+  {error&&<p role="alert" data-testid="chat-error" className="subtle">{error}</p>}
+ </section>;
+}

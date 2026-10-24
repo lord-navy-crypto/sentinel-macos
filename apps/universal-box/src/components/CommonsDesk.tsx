@@ -3,6 +3,7 @@ import {invoke,isTauri} from "@tauri-apps/api/core";
 import {listen} from "@tauri-apps/api/event";
 import {exportFile} from "../lib/output";
 import {canReceiveLan,keyFromNearbyInput,parseCommonsLanInvite} from "../lib/commonsLanUi";
+import CommonsLiveChatDesk from "./CommonsLiveChatDesk";
 import {
  createCommonsRoom,commonsMessage,commonsTask,commonsToggleTask,commonsFile,
  exportCommonsPacket,importCommonsPacket,mergeCommonsPackets,safeAttachmentName,
@@ -487,6 +488,7 @@ export default function CommonsDesk(){
    {networkBusy&&<p role="status">正在进行局域网加密操作…</p>}
    {networkStatus&&<p className="subtle" role="status" data-testid="commons-network-status">{networkStatus}</p>}
   </div>}
+  <CommonsLiveChatDesk visible={transportMode==="lan"}/>
   {transportMode==="public"&&<div className="panel" data-testid="commons-public-research" style={{marginTop:16}}>
    <p className="eyebrow">P2P RESEARCH · OPT-IN · NO FILE TRANSFER</p>
    <h3>公网连接 · 诊断与后续规划</h3>
