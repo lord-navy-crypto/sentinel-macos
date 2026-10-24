@@ -1,6 +1,6 @@
 import {useCallback,useEffect,useRef,useState} from "react";
 import {invoke,isTauri} from "@tauri-apps/api/core";
-import {canJoinCommonsChat,mergeLanChatLines,chatHistoryGap,nextChatPage,type LanChatLine,type LanChatSnapshot} from "../lib/commonsChatUi";
+import {canJoinCommonsChat,mergeLanChatLines,chatHistoryGap,nextChatPage,lanChatNeedsNewSession,type LanChatLine,type LanChatSnapshot} from "../lib/commonsChatUi";
 
 type HostInfo={active:boolean;room:string;invites:string[];secondsRemaining:number};
 const messageError=(error:unknown)=>error instanceof Error?error.message:String(error);
@@ -63,7 +63,7 @@ export default function CommonsLiveChatDesk({visible}:{visible:boolean}){
   }catch(e){
    if(session.current===revision){
     const detail=messageError(e);
-    const expired=/Member not connected|Session token does not match|Join the room before polling/.test(detail);
+    const expired=lanChatNeedsNewSession(detail);
     setConnectionDown(true);if(expired)setNeedsFreshSession(true);
     setNetworkState(expired?"局域网成员会话已过期 · 需要重新加入":"与局域网群聊暂时失去连接");
     setError(detail);
@@ -190,7 +190,7 @@ export default function CommonsLiveChatDesk({visible}:{visible:boolean}){
    setNetworkState("群聊主机已确认发送请求，其他成员将于下一轮同步");
   }catch(e){
    const detail=messageError(e);
-   if(/Member not connected|Session token does not match/.test(detail)){
+   if(lanChatNeedsNewSession(detail)){
     setConnectionDown(true);setNeedsFreshSession(true);
    }
    setError("发送结果未确认："+detail+"。可重试同一草稿；如果会话过期，请重新加入。");
