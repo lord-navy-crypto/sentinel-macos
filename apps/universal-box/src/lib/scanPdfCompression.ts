@@ -40,8 +40,10 @@ function jpgFromCanvas(canvas:HTMLCanvasElement,quality:number):Promise<Uint8Arr
  });
 }
 export async function recompressScannedPdf(
- input:Uint8Array,options:ScanPdfOptions,onProgress?:(p:ScanPdfProgress)=>void,
+ input:Uint8Array,options:ScanPdfOptions,onProgress?:(p:ScanPdfProgress)=>void,signal?:AbortSignal,
 ):Promise<ScannedPdfReport>{
+ const checkCancelled=()=>{if(signal?.aborted)throw Error("Scan compression cancelled. Nothing was saved.");};
+ checkCancelled();
  if(input.length<100||input.length>MAX_BYTES)throw Error("Select a scanned PDF from 100 bytes to 15 MB.");
  const preset=SCAN_PRESETS[options.preset];
  if(!preset)throw Error("Select an available JPEG / DPI compression preset.");
@@ -50,6 +52,7 @@ export async function recompressScannedPdf(
  if(/\/ByteRange\s*\[/u.test(signatureText)||/\/Type\s*\/Sig(?:\s|[/>])/u.test(signatureText))
   throw Error("Signed PDF cannot be flattened; choose an unsigned scanned document.");
  const source=await PDFDocument.load(input,{updateMetadata:false});
+ checkCancelled();
  if(source.getPageCount()<1||source.getPageCount()>MAX_PAGES)
   throw Error("Scanned PDF compressor supports only 1–12 pages.");
  if(source.getForm().getFields().length)
@@ -60,6 +63,7 @@ export async function recompressScannedPdf(
  let pdf:Awaited<typeof loading.promise>|null=null;
  try{
   pdf=await loading.promise;
+  checkCancelled();
   if(pdf.numPages!==source.getPageCount())throw Error("PDF readers disagree on document page count.");
   const attachments=await pdf.getAttachments();
   if(attachments&&Object.keys(attachments).length)throw Error("PDF attachments would be lost; conversion blocked.");
@@ -70,10 +74,12 @@ export async function recompressScannedPdf(
   // links, annotations or forms even if those are present on later pages.
   const pages=[] as {index:number;width:number;height:number}[];
   for(let i=1;i<=pdf.numPages;i++){
+   checkCancelled();
    const page=await pdf.getPage(i);
    const text=await page.getTextContent();
    if(text.items.some(item=>("str" in item)&&typeof item.str==="string"&&item.str.trim()))
     throw Error("Page "+i+" contains selectable/OCR text. To preserve it, scanned-only recompression is blocked.");
+   checkCancelled();
    const annotations=await page.getAnnotations({intent:"display"});
    if(annotations.length)throw Error("Page "+i+" has interactive annotations or links. Flattening is blocked.");
    const viewport=page.getViewport({scale:1});
@@ -84,6 +90,7 @@ export async function recompressScannedPdf(
   const result=await PDFDocument.create(),pagePixels:ScannedPdfReport["pagePixels"]=[];
   let totalPixels=0;
   for(const p of pages){
+   checkCancelled();
    const page=await pdf.getPage(p.index);
    const dims=planScanRaster(p.width,p.height,preset.dpi);
    const viewport=page.getViewport({scale:dims.scale});
@@ -94,24 +101,37 @@ export async function recompressScannedPdf(
    context.fillStyle="#ffffff";
    context.fillRect(0,0,canvas.width,canvas.height);
    const task=page.render({canvasContext:context,viewport});
-   await task.promise;
-   const jpeg=await jpgFromCanvas(canvas,preset.jpegQuality);
-   if(jpeg.length>12_000_000)throw Error("One recompressed page exceeds 12 MB.");
-   const embedded=await result.embedJpg(jpeg);
-   const newPage=result.addPage([p.width,p.height]);
-   newPage.drawImage(embedded,{x:0,y:0,width:p.width,height:p.height});
-   pagePixels.push({page:p.index,width:canvas.width,height:canvas.height});
-   totalPixels+=canvas.width*canvas.height;
-   canvas.width=0;canvas.height=0;
-   page.cleanup();
-   onProgress?.({done:p.index,total:pages.length});
+   const cancelRender=()=>task.cancel();
+   signal?.addEventListener("abort",cancelRender,{once:true});
+   if(signal?.aborted)task.cancel();
+   try{
+    checkCancelled();
+    try{await task.promise;}catch(e){checkCancelled();throw e;}
+    checkCancelled();
+    const jpeg=await jpgFromCanvas(canvas,preset.jpegQuality);
+    checkCancelled();
+    if(jpeg.length>12_000_000)throw Error("One recompressed page exceeds 12 MB.");
+    const embedded=await result.embedJpg(jpeg);
+    const newPage=result.addPage([p.width,p.height]);
+    newPage.drawImage(embedded,{x:0,y:0,width:p.width,height:p.height});
+    pagePixels.push({page:p.index,width:canvas.width,height:canvas.height});
+    totalPixels+=canvas.width*canvas.height;
+    onProgress?.({done:p.index,total:pages.length});
+   }finally{
+    signal?.removeEventListener("abort",cancelRender);
+    canvas.width=0;canvas.height=0;
+    page.cleanup();
+   }
   }
+  checkCancelled();
   const bytes=await result.save({useObjectStreams:true});
+  checkCancelled();
   if(bytes.length>MAX_OUTPUT)throw Error("Compressed PDF exceeds 20 MB.");
   const verified=await PDFDocument.load(bytes,{updateMetadata:false});
   if(verified.getPageCount()!==pages.length)throw Error("Output PDF page-count verification failed.");
   if(verified.getPages().some((p,i)=>Math.abs(p.getWidth()-pages[i].width)>.05||Math.abs(p.getHeight()-pages[i].height)>.05))
    throw Error("Output PDF page-size verification failed.");
+  checkCancelled();
   const improved=bytes.length<input.length;
   return {originalBytes:input.length,candidateBytes:bytes.length,pages:pages.length,
    beforePixelCount:totalPixels,savedBytes:improved?input.length-bytes.length:0,
