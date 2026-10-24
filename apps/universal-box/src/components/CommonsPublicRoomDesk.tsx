@@ -7,7 +7,7 @@ import {PUBLIC_ROOM_GUEST_LIMIT,decodePublicRoomFrame,decodePublicRoomSignal,
 import {newRoomDelivery,recordRoomAck,remainingRoomRecipients,roomDeliveryProgress,
  upsertRoomReceipt,type RoomChat,type RoomDelivery,type RoomDeliveryView} from "../lib/commonsRoomDelivery";
 
-type MemberSlot={id:string;pc:RTCPeerConnection;dc:RTCDataChannel;offer:string;answer:string;guest:string;phase:string;fingerprint:string;resumeToken:string;authenticated:boolean;lastPongAt:number;pendingPing:string};
+type MemberSlot={id:string;pc:RTCPeerConnection;dc:RTCDataChannel;offer:string;answer:string;guest:string;phase:string;fingerprint:string;resumeToken:string;authenticated:boolean;heartbeatEnabled:boolean;lastPongAt:number;pendingPing:string};
 type DisplaySlot={id:string;offer:string;answer:string;guest:string;phase:string;fingerprint:string;authenticated:boolean};
 type ChatLine={id:string;name:string;text:string;self:boolean};
 const errorText=(e:unknown)=>e instanceof Error?e.message:String(e);
@@ -23,6 +23,7 @@ export default function CommonsPublicRoomDesk(){
  const guestChannelRef=useRef<RTCDataChannel|null>(null);
  const guestResumeTokenRef=useRef("");
  const hostHeartbeatAtRef=useRef(0);
+ const guestHeartbeatEnabledRef=useRef(false);
  const lastGuestOfferRef=useRef("");
  const seenRef=useRef(new Set<string>());
  const deliveryRef=useRef(new Map<string,RoomDelivery>());
@@ -62,7 +63,7 @@ export default function CommonsPublicRoomDesk(){
   if(modeRef.current==="guest"&&guestChannelRef.current?.readyState==="open"&&roomRef.current)
    guestChannelRef.current.send(encodePublicRoomFrame({v:1,room:roomRef.current,kind:"leave"}));
   destroy();roomRef.current="";modeRef.current=null;seenRef.current.clear();
-  guestResumeTokenRef.current="";hostHeartbeatAtRef.current=0;lastGuestOfferRef.current="";setReconnecting(false);
+  guestResumeTokenRef.current="";hostHeartbeatAtRef.current=0;guestHeartbeatEnabledRef.current=false;lastGuestOfferRef.current="";setReconnecting(false);
   deliveryRef.current.clear();outboxRef.current.clear();setDeliveryViews([]);
   setRoom("");setJoined(false);setGuestAnswer("");setHostFingerprint("");setInvitation("");setSlotViews([]);
   setLines([]);setDraft("");setRoute("");setTurnPassword("");
@@ -84,7 +85,7 @@ export default function CommonsPublicRoomDesk(){
    if(modeRef.current==="host"){
     let modified=false;
     for(const slot of slotsRef.current){
-     if(!slot.authenticated)continue;
+     if(!slot.authenticated||!slot.heartbeatEnabled)continue;
      if(publicRoomTimedOut(slot.lastPongAt,now)){
       slot.authenticated=false;slot.phase="心跳超时：请重新协商连接";
       slot.pendingPing="";slot.dc.close();slot.pc.close();modified=true;
@@ -97,7 +98,7 @@ export default function CommonsPublicRoomDesk(){
      refresh();
      setStatus("部分成员长时间未回应应用心跳，已标记为断开。可对原成员重新协商连接。");
     }
-   }else if(modeRef.current==="guest"&&guestResumeTokenRef.current&&
+   }else if(modeRef.current==="guest"&&guestHeartbeatEnabledRef.current&&guestResumeTokenRef.current&&
     publicRoomTimedOut(hostHeartbeatAtRef.current,now)){
     hostHeartbeatAtRef.current=0;
     setJoined(false);
@@ -156,9 +157,13 @@ export default function CommonsPublicRoomDesk(){
    }
    // Rotate the volatile capability on every accepted handshake. Old tickets cannot rejoin.
    slot.resumeToken=crypto.randomUUID();
+   slot.heartbeatEnabled=frame.heartbeat===true;
    slot.lastPongAt=Date.now();slot.pendingPing="";
-   slot.guest=frame.name;slot.authenticated=true;slot.phase=resuming?"已安全重新加入":"已加入群聊";refresh();
-   sendFrame(slot.dc,{v:1,room:roomId,kind:"welcome",resumeToken:slot.resumeToken});
+   slot.guest=frame.name;slot.authenticated=true;
+   slot.phase=slot.heartbeatEnabled?(resuming?"已安全重新加入":"已加入群聊"):
+    "已加入群聊（旧版客户端：不支持心跳）";refresh();
+   sendFrame(slot.dc,{v:1,room:roomId,kind:"welcome",resumeToken:slot.resumeToken,
+    ...(slot.heartbeatEnabled?{heartbeat:true as const}:{})});
    if(resuming){
     for(const row of deliveryRef.current.values()){
      if(row.targets.includes(slot.id))forwardPending(row);
@@ -166,7 +171,7 @@ export default function CommonsPublicRoomDesk(){
     }
    }
    setStatus(frame.name+(resuming?" 已凭本次临时会话凭据恢复连接。":" 已加入房间。"));
-  }else if(frame.kind==="pong"&&slot.authenticated){
+  }else if(frame.kind==="pong"&&slot.authenticated&&slot.heartbeatEnabled){
    if(frame.id===slot.pendingPing){
     slot.lastPongAt=Date.now();slot.pendingPing="";
     if(slot.phase!=="已连接 · 心跳正常"){slot.phase="已连接 · 心跳正常";refresh();}
@@ -208,7 +213,7 @@ export default function CommonsPublicRoomDesk(){
   try{
    pc=new RTCPeerConnection({iceServers:options()});
    const dc=pc.createDataChannel("commons-room",{ordered:true});
-   const slot:MemberSlot={id:crypto.randomUUID(),pc,dc,offer:"",answer:"",guest:"",phase:"搜集 ICE 候选地址",fingerprint:"",resumeToken:"",authenticated:false,lastPongAt:0,pendingPing:""};
+   const slot:MemberSlot={id:crypto.randomUUID(),pc,dc,offer:"",answer:"",guest:"",phase:"搜集 ICE 候选地址",fingerprint:"",resumeToken:"",authenticated:false,heartbeatEnabled:false,lastPongAt:0,pendingPing:""};
    slotsRef.current.push(slot);refresh();
    const roomId=roomRef.current,hostName=nickname.trim();
    dc.onmessage=e=>{if(slot.pc===pc)handleHostMessage(slot,e.data,roomId,hostName);};
@@ -311,7 +316,7 @@ export default function CommonsPublicRoomDesk(){
     const dc=e.channel;guestChannelRef.current=dc;
     dc.onopen=()=>{
      if(guestChannelRef.current!==dc)return;
-     sendFrame(dc,{v:1,room:expectedRoom,kind:"join",name:memberName,
+     sendFrame(dc,{v:1,room:expectedRoom,kind:"join",name:memberName,heartbeat:true,
       ...(resume?{resumeToken:guestResumeTokenRef.current}:{})});
      setStatus(resume?"已提交加密临时凭据，等待主持人恢复原会话…":"已建立加密 DataChannel，等待主持人接受加入请求…");
     };
@@ -321,6 +326,7 @@ export default function CommonsPublicRoomDesk(){
      if(!frame)return;
      if(frame.kind==="welcome"){
       if(frame.resumeToken)guestResumeTokenRef.current=frame.resumeToken;
+      guestHeartbeatEnabledRef.current=frame.heartbeat===true;
       hostHeartbeatAtRef.current=Date.now();
       setJoined(true);setReconnecting(false);
       setStatus(resume?"原成员会话已恢复，历史和未确认消息状态仍保留。":"主持人已接纳此昵称，群聊可用。成员身份仍未经过真实认证。");
@@ -332,7 +338,7 @@ export default function CommonsPublicRoomDesk(){
       // Repeated delivery gets ACK again but is never duplicated in the timeline.
       sendFrame(dc,{v:1,room:expectedRoom,kind:"ack",id:frame.id});
      }
-     if(frame.kind==="ping"&&guestResumeTokenRef.current){
+     if(frame.kind==="ping"&&guestHeartbeatEnabledRef.current&&guestResumeTokenRef.current){
       if(sendFrame(dc,{v:1,room:expectedRoom,kind:"pong",id:frame.id}))
        hostHeartbeatAtRef.current=Date.now();
      }
@@ -537,7 +543,7 @@ export default function CommonsPublicRoomDesk(){
    <button type="button" className="primary-button" data-testid="room-send"
     disabled={!validDirectChatText(draft)||(mode==="guest"&&!joined)} onClick={send}>发送到当前房间</button>
   </div>}
-  <p className="subtle">在线成员通过加密 DataChannel 交换应用心跳；长期无回应时暂停该连接，恢复仍需手动交换新的 Offer/Answer。心跳不能证明人的真实身份。</p>
+  <p className="subtle">双方协商支持心跳时，才通过加密 DataChannel 检查应用在线状态；长期无回应时暂停该连接，恢复仍需手动交换新的 Offer/Answer。旧版客户端不会因不支持心跳而被误判。心跳不能证明人的真实身份。</p>
   <p className="subtle">每一位新成员都需单独交换 Offer/Answer；同一个邀请不得复用。TURN 服务可能看到 IP 和流量元数据，且可能收费。房间记录只保存在当前页面内存中，关闭即消失。</p>
  </section>;
 }
