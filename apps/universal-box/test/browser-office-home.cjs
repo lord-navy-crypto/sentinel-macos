@@ -18,7 +18,7 @@ test("Office-first homepage links ten existing working office tasks and keeps th
   assert.equal(await fast.count(),4);
   assert.match(await page.locator('[data-testid="office-home-shortcuts"]').innerText(),/PDF 合并/);
   const sidebarNames=await page.locator("nav.sidebar-nav button.nav-item").evaluateAll(items=>items.map(el=>el.getAttribute("aria-label")));
-  assert.equal(sidebarNames.length,40,"All original workspace routes remain in sidebar exactly once");
+  assert.equal(sidebarNames.length,46,"All 40 original workspaces plus six Sentinel modules remain available exactly once");
   assert.equal(new Set(sidebarNames).size,sidebarNames.length,"No duplicate workspace labels");
   assert.equal(await page.getByTestId("home-file-dropzone").isVisible(),true,
    "Users can select or drop files directly into the existing, user-approved preflight");
@@ -54,6 +54,37 @@ test("Office-first homepage links ten existing working office tasks and keeps th
   assert.equal(await page.getByTestId("home-recent-exports").isVisible(),true);
   assert.equal(await page.locator(".hero-card").count(),0,
    "Old decorative hero no longer distracts from frequent office workflows");
+  assert.deepEqual(errors,[]);
+ }finally{await page.close();await browser.close();}
+});
+
+
+test("Original Sentinel Go service is represented by six real modular workbenches while retaining a full legacy WebView button",{timeout:120000},async()=>{
+ const browser=await chromium.launch({headless:true,args:["--no-sandbox"]});
+ const page=await browser.newPage({viewport:{width:1440,height:920}});
+ const errors=[];page.on("pageerror",e=>errors.push(e.message));
+ try{
+  await page.goto(root,{waitUntil:"domcontentloaded"});await page.locator(".app-shell").waitFor();
+  const views=[
+   ["Sentinel · 系统概览与扫描","系统概览"],
+   ["Sentinel · 证据调查","证据调查"],
+   ["Sentinel · 历史与变化比较","变化和信任"],
+   ["Sentinel · 进程与网络","Mac 系统与网络"],
+   ["Sentinel · 诊断与安全操作","安全操作与恢复"],
+   ["Sentinel · 权限与运行状态","权限、运行状态与 AI"],
+  ];
+  for(const [nav,heading] of views){
+   await page.locator("nav.sidebar-nav").getByRole("button",{name:nav,exact:true}).click();
+   await page.getByRole("region",{name:"Sentinel Mac System Center"}).waitFor();
+   assert.match(await page.locator("#main-content").innerText(),new RegExp(heading));
+   assert.equal(await page.getByRole("button",{name:"打开完整 Sentinel 工作台"}).count(),1);
+   assert.equal(await page.getByRole("button",{name:"启动内置 Sentinel Go 服务"}).count(),1);
+   assert.equal(await page.getByRole("button",{name:"打开完整 Sentinel 工作台"}).isDisabled(),true,
+    "Original system functions must not pretend to work in browser-only preview without the bundled Go engine");
+  }
+  await page.locator("nav.sidebar-nav").getByRole("button",{name:/All tools/}).click();
+  await page.locator("#all-tools-search").fill("Sentinel");
+  assert.ok(await page.locator(".catalog-open").count()>=13,"migrated native functions must be individually searchable");
   assert.deepEqual(errors,[]);
  }finally{await page.close();await browser.close();}
 });

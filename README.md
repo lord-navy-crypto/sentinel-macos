@@ -1,6 +1,6 @@
 # Sentinel 2.7 — Resilient Local Intelligence
 
-> **Related desktop product:** **Sentinel Box** (formerly Universal Box) is the free, offline-first macOS utility suite developed in this repository under [`apps/universal-box/`](apps/universal-box/). It includes Office creation and conversion, media tools, local OCR, design, file management and privacy-focused workflow automation. Sentinel Box is a **separate application** from Sentinel's evidence and gateway core. See its [product overview](apps/universal-box/README.md).
+> **Unified desktop shell:** **Sentinel Box** now bundles the original Sentinel Go evidence/system-intelligence engine as an opt-in, locally supervised service under [`apps/universal-box/`](apps/universal-box/). The six React system workbenches and in-app original Sentinel WebView connect to the same existing Go APIs and unchanged safe-action/recovery logic. The original standalone `Sentinel.app` remains buildable; original histories and baselines are not migrated or erased. Sentinel Box also preserves all of its Office/PDF/OCR/media, local-sharing and WebRTC tools. See the [product overview](apps/universal-box/README.md).
 
 Sentinel is a local-first macOS evidence and system-intelligence application. It observes current state, connects related evidence, compares change over time, verifies exact objects, measures storage pressure, and exposes deliberately bounded reversible actions.
 

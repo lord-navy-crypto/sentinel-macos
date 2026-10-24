@@ -2,7 +2,7 @@
 
 **Productivity Software — Sentinel Box:** a free, offline-first macOS utility suite for Word/PowerPoint creation, document and media processing, on-device OCR, creative design, file management, and privacy-first cross-tool automation.
 
-Sentinel Box is an independent desktop toolbox hosted inside the Sentinel Gateway / Sentinel `sentinel-macos` repository. It is separate from the Sentinel core service and from the AP ReasonLab Next.js website; it is not deployed by Vercel.
+Sentinel Box is the unified desktop shell in the Sentinel `sentinel-macos` repository. It bundles the **original Sentinel Go system intelligence engine** as an **on-demand local-only service** and exposes six dedicated system tools plus the complete original Sentinel workbench in a separate, app-owned WebView. The original standalone Sentinel.app remains independently buildable. The Go engine keeps its existing evidence/history stores and safe-action approvals: no destructive migration or feature reimplementation occurs. The AP ReasonLab Next.js website is separate and does not host the desktop app.
 
 > **Branding compatibility:** The desktop product and DMG are now named **Sentinel Box** (formerly Universal Box / Daily Desk). The source directory `apps/universal-box/`, native bundle identifier `com.lordnavycrypto.dailydesk`, Rust crate identity, release workflows, legacy v2 backup formats and existing local-storage keys remain unchanged to preserve users' data and build paths. Do not rename these internal identifiers without a tested migration. The project uses `sentinel-box-vX.Y.Z` tags for new releases, while older tag prefixes remain supported. Native OCR and display capture still need real-device acceptance tests.
 

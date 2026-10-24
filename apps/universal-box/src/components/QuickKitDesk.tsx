@@ -4,12 +4,13 @@ import {
   dateDifference,shiftDate,parseGradeRows,calculateWeightedGrade,
 } from "../lib/quickKit";
 import {exportFile} from "../lib/output";
+import {scrubDiagnosticText,DEFAULT_LOG_PRIVACY,type LogPrivacyOptions} from "../lib/logPrivacy";
 import {replaceTextLiteral} from "../lib/quickBatchText";
 import {addClip,combineClips,moveClip} from "../lib/multiCopy";
 import {transformTextCase,type TextCaseMode} from "../lib/textCaseWidth";
 import BatchTextFilesDesk from "./BatchTextFilesDesk";
 
-export type QuickKitMode="text"|"links"|"dates"|"grades"|"multi-copy"|"replace"|"case-width"|"batch-files";
+export type QuickKitMode="text"|"links"|"dates"|"grades"|"multi-copy"|"replace"|"case-width"|"batch-files"|"log-privacy";
 const title:Record<QuickKitMode,string>={
   text:"Text cleaner · 文本整理",links:"Tracking-link cleaner · 链接净化",
   dates:"Date planner · 日期计算",grades:"Weighted grades · 成绩规划",
@@ -17,10 +18,17 @@ const title:Record<QuickKitMode,string>={
   replace:"Literal replace · 批量查找替换",
   "case-width":"Case & width · 大小写和全角转半角",
   "batch-files":"Batch text files · 多文件文本处理",
+  "log-privacy":"诊断日志隐私清理 · Sentinel / Log Privacy",
 };
 const number=(n:number)=>String(Number(n.toFixed(6)));
-export default function QuickKitDesk({initialMode="text"}:{initialMode?:QuickKitMode}){
+export default function QuickKitDesk({initialMode="text",initialLogText=""}:{initialMode?:QuickKitMode;initialLogText?:string}){
   const [mode,setMode]=useState<QuickKitMode>(initialMode);
+  const [logSource,setLogSource]=useState(initialLogText.slice(0,200_000));
+  const [logOptions,setLogOptions]=useState<LogPrivacyOptions>(DEFAULT_LOG_PRIVACY);
+  const logPrivacy=useMemo(()=>{
+    try{return {...scrubDiagnosticText(logSource,logOptions),error:""};}
+    catch(e){return {text:"",replacements:0,categories:[],error:String(e instanceof Error?e.message:e)};}
+  },[logSource,logOptions]);
   const textImportRevision=useRef(0);
   const [source,setSource]=useState("");
   const [options,setOptions]=useState<CleanupOptions>(DEFAULT_CLEANUP);
@@ -114,7 +122,7 @@ export default function QuickKitDesk({initialMode="text"}:{initialMode?:QuickKit
     <h2>Quick Tools / 快捷小工具</h2>
     <p className="subtle">Everyday local office actions without accounts or online uploads. Local input stays in this window; text/links are exported only when you click. Date calculations use calendar days, not elapsed 24-hour periods.</p>
     <div className="pill-row" role="group" aria-label="Quick tool">
-      {(["text","links","replace","batch-files","case-width","multi-copy","dates","grades"] as const).map(key=><button type="button" key={key}
+      {(["text","links","replace","batch-files","case-width","multi-copy","log-privacy","dates","grades"] as const).map(key=><button type="button" key={key}
         className={mode===key?"pill active-pill":"pill"} onClick={()=>{textImportRevision.current++;setMode(key);setStatus("");}}>{title[key]}</button>)}
     </div>
     {(mode==="text"||mode==="replace"||mode==="case-width")&&<div>
@@ -179,6 +187,30 @@ export default function QuickKitDesk({initialMode="text"}:{initialMode?:QuickKit
       </div>
       {outputError&&<p role="alert" className="subtle">{outputError}</p>}
     </>}
+    {mode==="log-privacy"&&<div data-testid="sentinel-log-privacy">
+      <p className="subtle">只在本机内存预览对日志、原 Sentinel 证据文本的隐私替换。不是完整匿名化：导出前请亲自检查结果，特别是授权令牌、个人信息及路径。</p>
+      <label className="field-label" htmlFor="sentinel-log-source">诊断日志或 Sentinel 证据（不自动上传）</label>
+      <textarea id="sentinel-log-source" className="field text-editor" rows={8} maxLength={200000}
+        value={logSource} onChange={e=>{setLogSource(e.target.value);setStatus("");}}/>
+      <div className="actions" role="group" aria-label="Diagnostic privacy settings">
+        {([["secrets","隐藏凭据和密钥"],["userPaths","隐藏用户主目录"],["emails","隐藏电子邮件"],["ipv4","可选隐藏 IPv4 地址"]] as const).map(([key,label])=>
+          <label key={key}><input type="checkbox" checked={logOptions[key]}
+            onChange={e=>setLogOptions(x=>({...x,[key]:e.target.checked}))}/>{label}</label>)}
+      </div>
+      {logPrivacy.error?<p role="alert">{logPrivacy.error}</p>:<>
+        <p className="subtle">预览替换 {logPrivacy.replacements} 处 · 类别：{logPrivacy.categories.join("、")||"无匹配"}。原始数据未更改。</p>
+        <label className="field-label" htmlFor="sentinel-log-preview">可审核的隐私处理预览</label>
+        <textarea className="field text-editor" id="sentinel-log-preview" rows={8} readOnly value={logPrivacy.text}/>
+        <div className="actions">
+          <button type="button" className="primary-button" disabled={!logPrivacy.text}
+            onClick={()=>void navigator.clipboard.writeText(logPrivacy.text)
+              .then(()=>setStatus("已复制预览结果，原始日志未更改。"),e=>setStatus("复制失败："+String(e)))}>复制审核后的文本</button>
+          <button type="button" className="secondary-button" disabled={!logPrivacy.text}
+            onClick={()=>void exportFile("sentinel-redacted-diagnostics.txt",logPrivacy.text)
+              .then(ok=>setStatus(ok?"隐私清理后的副本已保存，本机原始记录未更改。":"已取消保存。"),e=>setStatus("导出失败："+String(e)))}>保存审核副本 TXT</button>
+        </div>
+      </>}
+    </div>}
     {mode==="batch-files"&&<BatchTextFilesDesk/>}
     {mode==="multi-copy"&&<>
       <p className="subtle">Collect up to 30 text snippets in this window, move snippets up or down to arrange their order, then copy or save the combined text. No background clipboard monitoring; no saved history or cloud sync. Passwords and private data should not be collected.</p>

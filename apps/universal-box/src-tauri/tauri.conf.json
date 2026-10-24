@@ -40,6 +40,9 @@
     ],
     "macOS": {
       "signingIdentity": "-"
+    },
+    "resources": {
+      "resources/sentinel/sentinel-engine": "sentinel/sentinel-engine"
     }
   }
 }

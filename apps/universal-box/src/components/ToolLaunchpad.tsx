@@ -3,6 +3,19 @@ import {visualToolFamily,VISUAL_TOOL_FAMILIES} from "../lib/toolVisualCategories
 
 export type LocalTool = {id:string;name:string;area:string;view:string;module?:string};
 export const LOCAL_TOOLS:LocalTool[] = [
+ {id:"sentinel-system-overview",name:"Sentinel · 系统总览 / Easy Scan",area:"Sentinel",view:"sentinel",module:"overview"},
+ {id:"sentinel-review-queue",name:"Sentinel · Review Queue 证据待办",area:"Sentinel",view:"sentinel",module:"review"},
+ {id:"sentinel-evidence-search",name:"Sentinel · 本机证据搜索",area:"Sentinel",view:"sentinel-investigate"},
+ {id:"sentinel-evidence-graph",name:"Sentinel · Evidence Graph 证据关系图",area:"Sentinel",view:"sentinel-investigate",module:"graph"},
+ {id:"sentinel-event-timeline",name:"Sentinel · Timeline 事件时间线",area:"Sentinel",view:"sentinel-investigate",module:"timeline"},
+ {id:"sentinel-changes",name:"Sentinel · Behavior / Trust 历史对比",area:"Sentinel",view:"sentinel-compare",module:"behavior"},
+ {id:"sentinel-processes",name:"Sentinel · 进程与启动项",area:"Sentinel",view:"sentinel-system",module:"processes"},
+ {id:"sentinel-network",name:"Sentinel · 网络连接和历史",area:"Sentinel",view:"sentinel-system",module:"network"},
+ {id:"sentinel-storage",name:"Sentinel · 存储历史",area:"Sentinel",view:"sentinel-system",module:"storage"},
+ {id:"sentinel-doctor",name:"Sentinel · 系统诊断与安全操作",area:"Sentinel",view:"sentinel-actions",module:"doctor"},
+ {id:"sentinel-safe-recovery",name:"Sentinel · 原 WebView 恢复中心与安全审批",area:"Sentinel",view:"sentinel-actions",module:"doctor"},
+ {id:"sentinel-permissions",name:"Sentinel · 权限、可见性、运行日志",area:"Sentinel",view:"sentinel-limits",module:"visibility"},
+ {id:"sentinel-log-redactor",name:"Sentinel · 诊断日志隐私清理",area:"Sentinel",view:"quick-tools",module:"log-privacy"},
  {id:"typography-symbols",name:"Font & Symbol Converter · 字体字号／特殊符号／TXT→DOCX/HTML",area:"Text",view:"free-formats",module:"typography"},
  {id:"case-width",name:"Text Case & Fullwidth → Halfwidth · 大小写转换／全角半角",area:"Text",view:"quick-tools",module:"case-width"},
  {id:"client-delivery",name:"Verified Client File Handoff · SHA-256 客户交付 ZIP",area:"Office",view:"workflows",module:"client-delivery"},
