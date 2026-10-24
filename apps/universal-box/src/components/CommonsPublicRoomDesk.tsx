@@ -246,27 +246,40 @@ export default function CommonsPublicRoomDesk(){
   }catch(e){setStatus("无法应用 Answer："+errorText(e));}
   finally{setBusy(false);}
  };
- const joinRoom=async()=>{
-  if(!supported||busy||!validPublicRoomName(nickname)||modeRef.current)return;
+ const joinRoom=async(resume=false)=>{
+  if(!supported||busy||!validPublicRoomName(nickname)||
+   (resume?(modeRef.current!=="guest"||joined||!guestResumeTokenRef.current):!!modeRef.current))return;
   setBusy(true);setJoined(false);setGuestAnswer("");
   let pc:RTCPeerConnection|null=null;
   try{
-   const invite=decodePublicRoomSignal(invitation,"offer");
+   const offerText=invitation.trim();
+   const invite=decodePublicRoomSignal(offerText,"offer");
+   if(resume&&(invite.room!==roomRef.current||offerText===lastGuestOfferRef.current))
+    throw Error("Rejoin requires a fresh Offer for this same room.");
    pc=new RTCPeerConnection({iceServers:options()});
    setHostFingerprint(readDirectFingerprint(invite.sdp));
-   guestRef.current=pc;modeRef.current="guest";
-   roomRef.current=invite.room;setRoom(invite.room);
+   const previous=guestRef.current,previousChannel=guestChannelRef.current;
+   guestRef.current=pc;guestChannelRef.current=null;modeRef.current="guest";
+   roomRef.current=invite.room;setRoom(invite.room);setReconnecting(resume);
+   previousChannel?.close();previous?.close();
    const expectedRoom=invite.room,memberName=nickname.trim();
    pc.ondatachannel=e=>{
+    if(guestRef.current!==pc)return;
     const dc=e.channel;guestChannelRef.current=dc;
     dc.onopen=()=>{
-     sendFrame(dc,{v:1,room:expectedRoom,kind:"join",name:memberName});
-     setStatus("已建立加密 DataChannel，等待主持人接受加入请求…");
+     if(guestChannelRef.current!==dc)return;
+     sendFrame(dc,{v:1,room:expectedRoom,kind:"join",name:memberName,
+      ...(resume?{resumeToken:guestResumeTokenRef.current}:{})});
+     setStatus(resume?"已提交加密临时凭据，等待主持人恢复原会话…":"已建立加密 DataChannel，等待主持人接受加入请求…");
     };
     dc.onmessage=event=>{
      const frame=decodePublicRoomFrame(event.data,expectedRoom);
      if(!frame)return;
-     if(frame.kind==="welcome"){setJoined(true);setStatus("主持人已接纳此昵称，群聊可用。成员身份仍未经过真实认证。");}
+     if(frame.kind==="welcome"){
+      if(frame.resumeToken)guestResumeTokenRef.current=frame.resumeToken;
+      setJoined(true);setReconnecting(false);
+      setStatus(resume?"原成员会话已恢复，历史和未确认消息状态仍保留。":"主持人已接纳此昵称，群聊可用。成员身份仍未经过真实认证。");
+     }
      if(frame.kind==="deny"){setJoined(false);setStatus("主持人拒绝加入："+frame.reason);dc.close();}
      if(frame.kind==="chat"){
       if(rememberRoomMessage(seenRef.current,frame.name,frame.id))
@@ -281,9 +294,16 @@ export default function CommonsPublicRoomDesk(){
       }));
      }
     };
-    dc.onclose=()=>{setJoined(false);setStatus("与主持人的 DataChannel 已断开。需要重新交换 Offer／Answer 才能加入。");};
+    dc.onclose=()=>{
+     if(guestChannelRef.current!==dc)return;
+     setJoined(false);setReconnecting(false);
+     setStatus(guestResumeTokenRef.current?
+      "连接已断开：让主持人重新协商原成员连接，粘贴新的专属 Offer 可恢复。":
+      "连接已断开：没有可恢复的临时会话凭据，请重新加入房间。");
+    };
    };
    pc.onconnectionstatechange=()=>{
+    if(guestRef.current!==pc)return;
     if(pc?.connectionState==="failed"){setJoined(false);setStatus("ICE 连接失败，可能需要 TURN 或其他网络。");}
     if(pc?.connectionState==="connected"){
      void pc.getStats().then(report=>{
@@ -297,10 +317,16 @@ export default function CommonsPublicRoomDesk(){
    await finishIceGathering(pc);
    if(!pc.localDescription)throw Error("No answer was generated.");
    setGuestAnswer(encodePublicRoomSignal(invite.room,pc.localDescription));
-   setStatus("Answer 已生成。复制并发给主持人，请其粘贴到你的邀请槽位并应用。");
+   lastGuestOfferRef.current=offerText;
+   setInvitation("");
+   setStatus(resume?"恢复连接的 Answer 已生成，请发回主持人的同一成员槽位。":
+    "Answer 已生成。复制并发给主持人，请其粘贴到你的邀请槽位并应用。");
   }catch(e){
-   pc?.close();guestRef.current=null;guestChannelRef.current=null;roomRef.current="";modeRef.current=null;setRoom("");
-   setStatus("无法加入房间："+errorText(e));
+   pc?.close();
+   if(pc&&guestRef.current===pc){guestRef.current=null;guestChannelRef.current=null;}
+   if(!resume){roomRef.current="";modeRef.current=null;setRoom("");}
+   setReconnecting(false);
+   setStatus((resume?"无法恢复成员会话：":"无法加入房间：")+errorText(e));
   }finally{setBusy(false);}
  };
  const updateSlotAnswer=(id:string,value:string)=>{
@@ -414,7 +440,18 @@ export default function CommonsPublicRoomDesk(){
     <textarea className="field text-editor" rows={4} maxLength={122000} data-testid="room-invite"
      value={invitation} onChange={e=>setInvitation(e.target.value)}/></label>
    <button type="button" className="primary-button" data-testid="room-join" disabled={!supported||busy||!invitation.trim()||!validPublicRoomName(nickname)}
-    onClick={()=>void joinRoom()}>{busy?"生成中…":"生成本机 Answer 并加入"}</button>
+    onClick={()=>void joinRoom(false)}>{busy?"生成中…":"生成本机 Answer 并加入"}</button>
+  </div>}
+  {mode==="guest"&&room&&!joined&&!!guestResumeTokenRef.current&&<div className="panel" data-testid="room-reconnect">
+   <p className="subtle">已断开原通道。请让主持人在你的原成员槽位点击「重新协商此成员连接」，将新的专属 Offer 粘贴在此处。凭据保留在本机内存，不复制或展示。</p>
+   <label className="field-label">原成员的新 Offer
+    <textarea className="field text-editor" rows={4} maxLength={122000}
+     data-testid="room-reconnect-offer" value={invitation}
+     onChange={e=>setInvitation(e.target.value)}/></label>
+   <button className="secondary-button" type="button" data-testid="room-reconnect-action"
+    disabled={busy||!invitation.trim()} onClick={()=>void joinRoom(true)}>
+    {busy||reconnecting?"正在准备…":"生成恢复连接 Answer"}
+   </button>
   </div>}
   {mode==="guest"&&room&&guestAnswer&&<div>
    <p className="subtle">主持人 Offer 声明的 DTLS 指纹：{hostFingerprint}。请通过可信渠道另行核对，指纹本身不证明身份。</p>
@@ -425,7 +462,7 @@ export default function CommonsPublicRoomDesk(){
   </div>}
   {room&&<button type="button" className="secondary-button" data-testid="room-leave" onClick={stop}>退出并清除临时房间</button>}
   <p role="status" className="subtle" data-testid="room-status">{status}</p>
-  {room&&((mode==="host"&&slotViews.some(s=>s.authenticated))||(mode==="guest"&&joined))&&<div>
+  {room&&((mode==="host"&&(slotViews.some(s=>s.guest)||lines.length>0))||(mode==="guest"&&(joined||lines.length>0)))&&<div>
    <div role="log" data-testid="room-history" style={{maxHeight:240,overflowY:"auto",padding:12,
     border:"1px solid var(--line,#cbd5e1)",borderRadius:10}}>
     {lines.map(line=><p key={line.id} style={{whiteSpace:"pre-wrap",overflowWrap:"anywhere"}}>
@@ -449,7 +486,7 @@ export default function CommonsPublicRoomDesk(){
     <textarea className="field text-editor" data-testid="room-draft" rows={2}
      value={draft} maxLength={1000} onChange={e=>setDraft(e.target.value)}/></label>
    <button type="button" className="primary-button" data-testid="room-send"
-    disabled={!validDirectChatText(draft)} onClick={send}>发送到当前房间</button>
+    disabled={!validDirectChatText(draft)||(mode==="guest"&&!joined)} onClick={send}>发送到当前房间</button>
   </div>}
   <p className="subtle">每一位新成员都需单独交换 Offer/Answer；同一个邀请不得复用。TURN 服务可能看到 IP 和流量元数据，且可能收费。房间记录只保存在当前页面内存中，关闭即消失。</p>
  </section>;
