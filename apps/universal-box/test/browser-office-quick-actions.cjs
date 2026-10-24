@@ -552,3 +552,38 @@ test("CSV Table Desk cell-scoped replace previews only the selected column and e
   assert.deepEqual(errors,[]);
  }finally{await page.close();await browser.close();}
 });
+
+test("CSV Table Desk selects a column subset and exports safe real CSV / TSV without touching imported rows",{timeout:90000},async()=>{
+ const browser=await chromium.launch({headless:true,args:["--no-sandbox"]});
+ const page=await browser.newPage({acceptDownloads:true,viewport:{width:1440,height:920}});
+ const errors=[];page.on("pageerror",e=>errors.push(e.message));
+ try{
+  await page.goto(root,{waitUntil:"domcontentloaded"});await page.locator(".app-shell").waitFor();
+  await page.locator('nav.sidebar-nav button.nav-item[aria-label="CSV Table Desk"]').click();
+  const source='Name,Department,Note,Amount\r\n张三,销售,"a,b",=SUM(1)\r\n李四,工程,"line\nwrap",-42\r\n';
+  await page.locator("#data-text").fill(source);
+  await page.getByRole("button",{name:"Load table"}).click();
+  await page.locator('[data-testid="table-col-1"]').uncheck();
+  await page.locator('[data-testid="table-col-2"]').uncheck();
+  assert.match(await page.locator('[data-testid="table-cols-count"]').innerText(),/2 \/ 4 columns/);
+  const pending=page.waitForEvent("download",{timeout:30000});
+  await page.getByRole("button",{name:"Save CSV",exact:true}).click();
+  const dl=await pending;const file=path.join(dir,"selected-columns.csv");await dl.saveAs(file);
+  assert.equal(fs.readFileSync(file,"utf8"),"Name,Amount\r\n张三,'=SUM(1)\r\n李四,-42");
+  await page.locator('[data-testid="table-cols-none"]').click();
+  assert.match(await page.locator('[data-testid="table-cols-error"]').innerText(),/at least one column/);
+  assert.equal(await page.getByRole("button",{name:"Save CSV",exact:true}).isDisabled(),true);
+  assert.equal(await page.locator('[data-testid="table-save-tsv"]').isDisabled(),true);
+  await page.locator('[data-testid="table-col-1"]').check();
+  assert.match(await page.locator('[data-testid="table-cols-count"]').innerText(),/1 \/ 4 columns/);
+  const pending2=page.waitForEvent("download",{timeout:30000});
+  await page.locator('[data-testid="table-save-tsv"]').click();
+  const dl2=await pending2;const tsv=path.join(dir,"selected-department.tsv");await dl2.saveAs(tsv);
+  const bytes=fs.readFileSync(tsv);assert.deepEqual(bytes.subarray(0,3),Buffer.from([239,187,191]));
+  assert.equal(bytes.subarray(3).toString("utf8"),"Department\r\n销售\r\n工程");
+  await page.locator('[data-testid="table-cols-all"]').click();
+  assert.match(await page.locator('[data-testid="table-cols-count"]').innerText(),/4 \/ 4 columns/);
+  assert.equal(await page.locator("#data-text").inputValue(),source);
+  assert.deepEqual(errors,[]);
+ }finally{await page.close();await browser.close();}
+});
