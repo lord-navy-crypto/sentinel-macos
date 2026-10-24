@@ -168,8 +168,8 @@ export default function CommonsPublicRoomDesk(){
    const slot:MemberSlot={id:crypto.randomUUID(),pc,dc,offer:"",answer:"",guest:"",phase:"搜集 ICE 候选地址",fingerprint:"",resumeToken:"",authenticated:false};
    slotsRef.current.push(slot);refresh();
    const roomId=roomRef.current,hostName=nickname.trim();
-   dc.onmessage=e=>handleHostMessage(slot,e.data,roomId,hostName);
-   dc.onopen=()=>{slot.phase="DataChannel 已连接，等待成员加入";refresh();};
+   dc.onmessage=e=>{if(slot.pc===pc)handleHostMessage(slot,e.data,roomId,hostName);};
+   dc.onopen=()=>{if(slot.pc===pc){slot.phase="DataChannel 已连接，等待成员加入";refresh();}};
    dc.onclose=()=>{if(slotsRef.current.includes(slot)&&slot.pc===pc){slot.authenticated=false;slot.phase="已断开，可重新协商";refresh();}};
    pc.onconnectionstatechange=()=>{
     if(slot.pc!==pc)return;
