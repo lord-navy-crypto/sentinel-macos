@@ -20,8 +20,10 @@ test("Office-first homepage links ten existing working office tasks and keeps th
   const sidebarNames=await page.locator("nav.sidebar-nav button.nav-item").evaluateAll(items=>items.map(el=>el.getAttribute("aria-label")));
   assert.equal(sidebarNames.length,40,"All original workspace routes remain in sidebar exactly once");
   assert.equal(new Set(sidebarNames).size,sidebarNames.length,"No duplicate workspace labels");
-  assert.equal(await page.locator('[data-testid="office-more-workflows"] .hero-card').isVisible(),false,
-   "Promotional and specialist panels start collapsed below the high-frequency tasks");
+  assert.equal(await page.getByTestId("home-file-dropzone").isVisible(),true,
+   "Users can select or drop files directly into the existing, user-approved preflight");
+  assert.equal(await page.getByTestId("home-favorites").isVisible(),true);
+  assert.equal(await page.getByTestId("home-recents").isVisible(),true);
   const actions=[
    {id:"home-office-pdf",marker:"#pdf-picker"},
    {id:"home-office-image",marker:"#image-picker"},
@@ -49,8 +51,9 @@ test("Office-first homepage links ten existing working office tasks and keeps th
    if(task.id==="home-fast-pdf-size")assert.match(await page.locator('[aria-label="PDF mini editor modes"] .active-pill').innerText(),/Compress PDF/);
   }
   await home();
-  await page.locator('[data-testid="office-more-workflows"] summary').click();
-  assert.equal(await page.locator('[data-testid="office-more-workflows"] .hero-card').isVisible(),true);
+  assert.equal(await page.getByTestId("home-recent-exports").isVisible(),true);
+  assert.equal(await page.locator(".hero-card").count(),0,
+   "Old decorative hero no longer distracts from frequent office workflows");
   assert.deepEqual(errors,[]);
  }finally{await page.close();await browser.close();}
 });
