@@ -209,3 +209,11 @@
 @media(prefers-reduced-motion:reduce){
  .app-shell .home-task,.app-shell .catalog-card{transition:none;}
 }
+
+/* Legacy Sentinel depth remains available without exposing unsafe system actions in React. */
+.sentinel-legacy-groups{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;margin:16px 0;}
+.sentinel-legacy-tile{padding:14px;border:1px solid var(--ub-border);border-radius:11px;
+ background:var(--ub-subtle);display:flex;flex-direction:column;gap:8px;min-width:0;}
+.sentinel-legacy-tile strong{color:var(--ub-text);font-size:14px;}
+.sentinel-legacy-tile p{margin:0;flex:1;overflow-wrap:anywhere;}
+.sentinel-legacy-tile button{width:100%;}
