@@ -1,3 +1,4 @@
+mod sentinel_service;
 mod commons_chat;
 mod commons_p2p;
 mod commons_lan;
@@ -168,12 +169,14 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .manage(sentinel_service::SentinelService::default())
         .manage(commons_lan::CommonsLanState::default())
         .manage(commons_chat::CommonsChatState::default())
         .on_window_event(|window, event| {
-            if matches!(event, tauri::WindowEvent::Destroyed) {
+            if window.label() == "main" && matches!(event, tauri::WindowEvent::Destroyed) {
                 window.state::<commons_lan::CommonsLanState>().stop();
                 window.state::<commons_chat::CommonsChatState>().stop();
+                window.state::<sentinel_service::SentinelService>().stop();
             }
         })
         .invoke_handler(tauri::generate_handler![
@@ -182,6 +185,12 @@ pub fn run() {
             export_backup,
             read_backup,
             write_output_file,
+            sentinel_service::sentinel_service_status,
+            sentinel_service::sentinel_service_start,
+            sentinel_service::sentinel_service_stop,
+            sentinel_service::sentinel_service_read,
+            sentinel_service::sentinel_service_search,
+            sentinel_service::sentinel_service_full_workbench,
             vision_ocr::recognize_image_text,
             heic_import::decode_heic_to_png,
             native_speech::transcribe_on_device_wav,
