@@ -29,6 +29,21 @@ describe("Office batch rename preview, collision safety and original-file preser
   expect(()=>planOfficeBatchRename([{name:"a",size:10}],
    {prefix:"line\n",find:"",replace:"",start:1})).toThrow(/line breaks/);
  });
+ it("supports plain find-and-replace without forced numbering, and detects collisions",()=>{
+  const options={prefix:"Final-",find:"Draft",replace:"Approved",start:1,numbered:false};
+  const plan=planOfficeBatchRename([{name:"Draft 合同.docx",size:10},{name:"memo.PDF",size:12}],options);
+  expect(plan.map(x=>x.filename)).toEqual(["Final-Approved 合同.docx","Final-memo.PDF"]);
+  expect(()=>planOfficeBatchRename([{name:"a.txt",size:1},{name:"A.txt",size:2}],
+   {prefix:"",find:"",replace:"",start:1,numbered:false})).toThrow(/Duplicate output filename/);
+  expect(()=>planOfficeBatchRename([{name:"sentinel-box-rename-plan.json",size:1}],
+   {prefix:"",find:"",replace:"",start:1,numbered:false})).toThrow(/reserved for the ZIP manifest/);
+ });
+ it("rejects sequence overflow instead of silently producing a six-digit label",()=>{
+  expect(()=>planOfficeBatchRename([{name:"a.txt",size:1},{name:"b.txt",size:1}],
+   {prefix:"",find:"",replace:"",start:99999})).toThrow(/exceed 99,999/);
+  expect(()=>planOfficeBatchRename([{name:"a.txt",size:1},{name:"b.txt",size:1}],
+   {prefix:"",find:"",replace:"",start:99999,numbered:false})).not.toThrow();
+ });
  it("normalizes and cleans unsafe characters without changing file bytes",()=>{
   const plan=planOfficeBatchRename([{name:"my?file.docx",size:10}],
    {prefix:"",find:"",replace:"",start:3});
