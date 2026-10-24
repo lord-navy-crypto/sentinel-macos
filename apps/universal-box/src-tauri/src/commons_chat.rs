@@ -59,6 +59,8 @@ pub struct ChatSnapshot {
     messages: Vec<ChatLine>,
     participants: Vec<String>,
     has_more: bool,
+    oldest_seq: u64,
+    latest_seq: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     session_token: Option<String>,
 }
@@ -225,9 +227,10 @@ fn apply_request(data: &mut ChatData, request: ChatRequest) -> Result<ChatSnapsh
         .filter(|message| message.seq > request.since)
         .take(MAX_REPLY_MESSAGES + 1).cloned().collect();
     let has_more = newer.len() > MAX_REPLY_MESSAGES;
+    let oldest_seq = data.messages.front().map_or(0,|message|message.seq);
     Ok(ChatSnapshot {room:data.name.clone(),messages:newer.into_iter()
         .take(MAX_REPLY_MESSAGES).collect(),participants:data.presence.keys().cloned().collect(),
-        has_more,session_token:issued_token})
+        has_more,oldest_seq,latest_seq:data.seq,session_token:issued_token})
 }
 
 fn serve_one(mut socket: TcpStream, secret: &[u8; 32],
@@ -423,7 +426,23 @@ mod tests {
     let p=apply_request(&mut data,request("N",Some(token),false,false,None,None,0)).unwrap();
     assert_eq!(p.messages.len(),MAX_REPLY_MESSAGES);
     assert!(p.has_more);
+    assert_eq!(p.oldest_seq,16);
+    assert_eq!(p.latest_seq,215);
     assert_eq!(p.messages[0].seq,16);
+    let mut cursor=0_u64;
+    let mut pages=0_usize;
+    let mut collected=vec![];
+    loop {
+        let page=apply_request(&mut data,request("N",Some(token),false,false,None,None,cursor)).unwrap();
+        pages+=1;
+        if let Some(last)=page.messages.last() {cursor=last.seq;}
+        collected.extend(page.messages);
+        if !page.has_more {break;}
+        assert!(pages<=20,"Backfill must terminate within bounded message history");
+    }
+    assert_eq!(collected.len(),MAX_HISTORY,"Backfill must return every still-retained message");
+    assert_eq!(collected[0].seq,16);
+    assert_eq!(collected.last().unwrap().seq,215);
     assert!(apply_request(&mut data,request("N",Some(token),false,false,
         Some(&"x".repeat(1001)),Some("manywords0000000000000"),0)).is_err());
     assert!(apply_request(&mut data,request("N",Some(token),false,false,
