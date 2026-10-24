@@ -3,7 +3,7 @@ import JSZip from "jszip";
 import {PDFDocument} from "pdf-lib";
 import {markdownToDocx} from "./documentExport";
 import {inspectPcmWav} from "./wavTools";
-import {auditPdfDocuments,compareWordDocuments,pdfAuditZip,trimWavSilence,wavSilenceZip,wordReviewZip} from "./qualityReview";
+import {auditPdfDocuments,compareWordDocuments,pdfAuditZip,trimWavSilence,wavSilenceZip,wordReviewZip,wordReviewText} from "./qualityReview";
 
 function wavSamples():Uint8Array{
  const frames=8000,bytes=new Uint8Array(44+frames*2),v=new DataView(bytes.buffer);
