@@ -55,6 +55,29 @@ export default function OfficeHome({favorites,recents,totalTools,onOpen,onSearch
    <span><strong>{exports.length}</strong> 次本次启动导出</span>
    <span className="home-facts-privacy">● 本机优先 · 无需订阅</span>
   </div>
+  <section className="home-section" data-testid="home-sentinel-workspaces" aria-label="Original Sentinel Mac system tools">
+   <header className="home-section-title"><div><p className="eyebrow">ORIGINAL SENTINEL · MAC SYSTEM</p>
+    <h2>哨兵系统工作台</h2>
+    <p className="subtle">原 Go 系统监控与调查引擎已作为内置服务接入。需要你主动启动服务；不会打开页面就扫描系统。</p>
+   </div>
+   <button type="button" className="home-inline-action" onClick={()=>onOpen("sentinel")}>完整入口 →</button>
+   </header>
+   <div className="home-task-grid sentinel-home-grid">
+    {([
+      ["sentinel","◉","系统概览与扫描","Easy Scan · Review Queue"],
+      ["sentinel-investigate","⌕","证据调查","Evidence Graph · Timeline"],
+      ["sentinel-compare","⇄","历史与变化","Behavior · Trust"],
+      ["sentinel-system","⌘","进程与网络","启动项 · 存储历史"],
+      ["sentinel-actions","✚","系统诊断与安全操作","Doctor · 原 WebView 恢复中心"],
+      ["sentinel-limits","◈","权限与状态","Visibility · Runtime Logs"]
+    ] as const).map(([id,icon,title,description])=><button key={id} type="button" className="home-task"
+      data-testid={"home-"+id} onClick={()=>onOpen(id)}>
+      <span className="home-task-icon" aria-hidden="true">{icon}</span>
+      <span className="home-task-copy"><strong>{title}</strong><small>{description}</small></span>
+      <span className="home-task-arrow" aria-hidden="true">↗</span>
+    </button>)}
+   </div>
+  </section>
   <section className="home-section" data-testid="office-home-shortcuts" aria-label="Everyday office shortcuts">
    <header className="home-section-title"><div><p className="eyebrow">01 / MOST USED</p><h2>常用办公</h2><p className="subtle">选择任务后直接进入对应的现有工具。</p></div></header>
    <div className="home-task-grid" data-testid="office-first-task-grid">
