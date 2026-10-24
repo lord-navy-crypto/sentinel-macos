@@ -1,4 +1,4 @@
-import {useMemo,useState} from "react";
+import {type ChangeEvent,useMemo,useState} from "react";
 import {exportFile} from "../lib/output";
 import {
  exportSlideDeck,exportWordTemplate,fillWordTemplate,parseSlideOutline,renderCreativeSvg,renderFlowchartSvg,decodeOfficeDraft,officeDraftMarkdown,
@@ -50,7 +50,7 @@ export default function CreativeStudioDesk({initialMode="word"}:{initialMode?:Cr
  const updateDesign=<K extends keyof PosterInput>(key:K,v:PosterInput[K])=>{
   setDesign(old=>({...old,[key]:v}));setStatus("");
  };
- async function importDraft(mode:"word"|"slides",event:React.ChangeEvent<HTMLInputElement>){
+ async function importDraft(mode:"word"|"slides",event:ChangeEvent<HTMLInputElement>){
   const file=event.target.files?.[0];event.target.value="";
   if(!file||busy)return;
   setBusy(true);setStatus("");
