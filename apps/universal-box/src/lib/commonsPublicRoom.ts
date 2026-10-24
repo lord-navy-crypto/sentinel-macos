@@ -11,6 +11,8 @@ export type PublicRoomFrame=
  |{v:1;room:string;kind:"welcome"}
  |{v:1;room:string;kind:"deny";reason:"full"|"name"|"invalid"}
  |{v:1;room:string;kind:"leave"}
+ |{v:1;room:string;kind:"ack";id:string}
+ |{v:1;room:string;kind:"receipt";id:string;acked:number;total:number}
  |{v:1;room:string;kind:"chat";id:string;name:string;text:string};
 
 export function validPublicRoomName(name:string):boolean{
@@ -54,6 +56,12 @@ export function decodePublicRoomFrame(raw:unknown,room:string):PublicRoomFrame|n
   case "deny":return d.reason==="full"||d.reason==="name"||d.reason==="invalid"?
    {v:1,room,kind:"deny",reason:d.reason}:null;
   case "leave":return {v:1,room,kind:"leave"};
+  case "ack":return typeof d.id==="string"&&MESSAGE_ID.test(d.id)?{v:1,room,kind:"ack",id:d.id}:null;
+  case "receipt":return typeof d.id==="string"&&MESSAGE_ID.test(d.id)&&
+   Number.isInteger(d.acked)&&Number.isInteger(d.total)&&
+   typeof d.total==="number"&&d.total>=0&&d.total<=PUBLIC_ROOM_GUEST_LIMIT&&
+   typeof d.acked==="number"&&d.acked>=0&&d.acked<=d.total?
+    {v:1,room,kind:"receipt",id:d.id,acked:d.acked,total:d.total}:null;
   case "chat":
    return typeof d.id==="string"&&MESSAGE_ID.test(d.id)
     &&typeof d.name==="string"&&validPublicRoomName(d.name)
