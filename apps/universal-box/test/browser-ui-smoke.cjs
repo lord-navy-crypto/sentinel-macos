@@ -378,6 +378,27 @@ test("Three actual Commons browser peers form a manual public room and relay CJK
   await bob.getByTestId("room-history").getByText("主持人确认：这是三台 WebRTC 客户端").waitFor({timeout:25000});
   await host.getByTestId("room-receipt").getByText(/成员应用确认 2\/2/).waitFor({timeout:25000});
   assert.equal(await host.getByTestId("room-receipt").count(),1,"host fanout has two distinct ACKs");
+  // Host restarts Alice's transport but keeps her member slot and receipt identity.
+  const originalSlotCount=await host.getByTestId("room-slot").count();
+  const aliceSlot=host.getByTestId("room-slot").nth(0);
+  await aliceSlot.getByTestId("room-reinvite").click();
+  await alice.getByTestId("room-reconnect").waitFor({timeout:30000});
+  await aliceSlot.getByRole("button",{name:"复制成员邀请"}).waitFor({timeout:30000});
+  const freshOffer=await aliceSlot.locator("textarea").first().inputValue();
+  assert.equal(JSON.parse(freshOffer).room,roomId,"resume must stay in the same room");
+  await alice.getByTestId("room-reconnect-offer").fill(freshOffer);
+  await alice.getByTestId("room-reconnect-action").click();
+  await alice.getByTestId("room-answer").waitFor({timeout:30000});
+  const resumeAnswer=await alice.getByTestId("room-answer").inputValue();
+  await aliceSlot.locator("textarea").nth(1).fill(resumeAnswer);
+  await aliceSlot.getByRole("button",{name:"应用该成员 Answer"}).click();
+  await alice.getByTestId("room-status").getByText(/原成员会话已恢复/).waitFor({timeout:30000});
+  assert.equal(await host.getByTestId("room-slot").count(),originalSlotCount,"rejoin must not consume another slot");
+  assert.equal(await alice.getByTestId("room-history").locator("p").count(),2,"reconnect keeps local history");
+  await alice.getByTestId("room-draft").fill("Alice 重连后仍可发消息");
+  await alice.getByTestId("room-send").click();
+  await bob.getByTestId("room-history").getByText("Alice 重连后仍可发消息").waitFor({timeout:25000});
+  await alice.getByTestId("room-receipt").last().getByText(/成员应用确认 1\/1/).waitFor({timeout:25000});
   await bob.getByTestId("room-leave").click();
   assert.equal(await bob.getByTestId("room-answer").count(),0,"leave clears answer");
   assert.match(await bob.getByTestId("room-status").innerText(),/已结束/);
