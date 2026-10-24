@@ -10,7 +10,8 @@ import {
 } from "../lib/commonsKit";
 
 type View="files"|"chat"|"tasks"|"members";
-type LanShare={active:boolean;invites:string[];secondsRemaining:number;message:string};
+type LanPhase="waiting"|"sending"|"delivered"|"expired"|"stopped"|"idle";
+type LanShare={active:boolean;invites:string[];secondsRemaining:number;message:string;phase:LanPhase;sentBytes:number;totalBytes:number};
 type LanTransferProgress={receivedBytes:number;totalBytes:number};
 type NearbyShare={instance:string;label:string;ip:string;port:number};
 type StunSample={server:string;result:string|null;error:string|null};
@@ -83,7 +84,15 @@ export default function CommonsDesk(){
   let live=true;
   const poll=window.setInterval(()=>{
    void invoke<LanShare>("commons_lan_status").then(result=>{
-    if(live)setLan(result.active?result:null);
+    if(!live)return;
+    setLan(result);
+    if(!result.active){
+     setSelectedInvite(""); // Expired/consumed capability should no longer appear in the editor.
+     setNetworkStatus(result.phase==="delivered"
+      ?"发送方已将加密数据写入连接。接收方仍需完成认证、ZIP 和附件 SHA-256 校验，然后明确同意导入。"
+      :result.phase==="expired"?"一次性邀请已到期，若需重发请重新开启共享。"
+      :"局域网共享已停止。未完成的接收不得视为成功。");
+    }
    }).catch(()=>{});
   },4000);
   return ()=>{live=false;window.clearInterval(poll);};
@@ -226,8 +235,13 @@ export default function CommonsDesk(){
  async function refreshLan(){
   try{
    const next=await invoke<LanShare>("commons_lan_status");
-   setLan(next.active?next:null);
-   if(!next.active)setNetworkStatus("临时共享已结束或到期。");
+   setLan(next);
+   if(!next.active){
+    setSelectedInvite("");
+    setNetworkStatus(next.phase==="delivered"
+     ?"发送数据已经写入网络连接；请等待接收方独立确认附件 SHA-256 校验成功。"
+     :next.phase==="expired"?"一次性共享已到期。":"共享已结束或停止。");
+   }
   }catch(e){setNetworkStatus(errorText(e));}
  }
  async function copyLanInvite(){
@@ -456,7 +470,20 @@ export default function CommonsDesk(){
     <p className="subtle">{sizeText(transferProgress.receivedBytes)} / {sizeText(transferProgress.totalBytes)}
      （{Math.round(transferProgress.receivedBytes/transferProgress.totalBytes*100)}%）。传输百分比不等于校验成功；接收结束后仍需验证加密认证及 ZIP 文件哈希。</p>
    </div>}
-   {lan?.active&&<p className="subtle">此一次性共享预计剩余约 {lan.secondsRemaining} 秒；成功发送或过期后会自动停止。</p>}
+   {lan&&lanAction==="send"&&<div data-testid="commons-lan-sender-state" role="status"
+    style={{padding:12,border:"1px solid var(--line,#cbd5e1)",borderRadius:12}}>
+    <strong>{lan.phase==="waiting"?"等待持有邀请的接收方":lan.phase==="sending"?"正在发送加密数据"
+     :lan.phase==="delivered"?"已将加密数据写入 TCP 连接":lan.phase==="expired"?"邀请已到期"
+     :lan.phase==="stopped"?"共享已停止":"暂无共享"}</strong>
+    {lan.phase==="sending"||lan.phase==="delivered"?<>
+     <progress data-testid="commons-lan-send-progress" aria-label="Encrypted LAN bytes sent"
+      style={{width:"100%"}} max={Math.max(1,lan.totalBytes)} value={Math.min(lan.totalBytes,lan.sentBytes)}/>
+     <p className="subtle">{sizeText(lan.sentBytes)} / {sizeText(lan.totalBytes)} ·
+      {lan.totalBytes>0?Math.round(lan.sentBytes/lan.totalBytes*100):0}% 的加密载荷已写入 TCP 连接</p>
+    </>:null}
+    <p className="subtle">发送进度不代表对方成功保存：接收方必须独立完成解密、ZIP 和附件哈希校验，并明确确认导入。</p>
+   </div>}
+   {lan?.active&&<p className="subtle">一次性邀请剩余约 {lan.secondsRemaining} 秒；成功发送或到期后停止，发送过程中可随时点击「停止共享」中断后续数据。</p>}
    {networkBusy&&<p role="status">正在进行局域网加密操作…</p>}
    {networkStatus&&<p className="subtle" role="status" data-testid="commons-network-status">{networkStatus}</p>}
   </div>}
