@@ -58,9 +58,13 @@ describe("Prepared target-photo ZIP file integrity",()=>{
   const valid=await packed();
   const controller=new AbortController();controller.abort();
   await expect(verifyPhotoZipOutput(valid,SETTINGS,controller.signal)).rejects.toThrow(/cancelled/);
-  const badBytes=new Uint8Array(valid.zip);
+  const stored=new JSZip();
+  stored.file(report.outputName,jpeg,{compression:"STORE"});
+  stored.file("reports/manifest.json",JSON.stringify({files:[report],settings:SETTINGS}),{compression:"STORE"});
+  const badBytes=await stored.generateAsync({type:"uint8array",compression:"STORE"});
   const offset=badBytes.findIndex((byte,i)=>i>20&&byte===255&&badBytes[i+1]===216);
-  if(offset>=0)badBytes[offset]^=0x7f;
+  expect(offset).toBeGreaterThan(20); // Raw STORE member is present; CRC must reject altered bytes.
+  badBytes[offset+3]^=0x7f;
   await expect(verifyPhotoZipOutput({zip:badBytes,reports:[report]},SETTINGS)).rejects.toThrow();
  });
 });
