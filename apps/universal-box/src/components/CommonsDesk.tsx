@@ -41,7 +41,7 @@ const tabs:{key:View;name:string}[]=[
 function errorText(e:unknown):string {return e instanceof Error?e.message:String(e);}
 function sizeText(n:number):string{return n>=1_000_000?(n/1_000_000).toFixed(2)+" MB":(n/1000).toFixed(1)+" KB";}
 
-export default function CommonsDesk(){
+export default function CommonsDesk({onOpenTool}:{onOpenTool:(view:string)=>void}){
  const [teamName,setTeamName]=useState("Our project");
  const [myName,setMyName]=useState("");
  const [packet,setPacket]=useState<CommonsPacket|null>(null);
@@ -506,7 +506,7 @@ export default function CommonsDesk(){
     onOpenLan={()=>setTransportMode("lan")}
     onOpenPublic={()=>setTransportMode("public")}
     onProbe={()=>void runP2pProbe()}
-    onSystemHealth={()=>window.dispatchEvent(new CustomEvent("sentinel:navigate",{detail:{view:"system-health"}}))}
+    onSystemHealth={()=>onOpenTool("system-health")}
    />}
   {transportMode==="public"&&<div className="panel" data-testid="commons-public-research" style={{marginTop:16}}>
    <p className="eyebrow">P2P RESEARCH · OPT-IN · NO FILE TRANSFER</p>
