@@ -581,7 +581,7 @@ test("Quick office TXT draft is opened locally, cleaned and saved as real TXT wi
   const draft=Buffer.from("\ufeff  合同   草稿\r\n下一个  章节\r\n","utf8");
   await page.getByTestId("quick-draft-file").setInputFiles({name:"会议.md",mimeType:"text/markdown",buffer:draft});
   await page.waitForFunction(()=>document.querySelector("#quick-text-input")?.value.includes("合同"));
-  assert.equal(await page.locator("#quick-text-input").inputValue(),"  合同   草稿\r\n下一个  章节\r\n");
+  assert.equal(await page.locator("#quick-text-input").inputValue(),"  合同   草稿\n下一个  章节\n");
   assert.equal(await page.locator("#quick-result").inputValue(),"合同 草稿\n下一个 章节\n");
   assert.match(await page.locator('section[aria-label="Quick Tools"] p[role="status"]').last().innerText(),/Loaded .*UTF-8 locally/);
   const pending=page.waitForEvent("download",{timeout:30000});
@@ -594,7 +594,7 @@ test("Quick office TXT draft is opened locally, cleaned and saved as real TXT wi
    name:"binary.txt",mimeType:"text/plain",buffer:Buffer.from([0,1,2,3])
   });
   assert.match(await page.locator('section[aria-label="Quick Tools"] p[role="status"]').last().innerText(),/Existing text preserved/);
-  assert.equal(await page.locator("#quick-text-input").inputValue(),"  合同   草稿\r\n下一个  章节\r\n");
+  assert.equal(await page.locator("#quick-text-input").inputValue(),"  合同   草稿\n下一个  章节\n");
   assert.deepEqual(errors,[]);
  }finally{await page.close();await browser.close();}
 });
@@ -614,8 +614,15 @@ test("Quick replace and case tools read real Windows UTF-16LE files without losi
   await page.waitForFunction(()=>Array.from(document.querySelectorAll("textarea")).some(el=>el.value.includes("编号: 00123")));
   await page.getByRole("textbox",{name:"Find",exact:true}).fill("张三");
   await page.getByRole("textbox",{name:"Replace with"}).fill("李四");
-  assert.equal(await page.locator("#quick-result").inputValue(),"编号: 00123\r\n客户: 李四");
-  assert.match(await page.locator('section[aria-label="Quick Tools"] p[role="status"]').last().innerText(),/UTF-16LE/);
+  assert.equal(await page.locator("#quick-result").inputValue(),"编号: 00123\n客户: 李四");
+  // The browser textarea normalizes CRLF for display; the exported bytes should retain
+  // the original Windows newline style until the user explicitly edits the textarea.
+  const queued=page.waitForEvent("download",{timeout:30000});
+  await page.getByRole("button",{name:"Save as TXT"}).click();
+  const exported=await queued;assert.equal(exported.suggestedFilename(),"replaced-text.txt");
+  const exportPath=path.join(dir,"windows-utf16-replaced.txt");await exported.saveAs(exportPath);
+  assert.equal(fs.readFileSync(exportPath,"utf8"),"编号: 00123\r\n客户: 李四");
+  assert.match(await page.locator('section[aria-label="Quick Tools"] p[role="status"]').last().innerText(),/Saved locally/);
   await page.getByRole("group",{name:"Quick tool"}).getByRole("button",{name:/Case & width/}).click();
   await page.getByTestId("quick-draft-file").setInputFiles({name:"Mixed.TXT",mimeType:"text/plain",buffer:Buffer.from("ａｂｃ  00123\n","utf8")});
   await page.waitForFunction(()=>document.querySelector("#quick-case-source")?.value.includes("00123"));
