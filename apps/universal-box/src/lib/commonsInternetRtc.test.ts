@@ -1,5 +1,5 @@
 import {describe,it,expect} from "vitest";
-import {decodeDirectSignal,encodeDirectSignal,readDirectFingerprint,validDirectChatText,buildCommonsIceServers} from "./commonsInternetRtc";
+import {decodeDirectSignal,encodeDirectSignal,readDirectFingerprint,validDirectChatText,buildCommonsIceServers,summarizeCommonsIceRoute} from "./commonsInternetRtc";
 const F="AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99";
 const sdp="v=0\r\no=- 123 2 IN IP4 127.0.0.1\r\nm=application 9 UDP/DTLS/SCTP webrtc-datachannel\r\na=fingerprint:sha-256 "+F+"\r\n";
 describe("Public WebRTC manual signaling and privacy boundaries",()=>{
@@ -50,5 +50,27 @@ describe("User-owned TURN relay configuration",()=>{
   ])expect(()=>buildCommonsIceServers({...c,turnUrl:address}),address).toThrow();
   expect(()=>buildCommonsIceServers({...c,turnUsername:""})).toThrow(/username/);
   expect(()=>buildCommonsIceServers({...c,turnCredential:""})).toThrow(/credential/);
+ });
+});
+
+describe("Actual chosen ICE candidate route reporting",()=>{
+ const report=(local:string,remote:string):RTCStatsReport=>new Map([
+  ["transport",{id:"transport",type:"transport",selectedCandidatePairId:"pair"}],
+  ["pair",{id:"pair",type:"candidate-pair",localCandidateId:"local",remoteCandidateId:"remote"}],
+  ["local",{id:"local",type:"local-candidate",candidateType:local}],
+  ["remote",{id:"remote",type:"remote-candidate",candidateType:remote}],
+ ]) as unknown as RTCStatsReport;
+ it("detects TURN only if the selected candidate pair uses relay",()=>{
+  expect(summarizeCommonsIceRoute(report("relay","host")).kind).toBe("relay");
+  expect(summarizeCommonsIceRoute(report("srflx","relay")).kind).toBe("relay");
+  expect(summarizeCommonsIceRoute(report("host","srflx"))).toEqual({
+   kind:"direct",localType:"host",remoteType:"srflx",
+  });
+ });
+ it("reports unknown rather than guessing when stats cannot identify a chosen pair",()=>{
+  expect(summarizeCommonsIceRoute(new Map() as unknown as RTCStatsReport)).toEqual({
+   kind:"unknown",localType:"unknown",remoteType:"unknown",
+  });
+  expect(summarizeCommonsIceRoute(report("unexpected","host")).kind).toBe("unknown");
  });
 });
