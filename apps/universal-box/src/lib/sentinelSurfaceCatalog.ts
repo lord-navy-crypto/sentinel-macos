@@ -254,3 +254,310 @@ export const SENTINEL_BASE_EXTRA_CARDS:readonly SentinelSurfaceItem[]=[
     "lens": "limits"
   }
 ];
+
+/** Actual original Go API routes not mirrored by a fixed native GET read key.
+ * These are a **directory** only; never dispatched by React through a generic HTTP bridge.
+ * Some routes are parameterized, mutating, export-producing or require approval.
+ */
+export const SENTINEL_ADVANCED_API_DIRECTORY=[
+  {
+    "path": "/api/resource/explain",
+    "title": "资源指标含义与趋势解释",
+    "group": "文件与资源维护",
+    "access": "original-webview"
+  },
+  {
+    "path": "/api/maintenance/large-files",
+    "title": "大文件空间分析",
+    "group": "文件与资源维护",
+    "access": "original-webview"
+  },
+  {
+    "path": "/api/maintenance/duplicates",
+    "title": "重复文件调查",
+    "group": "文件与资源维护",
+    "access": "original-webview"
+  },
+  {
+    "path": "/api/maintenance/app-footprint",
+    "title": "应用占用空间分析",
+    "group": "文件与资源维护",
+    "access": "original-webview"
+  },
+  {
+    "path": "/api/maintenance/old-files",
+    "title": "旧文件分析",
+    "group": "文件与资源维护",
+    "access": "original-webview"
+  },
+  {
+    "path": "/api/maintenance/downloads",
+    "title": "下载目录维护",
+    "group": "文件与资源维护",
+    "access": "original-webview"
+  },
+  {
+    "path": "/api/maintenance/history/settings",
+    "title": "资源历史记录设置",
+    "group": "文件与资源维护",
+    "access": "original-webview"
+  },
+  {
+    "path": "/api/maintenance/history/sample",
+    "title": "保存当前资源采样",
+    "group": "文件与资源维护",
+    "access": "original-webview"
+  },
+  {
+    "path": "/api/maintenance/history/read",
+    "title": "历史采样查询",
+    "group": "文件与资源维护",
+    "access": "original-webview"
+  },
+  {
+    "path": "/api/system/query",
+    "title": "自定义系统查询",
+    "group": "系统配置与专项服务",
+    "access": "original-webview"
+  },
+  {
+    "path": "/api/system/query/structured",
+    "title": "结构化系统查询",
+    "group": "系统配置与专项服务",
+    "access": "original-webview"
+  },
+  {
+    "path": "/api/system/object/inspect",
+    "title": "系统对象深度检查",
+    "group": "系统配置与专项服务",
+    "access": "original-webview"
+  },
+  {
+    "path": "/api/search",
+    "title": "通用证据搜索",
+    "group": "系统配置与专项服务",
+    "access": "native-search"
+  },
+  {
+    "path": "/api/search/deep",
+    "title": "深度文件搜索",
+    "group": "深入调查与报告",
+    "access": "original-webview"
+  },
+  {
+    "path": "/api/search/command",
+    "title": "系统命令面板",
+    "group": "深入调查与报告",
+    "access": "original-webview"
+  },
+  {
+    "path": "/api/weakness-audit",
+    "title": "系统弱点审计",
+    "group": "系统配置与专项服务",
+    "access": "original-webview"
+  },
+  {
+    "path": "/api/guided-snapshot",
+    "title": "向导式证据快照",
+    "group": "系统配置与专项服务",
+    "access": "original-webview"
+  },
+  {
+    "path": "/api/launch-services/detail",
+    "title": "启动服务详情",
+    "group": "系统配置与专项服务",
+    "access": "original-webview"
+  },
+  {
+    "path": "/api/storage/scan",
+    "title": "存储目录扫描",
+    "group": "文件与资源维护",
+    "access": "original-webview"
+  },
+  {
+    "path": "/api/storage/cancel",
+    "title": "取消存储扫描",
+    "group": "文件与资源维护",
+    "access": "original-webview"
+  },
+  {
+    "path": "/api/security/audit",
+    "title": "安全审计",
+    "group": "深入调查与报告",
+    "access": "original-webview"
+  },
+  {
+    "path": "/api/security/investigate",
+    "title": "继续深入调查",
+    "group": "深入调查与报告",
+    "access": "original-webview"
+  },
+  {
+    "path": "/api/security/context",
+    "title": "调查上下文",
+    "group": "深入调查与报告",
+    "access": "original-webview"
+  },
+  {
+    "path": "/api/security/investigation/export",
+    "title": "导出调查包",
+    "group": "深入调查与报告",
+    "access": "original-webview"
+  },
+  {
+    "path": "/api/process/detail",
+    "title": "进程详情",
+    "group": "深入调查与报告",
+    "access": "original-webview"
+  },
+  {
+    "path": "/api/report/export",
+    "title": "导出系统报告",
+    "group": "深入调查与报告",
+    "access": "original-webview"
+  },
+  {
+    "path": "/api/cleanup/preview",
+    "title": "清理操作预览",
+    "group": "系统配置与专项服务",
+    "access": "original-webview"
+  },
+  {
+    "path": "/api/object/story",
+    "title": "对象事件故事",
+    "group": "深入调查与报告",
+    "access": "original-webview"
+  },
+  {
+    "path": "/api/object/story/v2",
+    "title": "高级对象故事分析",
+    "group": "深入调查与报告",
+    "access": "original-webview"
+  },
+  {
+    "path": "/api/trust/capture",
+    "title": "创建信任参考点",
+    "group": "安全审批与恢复",
+    "access": "original-webview"
+  },
+  {
+    "path": "/api/trust/compare",
+    "title": "信任基线比较",
+    "group": "安全审批与恢复",
+    "access": "original-webview"
+  },
+  {
+    "path": "/api/trust/restore",
+    "title": "恢复信任参考点",
+    "group": "安全审批与恢复",
+    "access": "original-webview"
+  },
+  {
+    "path": "/api/trust/export",
+    "title": "导出信任基线",
+    "group": "安全审批与恢复",
+    "access": "original-webview"
+  },
+  {
+    "path": "/api/diagnostics/export",
+    "title": "导出诊断数据",
+    "group": "深入调查与报告",
+    "access": "original-webview"
+  },
+  {
+    "path": "/api/integrity/inspect",
+    "title": "对象完整性检查",
+    "group": "深入调查与报告",
+    "access": "original-webview"
+  },
+  {
+    "path": "/api/self/integrity",
+    "title": "自身完整性检查",
+    "group": "系统配置与专项服务",
+    "access": "original-webview"
+  },
+  {
+    "path": "/api/actions/preview",
+    "title": "安全操作预览与确认",
+    "group": "安全审批与恢复",
+    "access": "original-webview"
+  },
+  {
+    "path": "/api/actions/execute",
+    "title": "执行审批后的安全操作",
+    "group": "安全审批与恢复",
+    "access": "original-webview"
+  },
+  {
+    "path": "/api/actions/vault/isolation",
+    "title": "保管库隔离操作",
+    "group": "安全审批与恢复",
+    "access": "original-webview"
+  },
+  {
+    "path": "/api/actions/reveal",
+    "title": "定位隔离或原始对象",
+    "group": "安全审批与恢复",
+    "access": "original-webview"
+  },
+  {
+    "path": "/api/changes/start",
+    "title": "启动变化监控",
+    "group": "安全审批与恢复",
+    "access": "original-webview"
+  },
+  {
+    "path": "/api/changes/stop",
+    "title": "停止变化监控",
+    "group": "安全审批与恢复",
+    "access": "original-webview"
+  },
+  {
+    "path": "/api/changes/clear",
+    "title": "清除本次变化事件",
+    "group": "安全审批与恢复",
+    "access": "original-webview"
+  },
+  {
+    "path": "/api/changes/review",
+    "title": "针对性变化审查",
+    "group": "安全审批与恢复",
+    "access": "original-webview"
+  },
+  {
+    "path": "/api/changes/reconcile",
+    "title": "变化证据核对",
+    "group": "安全审批与恢复",
+    "access": "original-webview"
+  },
+  {
+    "path": "/api/incidents",
+    "title": "异常事件列表",
+    "group": "系统配置与专项服务",
+    "access": "original-webview"
+  },
+  {
+    "path": "/api/incidents/detail",
+    "title": "异常事件深度详情",
+    "group": "深入调查与报告",
+    "access": "original-webview"
+  },
+  {
+    "path": "/api/incidents/export",
+    "title": "导出异常事件",
+    "group": "深入调查与报告",
+    "access": "original-webview"
+  },
+  {
+    "path": "/api/readiness",
+    "title": "运行准备情况检查",
+    "group": "系统配置与专项服务",
+    "access": "original-webview"
+  },
+  {
+    "path": "/api/ai/openguin/advisory",
+    "title": "本地智能分析建议",
+    "group": "系统配置与专项服务",
+    "access": "original-webview"
+  }
+] as const;
