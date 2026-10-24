@@ -399,7 +399,7 @@ export default function App() {
           <span aria-hidden="true">⌕</span><span>搜索工具</span><kbd>⌘ K</kbd>
         </button>
         <nav aria-label="Sentinel Box workspaces" className="sidebar-nav">
-          {navigationGroups.map((group,index)=><details className="nav-group" key={group.title+"-"+group.items.includes(view)} defaultOpen={index===0||group.items.includes(view)}>
+          {navigationGroups.map((group,index)=><details className="nav-group" key={group.title+"-"+group.items.includes(view)} open={index===0||group.items.includes(view)||undefined}>
             <summary className="nav-label">{group.title}</summary>
             {group.items.map(id=>{
               const item=menu.find(value=>value.id===id)!;
