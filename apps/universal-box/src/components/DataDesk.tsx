@@ -2,7 +2,7 @@ import {type ChangeEvent,useMemo,useState} from "react";
 import {csvRows} from "./EverydayTools";
 import {exportFile} from "../lib/output";
 import {mergeCsvSources,mergedCsvExport,type MergedCsv} from "../lib/csvMerge";
-import {filterSortTable,makeDataTable,tableToCsv,tableToTsv,tableToJson,tableToMarkdown,type DataTable} from "../lib/tableTools";
+import {filterSortTable,replaceTableCells,makeDataTable,tableToCsv,tableToTsv,tableToJson,tableToMarkdown,type DataTable} from "../lib/tableTools";
 
 export default function DataDesk(){
   const [source,setSource]=useState("Name,Score,Class\nAda,95,A\nBob,88,B\nCara,96,A");
@@ -15,12 +15,24 @@ export default function DataDesk(){
   const [descending,setDescending]=useState(false);
   const [unique,setUnique]=useState(false);
   const [removeEmptyRows,setRemoveEmptyRows]=useState(false);
+  const [replaceEnabled,setReplaceEnabled]=useState(false);
+  const [cellFind,setCellFind]=useState("");
+  const [cellReplacement,setCellReplacement]=useState("");
+  const [replaceColumn,setReplaceColumn]=useState(-1);
   const [status,setStatus]=useState("");
   const [merged,setMerged]=useState<MergedCsv|null>(null);
   const [mergeNames,setMergeNames]=useState<string[]>([]);
 
   const visible=useMemo(()=>table?filterSortTable(table,filter,filterColumn<0?null:filterColumn,sortColumn<0?null:sortColumn,descending,unique,removeEmptyRows):null,
     [table,filter,filterColumn,sortColumn,descending,unique,removeEmptyRows]);
+  const editPreview=useMemo(()=>{
+    if(!visible||!replaceEnabled)return {table:visible,matches:0,changedCells:0,error:""};
+    try{
+      const edited=replaceTableCells(visible,cellFind,cellReplacement,replaceColumn<0?null:replaceColumn);
+      return {...edited,error:""};
+    }catch(e){return {table:null,matches:0,changedCells:0,error:e instanceof Error?e.message:String(e)};}
+  },[visible,replaceEnabled,cellFind,cellReplacement,replaceColumn]);
+  const displayTable=editPreview.table;
   async function importData(event:ChangeEvent<HTMLInputElement>){
     const file=event.target.files?.[0];
     event.target.value="";
@@ -60,16 +72,16 @@ export default function DataDesk(){
       if(source.length>2_000_000)throw Error("Text exceeds the 2 MB limit.");
       const next=makeDataTable(csvRows(source,delimiter,true),header);
       setTable(next);
-      setFilter("");setFilterColumn(-1);setSortColumn(-1);setUnique(false);setRemoveEmptyRows(false);
+      setFilter("");setFilterColumn(-1);setSortColumn(-1);setUnique(false);setRemoveEmptyRows(false);setReplaceEnabled(false);setReplaceColumn(-1);setCellFind("");setCellReplacement("");
       setStatus("Loaded "+next.rows.length+" data rows and "+next.headers.length+" columns. No upload.");
     }catch(e){setStatus("Cannot read table: "+String(e instanceof Error?e.message:e));}
   }
   async function save(format:"csv"|"tsv"|"json"|"md"){
-    if(!visible)return;
+    if(!displayTable||editPreview.error)return;
     try{
-      const data=format==="csv"?tableToCsv(visible):format==="tsv"?"\ufeff"+tableToTsv(visible):format==="json"?tableToJson(visible):tableToMarkdown(visible);
+      const data=format==="csv"?tableToCsv(displayTable):format==="tsv"?"\ufeff"+tableToTsv(displayTable):format==="json"?tableToJson(displayTable):tableToMarkdown(displayTable);
       const saved=await exportFile("daily-desk-table."+format,data);
-      setStatus(saved?"Saved "+visible.rows.length+" visible rows as "+format.toUpperCase()+".":"Save cancelled.");
+      setStatus(saved?"Saved "+displayTable.rows.length+" visible rows as "+format.toUpperCase()+".":"Save cancelled.");
     }catch(e){setStatus("Export failed: "+String(e));}
   }
   return <section className="panel">
@@ -122,18 +134,48 @@ export default function DataDesk(){
         <label className="field-label"><input type="checkbox" checked={unique} onChange={e=>setUnique(e.target.checked)}/> Remove duplicate rows</label>
         <label className="field-label"><input type="checkbox" data-testid="table-remove-empty" checked={removeEmptyRows} onChange={e=>setRemoveEmptyRows(e.target.checked)}/> Exclude empty rows · 排除全空行</label>
       </div>
+      <div className="panel" data-testid="table-cell-replace">
+        <h4>Find & replace in table cells · 按列查找替换</h4>
+        <p className="subtle">Literal and case-sensitive, within data cells only. Choose one column or all columns. Search/filter/sort runs first; replacement affects only the current preview/export, never the imported CSV/TSV source or column headings. No regular expressions.</p>
+        <div className="tools-pair">
+          <label className="field-label" htmlFor="table-cell-find">Find · 查找
+            <input id="table-cell-find" data-testid="table-cell-find" className="field"
+              maxLength={1000} value={cellFind} onChange={e=>setCellFind(e.target.value)}
+              placeholder="旧部门名称"/>
+          </label>
+          <label className="field-label" htmlFor="table-cell-with">Replace with · 替换为（可留空删除）
+            <input id="table-cell-with" data-testid="table-cell-with" className="field"
+              maxLength={10000} value={cellReplacement} onChange={e=>setCellReplacement(e.target.value)}
+              placeholder="新部门名称"/>
+          </label>
+          <label className="field-label" htmlFor="table-replace-column">Column · 指定列
+            <select id="table-replace-column" className="field" data-testid="table-replace-column"
+              value={replaceColumn} onChange={e=>setReplaceColumn(Number(e.target.value))}>
+              <option value={-1}>All data columns</option>
+              {table.headers.map((name,index)=><option key={index} value={index}>{name}</option>)}
+            </select>
+          </label>
+          <label className="field-label">
+            <input type="checkbox" data-testid="table-replace-enable" checked={replaceEnabled}
+              onChange={e=>setReplaceEnabled(e.target.checked)}/> Preview changes in exports · 预览并用于导出
+          </label>
+        </div>
+        {editPreview.error?<p role="alert" data-testid="table-replace-error" className="subtle">{editPreview.error} Exports are paused until corrected or replacement preview is disabled.</p>:
+          replaceEnabled&&<p className="subtle" data-testid="table-replace-count">{editPreview.matches} replacements in {editPreview.changedCells} cells (visible rows only). Turn off the checkbox to revert this preview.</p>}
+      </div>
       <div style={{overflowX:"auto",maxHeight:"440px",overflowY:"auto",border:"1px solid var(--line, #cbd5e1)",borderRadius:"8px"}}>
         <table style={{borderCollapse:"collapse",width:"100%",fontSize:13}}>
-          <thead><tr>{visible.headers.map((name,index)=><th key={index} scope="col" style={{padding:8,textAlign:"left",borderBottom:"1px solid #94a3b8",whiteSpace:"nowrap"}}>{name}</th>)}</tr></thead>
-          <tbody>{visible.rows.slice(0,80).map((row,index)=><tr key={index}>{row.map((value,i)=><td key={i} style={{padding:8,borderBottom:"1px solid #e2e8f0",maxWidth:340,overflowWrap:"anywhere"}}>{value}</td>)}</tr>)}</tbody>
+          <thead><tr>{displayTable?.headers.map((name,index)=><th key={index} scope="col" style={{padding:8,textAlign:"left",borderBottom:"1px solid #94a3b8",whiteSpace:"nowrap"}}>{name}</th>)}</tr></thead>
+          <tbody>{displayTable?.rows.slice(0,80).map((row,index)=><tr key={index}>{row.map((value,i)=><td key={i} style={{padding:8,borderBottom:"1px solid #e2e8f0",maxWidth:340,overflowWrap:"anywhere"}}>{value}</td>)}</tr>)}</tbody>
         </table>
       </div>
-      {visible.rows.length>80&&<p className="subtle">Showing the first 80 rows for responsiveness. Exports include all {visible.rows.length} filtered rows.</p>}
+      {displayTable&&displayTable.rows.length>80&&<p className="subtle">Showing the first 80 rows for responsiveness. Exports include all {displayTable.rows.length} filtered rows.</p>}
       <div className="actions">
-        <button className="secondary-button" type="button" onClick={()=>{void save("csv");}}>Save CSV</button>
-        <button className="secondary-button" data-testid="table-save-tsv" type="button" onClick={()=>{void save("tsv");}}>Save TSV (Excel)</button>
-        <button className="secondary-button" type="button" onClick={()=>{void save("json");}}>Save JSON</button>
-        <button className="secondary-button" type="button" onClick={()=>{void save("md");}}>Save Markdown</button>
+        {editPreview.error&&<p className="subtle">Fix the find/replace settings or turn off preview to enable exports.</p>}
+        <button disabled={!displayTable} className="secondary-button" type="button" onClick={()=>{void save("csv");}}>Save CSV</button>
+        <button className="secondary-button" data-testid="table-save-tsv" type="button" disabled={!displayTable} onClick={()=>{void save("tsv");}}>Save TSV (Excel)</button>
+        <button className="secondary-button" type="button" disabled={!displayTable} onClick={()=>{void save("json");}}>Save JSON</button>
+        <button className="secondary-button" type="button" disabled={!displayTable} onClick={()=>{void save("md");}}>Save Markdown</button>
       </div>
       <p className="subtle">CSV and TSV exports protect formula-like values, quote embedded line breaks/delimiters, and save to new files. TSV output includes a UTF-8 BOM to help Excel recognize Chinese text. The empty-row checkbox changes only the filtered preview/export, never the imported source.</p>
     </>}

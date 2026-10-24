@@ -47,6 +47,40 @@ export function filterSortTable(
   }
   return {headers:table.headers,rows};
 }
+/** Literal, case-sensitive find/replace inside DATA CELLS ONLY, never raw CSV syntax or headings.
+ * Returns a new table. Input table and original CSV text remain untouched.
+ */
+export function replaceTableCells(
+  table:DataTable,find:string,replacement:string,column:number|null=null,
+):{table:DataTable;matches:number;changedCells:number}{
+  const width=table.headers.length;
+  if(width<1||width>100||table.rows.length>2000)throw Error("Table exceeds the safe replacement limit.");
+  if(!find||find.length>1000||replacement.length>10000||
+    /[\u0000-\u001f\u007f]/u.test(find)||
+    /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(replacement))
+    throw Error("Enter printable literal find (1–1,000) and replacement (up to 10,000) without unsafe control characters.");
+  if(column!==null&&(!Number.isSafeInteger(column)||column<0||column>=width))
+    throw Error("Invalid replacement column.");
+  let matches=0,changedCells=0,totalChars=0;
+  const rows=table.rows.map(row=>row.map((cell,i)=>{
+    let next=cell;
+    if(column===null||column===i){
+      const count=cell.split(find).length-1;
+      if(count){
+        matches+=count;
+        if(matches>10000)throw Error("Too many replacement matches (10,000 maximum).");
+        next=cell.split(find).join(replacement);
+        if(next.length>20000)throw Error("A transformed table cell exceeds 20,000 characters.");
+        if(next!==cell)changedCells++;
+      }
+    }
+    totalChars+=next.length;
+    if(totalChars>2_500_000)throw Error("Transformed table exceeds the 2.5-million-character export limit.");
+    return next;
+  }));
+  return {table:{headers:[...table.headers],rows},matches,changedCells};
+}
+
 function neutralizeFormula(cell:string):string {
   // Prevent CSV formula execution by Excel/Numbers when opening exported, untrusted text data.
   return /^[\s\uFEFF]*[=+@]/u.test(cell)||/^[\s\uFEFF]*-(?!\d+(?:\.\d+)?$)/u.test(cell)?"'"+cell:cell;
