@@ -413,6 +413,35 @@ mod tests {
     assert_eq!(valid.messages[0].text,"返校");
  }
  #[test]
+ fn expired_member_can_resume_retained_history_with_new_token_and_same_invite() {
+    let mut data=new_room();
+    let first=apply_request(&mut data,request("Alex",None,true,false,None,None,0)).unwrap();
+    let old_token=first.session_token.unwrap();
+    let other=apply_request(&mut data,request("Blair",None,true,false,None,None,0)).unwrap();
+    let blair=other.session_token.unwrap();
+    let initial=apply_request(&mut data,request("Alex",Some(&old_token),false,false,
+        Some("before outage"),Some("initial-00000000000001"),0)).unwrap();
+    assert_eq!(initial.latest_seq,1);
+    data.presence.get_mut("Alex").unwrap().last_seen=Instant::now()-Duration::from_secs(21);
+    let posted=apply_request(&mut data,request("Blair",Some(&blair),false,false,
+        Some("during outage"),Some("outage-00000000000001"),1)).unwrap();
+    assert_eq!(posted.latest_seq,2);
+    assert!(apply_request(&mut data,request("Alex",Some(&old_token),false,false,None,None,1)).is_err());
+    let fresh=apply_request(&mut data,request("Alex",None,true,false,None,None,1)).unwrap();
+    assert_ne!(fresh.session_token.as_deref(),Some(old_token.as_str()));
+    assert_eq!(fresh.oldest_seq,1);
+    assert_eq!(fresh.latest_seq,2);
+    assert_eq!(fresh.messages.len(),1);
+    assert_eq!(fresh.messages[0].text,"during outage");
+    assert_eq!(fresh.messages[0].seq,2);
+    let current=fresh.session_token.as_deref().unwrap();
+    let replay=apply_request(&mut data,request("Alex",Some(current),false,false,
+        Some("before outage"),Some("initial-00000000000001"),2)).unwrap();
+    assert_eq!(replay.latest_seq,2,"a retried message with the original ID must not be doubled");
+    assert!(apply_request(&mut data,request("Alex",Some(&old_token),false,false,
+        Some("unexpected"),Some("new-forged-000000001"),2)).is_err());
+ }
+ #[test]
  fn bounded_history_and_member_limits_are_enforced() {
     let mut data=new_room();
     assert!(apply_request(&mut data,request("\n",None,true,false,None,None,0)).is_err());
