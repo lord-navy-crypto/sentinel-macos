@@ -173,7 +173,7 @@ test("Commons UI separates offline room, explicit LAN steps and opt-in public di
   assert.equal(await fullInvite.getAttribute("type"),"password");
   await page.getByRole("group",{name:"LAN transfer direction"}).getByRole("button",{name:/发送/}).click();
   assert.match(await section.innerText(),/先创建或导入一个团队空间/);
-  await page.getByRole("group",{name:"Communication transport"}).getByRole("button",{name:/公网诊断/}).click();
+  await page.getByRole("group",{name:"Communication transport"}).getByRole("button",{name:/公网 · 直连实验/}).click();
   assert.equal(await page.locator('[data-testid="commons-lan-workflow"]').count(),0);
   assert.equal(await page.locator('[data-testid="commons-public-research"]').count(),1);
   assert.equal(await page.getByRole("button",{name:/STUN 映射对比/}).isDisabled(),true);
@@ -205,10 +205,34 @@ test("Commons LAN group chat has safe native-only Create and Join controls with 
   assert.equal(await join.isDisabled(),true,"A public-IP URL cannot be accepted as a LAN invite");
   await page.getByTestId("chat-join-invite").fill("uboxchat://192.168.1.33:45678/"+"A".repeat(43));
   assert.equal(await join.isDisabled(),true,"A syntactically valid invite must still need native execution");
-  await page.getByRole("group",{name:"Communication transport"}).getByRole("button",{name:/公网诊断/}).click();
+  await page.getByRole("group",{name:"Communication transport"}).getByRole("button",{name:/公网 · 直连实验/}).click();
   assert.equal(await panel.isVisible(),false,"Group chat should be hidden on the separate public research screen");
   await page.getByRole("group",{name:"Communication transport"}).getByRole("button",{name:/局域网发送与接收/}).click();
   assert.equal(await panel.isVisible(),true);
+  assert.deepEqual(errors,[]);
+ }finally{await page.close();await browser.close();}
+});
+
+test("Public Internet WebRTC direct UI requires deliberate signaling and explicit STUN consent",{timeout:75000},async()=>{
+ const browser=await chromium.launch({headless:true,args:["--no-sandbox"]});
+ const page=await openApp(browser);const errors=[];page.on("pageerror",e=>errors.push(e.message));
+ try{
+  await page.locator('.sidebar button.nav-item[aria-label^="Universal Commons"]').click();
+  await page.getByRole("group",{name:"Communication transport"}).getByRole("button",{name:/公网 · 直连实验/}).click();
+  const direct=page.getByRole("region",{name:"Experimental internet direct chat"});
+  await direct.waitFor();
+  assert.equal(await direct.getByTestId("p2p-stun-opt-in").isChecked(),false,"No public STUN contact without opt-in");
+  assert.match(await direct.innerText(),/没有 TURN 中继/);
+  assert.equal(await direct.getByTestId("p2p-offer").isDisabled(),true);
+  await direct.getByTestId("p2p-nickname").fill("测试用户");
+  assert.equal(await direct.getByTestId("p2p-offer").isDisabled(),false);
+  assert.equal(await direct.getByTestId("p2p-answer").isDisabled(),true);
+  await direct.getByTestId("p2p-remote-description").fill("unsafe URL");
+  assert.equal(await direct.getByTestId("p2p-answer").isDisabled(),false,"SDP parse errors should be shown on deliberate click");
+  await direct.getByTestId("p2p-answer").click();
+  await page.waitForFunction(()=>document.querySelector('[data-testid="p2p-status"]')?.textContent?.includes("无法应答连接"));
+  assert.match(await direct.getByTestId("p2p-status").innerText(),/完整 JSON/);
+  assert.equal(await direct.getByTestId("p2p-local-description").count(),0);
   assert.deepEqual(errors,[]);
  }finally{await page.close();await browser.close();}
 });
