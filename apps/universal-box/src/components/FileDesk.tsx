@@ -151,6 +151,19 @@ export default function FileDesk({ onSendToWriting, initialTab = "pdf", initialP
     setStatus("Updated merge order. Review the list before saving your combined PDF.");
   }
 
+  function excludeMergeInput(index:number){
+    if(busy||pdfMode!=="merge"||!mergePlan||files.length!==mergePlan.files.length)return;
+    const removed=mergePlan.files[index];
+    if(!removed)return;
+    const remaining=files.filter((_,i)=>i!==index);
+    const items=mergePlan.files.filter((_,i)=>i!==index);
+    setFiles(remaining);
+    setMergePlan(remaining.length?{...mergePlan,files:items,
+      totalPages:mergePlan.totalPages-removed.pages,sourceBytes:mergePlan.sourceBytes-removed.sourceBytes}:null);
+    setPdfCount(items[0]?.pages??0);setPages(items.length?"1-"+items[0].pages:"1-");
+    setStatus("Excluded "+removed.name+" from this merge only. The file on disk was not changed.");
+  }
+
   async function processPdf() {
     if (!files.length) return;
     setBusy(true);
@@ -315,8 +328,10 @@ export default function FileDesk({ onSendToWriting, initialTab = "pdf", initialP
               disabled={busy||i===0} onClick={()=>moveMergeInput(i,-1)}>↑ Up</button>
             <button type="button" className="secondary-button" aria-label={"Move file "+(i+1)+" down"}
               disabled={busy||i===mergePlan.files.length-1} onClick={()=>moveMergeInput(i,1)}>↓ Down</button>
+            <button type="button" className="secondary-button" aria-label={"Exclude file "+(i+1)+" from merge"}
+              disabled={busy} onClick={()=>excludeMergeInput(i)}>Exclude</button>
           </div>)}
-          <p className="subtle">Use Up / Down to put source PDFs in the intended order before saving. All pages from each PDF are appended as a group. The output PDF is reopened to verify page count, page geometry and rotation in this exact order. Merging can increase size, and page copying may affect advanced forms or signatures; original files remain unchanged.</p>
+          <p className="subtle">Use Up / Down or Exclude to adjust the selected PDFs before saving. Exclude does not delete anything from disk. All pages from each PDF are appended as a group. The output PDF is reopened to verify page count, page geometry and rotation in this exact order. Merging can increase size, and page copying may affect advanced forms or signatures; original files remain unchanged.</p>
         </section>}
         {(pdfMode === "split" || pdfMode === "rotate" || pdfMode === "organize") && <><label className="field-label" htmlFor="pdf-pages">{pdfMode === "organize" ? "Pages in desired order (e.g. 3,1,2,5-8). Omit pages to remove them." : "Pages (e.g. 1-3,5,7-)"}</label><input id="pdf-pages" className="field" disabled={busy} value={pages} onChange={(e) => setPages(e.target.value)} /></>}
         {pdfMode === "organize" && <>
