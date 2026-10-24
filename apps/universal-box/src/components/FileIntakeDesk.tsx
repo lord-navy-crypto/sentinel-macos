@@ -1,6 +1,7 @@
 import {useEffect,useRef,useState,type ChangeEvent,type DragEvent} from "react";
 import {exportFile} from "../lib/output";
 import {preflightFiles,excludeStagedFile} from "../lib/intakePreflight";
+import {consumeFilesForIntake} from "../lib/pendingFileIntake";
 import {
  compareChecksumManifest,createChecksumManifest,parseChecksumManifest,
  type ChecksumEntry,type ComparisonStatus
@@ -56,6 +57,13 @@ export default function FileIntakeDesk({onOpenTool}:Props){
   setProgress({done:0,total:incoming.length});
   setNotice("已准备 "+incoming.length+" 个文件。请先检查文件名与大小，然后点击开始扫描。");
  }
+ // Consume an explicit home-page drop once. Never automatically scan dropped files.
+ useEffect(()=>{
+  const files=consumeFilesForIntake();
+  if(files.length)stage(files);
+ // Stage is intentionally mount-only: the user controls subsequent scan and output.
+ // eslint-disable-next-line react-hooks/exhaustive-deps
+ },[]);
  async function inspect(){
   const incoming=staged;
   if(!incoming.length||busy)return;
