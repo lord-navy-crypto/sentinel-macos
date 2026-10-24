@@ -494,6 +494,55 @@ mod tests {
         sender.join().unwrap();
     }
     #[test]
+    fn sender_encrypted_payload_progress_is_bounded_monotonic_and_finishes() {
+        let listener=TcpListener::bind(("127.0.0.1",0)).unwrap();
+        let addr=listener.local_addr().unwrap();
+        let key=[31_u8;32];
+        let mut payload=b"PK\x03\x04".to_vec();
+        payload.extend(vec![17_u8;410_000]);
+        let target=payload.clone();
+        let sender=thread::spawn(move || {
+            let (socket,_)=listener.accept().unwrap();
+            let mut last=0_usize;
+            let mut count=0;
+            transmit_with_progress(socket,&key,&payload,&AtomicBool::new(false),|sent,total|{
+                assert!(sent>=last && sent<=total);
+                assert_eq!(total,payload.len()+16);
+                last=sent;count+=1;
+            }).unwrap();
+            assert_eq!(last,payload.len()+16);
+            assert!(count>=4);
+        });
+        let invite=format!("uboxlan://{}/{}",addr,URL_SAFE_NO_PAD.encode(key));
+        let got=receive(&invite).unwrap();
+        assert_eq!(URL_SAFE_NO_PAD.decode(got).unwrap(),target);
+        sender.join().unwrap();
+    }
+    #[test]
+    fn stop_interrupts_an_already_authenticated_oversized_inflight_send() {
+        let listener=TcpListener::bind(("127.0.0.1",0)).unwrap();
+        let addr=listener.local_addr().unwrap();
+        let key=[27_u8;32];
+        let mut payload=b"PK\x03\x04".to_vec();
+        payload.extend(vec![9_u8;900_000]);
+        let cancelled=Arc::new(AtomicBool::new(false));
+        let flag=cancelled.clone();
+        let sender=thread::spawn(move || {
+            let (socket,_)=listener.accept().unwrap();
+            let mut sent=0;
+            let result=transmit_with_progress(socket,&key,&payload,flag.as_ref(),|n,_|{
+                sent=n;
+                if n>0 {flag.store(true,Ordering::SeqCst);}
+            });
+            (result,sent)
+        });
+        let invite=format!("uboxlan://{}/{}",addr,URL_SAFE_NO_PAD.encode(key));
+        assert!(receive(&invite).is_err(),"Truncated authenticated packet must be rejected");
+        let (result,sent)=sender.join().unwrap();
+        assert!(result.is_err(),"Cancelled active send must not claim completed");
+        assert_eq!(sent,SEND_BLOCK,"Stop after first block must prevent further ciphertext delivery");
+    }
+    #[test]
     fn authenticated_encrypted_local_roundtrip() {
         let listener=TcpListener::bind(("127.0.0.1",0)).unwrap();
         let ip=listener.local_addr().unwrap();
