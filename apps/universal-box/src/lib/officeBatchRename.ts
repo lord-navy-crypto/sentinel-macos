@@ -40,6 +40,20 @@ export function planOfficeBatchRename(inputs:readonly RenameSource[],options:Ren
   return {index,source:file.name,filename:output,size:file.size};
  });
 }
+/** Save an inspectable old→new table before exporting any file bytes.
+ * Excel-friendly UTF-8 BOM and formula-guarding only in CSV (not filenames).
+ */
+export function renamePlanCsv(plan:readonly RenamePlanRow[]):string{
+ if(plan.length<1||plan.length>50)throw Error("Plan must contain 1–50 rows.");
+ const csvCell=(raw:string|number):string=>{
+  const value=String(raw);
+  const guarded=/^\s*[=+\-@]/u.test(value)||/^[\t\r\n]/u.test(value)?"'"+value:value;
+  return '"'+guarded.replace(/"/gu,'""')+'"';
+ };
+ const header=["Original filename","Renamed copy","Bytes"];
+ const rows=[header,...plan.map(row=>[row.source,row.filename,row.size])];
+ return "\uFEFF"+rows.map(row=>row.map(csvCell).join(",")).join("\r\n")+"\r\n";
+}
 export function renamePlanManifest(plan:readonly RenamePlanRow[]):string{
  return JSON.stringify({kind:"sentinel-box-office-rename",version:1,
   files:plan.map(({source,filename,size})=>({originalName:source,renamedCopy:filename,size}))},null,2)+"\n";
