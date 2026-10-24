@@ -208,6 +208,51 @@ describe("offline batch office text utility",()=>{
     }
   });
 
+
+  it("collapses consecutive empty/space-only lines while preserving each surviving newline",()=>{
+    const source=input("minutes.txt","\ufeffA\r\n \t\r\n\r\nB\n\n\nC\r  \r\rD");
+    const saved=Uint8Array.from(source.bytes);
+    const row=processBatchTextFiles([source],"collapse-blank")[0];
+    expect(row.matches).toBe(3);
+    expect(Array.from(row.bytes.subarray(0,3))).toEqual([239,187,191]);
+    expect(d.decode(row.bytes.subarray(3))).toBe("A\r\n \t\r\nB\n\nC\r  \rD");
+    expect(source.bytes).toEqual(saved);
+    const again=processBatchTextFiles([input("x.txt",d.decode(row.bytes.subarray(3)))],"collapse-blank")[0];
+    expect(again.changed).toBe(false);
+  });
+  it("does not create phantom blank lines when an input has a final newline",()=>{
+    const unchanged=processBatchTextFiles([input("x.txt","A\r\n\r\nB\n")],"collapse-blank")[0];
+    expect(unchanged.changed).toBe(false);
+    expect(unchanged.matches).toBe(0);
+    const row=processBatchTextFiles([input("x.txt","A\r\n\n\n")],"collapse-blank")[0];
+    expect(d.decode(row.bytes)).toBe("A\r\n\n");
+    expect(row.matches).toBe(1);
+  });
+  it("replaces tabs with user-chosen fixed spaces only and keeps Chinese, emoji, BOM and EOL",async()=>{
+    const source=input("notes.txt","\ufeff甲\t😀\r\n\t第二项\n");
+    const saved=Uint8Array.from(source.bytes);
+    for(const count of [2,4,8] as const){
+      const row=processBatchTextFiles([source],"tabs-to-spaces","","","","",count)[0];
+      expect(row.matches).toBe(2);
+      expect(Array.from(row.bytes.subarray(0,3))).toEqual([239,187,191]);
+      expect(d.decode(row.bytes.subarray(3))).toBe("甲"+" ".repeat(count)+"😀\r\n"+" ".repeat(count)+"第二项\n");
+      const zip=await JSZip.loadAsync(await zipBatchTextResults([row],"tabs-to-spaces"),{checkCRC32:true});
+      const packed=await zip.file("processed/notes.txt")!.async("uint8array");
+      expect(packed).toEqual(row.bytes);
+    }
+    expect(source.bytes).toEqual(saved);
+    expect(processBatchTextFiles([input("none.txt","No tabs\n")],"tabs-to-spaces")[0].changed).toBe(false);
+  });
+  it("rejects unsupported markup/tabular file types, invalid widths and malformed UTF-8",()=>{
+    for(const mode of ["collapse-blank","tabs-to-spaces"] as const){
+      for(const extension of ["md","markdown","csv","tsv"]){
+        expect(()=>processBatchTextFiles([input("a."+extension,"A\n")],mode)).toThrow(/TXT-only/);
+      }
+    }
+    expect(()=>processBatchTextFiles([input("a.txt","a\tb")],"tabs-to-spaces","","","","",3 as 4)).toThrow(/2, 4 or 8/);
+    expect(()=>processBatchTextFiles([{name:"a.txt",bytes:Uint8Array.from([255])}],"collapse-blank")).toThrow(/invalid UTF-8/);
+  });
+
   it("packages changed copies only; JSON manifest and all exported bytes are verifiable",async()=>{
     const rows=processBatchTextFiles([
       input("报价.csv","旧价,5\r\n"),input("no-change.md","untouched"),
