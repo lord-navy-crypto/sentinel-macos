@@ -1,6 +1,6 @@
 import {useEffect,useRef,useState} from "react";
 import {decodeDirectSignal,encodeDirectSignal,finishIceGathering,
- readDirectFingerprint,validDirectChatText,buildCommonsIceServers} from "../lib/commonsInternetRtc";
+ readDirectFingerprint,validDirectChatText,buildCommonsIceServers,summarizeCommonsIceRoute,type IceRouteSummary} from "../lib/commonsInternetRtc";
 
 type Line={id:string;name:string;text:string;self:boolean};
 const errorText=(e:unknown)=>e instanceof Error?e.message:String(e);
@@ -15,6 +15,7 @@ export default function CommonsInternetDirectDesk(){
  const [turnUrl,setTurnUrl]=useState("");
  const [turnUsername,setTurnUsername]=useState("");
  const [turnCredential,setTurnCredential]=useState("");
+ const [icePath,setIcePath]=useState<IceRouteSummary|null>(null);
  const [name,setName]=useState("");
  const [remoteText,setRemoteText]=useState("");
  const [outgoing,setOutgoing]=useState("");
@@ -29,7 +30,7 @@ export default function CommonsInternetDirectDesk(){
  const stop=()=>{
   channelRef.current?.close();pcRef.current?.close();
   channelRef.current=null;pcRef.current=null;setConnected(false);setRole("");
-  setOutgoing("");setRemoteText("");setLocalFingerprint("");setRemoteFingerprint("");
+  setOutgoing("");setRemoteText("");setLocalFingerprint("");setRemoteFingerprint("");setIcePath(null);
   setLines([]);setTurnCredential("");setStatus("连接已关闭，临时消息和 TURN 凭证已清空。");
  };
  useEffect(()=>()=>{channelRef.current?.close();pcRef.current?.close();},[]);
@@ -52,7 +53,7 @@ export default function CommonsInternetDirectDesk(){
   };
  }
  function createConnection(){
-  pcRef.current?.close();channelRef.current=null;setConnected(false);setLines([]);
+  pcRef.current?.close();channelRef.current=null;setConnected(false);setLines([]);setIcePath(null);
   const servers=buildCommonsIceServers({publicStun:useStun,ownTurn,turnUrl,turnUsername,turnCredential});
   const peer=new RTCPeerConnection({iceServers:servers});
   pcRef.current=peer;
@@ -60,7 +61,11 @@ export default function CommonsInternetDirectDesk(){
   peer.onconnectionstatechange=()=>{
    if(pcRef.current!==peer)return;
    const state=peer.connectionState;
-   if(state==="failed")setStatus("ICE 连接失败：可能需要可用的 TURN 中继，或当前网络不允许连接。可断开后修改配置重试。");
+   if(state==="connected"){
+    void peer.getStats().then(report=>{
+     if(pcRef.current===peer)setIcePath(summarizeCommonsIceRoute(report));
+    }).catch(()=>{if(pcRef.current===peer)setIcePath(null);});
+   }else if(state==="failed")setStatus("ICE 连接失败：可能需要可用的 TURN 中继，或当前网络不允许连接。可断开后修改配置重试。");
    else if(state==="disconnected")setStatus("暂时断开，正在等待网络恢复。");
    else if(state==="closed")setConnected(false);
    else if(state==="connecting")setStatus("正在检查 P2P 直连候选地址…");
@@ -187,6 +192,12 @@ export default function CommonsInternetDirectDesk(){
    {remoteFingerprint&&<p className="subtle">对方 SDP 声明的指纹：{remoteFingerprint}（须经可信渠道核对，不能仅凭此字段建立身份信任）</p>}
   </div>}
   <p className="subtle" role="status" data-testid="p2p-status">{status}</p>
+  {connected&&<p className="subtle" role="status" data-testid="p2p-ice-route">
+   实际选中的 ICE 连接路径：{icePath?.kind==="relay"?"经过 TURN 中继":
+    icePath?.kind==="direct"?"点对点直连":"尚未能够确认候选路径"}
+   {icePath?.kind!=="unknown"&&icePath?(" · 本地 "+icePath.localType+" / 远端 "+icePath.remoteType):""}
+   。这里只显示候选类型，不显示双方 IP 或端口。
+  </p>}
   {connected&&<div>
    <div data-testid="p2p-history" role="log" aria-label="Direct peer messages"
     style={{maxHeight:240,overflowY:"auto",border:"1px solid var(--line,#cbd5e1)",borderRadius:10,padding:12}}>
