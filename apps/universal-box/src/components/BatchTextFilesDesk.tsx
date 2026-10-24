@@ -14,6 +14,8 @@ const OPS:{id:BatchTextMode;name:string}[]=[
   {id:"keep-matching",name:"Keep matching lines · 仅保留含关键词的行"},
   {id:"drop-matching",name:"Remove matching lines · 删除含关键词的行"},
   {id:"number-lines",name:"Number non-empty lines · 非空行自动编号"},
+  {id:"collapse-blank",name:"Collapse repeated blank lines (TXT) · 压缩连续空行"},
+  {id:"tabs-to-spaces",name:"Convert tabs to spaces (TXT) · Tab 转空格"},
   {id:"lf",name:"Convert newlines to LF · 转 Unix 换行"},
   {id:"crlf",name:"Convert newlines to CRLF · 转 Windows 换行"},
   {id:"remove-bom",name:"Remove UTF-8 BOM · 删除 UTF-8 BOM"},
@@ -29,14 +31,15 @@ export default function BatchTextFilesDesk(){
   const [replacement,setReplacement]=useState("");
   const [ruleText,setRuleText]=useState("");
   const [lineAffix,setLineAffix]=useState("");
+  const [tabWidth,setTabWidth]=useState<2|4|8>(4);
   const [busy,setBusy]=useState(false);
   const [status,setStatus]=useState("");
   const selection=useRef(0);
   const preview=useMemo(()=>{
     if(!files.length)return {rows:[],error:""};
-    try{return {rows:processBatchTextFiles(files,mode,find,replacement,ruleText,lineAffix),error:""};}
+    try{return {rows:processBatchTextFiles(files,mode,find,replacement,ruleText,lineAffix,tabWidth),error:""};}
     catch(e){return {rows:[],error:msg(e)};}
-  },[files,mode,find,replacement,ruleText,lineAffix]);
+  },[files,mode,find,replacement,ruleText,lineAffix,tabWidth]);
   const changed=preview.rows.filter(row=>row.changed);
   // Read-only source-file audit stays available even while an editing mode awaits input.
   const audit=useMemo(()=>files.length?auditTextFiles(files):[],[files]);
@@ -121,6 +124,15 @@ export default function BatchTextFilesDesk(){
           placeholder="例如：待办 / TODO"/>
       </label>
       <p className="subtle" data-testid="batch-filter-warning">This action uses exact, case-sensitive substring matching within each physical line, not regex. A file with no matches may yield an empty copy when keeping lines. Check the preview and byte counts before exporting. Works only on TXT/Markdown, not multiline CSV/TSV.</p>
+    </>}
+    {(mode==="collapse-blank"||mode==="tabs-to-spaces")&&<p className="subtle" data-testid="batch-whitespace-warning">TXT only. Markdown indentation and empty lines can control formatting; CSV/TSV may contain quoted multiline cells. Original files and all existing line endings remain untouched. Preview all transformed text before exporting a copy.</p>}
+    {mode==="tabs-to-spaces"&&<>
+      <label className="field-label" htmlFor="batch-tab-width">Spaces per TAB · 每个 Tab 替换为空格数</label>
+      <select className="field" id="batch-tab-width" data-testid="batch-tab-width"
+        value={tabWidth} onChange={e=>{setTabWidth(Number(e.target.value) as 2|4|8);setStatus("");}}>
+        <option value={2}>2 spaces</option><option value={4}>4 spaces</option><option value={8}>8 spaces</option>
+      </select>
+      <p className="subtle">Each TAB becomes a fixed number of spaces (not dynamic tab-stop alignment); existing CRLF/LF/CR remain byte-for-byte unchanged.</p>
     </>}
     {mode==="number-lines"&&<p className="subtle" data-testid="batch-number-warning">Numbers non-blank lines starting at 1 for each file (1. , 2. , …), preserving blank lines, indentation and original line endings. Existing list numbering is not detected; review Markdown formatting before export. CSV/TSV cannot use this mode.</p>}
     {(mode==="trim-trailing"||mode==="remove-blank"||mode==="dedupe-lines"||mode==="prefix-lines"||mode==="suffix-lines"||mode==="keep-matching"||mode==="drop-matching"||mode==="number-lines")&&<p className="subtle" data-testid="batch-line-warning">Line cleaning is available for TXT and Markdown only. It preserves each surviving line's CRLF/LF/CR ending and original UTF-8 BOM. Use the CSV Table Desk for CSV/TSV, whose quoted fields may contain line breaks. Deduplication is exact and case-sensitive; review line order before exporting.</p>}
