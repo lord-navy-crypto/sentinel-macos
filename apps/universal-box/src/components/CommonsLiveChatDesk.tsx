@@ -23,6 +23,9 @@ export default function CommonsLiveChatDesk({visible}:{visible:boolean}){
  const [busy,setBusy]=useState(false);
  const [error,setError]=useState("");
  const [networkState,setNetworkState]=useState("");
+ const [connectionDown,setConnectionDown]=useState(false);
+ const [needsFreshSession,setNeedsFreshSession]=useState(false);
+ const [connectionEpoch,setConnectionEpoch]=useState(0);
  const cursor=useRef(0);
  const memberSession=useRef("");
  const session=useRef(0);
@@ -55,10 +58,16 @@ export default function CommonsLiveChatDesk({visible}:{visible:boolean}){
     hasMore=snapshot.hasMore;
    }while(hasMore&&pageCount<20);
    if(session.current!==revision)return;
-   setError("");
+   setError("");setConnectionDown(false);setNeedsFreshSession(false);
    setNetworkState(hasMore?"已连接 · 消息较多，下一轮继续同步":"已连接 · 最新可用群消息已同步");
   }catch(e){
-   if(session.current===revision){setNetworkState("与局域网群聊暂时失去连接");setError(messageError(e));}
+   if(session.current===revision){
+    const detail=messageError(e);
+    const expired=/Member not connected|Session token does not match|Join the room before polling/.test(detail);
+    setConnectionDown(true);if(expired)setNeedsFreshSession(true);
+    setNetworkState(expired?"局域网成员会话已过期 · 需要重新加入":"与局域网群聊暂时失去连接");
+    setError(detail);
+   }
   }finally{polling.current=false;}
  },[applySnapshot]);
  useEffect(()=>{
@@ -67,7 +76,7 @@ export default function CommonsLiveChatDesk({visible}:{visible:boolean}){
   void poll(activeInvite,nickname,revision);
   const id=window.setInterval(()=>void poll(activeInvite,nickname,revision),2500);
   return ()=>window.clearInterval(id);
- },[activeInvite,nickname,native,visible,poll]);
+ },[activeInvite,nickname,native,visible,poll,connectionEpoch]);
  useEffect(()=>()=>{
   session.current++;
   if(isTauri())void invoke("commons_chat_stop").catch(()=>{});
@@ -86,6 +95,7 @@ export default function CommonsLiveChatDesk({visible}:{visible:boolean}){
    });
    if(!first.sessionToken)throw Error("Host did not issue a group member session.");
    session.current++;cursor.current=0;memberSession.current=first.sessionToken;setMissingHistory(0);pendingSend.current=null;
+   setConnectionDown(false);setNeedsFreshSession(false);
    setMessages([]);setParticipants([]);
    setHosting(true);setRoom(host.room);setShareInvite(host.invites.find(v=>!v.includes("127.0.0.1:"))??loopback);
    applySnapshot(first);setActiveInvite(loopback);setNetworkState("已创建临时局域网群聊");
@@ -105,11 +115,36 @@ export default function CommonsLiveChatDesk({visible}:{visible:boolean}){
    });
    if(!first.sessionToken)throw Error("Group host did not issue a member session.");
    session.current++;cursor.current=0;memberSession.current=first.sessionToken;
+   setConnectionDown(false);setNeedsFreshSession(false);setMissingHistory(0);pendingSend.current=null;
    setMessages([]);setParticipants([]);
    setHosting(false);setShareInvite("");applySnapshot(first);setActiveInvite(invite);
    setNetworkState("已加入局域网群聊");
   }catch(e){setError("加入失败："+messageError(e));}
   finally{setBusy(false);}
+ }
+ /** A new encrypted member session for the same room, with the old 200-line UI history retained.
+  * Rejoin is explicit because another person might already own the previous nickname.
+  */
+ async function rejoinRoom(){
+  if(!native||busy||!activeInvite)return;
+  setBusy(true);setError("");
+  try{
+   const snapshot=await invoke<LanChatSnapshot>("commons_chat_exchange",{
+    invite:activeInvite,nickname:nickname.trim(),text:null,messageId:null,since:cursor.current,
+    join:true,leave:false,sessionToken:null,
+   });
+   if(!snapshot.sessionToken)throw Error("Host did not issue a fresh member session.");
+   if(snapshot.room!==room)throw Error("The invitation now resolves to a different room; exit and join again.");
+   session.current++;
+   memberSession.current=snapshot.sessionToken;
+   applySnapshot(snapshot);
+   setConnectionDown(false);setNeedsFreshSession(false);
+   setConnectionEpoch(old=>old+1);
+   setNetworkState("已使用原邀请建立新加密会话；正在补收仍可获取的消息");
+  }catch(e){
+   setConnectionDown(true);
+   setError("重新加入失败："+messageError(e)+"。如果昵称仍被占用，请在旧会话 20 秒过期后重试；不要清除聊天记录。");
+  }finally{setBusy(false);}
  }
  async function leave(){
   if(busy)return;
@@ -127,6 +162,7 @@ export default function CommonsLiveChatDesk({visible}:{visible:boolean}){
    setActiveInvite("");setShareInvite("");setHosting(false);setRoom("");
    setMessages([]);setParticipants([]);cursor.current=0;setDraft("");setError("");
    setMissingHistory(0);pendingSend.current=null;
+   setConnectionDown(false);setNeedsFreshSession(false);
    setNetworkState(hosting?"已停止群聊，所有连接和临时记录失效。":"已退出群聊。");
   }catch(e){setError("退出失败："+messageError(e));}
   finally{setBusy(false);}
@@ -146,10 +182,18 @@ export default function CommonsLiveChatDesk({visible}:{visible:boolean}){
     messageId:id,since:cursor.current,
     join:false,leave:false,sessionToken:memberSession.current,
    });
-   applySnapshot(snapshot);pendingSend.current=null;setDraft("");
+   applySnapshot(snapshot);
+   // An edit made while the encrypted TCP request was in flight must survive
+   // the acknowledgement of the earlier draft.
+   if(pendingSend.current?.id===id)pendingSend.current=null;
+   setDraft(current=>current.trim()===text?"":current);
    setNetworkState("群聊主机已确认发送请求，其他成员将于下一轮同步");
   }catch(e){
-   setError("发送结果未确认："+messageError(e)+"。可重试同一草稿，系统会沿用消息编号防止重复。");
+   const detail=messageError(e);
+   if(/Member not connected|Session token does not match/.test(detail)){
+    setConnectionDown(true);setNeedsFreshSession(true);
+   }
+   setError("发送结果未确认："+detail+"。可重试同一草稿；如果会话过期，请重新加入。");
   }
   finally{setBusy(false);}
  }
@@ -206,6 +250,22 @@ export default function CommonsLiveChatDesk({visible}:{visible:boolean}){
      <button type="button" className="secondary-button" onClick={()=>void copyInvite()}>复制群聊邀请</button>
     </div>
    </div>}
+   {connectionDown&&<div className="panel" data-testid="chat-connection-recovery">
+    <p role="status" className="subtle">
+     {needsFreshSession?"成员会话已失效。原房间聊天历史保留在本机，需重新获取临时会话凭据。":
+      "连接暂时不可用。可立即检查网络；如原成员会话已经过期，再手动重新加入。"}
+    </p>
+    <div className="actions">
+     <button type="button" className="secondary-button" data-testid="chat-recheck"
+      disabled={busy} onClick={()=>void poll(activeInvite,nickname.trim(),session.current)}>
+      立即重试连接
+     </button>
+     <button type="button" className="secondary-button" data-testid="chat-rejoin"
+      disabled={busy} onClick={()=>void rejoinRoom()}>
+      重新加入原房间
+     </button>
+    </div>
+   </div>}
    <p className="subtle" data-testid="chat-online-members">
     最近在线昵称（未经身份验证）：{participants.join("、")||"暂无"}
    </p>
@@ -225,7 +285,7 @@ export default function CommonsLiveChatDesk({visible}:{visible:boolean}){
      value={draft} onChange={e=>{setDraft(e.target.value);pendingSend.current=null;}} placeholder="输入消息，所有持有群聊邀请的成员都可查看"/>
    </label>
    <button type="button" className="primary-button" data-testid="chat-send"
-    disabled={!canSend||!native||busy} onClick={()=>void sendMessage()}>发送消息</button>
+    disabled={!canSend||!native||busy||needsFreshSession} onClick={()=>void sendMessage()}>发送消息</button>
   </div>}
   {networkState&&<p role="status" data-testid="chat-network-state" className="subtle">{networkState}</p>}
   {error&&<p role="alert" data-testid="chat-error" className="subtle">{error}</p>}
