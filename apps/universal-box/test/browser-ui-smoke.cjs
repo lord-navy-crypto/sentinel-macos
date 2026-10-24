@@ -381,10 +381,14 @@ test("Three actual Commons browser peers form a manual public room and relay CJK
   // Host restarts Alice's transport but keeps her member slot and receipt identity.
   const originalSlotCount=await host.getByTestId("room-slot").count();
   const aliceSlot=host.getByTestId("room-slot").nth(0);
+  const priorOffer=await aliceSlot.locator("textarea[readonly]").inputValue();
   await aliceSlot.getByTestId("room-reinvite").click();
   await alice.getByTestId("room-reconnect").waitFor({timeout:30000});
-  await aliceSlot.getByRole("button",{name:"复制成员邀请"}).waitFor({timeout:30000});
-  const freshOffer=await aliceSlot.locator("textarea").first().inputValue();
+  await host.waitForFunction(previous=>{
+   const current=document.querySelector('[data-testid="room-slot"] textarea[readonly]');
+   return current&&current.value&&current.value!==previous;
+  },priorOffer,{timeout:30000});
+  const freshOffer=await aliceSlot.locator("textarea[readonly]").inputValue();
   assert.equal(JSON.parse(freshOffer).room,roomId,"resume must stay in the same room");
   await alice.getByTestId("room-reconnect-offer").fill(freshOffer);
   await alice.getByTestId("room-reconnect-action").click();
@@ -392,7 +396,9 @@ test("Three actual Commons browser peers form a manual public room and relay CJK
   const resumeAnswer=await alice.getByTestId("room-answer").inputValue();
   await aliceSlot.locator("textarea").nth(1).fill(resumeAnswer);
   await aliceSlot.getByRole("button",{name:"应用该成员 Answer"}).click();
-  await alice.getByTestId("room-status").getByText(/原成员会话已恢复/).waitFor({timeout:30000});
+  await alice.waitForFunction(()=>
+   document.querySelector('[data-testid="room-status"]')?.textContent?.includes("原成员会话已恢复"),
+  undefined,{timeout:30000});
   assert.equal(await host.getByTestId("room-slot").count(),originalSlotCount,"rejoin must not consume another slot");
   assert.equal(await alice.getByTestId("room-history").locator("p").count(),2,"reconnect keeps local history");
   await alice.getByTestId("room-draft").fill("Alice 重连后仍可发消息");
