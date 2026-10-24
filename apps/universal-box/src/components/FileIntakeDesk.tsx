@@ -1,6 +1,6 @@
 import {useEffect,useRef,useState,type ChangeEvent,type DragEvent} from "react";
 import {exportFile} from "../lib/output";
-import {preflightFiles} from "../lib/intakePreflight";
+import {preflightFiles,excludeStagedFile} from "../lib/intakePreflight";
 import {
  compareChecksumManifest,createChecksumManifest,parseChecksumManifest,
  type ChecksumEntry,type ComparisonStatus
@@ -41,6 +41,14 @@ export default function FileIntakeDesk({onOpenTool}:Props){
  const compareLabels:Record<ComparisonStatus,string>={
   match:"通过",changed:"内容改变",missing:"未找到",ambiguous:"文件名重复",extra:"未在清单中"
  };
+ function excludeStaged(index:number){
+  if(busy||index<0||index>=staged.length)return;
+  const name=staged[index].name;
+  const remaining=excludeStagedFile(staged,index);
+  setStaged(remaining);setProgress({done:0,total:remaining.length});
+  setNotice("已从本次扫描移除「"+name+"」；磁盘上的原文件没有改变。"+
+   (remaining.length?"请确认更新后的文件数量、大小与预检提醒。":"请选择需要检查的文件。"));
+ }
  function stage(incoming:File[]){
   if(busy||!incoming.length)return;
   setStaged(incoming);
@@ -155,11 +163,16 @@ export default function FileIntakeDesk({onOpenTool}:Props){
      <button type="button" className="secondary-button" onClick={()=>{setStaged([]);setNotice("已取消本次选择，原有文件清单未改变。");}}>取消选择</button>
     </div>
    </div>
-   <div className="ub-intake-stage-list" role="list" aria-label="Files pending local scan">
-    {staged.slice(0,10).map((file,index)=><div key={index} role="listitem" dir="auto">
-     <span>{file.name}</span><small>{sizeLabel(file.size)}</small>
+   <div className="ub-intake-stage-list" role="list" aria-label="Files pending local scan" data-testid="intake-staged-list" style={{maxHeight:360,overflowY:"auto"}}>
+    {staged.map((file,index)=><div key={index} role="listitem" dir="auto"
+      data-testid="intake-staged-row" style={{display:"flex",gap:12,alignItems:"center",flexWrap:"wrap"}}>
+     <span style={{flex:"1 1 180px",overflowWrap:"anywhere"}}>{file.name}</span>
+     <small>{sizeLabel(file.size)}</small>
+     <button type="button" className="secondary-button"
+       aria-label={"从本次扫描排除第 "+(index+1)+" 个文件："+file.name}
+       onClick={()=>excludeStaged(index)}>排除</button>
     </div>)}
-    {staged.length>10&&<p className="subtle">另有 {staged.length-10} 个文件未展开显示。</p>}
+    <p className="subtle">所有已选择文件均列出。仅从本次扫描清单中排除，不删除或更改磁盘文件。</p>
    </div>
    {review.issues.length>0&&<div className="ub-intake-review-warnings" role="status">
     <strong>请检查以下提示（并非病毒检测结果）</strong>
