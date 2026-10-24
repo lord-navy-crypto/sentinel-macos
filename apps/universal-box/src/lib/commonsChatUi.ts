@@ -31,12 +31,17 @@ export function chatHistoryGap(cursor:number,snapshot:LanChatSnapshot):number{
 }
 export function nextChatPage(cursor:number,snapshot:LanChatSnapshot):number{
  if(!Number.isSafeInteger(cursor)||cursor<0)throw Error("Invalid LAN message cursor");
- let last=cursor;
+ let previous=0,last=cursor;
  for(const line of snapshot.messages){
-  if(!Number.isSafeInteger(line.seq)||line.seq<=last)throw Error("Out-of-order chat page");
-  last=line.seq;
+  if(!Number.isSafeInteger(line.seq)||line.seq<=previous)throw Error("Out-of-order chat page");
+  previous=line.seq;
+  last=Math.max(last,line.seq);
  }
- if(snapshot.hasMore&&last===cursor)throw Error("Host returned an empty page with more messages");
+ // A simultaneous send response can arrive behind an active poll. Old pages
+ // may be repeated safely; only reject a stale response claiming more pages
+ // if it provided nothing we can advance with.
+ if(snapshot.hasMore&&last===cursor&&snapshot.messages.length===0)
+  throw Error("Host returned an empty page with more messages");
  return last;
 }
 export function mergeLanChatLines(old:readonly LanChatLine[],incoming:readonly LanChatLine[]):LanChatLine[]{
