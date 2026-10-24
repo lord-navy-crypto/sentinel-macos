@@ -1,6 +1,7 @@
 import {useEffect,useState} from "react";
 import {OFFICE_MAIN_SHORTCUTS,OFFICE_FAST_ACTIONS} from "../lib/officeHomeShortcuts";
 import {getRecentExports,subscribeRecentExports,type RecentExport} from "../lib/recentExports";
+import {queueFilesForIntake} from "../lib/pendingFileIntake";
 
 export type HomeWorkspace={id:string;name:string;symbol:string;description:string};
 type Props={
@@ -15,6 +16,7 @@ type Props={
 /** Action-first desktop start screen; all actions open existing tools, never a second converter. */
 export default function OfficeHome({favorites,recents,totalTools,onOpen,onSearch,onUnpin}:Props){
  const [exports,setExports]=useState<RecentExport[]>(getRecentExports);
+ const [dragging,setDragging]=useState(false);
  useEffect(()=>subscribeRecentExports(()=>setExports(getRecentExports())),[]);
  return <div className="office-home" data-testid="redesigned-home">
   <div className="home-heading">
@@ -27,6 +29,25 @@ export default function OfficeHome({favorites,recents,totalTools,onOpen,onSearch
     <button type="button" className="primary-button" data-testid="home-find-tool" onClick={onSearch}>⌕ 搜索所有工具 <kbd>⌘K</kbd></button>
     <button type="button" className="secondary-button" onClick={()=>onOpen("all-tools")}>浏览工具库 ↗</button>
    </div>
+  </div>
+  <div className="home-dropzone" data-testid="home-file-dropzone" data-dragging={dragging}
+   onDragOver={event=>{event.preventDefault();setDragging(true);}}
+   onDragLeave={event=>{if(!event.currentTarget.contains(event.relatedTarget as Node))setDragging(false);}}
+   onDrop={event=>{
+    event.preventDefault();setDragging(false);
+    if(queueFilesForIntake(Array.from(event.dataTransfer.files)))onOpen("file-intake");
+   }}>
+   <span className="home-drop-icon" aria-hidden="true">⇪</span>
+   <div><strong>拖入文件，或选择本机文件开始</strong>
+    <p>先进入文件工作台检查格式、大小与重复项，再由你决定是否扫描或导出。</p></div>
+   <label className="home-file-choose">选择文件
+    <input type="file" multiple aria-label="首页选择文件进入预检" data-testid="home-file-input"
+     onChange={event=>{
+      const files=Array.from(event.currentTarget.files??[]);
+      event.currentTarget.value="";
+      if(queueFilesForIntake(files))onOpen("file-intake");
+     }}/>
+   </label>
   </div>
   <div className="home-facts" aria-label="Local workspace overview">
    <span><strong>{totalTools}</strong> 个可查找工具</span>
