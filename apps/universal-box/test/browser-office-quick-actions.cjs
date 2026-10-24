@@ -237,3 +237,44 @@ test("Office line filtering and numbering exports genuine TXT/Markdown copies an
   assert.deepEqual(errors,[]);
  }finally{await page.close();await browser.close();}
 });
+
+
+test("Batch office text audit previews source metrics and exports safe real CSV without modifying files",{timeout:90000},async()=>{
+ const browser=await chromium.launch({headless:true,args:["--no-sandbox"]});
+ const page=await browser.newPage({acceptDownloads:true,viewport:{width:1440,height:920}});
+ const errors=[];page.on("pageerror",e=>errors.push(e.message));
+ try{
+  await page.goto(root,{waitUntil:"domcontentloaded"});await page.locator(".app-shell").waitFor();
+  await openTool(page,"Batch Text Files");
+  const original=Buffer.from("\ufeff甲😀 \r\n第二行\n");
+  await page.locator('[data-testid="batch-text-picker"]').setInputFiles([
+   {name:"=SUM(1).txt",mimeType:"text/plain",buffer:original},
+   {name:"合同,报价.md",mimeType:"text/markdown",buffer:Buffer.from("内容\r\n")},
+  ]);
+  const totals=await page.locator('[data-testid="batch-audit-total"]').innerText();
+  assert.match(totals,/2 files/);
+  assert.match(totals,/3 physical lines/);
+  const list=await page.locator('[data-testid="batch-audit-list"]').innerText();
+  assert.match(list,/=SUM\(1\).txt/);
+  assert.match(list,/合同,报价.md/);
+  assert.match(list,/BOM Yes/);
+  // Default replace operation has no search phrase, but read-only audit must still work.
+  assert.equal(await page.locator('[data-testid="batch-text-save"]').isDisabled(),true);
+  assert.equal(await page.locator('[data-testid="batch-audit-save"]').isEnabled(),true);
+  const pending=page.waitForEvent("download",{timeout:30000});
+  await page.locator('[data-testid="batch-audit-save"]').click();
+  const download=await pending;
+  assert.equal(download.suggestedFilename(),"sentinel-box-text-file-audit.csv");
+  const outfile=path.join(dir,"batch-text-source-audit.csv");await download.saveAs(outfile);
+  const csv=fs.readFileSync(outfile);
+  assert.deepEqual(csv.subarray(0,3),Buffer.from([239,187,191]));
+  const report=csv.subarray(3).toString("utf8");
+  assert.match(report,/"'=SUM\(1\).txt"/);
+  assert.match(report,/"合同,报价.md"/);
+  assert.match(report,/"Physical lines"/);
+  assert.doesNotMatch(report,/甲😀/);
+  assert.doesNotMatch(report,/第二行/);
+  assert.deepEqual(original,Buffer.from("\ufeff甲😀 \r\n第二行\n"));
+  assert.deepEqual(errors,[]);
+ }finally{await page.close();await browser.close();}
+});
