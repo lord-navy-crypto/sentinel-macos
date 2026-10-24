@@ -1,5 +1,5 @@
 import {describe,it,expect} from "vitest";
-import {parseCommonsChatInvite,canJoinCommonsChat,mergeLanChatLines,chatHistoryGap,nextChatPage,type LanChatSnapshot} from "./commonsChatUi";
+import {parseCommonsChatInvite,canJoinCommonsChat,mergeLanChatLines,chatHistoryGap,nextChatPage,lanChatNeedsNewSession,type LanChatSnapshot} from "./commonsChatUi";
 const key="B".repeat(43);
 describe("LAN group chat UI preflight",()=>{
  it("allows standard private, link-local and localhost invitations",()=>{
@@ -27,6 +27,15 @@ describe("LAN group chat UI preflight",()=>{
  });
 });
 
+describe("LAN explicit reconnect diagnostics",()=>{
+ it("asks for a fresh member session only after authentication/session expiration",()=>{
+  expect(lanChatNeedsNewSession("Member not connected; rejoin the room")).toBe(true);
+  expect(lanChatNeedsNewSession("Session token does not match the selected member nickname")).toBe(true);
+  expect(lanChatNeedsNewSession("Join the room before polling or sending messages")).toBe(true);
+  for(const reason of ["Cannot reach LAN chat host: timed out","Connection refused","Wrong chat invitation key or invalid authentication","Unexpected chat protocol version"])
+   expect(lanChatNeedsNewSession(reason)).toBe(false);
+ });
+});
 describe("LAN chat history recovery / cursor contracts",()=>{
  const make=(first:number,count:number,hasMore:boolean):LanChatSnapshot=>({
   room:"团队",participants:["Alex"],hasMore,oldestSeq:first,latestSeq:200,
