@@ -495,7 +495,7 @@ export default function CommonsDesk(){
   {transportMode==="public"&&<div className="panel" data-testid="commons-public-research" style={{marginTop:16}}>
    <p className="eyebrow">P2P RESEARCH · OPT-IN · NO FILE TRANSFER</p>
    <h3>公网连接 · 诊断与后续规划</h3>
-   <p className="subtle">下面可以选择 WebRTC 一对一直连，或主持人转发式临时群聊。双方仍需手动交换 Offer/Answer；可自行提供 TURN 中继，但不保证任意公网连通，亦不提供自动信令与账户服务。</p>
+   <p className="subtle">下面可以选择 WebRTC 一对一直连，或主持人转发式临时群聊。双方仍需手动交换 Offer/Answer，不会开放公网 TCP 监听；可自行提供 TURN 中继，但不保证任意公网连通，亦不提供自动信令与账户服务。</p>
    <p className="subtle">研究阶段：可使用公开 STUN 服务器观察你的 UDP 公网映射。只有主动点击才联系外部服务器；该服务器能看到本次连接的公网 IP。**这不是已经建立了 P2P 文件连接**，也不会上传任何团队文件。</p>
    <button type="button" className="secondary-button" disabled={!nativeLan||stunBusy} onClick={()=>void runP2pProbe()}>
     {stunBusy?"探测中…":"尝试两处免费 STUN 映射对比"}
