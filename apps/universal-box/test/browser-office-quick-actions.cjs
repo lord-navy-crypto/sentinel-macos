@@ -571,3 +571,56 @@ test("unnumbered batch rename produces real files, previews collisions and prote
   assert.deepEqual(errors,[]);
  }finally{await page.close();await browser.close();}
 });
+test("Quick office TXT draft is opened locally, cleaned and saved as real TXT with source unchanged",{timeout:85000},async()=>{
+ const browser=await chromium.launch({headless:true,args:["--no-sandbox"]});
+ const page=await browser.newPage({acceptDownloads:true,viewport:{width:1400,height:900}});
+ const errors=[];page.on("pageerror",e=>errors.push(e.message));
+ try{
+  await page.goto(root,{waitUntil:"domcontentloaded"});await page.locator(".app-shell").waitFor();
+  await openTool(page,"Text Cleaner");
+  const draft=Buffer.from("\ufeff  合同   草稿\r\n下一个  章节\r\n","utf8");
+  await page.getByTestId("quick-draft-file").setInputFiles({name:"会议.md",mimeType:"text/markdown",buffer:draft});
+  await page.waitForFunction(()=>document.querySelector("#quick-text-input")?.value.includes("合同"));
+  assert.equal(await page.locator("#quick-text-input").inputValue(),"  合同   草稿\r\n下一个  章节\r\n");
+  assert.equal(await page.locator("#quick-result").inputValue(),"合同 草稿\n下一个 章节\n");
+  assert.match(await page.locator("p[role=status]").last().innerText(),/Loaded .*UTF-8 locally/);
+  const pending=page.waitForEvent("download",{timeout:30000});
+  await page.getByRole("button",{name:"Save as TXT"}).click();
+  const download=await pending;assert.equal(download.suggestedFilename(),"clean-text.txt");
+  const dst=path.join(dir,"quick-opened-clean.txt");await download.saveAs(dst);
+  assert.equal(fs.readFileSync(dst,"utf8"),"合同 草稿\n下一个 章节\n");
+  assert.deepEqual(draft,Buffer.from("\ufeff  合同   草稿\r\n下一个  章节\r\n","utf8"));
+  await page.getByTestId("quick-draft-file").setInputFiles({
+   name:"binary.txt",mimeType:"text/plain",buffer:Buffer.from([0,1,2,3])
+  });
+  assert.match(await page.locator("p[role=status]").last().innerText(),/Existing text preserved/);
+  assert.equal(await page.locator("#quick-text-input").inputValue(),"  合同   草稿\r\n下一个  章节\r\n");
+  assert.deepEqual(errors,[]);
+ }finally{await page.close();await browser.close();}
+});
+
+test("Quick replace and case tools read real Windows UTF-16LE files without losing leading-zero IDs",{timeout:85000},async()=>{
+ const browser=await chromium.launch({headless:true,args:["--no-sandbox"]});
+ const page=await browser.newPage({acceptDownloads:true,viewport:{width:1400,height:900}});
+ const errors=[];page.on("pageerror",e=>errors.push(e.message));
+ try{
+  await page.goto(root,{waitUntil:"domcontentloaded"});await page.locator(".app-shell").waitFor();
+  await openTool(page,"Text Cleaner");
+  const source="编号: 00123\r\n客户: 张三";
+  const raw=Buffer.alloc(2+source.length*2);raw[0]=255;raw[1]=254;
+  for(let i=0;i<source.length;i++)raw.writeUInt16LE(source.charCodeAt(i),2+i*2);
+  await page.getByRole("group",{name:"Quick tool"}).getByRole("button",{name:/Literal replace/}).click();
+  await page.getByTestId("quick-draft-file").setInputFiles({name:"WindowsExport.txt",mimeType:"text/plain",buffer:raw});
+  await page.waitForFunction(()=>Array.from(document.querySelectorAll("textarea")).some(el=>el.value.includes("编号: 00123")));
+  await page.getByRole("textbox",{name:"Find",exact:true}).fill("张三");
+  await page.getByRole("textbox",{name:"Replace with"}).fill("李四");
+  assert.equal(await page.locator("#quick-result").inputValue(),"编号: 00123\r\n客户: 李四");
+  assert.match(await page.locator("p[role=status]").last().innerText(),/UTF-16LE/);
+  await page.getByRole("group",{name:"Quick tool"}).getByRole("button",{name:/Case & width/}).click();
+  await page.getByTestId("quick-draft-file").setInputFiles({name:"Mixed.TXT",mimeType:"text/plain",buffer:Buffer.from("ａｂｃ  00123\n","utf8")});
+  await page.waitForFunction(()=>document.querySelector("#quick-case-source")?.value.includes("00123"));
+  await page.getByTestId("quick-case-mode").selectOption("halfwidth");
+  assert.equal(await page.locator("#quick-result").inputValue(),"abc  00123\n");
+  assert.deepEqual(errors,[]);
+ }finally{await page.close();await browser.close();}
+});
