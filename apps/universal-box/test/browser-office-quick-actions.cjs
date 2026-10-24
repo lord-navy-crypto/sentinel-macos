@@ -530,13 +530,24 @@ test("unnumbered batch rename produces real files, previews collisions and prote
    {name:"memo.pdf",mimeType:"application/pdf",buffer:Buffer.from("%PDF-1.7 TEST")},
   ]);
   await page.locator('[data-testid="rename-numbered"]').uncheck();
-  await page.locator('label:has-text("Prefix") input').fill("Final-");
-  await page.locator('label:has-text("Find text") input').fill("Draft");
-  await page.locator('label:has-text("Replace") input').fill("Approved");
+  await page.getByTestId("rename-prefix").fill("Final-");
+  await page.getByTestId("rename-find").fill("Draft");
+  await page.getByTestId("rename-replace").fill("Approved");
   const preview=await page.locator('[data-testid="rename-preview"]').innerText();
   assert.match(preview,/Final-Approved 合同\.docx/);
   assert.match(preview,/Final-memo\.pdf/);
   assert.doesNotMatch(preview,/Final-memo-02/);
+  const planPending=page.waitForEvent("download",{timeout:30000});
+  await page.getByTestId("rename-export-plan").click();
+  const planDownload=await planPending;
+  assert.equal(planDownload.suggestedFilename(),"sentinel-box-rename-preview.csv");
+  const planFile=path.join(dir,"renamed-preview.csv");
+  await planDownload.saveAs(planFile);
+  const planBytes=fs.readFileSync(planFile);
+  assert.deepEqual(planBytes.subarray(0,3),Buffer.from([239,187,191]));
+  const csv=planBytes.subarray(3).toString("utf8");
+  assert.match(csv,/"Draft 合同.docx","Final-Approved 合同.docx","5"/);
+  assert.match(csv,/"memo.pdf","Final-memo.pdf","13"/);
   const pending=page.waitForEvent("download",{timeout:30000});
   await page.locator('[data-testid="rename-save-zip"]').click();
   const dl=await pending,output=path.join(dir,"renamed-without-numbering.zip");
