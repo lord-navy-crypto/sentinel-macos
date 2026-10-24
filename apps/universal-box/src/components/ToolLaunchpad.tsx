@@ -1,4 +1,5 @@
 import {useEffect,useMemo,useState} from "react";
+import {visualToolFamily,VISUAL_TOOL_FAMILIES} from "../lib/toolVisualCategories";
 
 export type LocalTool = {id:string;name:string;area:string;view:string;module?:string};
 export const LOCAL_TOOLS:LocalTool[] = [
@@ -153,7 +154,8 @@ const NOT_LOCAL = ["Website AI / cloud models (needs configured AI connection)",
 
 export default function ToolLaunchpad({onLaunch}:{onLaunch:(view:string,module?:string)=>void}) {
  const [search,setSearch]=useState("");
- const [category,setCategory]=useState("All");
+ const [category,setCategory]=useState("全部");
+ const [layout,setLayout]=useState<"grid"|"list">("grid");
  const [showFavorites,setShowFavorites]=useState(false);
  const [favorites,setFavorites]=useState<string[]>(()=>{
    try{
@@ -165,11 +167,11 @@ export default function ToolLaunchpad({onLaunch}:{onLaunch:(view:string,module?:
    try{localStorage.setItem("universal-box-favorite-tools",JSON.stringify(favorites));}
    catch{/* saved preferences are optional */}
  },[favorites]);
- const groups=["All",...Array.from(new Set(LOCAL_TOOLS.map(item=>item.area)))];
+ const groups=VISUAL_TOOL_FAMILIES;
  const filtered=useMemo(()=>{
    const term=search.trim().toLocaleLowerCase();
    const matches=LOCAL_TOOLS.filter(item=>
-     (category==="All"||item.area===category)
+     (category==="全部"||visualToolFamily(item)===category)
      &&(!showFavorites||favorites.includes(item.id))
      &&(!term||(item.name+" "+item.id+" "+item.area).toLocaleLowerCase().includes(term)));
    return matches.sort((a,b)=>Number(favorites.includes(b.id))-Number(favorites.includes(a.id)));
@@ -177,41 +179,45 @@ export default function ToolLaunchpad({onLaunch}:{onLaunch:(view:string,module?:
  function toggleFavorite(id:string){
    setFavorites(old=>old.includes(id)?old.filter(x=>x!==id):[...old,id].slice(0,40));
  }
- return <section className="panel tool-catalog">
+ return <section className="panel tool-catalog" data-testid="reorganized-tool-catalog">
    <div className="catalog-heading">
-     <div><p className="eyebrow">DISCOVER · CREATE · CONVERT · LEARN</p>
-       <h2>Explore your toolbox</h2>
-       <p className="subtle">Search for exactly what you need. Every local tool opens inside Sentinel Box; favorites are saved only on this device.</p>
+     <div><p className="eyebrow">SEARCH · FAVORITES · CATEGORIES</p>
+       <h2>全部工具 · 找到就能用</h2>
+       <p className="subtle">按日常办公任务查找工具，也可以搜索名称；均跳转到已有功能，收藏仅保存在本机。</p>
      </div>
      <div className="catalog-count"><strong>{LOCAL_TOOLS.length}</strong><span>tool entries</span></div>
    </div>
    <div className="catalog-filter-bar">
      <label className="field-label" htmlFor="all-tools-search">Search the tool library
-       <input autoComplete="off" className="field" id="all-tools-search" value={search}
+       <input autoComplete="off" className="field" id="all-tools-search" type="search" value={search}
          onChange={e=>setSearch(e.target.value)} placeholder="Try PDF, CSV, QR, image, audio, graph…" />
      </label>
      <button type="button" className={showFavorites?"secondary-button favorites-only enabled":"secondary-button favorites-only"}
        onClick={()=>setShowFavorites(old=>!old)} aria-pressed={showFavorites}>★ Favorites ({favorites.length})</button>
-     {search&&<button type="button" className="secondary-button catalog-clear" onClick={()=>setSearch("")}>Clear</button>}
+     <div className="catalog-layout" role="group" aria-label="Catalog layout">
+      <button type="button" data-testid="catalog-grid-mode" aria-label="卡片视图" className={layout==="grid"?"catalog-layout-active":""} aria-pressed={layout==="grid"} onClick={()=>setLayout("grid")}>▦</button>
+      <button type="button" data-testid="catalog-list-mode" aria-label="列表视图" className={layout==="list"?"catalog-layout-active":""} aria-pressed={layout==="list"} onClick={()=>setLayout("list")}>☷</button>
+     </div>
+     {search&&<button type="button" className="secondary-button catalog-clear" onClick={()=>setSearch("")}>清除</button>}
    </div>
    <div className="category-scroll" role="group" aria-label="Filter tool category">
      {groups.map(group=><button type="button" key={group}
        className={category===group?"pill active-pill":"pill"} aria-pressed={category===group}
        onClick={()=>setCategory(group)}>{group}</button>)}
    </div>
-   <div className="catalog-results-header"><span>{filtered.length} matching tools</span><span>{favorites.length?"★ Favorites appear first":"Star your most-used tools for faster access"}</span></div>
-   {filtered.length?<div className="tool-grid catalog-grid">
+   <div className="catalog-results-header" aria-live="polite"><span>找到 {filtered.length} 个工具</span><span>{favorites.length?"★ 收藏工具优先显示":"点击 ☆ 收藏常用工具"}</span></div>
+   {filtered.length?<div className={"tool-grid catalog-grid"+(layout==="list"?" catalog-list":"")} data-testid="catalog-results">
      {filtered.map(item=><div key={item.id} className="catalog-card">
        <button className="catalog-favorite" type="button" aria-label={favorites.includes(item.id)?"Remove "+item.name+" from favorites":"Add "+item.name+" to favorites"}
          aria-pressed={favorites.includes(item.id)} onClick={()=>toggleFavorite(item.id)}>{favorites.includes(item.id)?"★":"☆"}</button>
        <button className="catalog-open" type="button" onClick={()=>onLaunch(item.view,item.module)}>
          <span className="catalog-icon" aria-hidden="true">{item.area==="Images"?"▧":item.area==="Math"?"∑":item.area==="Files"?"▤":item.area==="Office"?"▦":item.area==="Code"?"⌘":"◇"}</span>
-         <strong>{item.name}</strong><span className="catalog-area">{item.area}</span>
+         <strong>{item.name}</strong><span className="catalog-area">{visualToolFamily(item)}</span>
          <span className="tool-state">OPEN TOOL →</span>
        </button>
      </div>)}
-   </div>:<div className="catalog-empty"><strong>No matching tools</strong><p className="subtle">Try a different keyword or clear the category and favorites filters.</p>
-     <button className="secondary-button" type="button" onClick={()=>{setCategory("All");setSearch("");setShowFavorites(false);}}>Reset filters</button>
+   </div>:<div className="catalog-empty"><strong>没有匹配的工具</strong><p className="subtle">Try a different keyword or clear the category and favorites filters.</p>
+     <button className="secondary-button" type="button" onClick={()=>{setCategory("全部");setSearch("");setShowFavorites(false);}}>Reset filters</button>
    </div>}
    <div className="catalog-external">
      <div><h3>Need something more advanced?</h3>
