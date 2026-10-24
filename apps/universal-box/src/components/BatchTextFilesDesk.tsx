@@ -1,5 +1,6 @@
 import {useMemo,useRef,useState,type ChangeEvent} from "react";
 import {exportFile} from "../lib/output";
+import {auditTextFiles,makeTextAuditCsv} from "../lib/batchTextAudit";
 import {
   type BatchTextMode,type BatchTextSource,validateBatchTextSelection,
   processBatchTextFiles,zipBatchTextResults,
@@ -37,6 +38,10 @@ export default function BatchTextFilesDesk(){
     catch(e){return {rows:[],error:msg(e)};}
   },[files,mode,find,replacement,ruleText,lineAffix]);
   const changed=preview.rows.filter(row=>row.changed);
+  // Read-only source-file audit stays available even while an editing mode awaits input.
+  const audit=useMemo(()=>files.length?auditTextFiles(files):[],[files]);
+  const auditLines=audit.reduce((total,row)=>total+row.lines,0);
+  const auditBytes=audit.reduce((total,row)=>total+row.bytes,0);
   async function load(event:ChangeEvent<HTMLInputElement>){
     const chosen=Array.from(event.target.files??[]);
     event.target.value="";
@@ -63,6 +68,15 @@ export default function BatchTextFilesDesk(){
       const saved=await exportFile("sentinel-box-text-file-copies.zip",bytes);
       setStatus(saved?"Exported "+changed.length+" changed copy/copies. Originals remain unchanged.":"Save cancelled; source files unchanged.");
     }catch(e){setStatus("Export failed: "+msg(e));}
+    finally{setBusy(false);}
+  }
+  async function saveAuditCsv(){
+    if(!audit.length||busy)return;
+    setBusy(true);setStatus("");
+    try{
+      const exported=await exportFile("sentinel-box-text-file-audit.csv",makeTextAuditCsv(audit));
+      setStatus(exported?"Saved read-only metadata audit for "+audit.length+" selected file(s). Original files remain unchanged.":"Audit save cancelled; source files unchanged.");
+    }catch(e){setStatus("Audit export failed: "+msg(e));}
     finally{setBusy(false);}
   }
   return <section className="panel" data-testid="batch-text-files">
@@ -111,6 +125,21 @@ export default function BatchTextFilesDesk(){
     {mode==="number-lines"&&<p className="subtle" data-testid="batch-number-warning">Numbers non-blank lines starting at 1 for each file (1. , 2. , …), preserving blank lines, indentation and original line endings. Existing list numbering is not detected; review Markdown formatting before export. CSV/TSV cannot use this mode.</p>}
     {(mode==="trim-trailing"||mode==="remove-blank"||mode==="dedupe-lines"||mode==="prefix-lines"||mode==="suffix-lines"||mode==="keep-matching"||mode==="drop-matching"||mode==="number-lines")&&<p className="subtle" data-testid="batch-line-warning">Line cleaning is available for TXT and Markdown only. It preserves each surviving line's CRLF/LF/CR ending and original UTF-8 BOM. Use the CSV Table Desk for CSV/TSV, whose quoted fields may contain line breaks. Deduplication is exact and case-sensitive; review line order before exporting.</p>}
     <p className="subtle">LF / CRLF conversion keeps all other characters and UTF-8 BOM intact; BOM removal is a separate, explicit option. Only changed files appear inside the ZIP. A JSON report lists unchanged files too.</p>
+    {audit.length>0&&<div data-testid="batch-text-audit">
+      <h4>File audit · 批量文件统计（只读）</h4>
+      <p className="subtle">Source-file metadata only; this report does not depend on your selected editing action. Counts Unicode code points (not visual characters or linguistic words) and physical lines (not CSV records). Filenames and counts are exported, never the document contents. CSV filename cells are protected against spreadsheet formula execution.</p>
+      <p className="stat-pill" data-testid="batch-audit-total">{audit.length} files · {auditBytes} bytes · {auditLines} physical lines</p>
+      <div className="task-list" data-testid="batch-audit-list">
+        {audit.map(row=><div className="task-row" key={row.name}>
+          <div className="task-copy">
+            <strong>{row.name}</strong> · {row.bytes} bytes · {row.characters} code points · {row.lines} lines ({row.nonBlankLines} nonblank)
+            <div className="subtle">CRLF {row.crlf} · LF {row.lf} · CR {row.cr} · trailing spaces {row.trailingSpaceLines} · BOM {row.utf8Bom?"Yes":"No"}</div>
+          </div>
+        </div>)}
+      </div>
+      <button type="button" className="secondary-button" data-testid="batch-audit-save" disabled={busy}
+        onClick={()=>{void saveAuditCsv();}}>Export source-file audit CSV · 导出统计表</button>
+    </div>}
     {preview.error&&<p role="alert" data-testid="batch-text-error" className="subtle">{preview.error}</p>}
     {preview.rows.length>0&&<div data-testid="batch-text-preview">
       <p className="stat-pill">{preview.rows.length} selected · {changed.length} changed · {preview.rows.reduce((sum,row)=>sum+row.matches,0)} operations</p>
