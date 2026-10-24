@@ -1,7 +1,8 @@
 import {useEffect,useMemo,useState,type ChangeEvent} from "react";
-import {invoke} from "@tauri-apps/api/core";
+import {invoke,isTauri} from "@tauri-apps/api/core";
 import {listen} from "@tauri-apps/api/event";
 import {exportFile} from "../lib/output";
+import {canReceiveLan,keyFromNearbyInput,parseCommonsLanInvite} from "../lib/commonsLanUi";
 import {
  createCommonsRoom,commonsMessage,commonsTask,commonsToggleTask,commonsFile,
  exportCommonsPacket,importCommonsPacket,mergeCommonsPackets,safeAttachmentName,
@@ -50,6 +51,9 @@ export default function CommonsDesk(){
  const [selectedInvite,setSelectedInvite]=useState("");
  const [incomingInvite,setIncomingInvite]=useState("");
  const [incoming,setIncoming]=useState<CommonsPacket|null>(null);
+ const [transportMode,setTransportMode]=useState<"lan"|"public">("lan");
+ const [lanAction,setLanAction]=useState<"send"|"receive">("receive");
+ const [revealInvite,setRevealInvite]=useState(false);
  const [networkBusy,setNetworkBusy]=useState(false);
  const [networkStatus,setNetworkStatus]=useState("");
  const [transferProgress,setTransferProgress]=useState<LanTransferProgress|null>(null);
@@ -61,21 +65,13 @@ export default function CommonsDesk(){
  const [stun,setStun]=useState<StunObservation|null>(null);
  const [stunBusy,setStunBusy]=useState(false);
  const [stunError,setStunError]=useState("");
- useEffect(()=>{
-  let mounted=true;
-  async function browse(){
-   try{
-    const peers=await invoke<NearbyShare[]>("commons_lan_discover");
-    if(mounted){setNearby(peers);setDiscoveryError("");}
-   }catch(e){if(mounted)setDiscoveryError(errorText(e));}
-   finally{if(mounted)setDiscovering(false);}
-  }
-  setDiscovering(true);
-  void browse();
-  // Discovery stops on leaving the Commons screen. No silent always-on scan.
-  const timer=window.setInterval(()=>{void browse();},20000);
-  return ()=>{mounted=false;window.clearInterval(timer);void invoke("commons_lan_stop").catch(()=>{});};
- },[]);
+ const nativeLan=isTauri();
+ const nearbyKeyReady=useMemo(()=>{
+  if(!selectedNearby)return false;
+  try{keyFromNearbyInput(nearbyKey,selectedNearby);return true;}catch{return false;}
+ },[nearbyKey,selectedNearby]);
+ // Discovery happens only when user presses Refresh; do not poll mDNS automatically.
+ useEffect(()=>()=>{if(isTauri())void invoke("commons_lan_stop").catch(()=>{});},[]);
  async function runP2pProbe(){
   setStunBusy(true);setStunError("");setStun(null);
   try{setStun(await invoke<StunObservation>("commons_p2p_stun_probe"));}
@@ -93,28 +89,30 @@ export default function CommonsDesk(){
   return ()=>{live=false;window.clearInterval(poll);};
  },[lan?.active]);
  async function scanNearby(){
-  setDiscovering(true);setDiscoveryError("");
+  if(!nativeLan){setDiscoveryError("Nearby discovery is available in the Mac desktop app.");return;}
+  setDiscovering(true);setDiscoveryError("");setSelectedNearby(null);setNearbyKey("");
   try{setNearby(await invoke<NearbyShare[]>("commons_lan_discover"));}
   catch(e){setDiscoveryError(errorText(e));}
   finally{setDiscovering(false);}
  }
  function chooseNearby(peer:NearbyShare){
-  setSelectedNearby(peer);
-  setNetworkStatus("已选择附近设备。还需要发送方私下提供的一次性密钥；自动发现不会广播密钥。");
+  setSelectedNearby(peer);setNearbyKey("");setIncoming(null);
+  setNetworkStatus("已选择附近设备。请私下取得发送方的密钥，完整邀请的地址必须与所选设备一致。");
  }
  async function pasteNearbyKey(){
   try{
    const pasted=(await navigator.clipboard.readText()).trim();
-   const key=pasted.includes("uboxlan://")?pasted.split("/").pop()??"":pasted;
-   if(!/^[A-Za-z0-9_-]{43}$/.test(key))throw Error("Clipboard does not contain a valid one-time key");
-   setNearbyKey(key);
+   if(!selectedNearby)throw Error("Select the nearby sender first.");
+   setNearbyKey(keyFromNearbyInput(pasted,selectedNearby));
    setNetworkStatus("已提取邀请密钥。点击接收即可从选中的附近设备传输。");
   }catch(e){setNetworkStatus("无法读取邀请密钥："+errorText(e));}
  }
  async function receiveNearby(){
-  if(!selectedNearby||!(/^[A-Za-z0-9_-]{43}$/.test(nearbyKey.trim())))return;
-  const {ip,port}=selectedNearby;
-  await receiveLanWithInvite("uboxlan://"+ip+":"+port+"/"+nearbyKey.trim());
+  if(!selectedNearby)return;
+  try{
+   const key=keyFromNearbyInput(nearbyKey,selectedNearby);
+   await receiveLanWithInvite("uboxlan://"+selectedNearby.ip+":"+selectedNearby.port+"/"+key);
+  }catch(e){setNetworkStatus("邀请与所选设备不一致："+errorText(e));}
  }
  const room=packet?.room??null;
  const attachments=useMemo(()=>new Map((packet?.attachments??[]).map(f=>[f.id,f.bytes])),[packet]);
@@ -128,7 +126,7 @@ export default function CommonsDesk(){
   notify(()=>{
    if(packet)throw Error("Export the current room before creating another; use Reset room explicitly.");
    const next=createCommonsRoom(teamName,myName);
-   setPacket({room:next,attachments:[]});setTab("files");
+   setPacket({room:next,attachments:[]});setTab("files");setLanAction("send");
   });
  }
  function updateRoom(next:CommonsRoom){
@@ -237,7 +235,10 @@ export default function CommonsDesk(){
    setNetworkStatus("邀请已复制。它包含解密密钥，请只发给预期接收者。");}
   catch{setNetworkStatus("系统不允许自动复制，请手动选中并复制邀请。");}
  }
- async function receiveLan(){await receiveLanWithInvite(incomingInvite.trim());}
+ async function receiveLan(){
+  try{parseCommonsLanInvite(incomingInvite);await receiveLanWithInvite(incomingInvite.trim());}
+  catch(e){setNetworkStatus("邀请无效："+errorText(e));}
+ }
  async function receiveLanWithInvite(invite:string){
   setNetworkBusy(true);setNetworkStatus("");setTransferProgress(null);
   let unlisten:(()=>void)|null=null;
@@ -354,15 +355,34 @@ export default function CommonsDesk(){
     <ul>{room.members.map(name=><li key={name}>{name}</li>)}</ul>
    </div>}
   </>}
-  <div className="panel" style={{marginTop:16}}>
+  <div className="panel" data-testid="commons-connection-switcher" style={{marginTop:16}}>
+   <h3>通讯 · 选择连接方式</h3>
+   <p className="subtle">离线 ZIP → 局域网加密传输 → 公网诊断；公网收发仍未实现。</p>
+   <div className="pill-row" role="group" aria-label="Communication transport">
+    <button type="button" className={transportMode==="lan"?"pill active-pill":"pill"} aria-pressed={transportMode==="lan"}
+     onClick={()=>setTransportMode("lan")}>局域网发送与接收</button>
+    <button type="button" className={transportMode==="public"?"pill active-pill":"pill"} aria-pressed={transportMode==="public"}
+     onClick={()=>setTransportMode("public")}>公网诊断 · 尚不可传输</button>
+   </div>
+   {!nativeLan&&<p role="status" className="subtle">浏览器仅供界面预览和离线 ZIP；Bonjour、局域网收发及 STUN 探测需要 Mac 桌面应用。</p>}
+  </div>
+  {transportMode==="lan"&&<div className="panel" data-testid="commons-lan-workflow" style={{marginTop:16}}>
    <p className="eyebrow">LOCAL NETWORK · NO CLOUD · ENCRYPTED</p>
    <h3>局域网加密传输 · LAN Transfer</h3>
    <p className="subtle">同一 Wi-Fi 或有线网络下，发送者开启临时原生 TCP 端口，文件使用 XChaCha20-Poly1305 端到端加密。不依赖外部服务器或账号。</p>
    <p className="subtle">双方都需安装包含局域网功能的 Sentinel Box。Mac 防火墙可能询问是否允许入站连接；访客 Wi-Fi 或 AP 隔离可能阻止设备互通。</p>
-   {room&&<div className="panel">
-    <h4>发送当前团队空间</h4>
+   <label className="subtle" style={{display:"flex",alignItems:"center",gap:8}}><input data-testid="commons-show-invitation" type="checkbox" checked={revealInvite} onChange={e=>setRevealInvite(e.target.checked)}/>显示一次性密钥（默认隐藏）</label>
+   <div className="pill-row" role="group" aria-label="LAN transfer direction">
+    <button type="button" className={lanAction==="send"?"pill active-pill":"pill"} aria-pressed={lanAction==="send"}
+     onClick={()=>{setLanAction("send");setNetworkStatus("");}}>1 · 发送</button>
+    <button type="button" className={lanAction==="receive"?"pill active-pill":"pill"} aria-pressed={lanAction==="receive"}
+     onClick={()=>{setLanAction("receive");setNetworkStatus("");}}>2 · 接收</button>
+   </div>
+   {lanAction==="send"&&!room&&<p role="status" className="subtle">先创建或导入一个团队空间，才能发送加密文件包。</p>}
+   {lanAction==="send"&&room&&<div className="panel">
+    <h4>步骤 1 · 准备发送</h4>
     <div className="actions">
-     <button className="primary-button" type="button" disabled={busy||networkBusy||!!lan?.active} onClick={()=>void startLan()}>开启 5 分钟一次性加密发送</button>
+     <button className="primary-button" type="button" disabled={!nativeLan||busy||networkBusy||!!lan?.active} onClick={()=>void startLan()}>开启 5 分钟一次性加密发送</button>
      <button className="secondary-button" type="button" disabled={networkBusy||!lan?.active} onClick={()=>void stopLan()}>停止共享</button>
      <button className="secondary-button" type="button" disabled={networkBusy||!lan} onClick={()=>void refreshLan()}>刷新状态</button>
     </div>
@@ -373,45 +393,49 @@ export default function CommonsDesk(){
       </select>
      </label>
      <label className="field-label">一次性邀请（包含保密密钥）
-      <textarea className="field text-editor" readOnly rows={3} value={selectedInvite} aria-label="Private LAN transfer invitation"/>
+      <input className="field" type={revealInvite?"text":"password"} readOnly value={selectedInvite} aria-label="Private LAN transfer invitation"/>
      </label>
      <button className="secondary-button" type="button" onClick={()=>void copyLanInvite()}>复制加密邀请</button>
      <p className="subtle">仅私下发给预期接收者；邀请内含解密密钥。5 分钟后到期，完成一次有效传输后自动关闭。</p>
     </>}
    </div>}
+   {lanAction==="receive"&&<>
    <div className="panel">
     <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-     <h4 style={{margin:0}}>附近正在共享的 Sentinel Box 设备</h4>
-     <button type="button" className="secondary-button" disabled={discovering} onClick={()=>void scanNearby()}>{discovering?"搜索中…":"刷新附近设备"}</button>
+     <h4 style={{margin:0}}>步骤 1 · 查找正在共享的设备（可选）</h4>
+     <button type="button" className="secondary-button" disabled={!nativeLan||discovering||networkBusy} onClick={()=>void scanNearby()}>{discovering?"搜索中…":"刷新附近设备"}</button>
     </div>
-    <p className="subtle">打开此页面会自动通过 Bonjour/mDNS 搜索同一局域网内**主动开启了共享**的电脑，每 20 秒刷新一次。未开启共享的电脑不会被广播或显示。</p>
+    <p className="subtle">只有点击「刷新附近设备」才开始约 3 秒的 Bonjour/mDNS 搜索；不持续扫描。附近设备名称不是经过验证的身份。</p>
     {discoveryError&&<p role="alert" className="subtle">设备发现暂时不可用：{discoveryError}。可以使用下方手动邀请。</p>}
     {nearby.length===0?<p className="subtle">{discovering?"搜索附近设备中…":"没有发现正在共享的设备。请让发送方先点击「开启 5 分钟一次性加密发送」。"}</p>:
      nearby.map(peer=><div className="task-row" key={peer.instance+"-"+peer.ip+":"+peer.port}>
       <div className="task-copy"><strong>{peer.label}</strong><div className="subtle">局域网 · {peer.ip}:{peer.port} · 身份尚未验证</div></div>
-      <button type="button" className="secondary-button" onClick={()=>chooseNearby(peer)} disabled={networkBusy}>
+      <button type="button" className="secondary-button" onClick={()=>chooseNearby(peer)} disabled={!nativeLan||networkBusy}>
        {selectedNearby?.instance===peer.instance&&selectedNearby.ip===peer.ip?"已选择":"选择设备"}
       </button>
      </div>)}
     {selectedNearby&&<div style={{border:"1px solid var(--line,#cbd5e1)",borderRadius:12,padding:12,marginTop:12}}>
       <strong>已选择：{selectedNearby.label}</strong>
       <p className="subtle">附近设备名称可以伪造。为避免陌生设备读取共享内容，发送方的一次性密钥**不会通过局域网自动发现广播**。请从发送方私下取得邀请并粘贴密钥。</p>
-      <label className="field-label">一次性密钥（或粘贴完整邀请后提取密钥）
-       <input className="field" type="password" autoComplete="off" maxLength={180} value={nearbyKey} onChange={e=>setNearbyKey(e.target.value)} placeholder="43 位一次性密钥"/>
+      <label className="field-label">一次性密钥或完整邀请（地址须与选择的设备一致）
+       <input className="field" type={revealInvite?"text":"password"} autoComplete="off" maxLength={180} value={nearbyKey} onChange={e=>setNearbyKey(e.target.value)} placeholder="43 位一次性密钥"/>
       </label>
+      {nearbyKey.trim()&&!nearbyKeyReady&&<p role="alert" className="subtle">
+       请核对密钥长度，以及完整邀请中的 IP、端口是否与所选附近设备一致。也可以改用下方手动完整邀请接收。
+      </p>}
       <div className="actions">
        <button type="button" className="secondary-button" onClick={()=>void pasteNearbyKey()}>从剪贴板提取邀请密钥</button>
-       <button type="button" className="primary-button" disabled={networkBusy||!(/^[A-Za-z0-9_-]{43}$/.test(nearbyKey.trim()))} onClick={()=>void receiveNearby()}>向该设备请求加密传输</button>
+       <button type="button" className="primary-button" disabled={!nativeLan||networkBusy||!nearbyKeyReady} onClick={()=>void receiveNearby()}>向该设备请求加密传输</button>
       </div>
      </div>}
    </div>
    <div className="panel">
-    <h4>接收团队空间</h4>
+    <h4>步骤 2 · 粘贴完整邀请并接收</h4>
     <label className="field-label">粘贴发送者提供的 uboxlan:// 邀请
-     <textarea className="field text-editor" rows={3} maxLength={180} value={incomingInvite} onChange={e=>setIncomingInvite(e.target.value)}
-      placeholder="uboxlan://192.168.1.20:49152/保密密钥"/>
+     <input className="field" type={revealInvite?"text":"password"} maxLength={180} value={incomingInvite} onChange={e=>setIncomingInvite(e.target.value)}
+      placeholder="uboxlan://192.168.1.20:49152/一次性密钥" autoComplete="off" aria-label="LAN invitation to receive"/>
     </label>
-    <button className="primary-button" type="button" disabled={networkBusy||!incomingInvite.trim()} onClick={()=>void receiveLan()}>
+    <button className="primary-button" type="button" disabled={!nativeLan||networkBusy||!canReceiveLan(incomingInvite)} onClick={()=>void receiveLan()}>
      接收并校验加密团队包
     </button>
     {incoming&&<div style={{border:"1px solid var(--line,#cbd5e1)",borderRadius:12,padding:14,marginTop:12}}>
@@ -424,6 +448,7 @@ export default function CommonsDesk(){
      </div>
     </div>}
    </div>
+   </>}
    {networkBusy&&transferProgress&&<div style={{padding:10,border:"1px solid var(--line,#cbd5e1)",borderRadius:9}}>
     <strong>正在接收加密数据</strong>
     <progress style={{width:"100%"}} aria-label="Encrypted LAN packet received" max={100}
@@ -433,13 +458,14 @@ export default function CommonsDesk(){
    </div>}
    {lan?.active&&<p className="subtle">此一次性共享预计剩余约 {lan.secondsRemaining} 秒；成功发送或过期后会自动停止。</p>}
    {networkBusy&&<p role="status">正在进行局域网加密操作…</p>}
-   {networkStatus&&<p className="subtle" role="status">{networkStatus}</p>}
-  </div>
-  <div className="panel" style={{marginTop:16}}>
-   <p className="eyebrow">P2P RESEARCH · OPT-IN</p>
-   <h3>跨局域网直连可行性探测</h3>
+   {networkStatus&&<p className="subtle" role="status" data-testid="commons-network-status">{networkStatus}</p>}
+  </div>}
+  {transportMode==="public"&&<div className="panel" data-testid="commons-public-research" style={{marginTop:16}}>
+   <p className="eyebrow">P2P RESEARCH · OPT-IN · NO FILE TRANSFER</p>
+   <h3>公网连接 · 诊断与后续规划</h3>
+   <p className="subtle">未来公网收发还需要可验证的双方身份、双方批准、加密信令和 NAT 直连失败处理。当前不会自动开放公网端口或部署中继，也不能向互联网用户发送团队包。</p>
    <p className="subtle">研究阶段：可使用公开 STUN 服务器观察你的 UDP 公网映射。只有主动点击才联系外部服务器；该服务器能看到本次连接的公网 IP。**这不是已经建立了 P2P 文件连接**，也不会上传任何团队文件。</p>
-   <button type="button" className="secondary-button" disabled={stunBusy} onClick={()=>void runP2pProbe()}>
+   <button type="button" className="secondary-button" disabled={!nativeLan||stunBusy} onClick={()=>void runP2pProbe()}>
     {stunBusy?"探测中…":"尝试两处免费 STUN 映射对比"}
    </button>
    {stunError&&<p role="alert" className="subtle">STUN 探测不可用：{stunError}</p>}
@@ -456,7 +482,7 @@ export default function CommonsDesk(){
     <p className="subtle">{stun.note}</p>
     <p className="subtle">观测服务器：{stun.server}。此结果不能预测真实 NAT 穿透成功率；跨网打洞、信令和端到端传输还没有实现。</p>
    </div>}
-  </div>
+  </div>}
   <div className="panel" style={{marginTop:16}}>
    <h3>接收团队包 · Import / Merge</h3>
    <input className="field" type="file" accept=".zip,application/zip" aria-label="Import team ZIP" disabled={busy} onChange={e=>void receiveTeam(e)}/>

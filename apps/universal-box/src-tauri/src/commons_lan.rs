@@ -184,6 +184,13 @@ fn parse_invite(invite: &str) -> Result<(SocketAddrV4, [u8; 32]), String> {
     Ok((address, key))
 }
 
+/// Never accept a sender-side LAN request originating from a public IP.
+fn allowed_lan_peer(ip: IpAddr)->bool{
+ match ip {
+  IpAddr::V4(v4)=>v4.is_private()||v4.is_loopback()||v4.is_link_local(),
+  IpAddr::V6(_)=>false,
+ }
+}
 fn transmit(mut socket: TcpStream, key: &[u8; 32], zip: &[u8]) -> Result<(), String> {
     socket.set_read_timeout(Some(NETWORK_TIMEOUT)).map_err(|e| e.to_string())?;
     socket.set_write_timeout(Some(NETWORK_TIMEOUT)).map_err(|e| e.to_string())?;
@@ -300,7 +307,10 @@ pub async fn commons_lan_start(
     thread::spawn(move || {
         while !flag.load(Ordering::SeqCst) && Instant::now() < expiry {
             match listener.accept() {
-                Ok((socket, _)) => {
+                Ok((socket, peer)) => {
+                    // Binding 0.0.0.0 supports multiple local interfaces. Reject connections
+                    // from public addresses before even attempting the keyed handshake.
+                    if !allowed_lan_peer(peer.ip()) { continue; }
                     // A failed handshake does not consume the one-time share.
                     if transmit(socket, &key, &zip).is_ok() {
                         flag.store(true, Ordering::SeqCst);
@@ -355,6 +365,17 @@ pub async fn commons_lan_receive(invite: String, app: tauri::AppHandle) -> Resul
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn lan_share_listener_refuses_public_origin_addresses() {
+        use std::net::{IpAddr,Ipv4Addr,Ipv6Addr};
+        for ip in ["127.0.0.1","192.168.2.10","10.10.0.3","172.31.1.1","169.254.20.1"] {
+            assert!(allowed_lan_peer(IpAddr::V4(ip.parse::<Ipv4Addr>().unwrap())), "{ip}");
+        }
+        for ip in ["8.8.8.8","1.1.1.1","172.32.1.1","203.0.113.4"] {
+            assert!(!allowed_lan_peer(IpAddr::V4(ip.parse::<Ipv4Addr>().unwrap())), "{ip}");
+        }
+        assert!(!allowed_lan_peer(IpAddr::V6("::1".parse::<Ipv6Addr>().unwrap())));
+    }
     #[test]
     fn rejects_public_and_hostname_destinations() {
         for invite in [
