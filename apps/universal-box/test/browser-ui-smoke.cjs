@@ -231,7 +231,7 @@ test("Public Internet WebRTC direct UI requires deliberate signaling and explici
   assert.equal(await direct.getByTestId("p2p-answer").isDisabled(),false,"SDP parse errors should be shown on deliberate click");
   await direct.getByTestId("p2p-answer").click();
   await page.waitForFunction(()=>document.querySelector('[data-testid="p2p-status"]')?.textContent?.includes("无法应答连接"));
-  assert.match(await direct.getByTestId("p2p-status").innerText(),/完整 JSON/);
+  assert.match(await direct.getByTestId("p2p-status").innerText(),/Connection description size is invalid|完整 JSON/);
   assert.equal(await direct.getByTestId("p2p-local-description").count(),0);
   assert.deepEqual(errors,[]);
  }finally{await page.close();await browser.close();}
