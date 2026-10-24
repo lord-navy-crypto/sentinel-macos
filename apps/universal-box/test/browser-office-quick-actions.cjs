@@ -517,3 +517,46 @@ test("CSV Table Desk retains optional blank rows and exports spreadsheet-safe TS
   assert.deepEqual(errors,[]);
  }finally{await page.close();await browser.close();}
 });
+
+test("unnumbered batch rename produces real files, previews collisions and protects ZIP manifest",{timeout:85000},async()=>{
+ const browser=await chromium.launch({headless:true,args:["--no-sandbox"]});
+ const page=await browser.newPage({acceptDownloads:true,viewport:{width:1440,height:920}});
+ const errors=[];page.on("pageerror",e=>errors.push(e.message));
+ try{
+  await page.goto(root,{waitUntil:"domcontentloaded"});await page.locator(".app-shell").waitFor();
+  await openTool(page,"Batch Rename Copies");
+  await page.locator("#rename-files").setInputFiles([
+   {name:"Draft 合同.docx",mimeType:"application/octet-stream",buffer:Buffer.from("DOC-1")},
+   {name:"memo.pdf",mimeType:"application/pdf",buffer:Buffer.from("%PDF-1.7 TEST")},
+  ]);
+  await page.locator('[data-testid="rename-numbered"]').uncheck();
+  await page.locator('label:has-text("Prefix") input').fill("Final-");
+  await page.locator('label:has-text("Find text") input').fill("Draft");
+  await page.locator('label:has-text("Replace") input').fill("Approved");
+  const preview=await page.locator('[data-testid="rename-preview"]').innerText();
+  assert.match(preview,/Final-Approved 合同\.docx/);
+  assert.match(preview,/Final-memo\.pdf/);
+  assert.doesNotMatch(preview,/Final-memo-02/);
+  const pending=page.waitForEvent("download",{timeout:30000});
+  await page.locator('[data-testid="rename-save-zip"]').click();
+  const dl=await pending,output=path.join(dir,"renamed-without-numbering.zip");
+  await dl.saveAs(output);
+  const zip=await JSZip.loadAsync(fs.readFileSync(output),{checkCRC32:true});
+  assert.equal((await zip.file("Final-Approved 合同.docx").async("nodebuffer")).toString(),"DOC-1");
+  assert.equal((await zip.file("Final-memo.pdf").async("nodebuffer")).toString(),"%PDF-1.7 TEST");
+  assert.equal(JSON.parse(await zip.file("sentinel-box-rename-plan.json").async("string")).files.length,2);
+  await page.locator('label:has-text("Prefix") input').fill("");
+  await page.locator('label:has-text("Find text") input').fill("");
+  await page.locator("#rename-files").setInputFiles([
+   {name:"a.txt",mimeType:"text/plain",buffer:Buffer.from("1")},
+   {name:"A.txt",mimeType:"text/plain",buffer:Buffer.from("2")},
+  ]);
+  assert.match(await page.locator('[data-testid="rename-error"]').innerText(),/Duplicate output filename/);
+  assert.equal(await page.locator('[data-testid="rename-save-zip"]').isDisabled(),true);
+  await page.locator("#rename-files").setInputFiles([
+   {name:"sentinel-box-rename-plan.json",mimeType:"application/json",buffer:Buffer.from("{}")},
+  ]);
+  assert.match(await page.locator('[data-testid="rename-error"]').innerText(),/reserved for the ZIP manifest/);
+  assert.deepEqual(errors,[]);
+ }finally{await page.close();await browser.close();}
+});
