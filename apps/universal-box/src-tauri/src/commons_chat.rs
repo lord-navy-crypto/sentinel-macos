@@ -108,7 +108,7 @@ fn local_ipv4(ip: Ipv4Addr) -> bool {
 fn local_addrs() -> Vec<Ipv4Addr> {
     let mut list: Vec<Ipv4Addr> = if_addrs::get_if_addrs().unwrap_or_default()
         .iter().filter_map(|interface| match interface.ip() {
-            IpAddr::V4(ip) if ip.is_private() && !ip.is_loopback() => Some(ip),
+            IpAddr::V4(ip) if (ip.is_private() || ip.is_link_local()) && !ip.is_loopback() => Some(ip),
             _ => None,
         }).collect();
     list.sort(); list.dedup();
@@ -343,6 +343,8 @@ mod tests {
  fn invitations_reject_public_and_malformed_addresses() {
     let key=URL_SAFE_NO_PAD.encode([5_u8;32]);
     assert!(decode_chat_invite(&format!("uboxchat://127.0.0.1:5555/{key}")).is_ok());
+    assert!(local_ipv4(Ipv4Addr::new(169,254,12,3)));
+    assert!(decode_chat_invite(&format!("uboxchat://169.254.12.3:5555/{key}")).is_ok());
     for host in ["8.8.8.8","172.32.1.2","256.0.0.1","example.com"] {
         assert!(decode_chat_invite(&format!("uboxchat://{host}:5555/{key}")).is_err());
     }
