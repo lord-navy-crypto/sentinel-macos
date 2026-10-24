@@ -139,7 +139,7 @@ export default function BatchImageDesk(){
    </select></label>
    <label className="field-label">Maximum width (px)<input type="number" min={64} max={8192} className="field" value={width} disabled={busy}
     onChange={event=>{setWidth(Math.max(64,Math.min(8192,Number(event.target.value)||1600)));invalidate();}}/></label>
-   <label className="field-label">Quality · {Math.round(quality*100)}%<input type="range" min={.35} max={1} step={.05} value={quality} disabled={busy}
+   <label className="field-label">Quality · {Math.round(quality*100)}%<input data-testid="batch-image-quality" type="range" min={.35} max={1} step={.05} value={quality} disabled={busy}
     onChange={event=>{setQuality(Number(event.target.value));invalidate();}}/></label>
    <label className="field-label">Resolution<select className="field" value={upscale} disabled={busy}
     onChange={event=>{setUpscale(Number(event.target.value) as 1|2);invalidate();}}>
