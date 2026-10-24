@@ -66,6 +66,16 @@ describe("Manual host-forwarded public room protocol",()=>{
   expect(decodePublicRoomFrame(JSON.stringify({...welcome,resumeToken:"invalid"}),room)).toBeNull();
   expect(decodePublicRoomFrame(JSON.stringify(join),"aaaaaaaa-1234-4234-9234-123456789abc")).toBeNull();
  });
+ it("negotiates heartbeats without breaking legacy join and welcome frames",()=>{
+  const legacyJoin={v:1 as const,room,kind:"join" as const,name:"成员A"};
+  const modernJoin={...legacyJoin,heartbeat:true as const};
+  const legacyWelcome={v:1 as const,room,kind:"welcome" as const};
+  const modernWelcome={...legacyWelcome,heartbeat:true as const};
+  for(const frame of [legacyJoin,modernJoin,legacyWelcome,modernWelcome])
+   expect(decodePublicRoomFrame(encodePublicRoomFrame(frame),room)).toEqual(frame);
+  for(const value of [false,1,"true",null])
+   expect(decodePublicRoomFrame(JSON.stringify({...modernJoin,heartbeat:value}),room)).toBeNull();
+ });
  it("validates room-scoped heartbeat ping/pong and rejects unexpected identifiers",()=>{
   const ping={v:1 as const,room,kind:"ping" as const,id};
   const pong={v:1 as const,room,kind:"pong" as const,id};
