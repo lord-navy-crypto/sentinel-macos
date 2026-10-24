@@ -121,7 +121,7 @@ export default function QuickKitDesk({initialMode="text"}:{initialMode?:QuickKit
       <label className="field-label" htmlFor="quick-draft-file">Open existing .txt / .md draft (UTF-8 or Windows UTF-16LE)</label>
       <input id="quick-draft-file" data-testid="quick-draft-file" className="field"
         type="file" accept=".txt,.md,text/plain,text/markdown"
-        onChange={e=>{void importTextDraft(e,mode);}}/>
+        onChange={e=>{void importTextDraft(e,mode==="case-width"?"case-width":mode==="replace"?"replace":"text");}}/>
       <p className="subtle">Choose up to 500 KB. The content appears in the current text editor only after encoding validation. No file upload or overwrite; editing the draft here does not change its original.</p>
     </div>}
     {mode==="text"&&<>
