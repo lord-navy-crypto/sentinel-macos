@@ -292,7 +292,7 @@ describe("offline batch office text utility",()=>{
       }
     }
     expect(()=>processBatchTextFiles([{name:"a.txt",bytes:Uint8Array.from([255])}],"sort-list-asc")).toThrow(/invalid UTF-8/);
-    expect(()=>processBatchTextFiles([input("a.txt","Apple\n")],"sort-list-asc")[0].changed).toBe(false);
+    expect(processBatchTextFiles([input("a.txt","Apple\n")],"sort-list-asc")[0].changed).toBe(false);
   });
 
   it("packages changed copies only; JSON manifest and all exported bytes are verifiable",async()=>{
