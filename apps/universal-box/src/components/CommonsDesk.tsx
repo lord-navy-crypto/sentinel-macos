@@ -4,6 +4,7 @@ import {listen} from "@tauri-apps/api/event";
 import {exportFile} from "../lib/output";
 import {canReceiveLan,keyFromNearbyInput,parseCommonsLanInvite} from "../lib/commonsLanUi";
 import CommonsLiveChatDesk from "./CommonsLiveChatDesk";
+import CommonsInternetDirectDesk from "./CommonsInternetDirectDesk";
 import {
  createCommonsRoom,commonsMessage,commonsTask,commonsToggleTask,commonsFile,
  exportCommonsPacket,importCommonsPacket,mergeCommonsPackets,safeAttachmentName,
@@ -372,12 +373,12 @@ export default function CommonsDesk(){
   </>}
   <div className="panel" data-testid="commons-connection-switcher" style={{marginTop:16}}>
    <h3>通讯 · 选择连接方式</h3>
-   <p className="subtle">离线 ZIP → 局域网加密传输 → 公网诊断；公网收发仍未实现。</p>
+   <p className="subtle">离线 ZIP → 局域网加密群聊 → 公网 WebRTC 一对一直连实验；公网多人群聊和中继仍未实现。</p>
    <div className="pill-row" role="group" aria-label="Communication transport">
     <button type="button" className={transportMode==="lan"?"pill active-pill":"pill"} aria-pressed={transportMode==="lan"}
      onClick={()=>setTransportMode("lan")}>局域网发送与接收</button>
     <button type="button" className={transportMode==="public"?"pill active-pill":"pill"} aria-pressed={transportMode==="public"}
-     onClick={()=>setTransportMode("public")}>公网诊断 · 尚不可传输</button>
+     onClick={()=>setTransportMode("public")}>公网 · 直连实验</button>
    </div>
    {!nativeLan&&<p role="status" className="subtle">浏览器仅供界面预览和离线 ZIP；Bonjour、局域网收发及 STUN 探测需要 Mac 桌面应用。</p>}
   </div>
@@ -492,7 +493,7 @@ export default function CommonsDesk(){
   {transportMode==="public"&&<div className="panel" data-testid="commons-public-research" style={{marginTop:16}}>
    <p className="eyebrow">P2P RESEARCH · OPT-IN · NO FILE TRANSFER</p>
    <h3>公网连接 · 诊断与后续规划</h3>
-   <p className="subtle">未来公网收发还需要可验证的双方身份、双方批准、加密信令和 NAT 直连失败处理。当前不会自动开放公网端口或部署中继，也不能向互联网用户发送团队包。</p>
+   <p className="subtle">下面的 WebRTC 实验允许双方手动交换 Offer/Answer 后尝试加密点对点文本聊天，不会开放公网 TCP 监听或自动部署中继。仍未实现公网群聊、自动信令或保证所有网络都能连通。</p>
    <p className="subtle">研究阶段：可使用公开 STUN 服务器观察你的 UDP 公网映射。只有主动点击才联系外部服务器；该服务器能看到本次连接的公网 IP。**这不是已经建立了 P2P 文件连接**，也不会上传任何团队文件。</p>
    <button type="button" className="secondary-button" disabled={!nativeLan||stunBusy} onClick={()=>void runP2pProbe()}>
     {stunBusy?"探测中…":"尝试两处免费 STUN 映射对比"}
@@ -511,6 +512,7 @@ export default function CommonsDesk(){
     <p className="subtle">{stun.note}</p>
     <p className="subtle">观测服务器：{stun.server}。此结果不能预测真实 NAT 穿透成功率；跨网打洞、信令和端到端传输还没有实现。</p>
    </div>}
+   <CommonsInternetDirectDesk/>
   </div>}
   <div className="panel" style={{marginTop:16}}>
    <h3>接收团队包 · Import / Merge</h3>
