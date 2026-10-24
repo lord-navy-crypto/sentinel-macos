@@ -1,6 +1,6 @@
-import {useMemo,useState,type ChangeEvent} from "react";
+import {useMemo,useRef,useState,type ChangeEvent} from "react";
 import {exportFile} from "../lib/output";
-import {auditPdfDocuments,compareWordDocuments,pdfAuditZip,trimWavSilence,wavSilenceZip,wordReviewZip,
+import {auditPdfDocuments,compareWordDocuments,pdfAuditZip,trimWavSilence,wavSilenceZip,wordReviewZip,wordReviewText,
  type ReviewInput,type WordReview,type PdfAuditResult,type WavSilenceReview} from "../lib/qualityReview";
 
 export type QualityMode="word-diff"|"wav-silence"|"pdf-audit";
@@ -15,14 +15,25 @@ export default function QualityReviewDesk({mode}:{mode:QualityMode}){
   [threshold,setThreshold]=useState(-42),[padding,setPadding]=useState(80),
   [wavReport,setWavReport]=useState<WavSilenceReview|null>(null),[pdfs,setPdfs]=useState<ReviewInput[]>([]),
   [pdfReport,setPdfReport]=useState<PdfAuditResult|null>(null),[busy,setBusy]=useState(false),[status,setStatus]=useState("");
+ const [wordLoading,setWordLoading]=useState({left:false,right:false});
+ const wordTicket=useRef({left:0,right:0});
  async function selectWord(event:ChangeEvent<HTMLInputElement>,side:"left"|"right"){
-  const f=event.target.files?.[0];event.target.value="";setWordReport(null);setStatus("");
-  if(!f)return;
+  const f=event.target.files?.[0];event.target.value="";
+  if(!f||busy)return;
+  const request=++wordTicket.current[side];
+  setWordReport(null);setStatus("");
+  setWordLoading(old=>({...old,[side]:true}));
+  if(side==="left")setWordA(null);else setWordB(null);
   try{
    if(!/\.docx$/iu.test(f.name))throw Error("Choose .docx Word documents.");
    const item=await read(f,8_000_000);
+   if(wordTicket.current[side]!==request)return;
    if(side==="left")setWordA(item);else setWordB(item);
-  }catch(e){setStatus("Word import: "+textError(e));}
+  }catch(e){
+   if(wordTicket.current[side]===request)setStatus("Word import: "+textError(e));
+  }finally{
+   if(wordTicket.current[side]===request)setWordLoading(old=>({...old,[side]:false}));
+  }
  }
  async function selectWav(event:ChangeEvent<HTMLInputElement>){
   const f=event.target.files?.[0];event.target.value="";setWavReport(null);setStatus("");
@@ -45,7 +56,9 @@ export default function QualityReviewDesk({mode}:{mode:QualityMode}){
   }catch(e){setStatus("PDF import: "+textError(e));}
  }
  async function review(){
-  if(busy)return;setBusy(true);setStatus("");
+  if(busy||(mode==="word-diff"&&(wordLoading.left||wordLoading.right)))return;
+  setBusy(true);setStatus("");
+  if(mode==="word-diff")setWordReport(null);
   try{
    if(mode==="word-diff"){
     if(!wordA||!wordB)throw Error("Select two Word documents.");
@@ -65,7 +78,7 @@ export default function QualityReviewDesk({mode}:{mode:QualityMode}){
  async function save(){
   if(busy)return;setBusy(true);setStatus("");
   try{
-   const bytes=mode==="word-diff"?wordA&&wordB?await wordReviewZip(wordA,wordB):null
+   const bytes=mode==="word-diff"?wordA&&wordB&&wordReport?await wordReviewZip(wordA,wordB,wordReport):null
     :mode==="wav-silence"?wav?await wavSilenceZip(wav,threshold,padding):null
     :pdfs.length?await pdfAuditZip(pdfs):null;
    if(!bytes)throw Error("Select files first.");
@@ -75,6 +88,20 @@ export default function QualityReviewDesk({mode}:{mode:QualityMode}){
   }catch(e){setStatus("Export error: "+textError(e));}
   finally{setBusy(false);}
  }
+ async function copyWordChanges(){
+  if(!wordReport||busy)return;
+  try{await navigator.clipboard.writeText(wordReviewText(wordReport,true));setStatus("Copied changed Word paragraphs locally.");}
+  catch{setStatus("Clipboard permission unavailable. Select and copy the preview manually.");}
+ }
+ async function saveWordChanges(){
+  if(!wordReport||busy)return;
+  setBusy(true);setStatus("");
+  try{
+   const ok=await exportFile("sentinel-box-word-changes.txt",wordReviewText(wordReport,true));
+   setStatus(ok?"Saved changes-only TXT. Original DOCX files unchanged.":"Save cancelled.");
+  }catch(e){setStatus("TXT export failed: "+textError(e));}
+  finally{setBusy(false);}
+ }
  const isReady=mode==="word-diff"?!!wordReport:mode==="wav-silence"?!!wavReport:!!pdfReport;
  return <section className="panel" data-testid="quality-review-desk" aria-label="Document, audio and PDF verification">
   <p className="eyebrow">SENTINEL BOX · QUALITY & REPAIR</p>
@@ -82,13 +109,19 @@ export default function QualityReviewDesk({mode}:{mode:QualityMode}){
    <h3>Word 段落差异对比 · DOCX Review</h3>
    <p className="subtle">对照两份 DOCX 的实际文字段落，标记未变、更改前删除和新增内容。报告是**只读文本比较**，不等同于 Microsoft Word 的 Track Changes，也不比较图片、样式、批注或表格版式。</p>
    <div className="tools-pair">
-    <label className="field-label">原版本 DOCX<input data-testid="quality-word-a" className="field" type="file" accept=".docx" onChange={e=>void selectWord(e,"left")}/>{wordA?.name}</label>
-    <label className="field-label">新版本 DOCX<input data-testid="quality-word-b" className="field" type="file" accept=".docx" onChange={e=>void selectWord(e,"right")}/>{wordB?.name}</label>
+    <label className="field-label">原版本 DOCX<input data-testid="quality-word-a" className="field" type="file" accept=".docx" disabled={busy} onChange={e=>void selectWord(e,"left")}/>{wordA?.name}</label>
+    <label className="field-label">新版本 DOCX<input data-testid="quality-word-b" className="field" type="file" accept=".docx" disabled={busy} onChange={e=>void selectWord(e,"right")}/>{wordB?.name}</label>
    </div>
-   <button data-testid="quality-review" className="primary-button" type="button" disabled={!wordA||!wordB||busy} onClick={()=>void review()}>比较两份 Word</button>
+   {(wordLoading.left||wordLoading.right)&&<p role="status" data-testid="quality-word-reading" className="subtle">Reading local Word file…</p>}
+   <button data-testid="quality-review" className="primary-button" type="button" disabled={!wordA||!wordB||busy||wordLoading.left||wordLoading.right} onClick={()=>void review()}>比较两份 Word</button>
    {wordReport&&<>
     <p data-testid="quality-word-stats" className="subtle">相同 {wordReport.same} 段 · 新增 {wordReport.added} 段 · 删除 {wordReport.removed} 段</p>
     <pre data-testid="quality-word-preview" style={{maxHeight:330,overflow:"auto",whiteSpace:"pre-wrap",overflowWrap:"anywhere"}}>{wordReport.changes.slice(0,90).map(x=>(x.kind==="added"?"+ ":x.kind==="removed"?"- ":"  ")+x.line).join("\n")}</pre>
+    <p className="subtle">Preview shows up to 90 paragraphs; complete ZIP contains every compared paragraph. Changes-only copy/TXT excludes unchanged paragraphs.</p>
+    <div className="actions">
+     <button type="button" data-testid="quality-word-copy-changes" className="secondary-button" disabled={busy||wordReport.added+wordReport.removed===0} onClick={()=>void copyWordChanges()}>复制变更段落 / Copy changes</button>
+     <button type="button" data-testid="quality-word-txt-changes" className="secondary-button" disabled={busy||wordReport.added+wordReport.removed===0} onClick={()=>void saveWordChanges()}>保存仅变更 TXT</button>
+    </div>
    </>}
   </>}
   {mode==="wav-silence"&&<>
