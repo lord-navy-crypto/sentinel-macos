@@ -1,8 +1,9 @@
 import {useEffect,useRef,useState} from "react";
+import {canQueueDirectFrame,decodeDirectFrame,encodeDirectFrame,rememberDirectMessage,type DirectMessageFrame} from "../lib/commonsDirectMessages";
 import {decodeDirectSignal,encodeDirectSignal,finishIceGathering,
  readDirectFingerprint,validDirectChatText,buildCommonsIceServers,summarizeCommonsIceRoute,type IceRouteSummary} from "../lib/commonsInternetRtc";
 
-type Line={id:string;name:string;text:string;self:boolean};
+type Line={id:string;name:string;text:string;self:boolean;received?:boolean};
 const errorText=(e:unknown)=>e instanceof Error?e.message:String(e);
 /** Manual out-of-band signaling permits opt-in direct WebRTC without operating a signaling server.
  * It is a two-device proof, not a global messenger or a guaranteed NAT traversal solution.
@@ -10,6 +11,7 @@ const errorText=(e:unknown)=>e instanceof Error?e.message:String(e);
 export default function CommonsInternetDirectDesk(){
  const supported=typeof RTCPeerConnection!=="undefined";
  const pcRef=useRef<RTCPeerConnection|null>(null),channelRef=useRef<RTCDataChannel|null>(null);
+ const receivedIds=useRef<string[]>([]);
  const [useStun,setUseStun]=useState(false);
  const [ownTurn,setOwnTurn]=useState(false);
  const [turnUrl,setTurnUrl]=useState("");
@@ -31,29 +33,36 @@ export default function CommonsInternetDirectDesk(){
   channelRef.current?.close();pcRef.current?.close();
   channelRef.current=null;pcRef.current=null;setConnected(false);setRole("");
   setOutgoing("");setRemoteText("");setLocalFingerprint("");setRemoteFingerprint("");setIcePath(null);
-  setLines([]);setTurnCredential("");setStatus("连接已关闭，临时消息和 TURN 凭证已清空。");
+  setLines([]);receivedIds.current=[];setTurnCredential("");setStatus("连接已关闭，临时消息和 TURN 凭证已清空。");
  };
  useEffect(()=>()=>{channelRef.current?.close();pcRef.current?.close();},[]);
- function append(name:string,text:string,self:boolean){
-  setLines(old=>[...old,{id:crypto.randomUUID(),name,text,self}].slice(-200));
+ function append(item:Line){
+  setLines(old=>[...old,item].slice(-200));
  }
  function attach(channel:RTCDataChannel){
   channelRef.current=channel;
   channel.onopen=()=>{setConnected(true);setStatus("WebRTC DataChannel 已建立加密连接 · 可交换文本");};
-  channel.onclose=()=>{setConnected(false);setStatus("数据通道已断开；可以重新交换连接描述。");};
+  channel.onclose=()=>{setConnected(false);setStatus("数据通道已断开，部分已发送消息可能仍未获对方确认。");};
   channel.onerror=()=>setStatus("数据通道出错；网络可能不允许直连。");
   channel.onmessage=event=>{
-   if(typeof event.data!=="string"||event.data.length>9000)return;
-   try{
-    const m=JSON.parse(event.data) as {nickname?:unknown;text?:unknown};
-    if(typeof m.nickname==="string"&&m.nickname.length<=48
-      &&typeof m.text==="string"&&validDirectChatText(m.text))
-     append(m.nickname,m.text,false);
-   }catch{/* Ignore malformed peer data without rendering it as HTML. */}
+   if(typeof event.data!=="string")return;
+   const frame=decodeDirectFrame(event.data);
+   if(!frame)return;
+   if(frame.type==="ack"){
+    setLines(old=>old.map(line=>line.self&&line.id===frame.id?{...line,received:true}:line));
+    return;
+   }
+   const observed=rememberDirectMessage(receivedIds.current,frame.id);
+   receivedIds.current=observed.ids;
+   if(!observed.duplicate)append({id:frame.id,name:frame.nickname,text:frame.text,self:false});
+   // Even a retry of an already displayed message gets another ACK.
+   try{if(channel.readyState==="open"&&canQueueDirectFrame(channel.bufferedAmount))
+    channel.send(encodeDirectFrame({type:"ack",id:frame.id}));}
+   catch{/* A later retry can be ACKed after the network recovers. */}
   };
  }
  function createConnection(){
-  pcRef.current?.close();channelRef.current=null;setConnected(false);setLines([]);setIcePath(null);
+  pcRef.current?.close();channelRef.current=null;setConnected(false);setLines([]);setIcePath(null);receivedIds.current=[];
   const servers=buildCommonsIceServers({publicStun:useStun,ownTurn,turnUrl,turnUsername,turnCredential});
   const peer=new RTCPeerConnection({iceServers:servers});
   pcRef.current=peer;
@@ -119,13 +128,31 @@ export default function CommonsInternetDirectDesk(){
   try{await navigator.clipboard.writeText(outgoing);setStatus("连接描述已复制，请通过可信渠道私下发送；它可能包含网络地址信息。");}
   catch(e){setStatus("自动复制失败："+errorText(e));}
  }
+ function transmit(frame:DirectMessageFrame):boolean{
+  const channel=channelRef.current;
+  if(!channel||channel.readyState!=="open"||!canQueueDirectFrame(channel.bufferedAmount)){
+   setStatus("数据通道未就绪或发送队列已满，本次消息未写入连接。");return false;
+  }
+  try{channel.send(encodeDirectFrame(frame));return true;}
+  catch(e){setStatus("发送失败："+errorText(e));return false;}
+ }
  function send(){
-  const value=draft.trim(),channel=channelRef.current;
-  if(!channel||channel.readyState!=="open"||!validDirectChatText(value))return;
-  try{
-   channel.send(JSON.stringify({nickname:name.trim(),text:value}));
-   append(name.trim(),value,true);setDraft("");
-  }catch(e){setStatus("发送失败："+errorText(e));}
+  const value=draft.trim();
+  if(!validDirectChatText(value)||!name.trim())return;
+  const frame:DirectMessageFrame={type:"message",id:crypto.randomUUID(),nickname:name.trim(),text:value};
+  if(!transmit(frame))return;
+  append({id:frame.id,name:frame.nickname,text:value,self:true,received:false});
+  setDraft("");setStatus("消息已发送到数据通道，正在等待对方应用确认收到。");
+ }
+ function retryPending(){
+  const pending=lines.filter(line=>line.self&&!line.received);
+  if(!pending.length)return;
+  let sent=0;
+  for(const line of pending){
+   if(!transmit({type:"message",id:line.id,nickname:line.name,text:line.text}))break;
+   sent++;
+  }
+  if(sent>0)setStatus("已重新发送 "+sent+" 条未确认消息；对方会按原消息编号去重。");
  }
  return <section className="panel" data-testid="commons-direct-p2p" aria-label="Experimental internet direct chat">
   <h4>公网直连实验 · WebRTC DataChannel（一对一）</h4>
@@ -161,6 +188,7 @@ export default function CommonsInternetDirectDesk(){
    </div>}
   </div>
   <p className="subtle">Offer / Answer 可能含有双方网络候选地址与 DTLS 指纹；只能通过可信的另一个渠道交换，并由双方核对身份。DTLS 保护传输，但不验证昵称或对方的真实身份。</p>
+  <p className="subtle">消息显示「对方应用已确认收到」仅代表远端软件回了 ACK，不代表对方已阅读、保存或确认真实身份。网络中断时可以重试未确认消息，重复编号不会在同一连接中重复显示。</p>
   {!supported&&<p role="alert">当前浏览器/WebView 不支持 WebRTC DataChannel。</p>}
   <label className="field-label">你的昵称
    <input data-testid="p2p-nickname" className="field" value={name} maxLength={24}
@@ -203,6 +231,7 @@ export default function CommonsInternetDirectDesk(){
     style={{maxHeight:240,overflowY:"auto",border:"1px solid var(--line,#cbd5e1)",borderRadius:10,padding:12}}>
     {lines.map(line=><p key={line.id} style={{overflowWrap:"anywhere",whiteSpace:"pre-wrap"}}>
      <strong>{line.name}{line.self?"（本机）":""}：</strong>{line.text}
+     {line.self&&<span className="subtle" data-testid="p2p-message-receipt"> · {line.received?"对方应用已确认收到":"等待对方确认"}</span>}
     </p>)}
    </div>
    <label className="field-label">发送加密连接上的文本
@@ -211,6 +240,8 @@ export default function CommonsInternetDirectDesk(){
    </label>
    <button type="button" className="primary-button" data-testid="p2p-send"
     disabled={!validDirectChatText(draft)} onClick={send}>发送</button>
+   {lines.some(line=>line.self&&!line.received)&&<button type="button" className="secondary-button"
+    data-testid="p2p-retry-pending" onClick={retryPending}>重试未确认消息</button>}
   </div>}
  </section>;
 }
