@@ -30,6 +30,7 @@ export default function SpeechPortableDesk({mode}:{mode:SpeechPortableMode}){
  const [photoPreviewUrl,setPhotoPreviewUrl]=useState("");
  const photoJob=useRef<AbortController|null>(null);
  useEffect(()=>()=>{photoJob.current?.abort();},[]);
+ useEffect(()=>{if(mode!=="photo-target")photoJob.current?.abort();},[mode]);
  useEffect(()=>()=>{if(photoPreviewUrl)URL.revokeObjectURL(photoPreviewUrl);},[photoPreviewUrl]);
  const [texts,setTexts]=useState<PortableInput[]>([]);
  const [textSettings,setTextSettings]=useState<PortableSettings>({source:"auto",target:"utf-8-bom",lines:"crlf"});
