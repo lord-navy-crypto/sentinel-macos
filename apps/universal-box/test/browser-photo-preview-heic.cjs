@@ -109,3 +109,34 @@ test("Photo workbench locks input/quality changes during an active local encodin
   assert.deepEqual(errors,[]);
  }finally{await page.close();await browser.close();}
 });
+
+
+test("Cancel immediately aborts real photo JPEG conversion without exposing a partial ZIP",{timeout:85000},async()=>{
+ const {page,browser,errors}=await start();
+ try{
+  const b64=await page.evaluate(()=>{
+   const c=document.createElement("canvas");c.width=640;c.height=480;
+   const g=c.getContext("2d");g.fillStyle="#ddeeff";g.fillRect(0,0,c.width,c.height);
+   g.fillStyle="#223344";g.font="24px sans-serif";g.fillText("Example",20,80);
+   return c.toDataURL("image/png").split(",")[1];
+  });
+  await page.locator('[data-testid="photo-files"]').setInputFiles({name:"photo.png",mimeType:"image/png",buffer:Buffer.from(b64,"base64")});
+  await page.evaluate(()=>{
+   const native=HTMLCanvasElement.prototype.toBlob;
+   HTMLCanvasElement.prototype.toBlob=function(cb,type,quality){
+    if(type==="image/jpeg")return native.call(this,blob=>setTimeout(()=>cb(blob),900),type,quality);
+    return native.call(this,cb,type,quality);
+   };
+  });
+  await page.locator('[data-testid="photo-preview-run"]').click();
+  await page.locator('[data-testid="photo-cancel"]').click();
+  await page.waitForFunction(()=>document.querySelector('[data-testid="speech-portable-status"]')?.textContent?.includes("Photo compression cancelled."),null,{timeout:16000});
+  assert.equal(await page.locator('[data-testid="photo-actual-preview"] img').count(),0);
+  assert.equal(await page.locator('[data-testid="photo-report"]').count(),0);
+  assert.equal(await page.locator('[data-testid="photo-files"]').isDisabled(),false);
+  await page.locator('[data-testid="photo-preview-run"]').click();
+  await page.locator('[data-testid="photo-actual-preview"] img').waitFor({timeout:30000});
+  assert.equal(await page.locator('[data-testid="photo-report"]').count(),1);
+  assert.deepEqual(errors,[]);
+ }finally{await page.close();await browser.close();}
+});
