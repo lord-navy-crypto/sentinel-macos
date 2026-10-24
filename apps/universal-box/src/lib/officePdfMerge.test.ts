@@ -1,9 +1,9 @@
 import {describe,expect,it} from "vitest";
 import {PDFDocument} from "pdf-lib";
-import {inspectOfficePdfMerge,mergeOfficePdfs} from "./officePdfMerge";
-async function sample(name:string,pages:number){
+import {inspectOfficePdfMerge,mergeOfficePdfs,movePdfMergeSource} from "./officePdfMerge";
+async function sample(name:string,pages:number,base=400){
  const pdf=await PDFDocument.create();
- for(let i=0;i<pages;i++)pdf.addPage([400+i,550+i]);
+ for(let i=0;i<pages;i++)pdf.addPage([base+i,550+i]);
  const bytes=new Uint8Array(await pdf.save());
  return {name,size:bytes.length,arrayBuffer:async()=>new Uint8Array(bytes).buffer};
 }
@@ -21,6 +21,30 @@ describe("Office PDF merge preflight and actual output",()=>{
   expect(doc.getPageCount()).toBe(5);
   expect(doc.getPage(0).getWidth()).toBe(400);
   expect(doc.getPage(2).getWidth()).toBe(400);
+ });
+ it("reorders source files by explicit adjacent moves without mutating the original selection",async()=>{
+  const a=await sample("first.pdf",2,400),b=await sample("second.pdf",1,650);
+  const c=await sample("third.pdf",1,900),original=[a,b,c];
+  const moved=movePdfMergeSource(original,0,1);
+  expect(moved.map(x=>x.name)).toEqual(["second.pdf","first.pdf","third.pdf"]);
+  expect(original.map(x=>x.name)).toEqual(["first.pdf","second.pdf","third.pdf"]);
+  const again=movePdfMergeSource(moved,2,-1);
+  expect(again.map(x=>x.name)).toEqual(["second.pdf","third.pdf","first.pdf"]);
+  const plan=await inspectOfficePdfMerge(again);
+  expect(plan.files.map(x=>x.name)).toEqual(["second.pdf","third.pdf","first.pdf"]);
+  const merged=await mergeOfficePdfs(again);
+  const readback=await PDFDocument.load(merged.bytes);
+  expect(readback.getPageCount()).toBe(4);
+  expect(readback.getPages().map(x=>x.getWidth())).toEqual([650,900,400,401]);
+  expect(merged.sourceBytes).toBe(a.size+b.size+c.size);
+ });
+ it("keeps edge movements no-op and rejects invalid indices without changing sources",()=>{
+  const items=["A","B","C"] as const;
+  expect(movePdfMergeSource(items,0,-1)).toEqual(["A","B","C"]);
+  expect(movePdfMergeSource(items,2,1)).toEqual(["A","B","C"]);
+  expect(()=>movePdfMergeSource(items,3,1)).toThrow(/Invalid PDF/);
+  expect(()=>movePdfMergeSource(items,-1,-1)).toThrow(/Invalid PDF/);
+  expect(()=>movePdfMergeSource(items,0,0 as 1)).toThrow(/Invalid PDF/);
  });
  it("rejects a corrupt or mislabeled second PDF before any merge save",async()=>{
   const good=await sample("good.pdf",1);
