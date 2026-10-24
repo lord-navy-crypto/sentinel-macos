@@ -1,6 +1,6 @@
-import {useMemo,useState} from "react";
+import {type ChangeEvent,useMemo,useRef,useState} from "react";
 import {
-  type CleanupOptions,DEFAULT_CLEANUP,cleanCopiedText,cleanUrlList,
+  type CleanupOptions,DEFAULT_CLEANUP,cleanCopiedText,cleanUrlList,decodeQuickTextDraft,
   dateDifference,shiftDate,parseGradeRows,calculateWeightedGrade,
 } from "../lib/quickKit";
 import {exportFile} from "../lib/output";
@@ -21,6 +21,7 @@ const title:Record<QuickKitMode,string>={
 const number=(n:number)=>String(Number(n.toFixed(6)));
 export default function QuickKitDesk({initialMode="text"}:{initialMode?:QuickKitMode}){
   const [mode,setMode]=useState<QuickKitMode>(initialMode);
+  const textImportRevision=useRef(0);
   const [source,setSource]=useState("");
   const [options,setOptions]=useState<CleanupOptions>(DEFAULT_CLEANUP);
   const [urls,setUrls]=useState("https://example.com/article?id=123&utm_source=newsletter&fbclid=abc");
@@ -65,11 +66,29 @@ export default function QuickKitDesk({initialMode="text"}:{initialMode?:QuickKit
     mode==="replace"?replaceResult.text:mode==="case-width"?caseResult.value:"";
   const outputError=mode==="text"?textResult.error:mode==="links"?linkResult.error:
     mode==="replace"?replaceResult.error:mode==="case-width"?caseResult.error:"";
+  async function importTextDraft(event:ChangeEvent<HTMLInputElement>,destination:"text"|"replace"|"case-width"){
+    const file=event.target.files?.[0];event.target.value="";
+    if(!file)return;
+    const revision=++textImportRevision.current;
+    setStatus("Reading selected text file locally…");
+    try{
+      if(file.size<1||file.size>500_000)throw Error("Text draft must be 1 byte–500 KB.");
+      const draft=decodeQuickTextDraft(file.name,new Uint8Array(await file.arrayBuffer()));
+      if(revision!==textImportRevision.current)return;
+      if(destination==="case-width")setCaseSource(draft.text);
+      else setSource(draft.text);
+      setStatus("Loaded "+file.name+" as "+draft.encoding+" locally. Review the preview before copy or save; original file unchanged.");
+    }catch(e){
+      if(revision===textImportRevision.current)
+        setStatus("Text import failed: "+(e instanceof Error?e.message:String(e))+". Existing text preserved.");
+    }
+  }
   async function pastePlainText(){
     try{
       if(!navigator.clipboard?.readText)throw Error("Clipboard reading is unavailable in this system.");
       const text=await navigator.clipboard.readText();
       if(text.length>200_000)throw Error("Clipboard text exceeds 200,000 characters.");
+      textImportRevision.current++;
       setSource(text);
       setStatus("Pasted clipboard as plain text. Formatting was not imported; review before copying or saving.");
     }catch(e){
@@ -96,8 +115,15 @@ export default function QuickKitDesk({initialMode="text"}:{initialMode?:QuickKit
     <p className="subtle">Everyday local office actions without accounts or online uploads. Local input stays in this window; text/links are exported only when you click. Date calculations use calendar days, not elapsed 24-hour periods.</p>
     <div className="pill-row" role="group" aria-label="Quick tool">
       {(["text","links","replace","batch-files","case-width","multi-copy","dates","grades"] as const).map(key=><button type="button" key={key}
-        className={mode===key?"pill active-pill":"pill"} onClick={()=>{setMode(key);setStatus("");}}>{title[key]}</button>)}
+        className={mode===key?"pill active-pill":"pill"} onClick={()=>{textImportRevision.current++;setMode(key);setStatus("");}}>{title[key]}</button>)}
     </div>
+    {(mode==="text"||mode==="replace"||mode==="case-width")&&<div>
+      <label className="field-label" htmlFor="quick-draft-file">Open existing .txt / .md draft (UTF-8 or Windows UTF-16LE)</label>
+      <input id="quick-draft-file" data-testid="quick-draft-file" className="field"
+        type="file" accept=".txt,.md,text/plain,text/markdown"
+        onChange={e=>{void importTextDraft(e,mode);}}/>
+      <p className="subtle">Choose up to 500 KB. The content appears in the current text editor only after encoding validation. No file upload or overwrite; editing the draft here does not change its original.</p>
+    </div>}
     {mode==="text"&&<>
       <div className="actions">
         <button type="button" className="primary-button" data-testid="quick-paste-plain"
@@ -105,7 +131,7 @@ export default function QuickKitDesk({initialMode="text"}:{initialMode?:QuickKit
         <span className="subtle">Only reads the clipboard after you click. No history or background monitoring.</span>
       </div>
       <label htmlFor="quick-text-input" className="field-label">Messy copied text · 粘贴原文</label>
-      <textarea id="quick-text-input" className="field text-editor" rows={6} maxLength={200000} value={source} onChange={e=>{setSource(e.target.value);setStatus("");}}/>
+      <textarea id="quick-text-input" className="field text-editor" rows={6} maxLength={200000} value={source} onChange={e=>{textImportRevision.current++;setSource(e.target.value);setStatus("");}}/>
       <div className="actions">
         <label><input type="checkbox" checked={options.collapseSpaces} onChange={e=>toggle("collapseSpaces",e.target.checked)}/> Collapse repeated spaces</label>
         <label><input type="checkbox" checked={options.removeEmptyLines} onChange={e=>toggle("removeEmptyLines",e.target.checked)}/> Remove blank lines</label>
@@ -122,7 +148,7 @@ export default function QuickKitDesk({initialMode="text"}:{initialMode?:QuickKit
     </>}
     {mode==="replace"&&<>
       <p className="subtle">Literal replacement, not regular expressions. Originals remain unchanged; preview before export.</p>
-      <label className="field-label">Input text<textarea className="field text-editor" rows={5} maxLength={200000} value={source} onChange={e=>setSource(e.target.value)}/></label>
+      <label className="field-label">Input text<textarea className="field text-editor" rows={5} maxLength={200000} value={source} onChange={e=>{textImportRevision.current++;setSource(e.target.value);setStatus("");}}/></label>
       <div className="tools-pair">
         <label className="field-label">Find<input className="field" maxLength={1000} value={findLiteral} onChange={e=>setFindLiteral(e.target.value)}/></label>
         <label className="field-label">Replace with<input className="field" maxLength={10000} value={replacement} onChange={e=>setReplacement(e.target.value)}/></label>
@@ -133,7 +159,7 @@ export default function QuickKitDesk({initialMode="text"}:{initialMode?:QuickKit
       <p className="subtle">将文字转成大写、小写、英文单词首字母大写，或在全角与半角 ASCII/空格之间双向转换。保留换行与中文原文；不使用可能改变其他汉字兼容字符的整体 NFKC 规范化。</p>
       <label className="field-label" htmlFor="quick-case-source">原始文字 / Source text</label>
       <textarea id="quick-case-source" data-testid="quick-case-source" className="field text-editor"
-        rows={6} maxLength={200000} value={caseSource} onChange={e=>{setCaseSource(e.target.value);setStatus("");}}/>
+        rows={6} maxLength={200000} value={caseSource} onChange={e=>{textImportRevision.current++;setCaseSource(e.target.value);setStatus("");}}/>
       <label className="field-label" htmlFor="quick-case-mode">转换方式 / Conversion</label>
       <select id="quick-case-mode" data-testid="quick-case-mode" className="field"
         value={caseMode} onChange={e=>{setCaseMode(e.target.value as TextCaseMode);setStatus("");}}>
