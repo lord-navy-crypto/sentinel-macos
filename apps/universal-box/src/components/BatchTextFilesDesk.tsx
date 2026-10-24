@@ -19,6 +19,8 @@ const OPS:{id:BatchTextMode;name:string}[]=[
   {id:"sort-list-asc",name:"Sort list A–Z (TXT) · 自然顺序升序整理名单"},
   {id:"sort-list-desc",name:"Sort list Z–A (TXT) · 自然顺序降序整理名单"},
   {id:"dedupe-list",name:"Remove near-duplicate list items (TXT) · 忽略大小写与首尾空格去重"},
+  {id:"strip-list-markers",name:"Remove list bullets / numbering (TXT) · 清除清单项目符号和序号"},
+  {id:"trim-boundary-blank",name:"Trim blank lines at document edges (TXT) · 清除文本首尾空行"},
   {id:"lf",name:"Convert newlines to LF · 转 Unix 换行"},
   {id:"crlf",name:"Convert newlines to CRLF · 转 Windows 换行"},
   {id:"remove-bom",name:"Remove UTF-8 BOM · 删除 UTF-8 BOM"},
@@ -128,6 +130,9 @@ export default function BatchTextFilesDesk(){
       </label>
       <p className="subtle" data-testid="batch-filter-warning">This action uses exact, case-sensitive substring matching within each physical line, not regex. A file with no matches may yield an empty copy when keeping lines. Check the preview and byte counts before exporting. Works only on TXT/Markdown, not multiline CSV/TSV.</p>
     </>}
+    {(mode==="strip-list-markers"||mode==="trim-boundary-blank")&&<p className="subtle" data-testid="batch-plain-list-warning">
+      TXT only. List-marker cleanup removes simple bullets (-, *, +, •) and 1. / 1) style numbering when followed by text; it leaves original indentation, unrelated lines and line endings untouched. Blank-edge cleanup removes only empty or space/tab-only physical lines at the start and end of each file, preserving all interior blank lines. Inspect the preview before exporting; no source file is overwritten.
+    </p>}
     {(mode==="sort-list-asc"||mode==="sort-list-desc"||mode==="dedupe-list")&&
       <p className="subtle" data-testid="batch-list-warning">TXT list files only. Sorting uses English-locale natural comparison (case-insensitive; item2 before item10); it rearranges nonempty line contents while keeping blank-line positions and original CRLF/LF/CR terminators at each slot. Deduplication keeps the first spelling and drops later items differing only by case or leading/trailing whitespace; blank lines are preserved. Review ordering and counts before saving a ZIP copy. Not for Markdown, CSV or TSV.</p>}
     {(mode==="collapse-blank"||mode==="tabs-to-spaces")&&<p className="subtle" data-testid="batch-whitespace-warning">TXT only. Markdown indentation and empty lines can control formatting; CSV/TSV may contain quoted multiline cells. Original files and all existing line endings remain untouched. Preview all transformed text before exporting a copy.</p>}

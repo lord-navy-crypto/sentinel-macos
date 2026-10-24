@@ -378,3 +378,57 @@ test("TXT list natural sorting and normalized dedupe export actual verified ZIPs
   assert.deepEqual(errors,[]);
  }finally{await page.close();await browser.close();}
 });
+
+
+test("Plain TXT list marker and surrounding blank cleanup downloads verified ZIP byte copies",{timeout:90000},async()=>{
+ const browser=await chromium.launch({headless:true,args:["--no-sandbox"]});
+ const page=await browser.newPage({acceptDownloads:true,viewport:{width:1440,height:920}});
+ const errors=[];page.on("pageerror",e=>errors.push(e.message));
+ try{
+  await page.goto(root,{waitUntil:"domcontentloaded"});await page.locator(".app-shell").waitFor();
+  await openTool(page,"Batch Text Files");
+  const source=Buffer.from("\ufeff  1. Meeting\r\n\t- Follow-up\n2026-10-24\n• 中文😀\r\n");
+  await page.locator('[data-testid="batch-text-picker"]').setInputFiles([
+    {name:"meeting.txt",mimeType:"text/plain",buffer:source},
+  ]);
+  await page.locator('[data-testid="batch-text-mode"]').selectOption("strip-list-markers");
+  assert.match(await page.locator('[data-testid="batch-plain-list-warning"]').innerText(),/TXT only/);
+  assert.match(await page.locator('[data-testid="batch-text-preview"]').innerText(),/1 changed/);
+  const first=page.waitForEvent("download",{timeout:30000});
+  await page.locator('[data-testid="batch-text-save"]').click();
+  const firstDownload=await first;
+  const listFile=path.join(dir,"office-list-cleanup.zip");
+  await firstDownload.saveAs(listFile);
+  const listZip=await JSZip.loadAsync(fs.readFileSync(listFile),{checkCRC32:true});
+  const listBytes=await listZip.file("processed/meeting.txt").async("nodebuffer");
+  assert.deepEqual(listBytes,Buffer.from("\ufeff  Meeting\r\n\tFollow-up\n2026-10-24\n中文😀\r\n"));
+  const listManifest=JSON.parse(await listZip.file("sentinel-box-batch-text-manifest.json").async("string"));
+  assert.equal(listManifest.operation,"strip-list-markers");
+  assert.equal(listManifest.files[0].matches,3);
+
+  const text=Buffer.from("\ufeff\r\n \t\n正文\r\n\n事项\r\n \t\r\n");
+  await page.locator('[data-testid="batch-text-picker"]').setInputFiles([
+    {name:"draft.txt",mimeType:"text/plain",buffer:text},
+  ]);
+  await page.locator('[data-testid="batch-text-mode"]').selectOption("trim-boundary-blank");
+  assert.match(await page.locator('[data-testid="batch-text-preview"]').innerText(),/1 changed/);
+  const pending=page.waitForEvent("download",{timeout:30000});
+  await page.locator('[data-testid="batch-text-save"]').click();
+  const secondDownload=await pending;
+  const secondFile=path.join(dir,"trim-document-boundaries.zip");await secondDownload.saveAs(secondFile);
+  const trimmed=await JSZip.loadAsync(fs.readFileSync(secondFile),{checkCRC32:true});
+  assert.deepEqual(await trimmed.file("processed/draft.txt").async("nodebuffer"),
+    Buffer.from("\ufeff正文\r\n\n事项\r\n"));
+  const trimManifest=JSON.parse(await trimmed.file("sentinel-box-batch-text-manifest.json").async("string"));
+  assert.equal(trimManifest.operation,"trim-boundary-blank");
+  assert.equal(trimManifest.files[0].matches,3);
+
+  await page.locator('[data-testid="batch-text-picker"]').setInputFiles([
+    {name:"records.csv",mimeType:"text/csv",buffer:Buffer.from('"A\nB",Value\n')},
+  ]);
+  assert.match(await page.locator('[data-testid="batch-text-error"]').innerText(),/TXT-only/);
+  assert.equal(await page.locator('[data-testid="batch-text-save"]').isDisabled(),true);
+  assert.deepEqual(source,Buffer.from("\ufeff  1. Meeting\r\n\t- Follow-up\n2026-10-24\n• 中文😀\r\n"));
+  assert.deepEqual(errors,[]);
+ }finally{await page.close();await browser.close();}
+});

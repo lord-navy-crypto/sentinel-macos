@@ -295,6 +295,54 @@ describe("offline batch office text utility",()=>{
     expect(processBatchTextFiles([input("a.txt","Apple\n")],"sort-list-asc")[0].changed).toBe(false);
   });
 
+
+  it("clears ordinary bulleted and numbered TXT list markers without altering dates or indentation",()=>{
+    const src=input("minutes.txt","\ufeff  1. Agenda\r\n\t- Decisions\n2026-10-24\n1.2 section\r-42 balance\n• 中文😀\r\nPlain");
+    const prior=Uint8Array.from(src.bytes);
+    const row=processBatchTextFiles([src],"strip-list-markers")[0];
+    expect(row.matches).toBe(3);
+    expect(Array.from(row.bytes.slice(0,3))).toEqual([239,187,191]);
+    expect(d.decode(row.bytes.subarray(3))).toBe("  Agenda\r\n\tDecisions\n2026-10-24\n1.2 section\r-42 balance\n中文😀\r\nPlain");
+    expect(src.bytes).toEqual(prior);
+    const again=processBatchTextFiles([input("clean.txt",d.decode(row.bytes.subarray(3)))],"strip-list-markers")[0];
+    expect(again.changed).toBe(false);
+  });
+  it("supports dot / parenthesis and symbol markers but leaves marker-only and non-list lines alone",()=>{
+    const src=input("shopping.txt","+ milk\r\n* eggs\n2) Bread\r• 茶叶\n- \n-9 cost\nNo marker");
+    const row=processBatchTextFiles([src],"strip-list-markers")[0];
+    expect(d.decode(row.bytes)).toBe("milk\r\neggs\nBread\r茶叶\n- \n-9 cost\nNo marker");
+    expect(row.matches).toBe(4);
+  });
+  it("removes only leading and trailing blank physical lines; interior empty lines and original endings survive",async()=>{
+    const src=input("draft.txt","\ufeff\r\n \t\n标题\r\n\n正文\r \t\r\n");
+    const saved=Uint8Array.from(src.bytes);
+    const row=processBatchTextFiles([src],"trim-boundary-blank")[0];
+    expect(row.matches).toBe(3);
+    expect(Array.from(row.bytes.slice(0,3))).toEqual([239,187,191]);
+    expect(d.decode(row.bytes.subarray(3))).toBe("标题\r\n\n正文\r");
+    expect(src.bytes).toEqual(saved);
+    const packed=await JSZip.loadAsync(await zipBatchTextResults([row],"trim-boundary-blank"),{checkCRC32:true});
+    expect(await packed.file("processed/draft.txt")!.async("uint8array")).toEqual(row.bytes);
+    const stable=processBatchTextFiles([input("stable.txt","A\r\n\nB\r")],"trim-boundary-blank")[0];
+    expect(stable.changed).toBe(false);
+    expect(stable.matches).toBe(0);
+  });
+  it("keeps BOM only when all document lines are blank and reports the removal count",()=>{
+    const row=processBatchTextFiles([input("blank.txt","\ufeff\n \t\r\n")],"trim-boundary-blank")[0];
+    expect(Array.from(row.bytes)).toEqual([239,187,191]);
+    expect(row.matches).toBe(2);
+    expect(row.changed).toBe(true);
+    expect(processBatchTextFiles([input("same.txt","One\nTwo\n")],"trim-boundary-blank")[0].changed).toBe(false);
+  });
+  it("blocks Markdown and table files from structural marker/edge cleanup and still rejects malformed UTF-8",()=>{
+    for(const mode of ["strip-list-markers","trim-boundary-blank"] as const){
+      for(const ext of ["md","markdown","csv","tsv"]){
+        expect(()=>processBatchTextFiles([input("data."+ext,"1. First\n")],mode)).toThrow(/TXT-only/);
+      }
+    }
+    expect(()=>processBatchTextFiles([{name:"invalid.txt",bytes:Uint8Array.from([0xff])}],"strip-list-markers")).toThrow(/invalid UTF-8/);
+  });
+
   it("packages changed copies only; JSON manifest and all exported bytes are verifiable",async()=>{
     const rows=processBatchTextFiles([
       input("报价.csv","旧价,5\r\n"),input("no-change.md","untouched"),
