@@ -401,6 +401,9 @@ test("Three actual Commons browser peers form a manual public room and relay CJK
   undefined,{timeout:30000});
   assert.equal(await host.getByTestId("room-slot").count(),originalSlotCount,"rejoin must not consume another slot");
   assert.equal(await alice.getByTestId("room-history").locator("p").count(),2,"reconnect keeps local history");
+  // Wait for an actual host ping and matching encrypted peer pong (no STUN or TURN).
+  await aliceSlot.getByText(/心跳正常/).waitFor({timeout:25000});
+  await host.getByTestId("room-slot").nth(1).getByText(/心跳正常/).waitFor({timeout:25000});
   await alice.getByTestId("room-draft").fill("Alice 重连后仍可发消息");
   await alice.getByTestId("room-send").click();
   await bob.getByTestId("room-history").getByText("Alice 重连后仍可发消息").waitFor({timeout:25000});
