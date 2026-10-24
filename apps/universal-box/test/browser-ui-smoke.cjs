@@ -145,3 +145,41 @@ test("File Intake lets users exclude mistaken source files before SHA-256 scan w
   await page.screenshot({path:path.join(reportPath,"file-intake-exclusion.png"),fullPage:true});
  }finally{await page.close();await browser.close();}
 });
+
+test("Commons UI separates offline room, explicit LAN steps and opt-in public diagnosis",{timeout:85000},async()=>{
+ const browser=await chromium.launch({headless:true,args:["--no-sandbox"]});
+ const page=await openApp(browser);
+ const errors=[];page.on("pageerror",e=>errors.push(e.message));
+ try{
+  await page.locator('.sidebar button.nav-item[aria-label^="Universal Commons"]').click();
+  const section=page.locator('section[aria-label="Universal Commons offline teams"]');
+  await section.waitFor();
+  assert.equal(await page.locator('[data-testid="commons-lan-workflow"]').count(),1);
+  assert.equal(await page.locator('[data-testid="commons-public-research"]').count(),0);
+  assert.equal(await page.getByRole("group",{name:"LAN transfer direction"}).getByRole("button",{name:/接收/}).getAttribute("aria-pressed"),"true");
+  assert.equal(await page.getByRole("button",{name:/刷新附近设备/}).isDisabled(),true,"Browser must not promise native Bonjour");
+  assert.doesNotMatch(await section.innerText(),/自动通过 Bonjour\/mDNS 搜索/);
+  const fullInvite=page.getByRole("textbox",{name:"LAN invitation to receive"});
+  assert.equal(await fullInvite.getAttribute("type"),"password","Private invite must start masked");
+  const receive=page.getByRole("button",{name:"接收并校验加密团队包"});
+  assert.equal(await receive.isDisabled(),true);
+  await fullInvite.fill("uboxlan://8.8.8.8:6000/"+"A".repeat(43));
+  assert.equal(await receive.isDisabled(),true,"Must not receive from a public address");
+  await fullInvite.fill("uboxlan://192.168.1.20:49152/"+"A".repeat(43));
+  assert.equal(await receive.isDisabled(),true,"Browser must not offer native LAN receiving");
+  await page.getByTestId("commons-show-invitation").check();
+  assert.equal(await fullInvite.getAttribute("type"),"text","Reveal must be intentional");
+  await page.getByTestId("commons-show-invitation").uncheck();
+  assert.equal(await fullInvite.getAttribute("type"),"password");
+  await page.getByRole("group",{name:"LAN transfer direction"}).getByRole("button",{name:/发送/}).click();
+  assert.match(await section.innerText(),/先创建或导入一个团队空间/);
+  await page.getByRole("group",{name:"Communication transport"}).getByRole("button",{name:/公网诊断/}).click();
+  assert.equal(await page.locator('[data-testid="commons-lan-workflow"]').count(),0);
+  assert.equal(await page.locator('[data-testid="commons-public-research"]').count(),1);
+  assert.equal(await page.getByRole("button",{name:/STUN 映射对比/}).isDisabled(),true);
+  assert.match(await page.locator('[data-testid="commons-public-research"]').innerText(),/当前不会自动开放公网端口/);
+  await page.getByRole("group",{name:"Communication transport"}).getByRole("button",{name:/局域网发送与接收/}).click();
+  assert.equal(await page.locator('[data-testid="commons-lan-workflow"]').count(),1);
+  assert.deepEqual(errors,[]);
+ }finally{await page.close();await browser.close();}
+});
