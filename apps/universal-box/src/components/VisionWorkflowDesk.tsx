@@ -143,7 +143,7 @@ export default function VisionWorkflowDesk({initialMode="ocr"}:{initialMode?:Vis
   <div className="pill-row" role="group" aria-label="OCR and cross tool modes">
    {([["ocr","本机 OCR 识字"],["capture","选屏截图"],["project","一键项目成果包"]] as const)
     .map(([id,label])=><button key={id} type="button" aria-pressed={mode===id} className={mode===id?"pill active-pill":"pill"}
-     onClick={()=>{setMode(id);setStatus("");}}>{label}</button>)}
+     disabled={busy} onClick={()=>{setMode(id);setStatus("");}}>{label}</button>)}
   </div>
   {(mode==="ocr"||mode==="capture")&&<>
    {mode==="capture"&&<>
