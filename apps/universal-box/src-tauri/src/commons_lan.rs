@@ -10,7 +10,7 @@ use mdns_sd::{ServiceDaemon, ServiceEvent, ServiceInfo};
 use std::{
     io::{Read, Write},
     net::{IpAddr, Ipv4Addr, SocketAddrV4, TcpListener, TcpStream},
-    sync::{atomic::{AtomicBool, Ordering}, Arc, Mutex},
+    sync::{atomic::{AtomicBool, AtomicU8, AtomicUsize, Ordering}, Arc, Mutex},
     thread,
     time::{Duration, Instant},
 };
@@ -21,6 +21,13 @@ const REQUEST_TEXT: &[u8] = b"REQUEST";
 const MAX_ZIP_BYTES: usize = 30_000_000;
 const SHARE_LIFETIME: Duration = Duration::from_secs(300);
 const NETWORK_TIMEOUT: Duration = Duration::from_secs(8);
+const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(3);
+const SEND_BLOCK: usize = 64 * 1024;
+const WAITING: u8 = 0;
+const SENDING: u8 = 1;
+const DELIVERED: u8 = 2;
+const EXPIRED: u8 = 3;
+const STOPPED: u8 = 4;
 const DISCOVERY_TYPE: &str = "_uboxcom._tcp.local.";
 const DISCOVERY_PERIOD: Duration = Duration::from_secs(3);
 
@@ -32,6 +39,9 @@ struct ActiveShare {
     expiry: Instant,
     addresses: Vec<String>,
     instance: String,
+    phase: Arc<AtomicU8>,
+    sent_bytes: Arc<AtomicUsize>,
+    total_bytes: usize,
 }
 
 #[derive(Serialize)]
@@ -40,6 +50,9 @@ pub struct LanInfo {
     active: bool,
     invites: Vec<String>,
     seconds_remaining: u64,
+    phase: String,
+    sent_bytes: usize,
+    total_bytes: usize,
     message: String,
 }
 
@@ -47,6 +60,10 @@ impl CommonsLanState {
     pub fn stop(&self) {
         if let Ok(mut guard) = self.0.lock() {
             if let Some(active) = guard.take() {
+                // Stop must never overwrite an already completed sender receipt.
+                let _ = active.phase.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |phase| {
+                    if phase == DELIVERED { None } else { Some(STOPPED) }
+                });
                 active.closed.store(true, Ordering::SeqCst);
             }
         }
@@ -191,10 +208,15 @@ fn allowed_lan_peer(ip: IpAddr)->bool{
   IpAddr::V6(_)=>false,
  }
 }
-fn transmit(mut socket: TcpStream, key: &[u8; 32], zip: &[u8]) -> Result<(), String> {
-    socket.set_read_timeout(Some(NETWORK_TIMEOUT)).map_err(|e| e.to_string())?;
+/// Only authenticated receivers get data. Chunked writes allow Stop to interrupt a
+/// live transfer instead of merely closing the listening socket for future peers.
+/// Progress is encrypted TCP bytes written, not proof of receiver ZIP verification.
+fn transmit_with_progress<F: FnMut(usize, usize)>(
+    mut socket: TcpStream, key: &[u8; 32], zip: &[u8],
+    cancelled: &AtomicBool, mut report: F,
+) -> Result<(), String> {
+    socket.set_read_timeout(Some(HANDSHAKE_TIMEOUT)).map_err(|e| e.to_string())?;
     socket.set_write_timeout(Some(NETWORK_TIMEOUT)).map_err(|e| e.to_string())?;
-    // No metadata or packet bytes are sent until the receiver proves the invite key.
     let mut hello = [0_u8; 6 + 24 + 23];
     socket.read_exact(&mut hello).map_err(|e| format!("Receiver handshake failed: {e}"))?;
     if &hello[..6] != MARKER { return Err("Invalid Commons LAN handshake".into()); }
@@ -202,17 +224,37 @@ fn transmit(mut socket: TcpStream, key: &[u8; 32], zip: &[u8]) -> Result<(), Str
     let plaintext = cipher.decrypt(XNonce::from_slice(&hello[6..30]), &hello[30..])
         .map_err(|_| "Receiver did not prove possession of the share key")?;
     if plaintext != REQUEST_TEXT { return Err("Unexpected transfer request".into()); }
+    if cancelled.load(Ordering::SeqCst) {
+        return Err("Sender cancelled the one-time LAN share".into());
+    }
     let mut nonce = [0_u8; 24];
     OsRng.fill_bytes(&mut nonce);
     let sealed = cipher.encrypt(XNonce::from_slice(&nonce), zip)
         .map_err(|_| "Could not encrypt team ZIP".to_string())?;
+    if cancelled.load(Ordering::SeqCst) {
+        return Err("Sender cancelled the one-time LAN share".into());
+    }
     let len: u32 = sealed.len().try_into().map_err(|_| "Encrypted payload too big")?;
     socket.write_all(MARKER).map_err(|e| e.to_string())?;
     socket.write_all(&nonce).map_err(|e| e.to_string())?;
     socket.write_all(&len.to_be_bytes()).map_err(|e| e.to_string())?;
-    socket.write_all(&sealed).map_err(|e| format!("Encrypted transfer interrupted: {e}"))?;
+    report(0, sealed.len());
+    let mut sent = 0;
+    for block in sealed.chunks(SEND_BLOCK) {
+        if cancelled.load(Ordering::SeqCst) {
+            return Err("Sender cancelled the active LAN transfer".into());
+        }
+        socket.write_all(block).map_err(|e| format!("Encrypted transfer interrupted: {e}"))?;
+        sent += block.len();
+        report(sent, sealed.len());
+    }
     socket.flush().map_err(|e| e.to_string())?;
     Ok(())
+}
+
+#[cfg(test)]
+fn transmit(socket: TcpStream, key: &[u8; 32], zip: &[u8]) -> Result<(), String> {
+    transmit_with_progress(socket, key, zip, &AtomicBool::new(false), |_sent, _total| {})
 }
 
 #[derive(Clone, Serialize)]
@@ -303,18 +345,37 @@ pub async fn commons_lan_start(
     let mdns=advertise_nearby(port,&instance);
     let expiry = Instant::now() + SHARE_LIFETIME;
     let closed = Arc::new(AtomicBool::new(false));
+    let phase = Arc::new(AtomicU8::new(WAITING));
+    let sent_bytes = Arc::new(AtomicUsize::new(0));
+    let total_bytes = zip.len() + 16; // Authenticated ciphertext payload, excluding the framing header.
     let flag = closed.clone();
+    let thread_phase = phase.clone();
+    let thread_sent = sent_bytes.clone();
     thread::spawn(move || {
         while !flag.load(Ordering::SeqCst) && Instant::now() < expiry {
             match listener.accept() {
                 Ok((socket, peer)) => {
-                    // Binding 0.0.0.0 supports multiple local interfaces. Reject connections
-                    // from public addresses before even attempting the keyed handshake.
                     if !allowed_lan_peer(peer.ip()) { continue; }
-                    // A failed handshake does not consume the one-time share.
-                    if transmit(socket, &key, &zip).is_ok() {
-                        flag.store(true, Ordering::SeqCst);
+                    // Failed/mismatched invitations do not consume the one-shot share.
+                    let result = transmit_with_progress(socket, &key, &zip, flag.as_ref(), |sent, _| {
+                        if !flag.load(Ordering::SeqCst) {
+                            thread_phase.store(SENDING, Ordering::SeqCst);
+                            thread_sent.store(sent, Ordering::SeqCst);
+                        }
+                    });
+                    if result.is_ok() && !flag.load(Ordering::SeqCst) {
+                        // Only the still-active sending phase may become delivered.
+                        // If Stop won the race, the truncated/aborted send stays stopped.
+                        if thread_phase.compare_exchange(
+                            SENDING, DELIVERED, Ordering::SeqCst, Ordering::SeqCst,
+                        ).is_ok() {
+                            flag.store(true, Ordering::SeqCst);
+                        }
                         break;
+                    }
+                    if !flag.load(Ordering::SeqCst) {
+                        thread_phase.store(WAITING, Ordering::SeqCst);
+                        thread_sent.store(0, Ordering::SeqCst);
                     }
                 }
                 Err(e) if e.kind() == std::io::ErrorKind::WouldBlock =>
@@ -322,11 +383,16 @@ pub async fn commons_lan_start(
                 Err(_) => break,
             }
         }
+        if !flag.load(Ordering::SeqCst) && thread_phase.load(Ordering::SeqCst) == WAITING {
+            thread_phase.store(EXPIRED, Ordering::SeqCst);
+        }
         flag.store(true, Ordering::SeqCst);
         if let Some(daemon)=mdns { let _=daemon.shutdown(); }
     });
-    *current = Some(ActiveShare {closed, expiry, addresses:invites.clone(), instance});
+    *current = Some(ActiveShare {closed, expiry, addresses:invites.clone(), instance,
+        phase, sent_bytes, total_bytes});
     Ok(LanInfo {active:true,invites,seconds_remaining:300,
+        phase:"waiting".into(),sent_bytes:0,total_bytes,
         message:"Encrypted one-time LAN share started; receiver needs the private invitation".into()})
 }
 
@@ -340,13 +406,32 @@ pub async fn commons_lan_stop(state: State<'_, CommonsLanState>) -> Result<(), S
 pub async fn commons_lan_status(state: State<'_, CommonsLanState>) -> Result<LanInfo, String> {
     let current = state.0.lock().map_err(|_| "LAN service state unavailable")?;
     if let Some(item) = current.as_ref() {
-        if !item.closed.load(Ordering::SeqCst) && Instant::now() < item.expiry {
-            return Ok(LanInfo {active:true,invites:item.addresses.clone(),
-                seconds_remaining:(item.expiry-Instant::now()).as_secs(),
-                message:"Waiting for a receiver holding the invitation".into()});
-        }
+        let phase = item.phase.load(Ordering::SeqCst);
+        let live = !item.closed.load(Ordering::SeqCst) && Instant::now() < item.expiry;
+        let phase_name = match phase {
+            SENDING if live => "sending",
+            DELIVERED => "delivered",
+            STOPPED => "stopped",
+            EXPIRED => "expired",
+            _ if live => "waiting",
+            _ => "expired",
+        };
+        let message = match phase_name {
+            "sending" => "Writing encrypted packet to receiver; ZIP verification pending",
+            "delivered" => "Encrypted bytes written; receiver must still verify and approve contents",
+            "stopped" => "Sender stopped the share; any in-flight transfer was interrupted",
+            "expired" => "Five-minute invitation expired",
+            _ => "Waiting for a receiver holding the private invitation",
+        };
+        return Ok(LanInfo {
+            active:live,invites:if live {item.addresses.clone()}else{vec![]},
+            seconds_remaining:if live {(item.expiry-Instant::now()).as_secs()}else{0},
+            phase:phase_name.into(),sent_bytes:item.sent_bytes.load(Ordering::SeqCst),
+            total_bytes:item.total_bytes,message:message.into(),
+        });
     }
     Ok(LanInfo {active:false,invites:vec![],seconds_remaining:0,
+        phase:"idle".into(),sent_bytes:0,total_bytes:0,
         message:"No active LAN share".into()})
 }
 
@@ -415,6 +500,71 @@ mod tests {
         assert_eq!(URL_SAFE_NO_PAD.decode(data).unwrap(), expected);
         assert_eq!(previous, expected.len() + 16);
         sender.join().unwrap();
+    }
+    #[test]
+    fn stop_preserves_completed_receipt_but_cancels_active_sending() {
+        for (initial,expected) in [(SENDING,STOPPED),(DELIVERED,DELIVERED)] {
+            let state=CommonsLanState::default();
+            let closed=Arc::new(AtomicBool::new(initial==DELIVERED));
+            let phase=Arc::new(AtomicU8::new(initial));
+            *state.0.lock().unwrap()=Some(ActiveShare {
+                closed:closed.clone(),expiry:Instant::now()+Duration::from_secs(60),
+                addresses:vec![],instance:"test".into(),phase:phase.clone(),
+                sent_bytes:Arc::new(AtomicUsize::new(64)),total_bytes:1024,
+            });
+            state.stop();
+            assert_eq!(phase.load(Ordering::SeqCst),expected);
+            assert!(closed.load(Ordering::SeqCst));
+        }
+    }
+    #[test]
+    fn sender_encrypted_payload_progress_is_bounded_monotonic_and_finishes() {
+        let listener=TcpListener::bind(("127.0.0.1",0)).unwrap();
+        let addr=listener.local_addr().unwrap();
+        let key=[31_u8;32];
+        let mut payload=b"PK\x03\x04".to_vec();
+        payload.extend(vec![17_u8;410_000]);
+        let target=payload.clone();
+        let sender=thread::spawn(move || {
+            let (socket,_)=listener.accept().unwrap();
+            let mut last=0_usize;
+            let mut count=0;
+            transmit_with_progress(socket,&key,&payload,&AtomicBool::new(false),|sent,total|{
+                assert!(sent>=last && sent<=total);
+                assert_eq!(total,payload.len()+16);
+                last=sent;count+=1;
+            }).unwrap();
+            assert_eq!(last,payload.len()+16);
+            assert!(count>=4);
+        });
+        let invite=format!("uboxlan://{}/{}",addr,URL_SAFE_NO_PAD.encode(key));
+        let got=receive(&invite).unwrap();
+        assert_eq!(URL_SAFE_NO_PAD.decode(got).unwrap(),target);
+        sender.join().unwrap();
+    }
+    #[test]
+    fn stop_interrupts_an_already_authenticated_oversized_inflight_send() {
+        let listener=TcpListener::bind(("127.0.0.1",0)).unwrap();
+        let addr=listener.local_addr().unwrap();
+        let key=[27_u8;32];
+        let mut payload=b"PK\x03\x04".to_vec();
+        payload.extend(vec![9_u8;900_000]);
+        let cancelled=Arc::new(AtomicBool::new(false));
+        let flag=cancelled.clone();
+        let sender=thread::spawn(move || {
+            let (socket,_)=listener.accept().unwrap();
+            let mut sent=0;
+            let result=transmit_with_progress(socket,&key,&payload,flag.as_ref(),|n,_|{
+                sent=n;
+                if n>0 {flag.store(true,Ordering::SeqCst);}
+            });
+            (result,sent)
+        });
+        let invite=format!("uboxlan://{}/{}",addr,URL_SAFE_NO_PAD.encode(key));
+        assert!(receive(&invite).is_err(),"Truncated authenticated packet must be rejected");
+        let (result,sent)=sender.join().unwrap();
+        assert!(result.is_err(),"Cancelled active send must not claim completed");
+        assert_eq!(sent,SEND_BLOCK,"Stop after first block must prevent further ciphertext delivery");
     }
     #[test]
     fn authenticated_encrypted_local_roundtrip() {
