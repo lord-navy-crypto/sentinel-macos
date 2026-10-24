@@ -37,3 +37,9 @@ export function preflightFiles(files:readonly StagedFile[]):IntakePreflight{
  }
  return {accepted,files:files.length,totalBytes,issues};
 }
+
+/** Remove only the selected entry (not every matching filename), without reading or altering files. */
+export function excludeStagedFile<T>(files:readonly T[],index:number):T[]{
+ if(!Number.isSafeInteger(index)||index<0||index>=files.length)throw Error("Invalid staged file index.");
+ return files.filter((_,i)=>i!==index);
+}
