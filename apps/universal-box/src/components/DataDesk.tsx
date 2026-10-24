@@ -2,7 +2,7 @@ import {type ChangeEvent,useMemo,useState} from "react";
 import {csvRows} from "./EverydayTools";
 import {exportFile} from "../lib/output";
 import {mergeCsvSources,mergedCsvExport,type MergedCsv} from "../lib/csvMerge";
-import {filterSortTable,replaceTableCells,selectTableColumns,makeDataTable,tableToCsv,tableToTsv,tableToJson,tableToMarkdown,type DataTable} from "../lib/tableTools";
+import {filterSortTable,replaceTableCells,selectTableColumns,addTableRowNumbers,makeDataTable,tableToCsv,tableToTsv,tableToJson,tableToMarkdown,type DataTable} from "../lib/tableTools";
 
 export default function DataDesk(){
   const [source,setSource]=useState("Name,Score,Class\nAda,95,A\nBob,88,B\nCara,96,A");
@@ -21,6 +21,7 @@ export default function DataDesk(){
   const [cellReplacement,setCellReplacement]=useState("");
   const [replaceColumn,setReplaceColumn]=useState(-1);
   const [selectedColumns,setSelectedColumns]=useState<number[]|null>(null);
+  const [numberRows,setNumberRows]=useState(false);
   const [status,setStatus]=useState("");
   const [merged,setMerged]=useState<MergedCsv|null>(null);
   const [mergeNames,setMergeNames]=useState<string[]>([]);
@@ -44,7 +45,12 @@ export default function DataDesk(){
     try{return {table:selectTableColumns(editPreview.table,selectedColumns),error:""};}
     catch(e){return {table:null,error:e instanceof Error?e.message:String(e)};}
   },[editPreview,selectedColumns]);
-  const displayTable=projection.table;
+  const numberedPreview=useMemo(()=>{
+    if(!projection.table||!numberRows)return {table:projection.table,error:""};
+    try{return {table:addTableRowNumbers(projection.table),error:""};}
+    catch(e){return {table:null,error:e instanceof Error?e.message:String(e)};}
+  },[projection.table,numberRows]);
+  const displayTable=numberedPreview.table;
   async function importData(event:ChangeEvent<HTMLInputElement>){
     const file=event.target.files?.[0];
     event.target.value="";
@@ -84,12 +90,12 @@ export default function DataDesk(){
       if(source.length>2_000_000)throw Error("Text exceeds the 2 MB limit.");
       const next=makeDataTable(csvRows(source,delimiter,true),header);
       setTable(next);
-      setFilter("");setFilterColumn(-1);setSortColumn(-1);setUnique(false);setUniqueKeyColumn(-1);setRemoveEmptyRows(false);setReplaceEnabled(false);setReplaceColumn(-1);setCellFind("");setCellReplacement("");setSelectedColumns(null);
+      setFilter("");setFilterColumn(-1);setSortColumn(-1);setUnique(false);setUniqueKeyColumn(-1);setRemoveEmptyRows(false);setReplaceEnabled(false);setReplaceColumn(-1);setCellFind("");setCellReplacement("");setSelectedColumns(null);setNumberRows(false);
       setStatus("Loaded "+next.rows.length+" data rows and "+next.headers.length+" columns. No upload.");
     }catch(e){setStatus("Cannot read table: "+String(e instanceof Error?e.message:e));}
   }
   async function save(format:"csv"|"tsv"|"json"|"md"){
-    if(!displayTable||editPreview.error||projection.error)return;
+    if(!displayTable||editPreview.error||projection.error||numberedPreview.error)return;
     try{
       const data=format==="csv"?tableToCsv(displayTable):format==="tsv"?"\ufeff"+tableToTsv(displayTable):format==="json"?tableToJson(displayTable):tableToMarkdown(displayTable);
       const saved=await exportFile("daily-desk-table."+format,data);
@@ -175,6 +181,15 @@ export default function DataDesk(){
         </div>
         {projection.error&&!editPreview.error&&<p role="alert" data-testid="table-cols-error" className="subtle">{projection.error} No file will be exported until a column is selected.</p>}
         {displayTable&&<p className="subtle" data-testid="table-cols-count">{displayTable.headers.length} / {table.headers.length} columns included in preview/export</p>}
+      </div>
+      <div className="panel" data-testid="table-row-numbers">
+        <label className="field-label">
+          <input type="checkbox" data-testid="table-row-numbers-enable" checked={numberRows}
+            onChange={e=>setNumberRows(e.target.checked)}/>
+          Add sequential row numbers to preview and export · 导出前自动添加序号
+        </label>
+        <p className="subtle">Numbers begin at 1 for the current searched, filtered, deduplicated and sorted rows. The new leftmost column is only in the preview/download; it never edits the imported data. Disable the checkbox to undo instantly.</p>
+        {numberedPreview.error&&<p role="alert" data-testid="table-row-numbers-error" className="subtle">{numberedPreview.error} Turn off numbering or hide another column to export.</p>}
       </div>
       <div className="panel" data-testid="table-cell-replace">
         <h4>Find & replace in table cells · 按列查找替换</h4>
