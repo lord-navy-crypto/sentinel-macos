@@ -366,6 +366,7 @@ describe("offline batch office text utility",()=>{
     expect(manifest.operation).toBe("remove-zwsp");
     expect(manifest.files[0].matches).toBe(2);
     expect(source.bytes).toEqual(before);
+    expect(processBatchTextFiles([input("emoji.txt","👩‍💻")],"remove-zwsp")[0].changed).toBe(false);
   });
   it("removes soft hyphen without touching visible hyphen, en dash, em dash or CRLF",()=>{
     const src=input("copied.txt","\ufeffco\u00adoperate\r\nwell-being – together — yes\n");
