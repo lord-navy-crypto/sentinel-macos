@@ -150,3 +150,35 @@ test("two real DOCX files compare in the existing Word review desk and save chan
   assert.equal(await s.page.locator('[data-testid="quality-word-txt-changes"]').count(),0);
  }finally{await close(s,"word-review-changes.png");}
 });
+test("manual multi-copy moves real office notes and saves combined UTF-8 TXT in preview order",{timeout:85000},async()=>{
+ const s=await setup();
+ try{
+  await navigate(s.page,"Multi-copy");
+  const add=s.page.getByRole("button",{name:"Add snippet"});
+  const draft=s.page.locator("#clip-draft");
+  for(const v of ["项目背景","会议决定","下周行动"]){
+   await draft.fill(v);await add.click();
+  }
+  let entries=await s.page.getByTestId("clip-item").allInnerTexts();
+  assert.match(entries[0],/项目背景/);
+  assert.match(entries[1],/会议决定/);
+  assert.match(entries[2],/下周行动/);
+  assert.equal(await s.page.getByRole("button",{name:"Move snippet 1 up"}).isDisabled(),true);
+  assert.equal(await s.page.getByRole("button",{name:"Move snippet 3 down"}).isDisabled(),true);
+  await s.page.getByRole("button",{name:"Move snippet 3 up"}).click();
+  await s.page.getByRole("button",{name:"Move snippet 2 up"}).click();
+  entries=await s.page.getByTestId("clip-item").allInnerTexts();
+  assert.match(entries[0],/下周行动/);
+  assert.match(entries[1],/项目背景/);
+  assert.match(entries[2],/会议决定/);
+  await s.page.getByRole("combobox",{name:/Join snippets with/}).selectOption("blank");
+  const expected="下周行动\n\n项目背景\n\n会议决定";
+  assert.equal(await s.page.locator("#clip-combined").inputValue(),expected);
+  const output=await download(s.page,'[data-testid="clip-save-combined"]',"ordered-office-notes.txt");
+  assert.equal(output.toString("utf8"),expected);
+  assert.equal(await s.page.getByTestId("clip-item").count(),3,"Saving a copy must not clear session snippets");
+  await s.page.getByRole("button",{name:"Remove snippet 2"}).click();
+  assert.equal(await s.page.locator("#clip-combined").inputValue(),"下周行动\n\n会议决定");
+  assert.deepEqual(s.errors,[]);
+ }finally{await close(s,"office-clips.png");}
+});
