@@ -7,14 +7,22 @@ const ROOM_ID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MESSAGE_ID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export type PublicRoomSignal={v:1;room:string;type:"offer"|"answer";sdp:string};
 export type PublicRoomFrame=
- |{v:1;room:string;kind:"join";name:string}
- |{v:1;room:string;kind:"welcome"}
+ |{v:1;room:string;kind:"join";name:string;resumeToken?:string}
+ |{v:1;room:string;kind:"welcome";resumeToken?:string}
  |{v:1;room:string;kind:"deny";reason:"full"|"name"|"invalid"}
  |{v:1;room:string;kind:"leave"}
  |{v:1;room:string;kind:"ack";id:string}
  |{v:1;room:string;kind:"receipt";id:string;acked:number;total:number}
  |{v:1;room:string;kind:"chat";id:string;name:string;text:string};
 
+/** Volatile capability proved over the *previous* encrypted channel; not human identity. */
+export function validRoomResumeToken(value:unknown):value is string{
+ return typeof value==="string"&&MESSAGE_ID.test(value);
+}
+export function authorizeRoomResume(expectedToken:string,expectedName:string,offeredToken:unknown,offeredName:string):boolean{
+ return validRoomResumeToken(expectedToken)&&validRoomResumeToken(offeredToken)&&
+  expectedName===offeredName&&expectedToken===offeredToken;
+}
 export function validPublicRoomName(name:string):boolean{
  return name===name.trim()&&[...name].length>=1&&[...name].length<=24
   &&new TextEncoder().encode(name).length<=72
@@ -50,9 +58,12 @@ export function decodePublicRoomFrame(raw:unknown,room:string):PublicRoomFrame|n
  if(d.v!==1||d.room!==room)return null;
  switch(d.kind){
   case "join":
-   return typeof d.name==="string"&&validPublicRoomName(d.name)?
-    {v:1,room,kind:"join",name:d.name}:null;
-  case "welcome":return {v:1,room,kind:"welcome"};
+   return typeof d.name==="string"&&validPublicRoomName(d.name)&&
+    (d.resumeToken===undefined||validRoomResumeToken(d.resumeToken))?
+    {v:1,room,kind:"join",name:d.name,...(d.resumeToken===undefined?{}:{resumeToken:d.resumeToken as string})}:null;
+  case "welcome":
+   return d.resumeToken===undefined?{v:1,room,kind:"welcome"}:
+    validRoomResumeToken(d.resumeToken)?{v:1,room,kind:"welcome",resumeToken:d.resumeToken as string}:null;
   case "deny":return d.reason==="full"||d.reason==="name"||d.reason==="invalid"?
    {v:1,room,kind:"deny",reason:d.reason}:null;
   case "leave":return {v:1,room,kind:"leave"};
