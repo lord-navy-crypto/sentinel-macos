@@ -155,6 +155,37 @@ fn allowed_read_path(key: &str) -> Option<&'static str> {
         "trust" => Some("/api/trust/status"),
         "runtime-logs" => Some("/api/runtime/logs"),
         "doctor" => Some("/api/doctor"),
+        "mac-health" => Some("/api/health/live"),
+        "resource-current" => Some("/api/resource/current"),
+        "resource-history" => Some("/api/resource/history"),
+        "resource-rates" => Some("/api/maintenance/rates"),
+        "what-changed" => Some("/api/history/what-changed"),
+        "coverage" => Some("/api/coverage"),
+        "system-console" => Some("/api/system/console"),
+        "launch-services" => Some("/api/launch-services"),
+        "storage-graph" => Some("/api/storage/graph"),
+        "storage-jobs" => Some("/api/storage/jobs"),
+        "graph-v2" => Some("/api/intelligence/graph/v2"),
+        "timeline-global" => Some("/api/intelligence/timeline/global"),
+        "timeline-grouped" => Some("/api/intelligence/timeline/grouped"),
+        "incidents" => Some("/api/incidents/v2"),
+        "behavior-history" => Some("/api/behavior/history"),
+        "behavior-health" => Some("/api/behavior/health"),
+        "trust-history" => Some("/api/trust/history"),
+        "trust-health" => Some("/api/trust/health"),
+        "change-status" => Some("/api/changes/status"),
+        "change-events" => Some("/api/changes/events"),
+        "change-history" => Some("/api/changes/history"),
+        "action-status" => Some("/api/actions/status"),
+        "action-health" => Some("/api/actions/health"),
+        "action-journal" => Some("/api/actions/journal"),
+        "action-vault" => Some("/api/actions/vault"),
+        "self-health" => Some("/api/self/health"),
+        "persistence" => Some("/api/persistence"),
+        "update-status" => Some("/api/update/status"),
+        "advanced-sensor" => Some("/api/advanced-sensor/status"),
+        "openguin-status" => Some("/api/ai/openguin/status"),
+        "pre-regression" => Some("/api/pre-regression"),
         _ => None,
     }
 }
@@ -245,6 +276,30 @@ mod tests {
         assert_eq!(allowed_read_path("trust/capture"),None);
         assert_eq!(allowed_read_path("../../etc/passwd"),None);
         assert_eq!(allowed_read_path("search?q=anything"),None);
+    }
+    #[test]
+    fn fixed_extended_system_read_surfaces_and_no_write_escalation() {
+        // Each UI deep link is backed by an explicit original Go read-only endpoint.
+        for (key, path) in [
+            ("mac-health","/api/health/live"),
+            ("resource-current","/api/resource/current"),
+            ("graph-v2","/api/intelligence/graph/v2"),
+            ("timeline-grouped","/api/intelligence/timeline/grouped"),
+            ("launch-services","/api/launch-services"),
+            ("storage-graph","/api/storage/graph"),
+            ("action-journal","/api/actions/journal"),
+            ("action-vault","/api/actions/vault"),
+            ("change-events","/api/changes/events"),
+            ("trust-history","/api/trust/history"),
+            ("advanced-sensor","/api/advanced-sensor/status"),
+        ] {
+            assert_eq!(allowed_read_path(key),Some(path));
+        }
+        for key in ["../actions/execute","actions/preview","actions/execute","trust/restore",
+            "changes/start","changes/clear","storage/cancel","search/deep","api/status",
+            "http://evil.example", "resource-current?path=/etc/passwd"] {
+            assert_eq!(allowed_read_path(key),None,"unexpected unsafe path accepted: {key}");
+        }
     }
     #[test]
     fn malformed_bootstrap_refused() {

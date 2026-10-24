@@ -4,6 +4,7 @@ import {exportFile} from "../lib/output";
 import {sentinelTable,sentinelSummary,sentinelCsv,filteredSentinelRows,sentinelDiff} from "../lib/sentinelPresentation";
 import {quickCheckMetrics,reviewQueueMetrics} from "../lib/sentinelDashboard";
 import {projectSentinelGraph} from "../lib/sentinelGraph";
+import {SENTINEL_EXTRA_READS,SENTINEL_LEGACY_ONLY,SENTINEL_ADVANCED_API_DIRECTORY} from "../lib/sentinelSurfaceCatalog";
 import SentinelGraphView from "./SentinelGraphView";
 import {projectSentinelTimeline} from "../lib/sentinelTimeline";
 import SentinelTimelineView from "./SentinelTimelineView";
@@ -11,7 +12,7 @@ import SentinelTimelineView from "./SentinelTimelineView";
 type EngineStatus = {running:boolean;version:string|null;message:string};
 type ReadOperation = {id:string;name:string;description:string};
 type Lens = {id:string;title:string;subtitle:string;reads:ReadOperation[]};
-const LENSES:Lens[] = [
+const BASE_LENSES:Lens[] = [
  {id:"overview",title:"系统概览",subtitle:"真实系统状态、快速检查和审查队列",reads:[
   {id:"overview",name:"系统总览",description:"Sentinel 原生系统观测"},
   {id:"profile",name:"设备信息",description:"系统配置与运行环境"},
@@ -37,6 +38,9 @@ const LENSES:Lens[] = [
   {id:"visibility",name:"Visibility",description:"系统权限可见范围"},
   {id:"runtime-logs",name:"Runtime Logs",description:"引擎的运行记录"}]},
 ];
+const LENSES:Lens[]=BASE_LENSES.map(lens=>({
+ ...lens,reads:[...lens.reads,...SENTINEL_EXTRA_READS.filter(entry=>entry.lens===lens.id).map(({id,name,description})=>({id,name,description}))]
+}));
 
 function prettyJson(value:unknown):string {
  try {return JSON.stringify(value,null,2)??String(value);} catch{return String(value);}
@@ -59,6 +63,8 @@ export default function SentinelCenter({initialLens="overview",initialRead="",on
  const [dashboardLoading,setDashboardLoading]=useState(false);
  const [dashboardError,setDashboardError]=useState("");
  const [searchQuery,setSearchQuery]=useState("");
+ const [moduleFilter,setModuleFilter]=useState("");
+ const [advancedFilter,setAdvancedFilter]=useState("");
  const group=useMemo(()=>LENSES.find(x=>x.id===lens)??LENSES[0],[lens]);
  const table=useMemo(()=>sentinelTable(result),[result]);
  const graph=useMemo(()=>projectSentinelGraph(result),[result]);
@@ -192,9 +198,13 @@ export default function SentinelCenter({initialLens="overview",initialRead="",on
    {LENSES.map(x=><button key={x.id} type="button" className={lens===x.id?"pill active-pill":"pill"} onClick={()=>{setLens(x.id);setSelected(null);setResult(null);setPrevious(null);setError("");}}>{x.title}</button>)}
   </div>
   <div style={{marginTop:16}}>
-   <h3>{group.title}</h3><p className="subtle">{group.subtitle}</p>
+   <h3>{group.title} · {group.reads.length} 项原生功能</h3><p className="subtle">{group.subtitle}</p>
+   <label className="field-label" htmlFor="sentinel-module-filter">查找当前系统模块中的功能
+    <input id="sentinel-module-filter" data-testid="sentinel-module-filter" type="search" className="field"
+     value={moduleFilter} onChange={e=>setModuleFilter(e.target.value)} placeholder="可输入中文或英文功能名称…" />
+   </label>
    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(190px,1fr))",gap:12}}>
-    {group.reads.map(item=><button type="button" key={item.id}
+    {group.reads.filter(item=>[item.name,item.description,item.id].join(" ").toLowerCase().includes(moduleFilter.trim().toLowerCase())).map(item=><button type="button" key={item.id}
       className="secondary-button" style={{padding:14,textAlign:"left",minHeight:90}}
       disabled={!engine?.running||loading} onClick={()=>void read(item)}>
       <strong>{item.name}</strong><span className="subtle" style={{display:"block",marginTop:6,fontSize:12}}>{item.description}</span>
@@ -205,7 +215,7 @@ export default function SentinelCenter({initialLens="overview",initialRead="",on
    {result===null&&!loading&&<p className="subtle">该功能已定位到原 Go 引擎中的「{selected.name}」。启动服务后点击「读取/刷新」才会查询真实系统数据；不会只展示演示内容。</p>}
    <h3>{selected.name} · 来自原 Sentinel Go 引擎</h3>
    <div className="actions">
-    <button type="button" className="secondary-button" disabled={loading||!engine?.running} onClick={()=>void (selected.id==="search"?searchSentinel():read(selected))}>刷新并比较</button>
+    <button type="button" className="secondary-button" disabled={loading||!engine?.running} onClick={()=>void (selected.id==="search"?searchSentinel():read(selected))}>{result===null?"读取这项真实数据":"刷新并比较"}</button>
     <button type="button" className="secondary-button" disabled={loading||result===null} onClick={()=>void exportReading("json")}>导出原始 JSON</button>
     <button type="button" className="secondary-button" disabled={loading||!table} onClick={()=>void exportReading("csv")}>导出筛选结果 CSV</button>
     <button type="button" className="secondary-button" disabled={loading||!table} onClick={sendToTable}>在 Universal Box 表格工具中打开</button>
@@ -260,6 +270,39 @@ export default function SentinelCenter({initialLens="overview",initialRead="",on
     </div>}
    </>:<p className="subtle">无可展示的结果。</p>}
   </div>}
+  <div className="panel" data-testid="sentinel-legacy-complete-directory" style={{marginTop:18}}>
+   <p className="eyebrow">ORIGINAL SENTINEL / LEGACY WORKBENCH</p>
+   <h3>原完整工作台 · 专业功能入口</h3>
+   <p className="subtle">上方每张功能卡都对应经过 Rust 白名单限制的真实 Go 只读 API。下面这些具有交互参数、持续后台任务或实际系统修改能力的工具，仍运行在原 Sentinel 完整 WebView 中，并非已重写为独立 React 操作按钮。</p>
+   <div className="sentinel-legacy-groups">
+    {SENTINEL_LEGACY_ONLY.map(item=><div key={item.title} className="sentinel-legacy-tile">
+     <strong>{item.title}</strong><p className="subtle">{item.tasks}</p>
+     <button type="button" className="secondary-button" disabled={!engine?.running||working} onClick={()=>void openFull()}>在原 Sentinel 工作台中操作 ↗</button>
+    </div>)}
+   </div>
+  </div>
+  <section className="panel" data-testid="sentinel-advanced-inventory" style={{marginTop:18}}>
+   <p className="eyebrow">COMPLETE ORIGINAL GO API INVENTORY</p>
+   <h3>高级功能目录 · 50 条原系统路由</h3>
+   <p className="subtle">这是原 Sentinel 尚未转换成固定只读 React 查询的功能目录。其中一些需要目标参数、主动扫描、输出文件或系统级安全审批。目录不调用接口；点击「打开完整 Sentinel 工作台」后使用原系统界面操作。部分搜索功能已由上方独立的安全搜索入口实现。</p>
+   <label className="field-label" htmlFor="sentinel-advanced-filter">搜索原 Sentinel 高级功能
+    <input id="sentinel-advanced-filter" type="search" className="field"
+      data-testid="sentinel-advanced-filter" value={advancedFilter} onChange={e=>setAdvancedFilter(e.target.value)}
+      placeholder="例如：隔离、深度搜索、调查报告、资源历史、/api/…" />
+   </label>
+   <div className="sentinel-advanced-list">
+    {SENTINEL_ADVANCED_API_DIRECTORY.filter(item=>
+       [item.title,item.path,item.group].join(" ").toLowerCase().includes(advancedFilter.trim().toLowerCase()))
+      .map(item=><div key={item.path} className="sentinel-advanced-entry" data-testid="sentinel-advanced-entry">
+       <strong>{item.title}</strong><small>{item.group}</small>
+       <code>{item.path}</code>
+       <span>{item.access==="native-search"?"上方独立证据搜索可用":"原完整 WebView 工作台"}</span>
+      </div>)}
+   </div>
+   <div className="actions"><button type="button" className="primary-button" disabled={!engine?.running||working}
+     onClick={()=>void openFull()}>打开完整 Sentinel 工作台 ↗</button>
+    <span className="subtle">禁止自动执行系统修改。实际恢复、清理或隔离操作必须继续按原 Sentinel 的权限与确认流程处理。</span></div>
+  </section>
   <p className="subtle">隐私与安全：所有数据通过 Rust 进程转发；认证令牌不会传给 React。当前页面仅允许查询固定的只读 API。需要完整扫描、审批、恢复和其他高级功能时，使用内置完整工作台。</p>
  </section>;
 }

@@ -46,6 +46,17 @@ try:
     with urllib.request.urlopen(request, timeout=10) as response:
         data = json.load(response)
     assert isinstance(data, dict), "Expected Sentinel's native JSON response"
+    # Exercise real added GET surfaces, not merely React cards or Rust allowlist strings.
+    # These endpoints do not start monitors, modify system files or create baselines.
+    for route in ("/api/coverage", "/api/changes/status", "/api/actions/status",
+                  "/api/actions/health", "/api/trust/history", "/api/resource/current"):
+        request = urllib.request.Request(payload["origin"] + route,
+            headers={"X-Sentinel-Token": payload["token"]})
+        with urllib.request.urlopen(request, timeout=15) as response:
+            assert response.status == 200, f"{route} expected 200"
+            content = json.load(response)
+            assert content is not None, f"{route} empty JSON response"
+        print("PASS: authenticated original Go GET",route)
     print("PASS: embedded Sentinel Go engine bootstraps, requires authentication, serves original API")
 finally:
     if proc.poll() is None:
