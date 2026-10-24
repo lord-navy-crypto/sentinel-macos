@@ -343,6 +343,46 @@ describe("offline batch office text utility",()=>{
     expect(()=>processBatchTextFiles([{name:"invalid.txt",bytes:Uint8Array.from([0xff])}],"strip-list-markers")).toThrow(/invalid UTF-8/);
   });
 
+
+  it("normalizes only two supported no-break spaces in TXT and preserves figure space, BOM and EOLs",()=>{
+    const src=input("copied.txt","\ufeff价格\u00a01\u202f000\u2007元\r\n下段\u00a0结束\r");
+    const bytes=Uint8Array.from(src.bytes);
+    const row=processBatchTextFiles([src],"normalize-nbsp")[0];
+    expect(row.matches).toBe(3);
+    expect(Array.from(row.bytes.slice(0,3))).toEqual([239,187,191]);
+    expect(d.decode(row.bytes.subarray(3))).toBe("价格 1 000\u2007元\r\n下段 结束\r");
+    expect(src.bytes).toEqual(bytes);
+    expect(processBatchTextFiles([input("done.txt","普通 空格\n")],"normalize-nbsp")[0].changed).toBe(false);
+  });
+  it("removes only U+200B zero-width space, preserving emoji ZWJ, U+200C and variation selectors",async()=>{
+    const source=input("notes.txt","\ufeffA\u200bB\r\n👩‍💻\u200bC\u200cD️\n");
+    const before=Uint8Array.from(source.bytes);
+    const rows=processBatchTextFiles([source],"remove-zwsp");
+    expect(rows[0].matches).toBe(2);
+    expect(d.decode(rows[0].bytes.subarray(3))).toBe("AB\r\n👩‍💻C\u200cD️\n");
+    const pack=await JSZip.loadAsync(await zipBatchTextResults(rows,"remove-zwsp"),{checkCRC32:true});
+    expect(await pack.file("processed/notes.txt")!.async("uint8array")).toEqual(rows[0].bytes);
+    const manifest=JSON.parse(await pack.file("sentinel-box-batch-text-manifest.json")!.async("string"));
+    expect(manifest.operation).toBe("remove-zwsp");
+    expect(manifest.files[0].matches).toBe(2);
+    expect(source.bytes).toEqual(before);
+  });
+  it("removes soft hyphen without touching visible hyphen, en dash, em dash or CRLF",()=>{
+    const src=input("copied.txt","\ufeffco\u00adoperate\r\nwell-being – together — yes\n");
+    const row=processBatchTextFiles([src],"remove-soft-hyphen")[0];
+    expect(row.matches).toBe(1);
+    expect(d.decode(row.bytes.subarray(3))).toBe("cooperate\r\nwell-being – together — yes\n");
+    expect(processBatchTextFiles([input("same.txt","ordinary-hyphen")],"remove-soft-hyphen")[0].changed).toBe(false);
+  });
+  it("rejects whitespace-copy cleanup for Markdown and CSV/TSV and malformed UTF-8",()=>{
+    for(const mode of ["normalize-nbsp","remove-zwsp","remove-soft-hyphen"] as const){
+      for(const ext of ["md","markdown","csv","tsv"]){
+        expect(()=>processBatchTextFiles([input("test."+ext,"A\u00a0B")],mode)).toThrow(/TXT-only/);
+      }
+      expect(()=>processBatchTextFiles([{name:"bad.txt",bytes:Uint8Array.from([0xff])}],mode)).toThrow(/invalid UTF-8/);
+    }
+  });
+
   it("packages changed copies only; JSON manifest and all exported bytes are verifiable",async()=>{
     const rows=processBatchTextFiles([
       input("报价.csv","旧价,5\r\n"),input("no-change.md","untouched"),

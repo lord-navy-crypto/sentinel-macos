@@ -2,7 +2,7 @@
 import JSZip from "jszip";
 import {replaceTextLiteral} from "./quickBatchText";
 
-export type BatchTextMode="replace"|"lf"|"crlf"|"remove-bom"|"trim-trailing"|"remove-blank"|"dedupe-lines"|"multi-replace"|"prefix-lines"|"suffix-lines"|"keep-matching"|"drop-matching"|"number-lines"|"collapse-blank"|"tabs-to-spaces"|"sort-list-asc"|"sort-list-desc"|"dedupe-list"|"strip-list-markers"|"trim-boundary-blank";
+export type BatchTextMode="replace"|"lf"|"crlf"|"remove-bom"|"trim-trailing"|"remove-blank"|"dedupe-lines"|"multi-replace"|"prefix-lines"|"suffix-lines"|"keep-matching"|"drop-matching"|"number-lines"|"collapse-blank"|"tabs-to-spaces"|"sort-list-asc"|"sort-list-desc"|"dedupe-list"|"strip-list-markers"|"trim-boundary-blank"|"normalize-nbsp"|"remove-zwsp"|"remove-soft-hyphen";
 export type BatchTextSource={name:string;bytes:Uint8Array};
 export type BatchTextResult={
   name:string;outputName:string;matches:number;changed:boolean;ruleCounts?:number[];
@@ -200,12 +200,12 @@ function simplifyPlainList(source:string,mode:"strip-list-markers"|"trim-boundar
 
 export function processBatchTextFiles(sources:readonly BatchTextSource[],mode:BatchTextMode,find="",replacement="",ruleText="",affix="",tabWidth:2|4|8=4):BatchTextResult[]{
   validateBatchTextSelection(sources.map(x=>({name:x.name,size:x.bytes.length})));
-  if(!(["replace","lf","crlf","remove-bom","trim-trailing","remove-blank","dedupe-lines","multi-replace","prefix-lines","suffix-lines","keep-matching","drop-matching","number-lines","collapse-blank","tabs-to-spaces","sort-list-asc","sort-list-desc","dedupe-list","strip-list-markers","trim-boundary-blank"] as string[]).includes(mode))throw Error("Unknown batch text operation.");
+  if(!(["replace","lf","crlf","remove-bom","trim-trailing","remove-blank","dedupe-lines","multi-replace","prefix-lines","suffix-lines","keep-matching","drop-matching","number-lines","collapse-blank","tabs-to-spaces","sort-list-asc","sort-list-desc","dedupe-list","strip-list-markers","trim-boundary-blank","normalize-nbsp","remove-zwsp","remove-soft-hyphen"] as string[]).includes(mode))throw Error("Unknown batch text operation.");
   if(mode==="replace"&&(!find||find.length>1000||replacement.length>10000))
     throw Error("Enter a literal search phrase (1–1,000 chars) and up to 10,000 replacement characters.");
-  if((mode==="collapse-blank"||mode==="tabs-to-spaces"||mode==="sort-list-asc"||mode==="sort-list-desc"||mode==="dedupe-list"||mode==="strip-list-markers"||mode==="trim-boundary-blank")&&sources.some(file=>!/\.txt$/iu.test(file.name)))
-    throw Error("These list/whitespace operations are TXT-only; Markdown, CSV and TSV formatting may be structurally meaningful.");
-  const lineMode=(mode==="trim-trailing"||mode==="remove-blank"||mode==="dedupe-lines"||mode==="prefix-lines"||mode==="suffix-lines"||mode==="keep-matching"||mode==="drop-matching"||mode==="number-lines"||mode==="collapse-blank"||mode==="tabs-to-spaces"||mode==="sort-list-asc"||mode==="sort-list-desc"||mode==="dedupe-list"||mode==="strip-list-markers"||mode==="trim-boundary-blank");
+  if((mode==="collapse-blank"||mode==="tabs-to-spaces"||mode==="sort-list-asc"||mode==="sort-list-desc"||mode==="dedupe-list"||mode==="strip-list-markers"||mode==="trim-boundary-blank"||mode==="normalize-nbsp"||mode==="remove-zwsp"||mode==="remove-soft-hyphen")&&sources.some(file=>!/\.txt$/iu.test(file.name)))
+    throw Error("These plain text cleanup operations are TXT-only; Markdown, CSV and TSV formatting may be structurally meaningful.");
+  const lineMode=(mode==="trim-trailing"||mode==="remove-blank"||mode==="dedupe-lines"||mode==="prefix-lines"||mode==="suffix-lines"||mode==="keep-matching"||mode==="drop-matching"||mode==="number-lines"||mode==="collapse-blank"||mode==="tabs-to-spaces"||mode==="sort-list-asc"||mode==="sort-list-desc"||mode==="dedupe-list"||mode==="strip-list-markers"||mode==="trim-boundary-blank"||mode==="normalize-nbsp"||mode==="remove-zwsp"||mode==="remove-soft-hyphen");
   if(lineMode&&sources.some(file=>/\.(csv|tsv)$/iu.test(file.name)))
     throw Error("This line cleanup is for TXT/Markdown only. CSV/TSV may contain multiline quoted cells; use the CSV Table Desk.");
   if((mode==="keep-matching"||mode==="drop-matching")&&(!find||find.length>1000||/[\u0000-\u001f\u007f]/u.test(find)))
@@ -245,6 +245,17 @@ export function processBatchTextFiles(sources:readonly BatchTextSource[],mode:Ba
       ({text:next,count:matches}=sortOrDeduplicateList(original,mode));
     }else if(mode==="strip-list-markers"||mode==="trim-boundary-blank"){
       ({text:next,count:matches}=simplifyPlainList(original,mode));
+    }else if(mode==="normalize-nbsp"){
+      // Ordinary and narrow NBSP only; preserve alignment-specific U+2007 figure spaces.
+      matches=occurrences(original,/[\u00a0\u202f]/gu);
+      next=original.replace(/[\u00a0\u202f]/gu," ");
+    }else if(mode==="remove-zwsp"){
+      // Do not remove U+200D ZERO WIDTH JOINER: it is important for emoji/script joining.
+      matches=occurrences(original,/\u200b/gu);
+      next=original.replace(/\u200b/gu,"");
+    }else if(mode==="remove-soft-hyphen"){
+      matches=occurrences(original,/\u00ad/gu);
+      next=original.replace(/\u00ad/gu,"");
     }else if(mode==="collapse-blank"){
       ({text:next,count:matches}=collapseRepeatedBlankLines(original));
     }else if(mode==="tabs-to-spaces"){
