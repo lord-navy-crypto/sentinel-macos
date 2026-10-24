@@ -162,7 +162,7 @@ export default function BatchImageDesk(){
     {prepared.previews.map((item,i)=><div data-testid="image-output-preview" key={item.name} className="task-row" style={{display:"block"}}>
      <img src={item.url} alt={"Converted preview for "+prepared.records[i].source}
       style={{display:"block",width:"100%",height:135,objectFit:"contain",background:"#f7f9ff"}}/>
-     <p style={{overflowWrap:"anywhere"}}>{item.name}</p>
+     <p style={{overflowWrap:"anywhere"}}>{prepared.records[i].source} → {item.name}</p>
      <p className="subtle">{prepared.records[i].sourceWidth}×{prepared.records[i].sourceHeight} → {item.width}×{item.height} px</p>
      <p className="subtle">{item.sourceBytes.toLocaleString()} → {item.outputBytes.toLocaleString()} bytes
       {" · "}{prepared.records[i].deltaBytes<0?"saved":prepared.records[i].deltaBytes>0?"increased":"unchanged"}
