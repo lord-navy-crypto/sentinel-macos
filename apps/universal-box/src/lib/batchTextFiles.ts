@@ -2,7 +2,7 @@
 import JSZip from "jszip";
 import {replaceTextLiteral} from "./quickBatchText";
 
-export type BatchTextMode="replace"|"lf"|"crlf"|"remove-bom"|"trim-trailing"|"remove-blank"|"dedupe-lines"|"multi-replace"|"prefix-lines"|"suffix-lines"|"keep-matching"|"drop-matching"|"number-lines"|"collapse-blank"|"tabs-to-spaces"|"sort-list-asc"|"sort-list-desc"|"dedupe-list";
+export type BatchTextMode="replace"|"lf"|"crlf"|"remove-bom"|"trim-trailing"|"remove-blank"|"dedupe-lines"|"multi-replace"|"prefix-lines"|"suffix-lines"|"keep-matching"|"drop-matching"|"number-lines"|"collapse-blank"|"tabs-to-spaces"|"sort-list-asc"|"sort-list-desc"|"dedupe-list"|"strip-list-markers"|"trim-boundary-blank";
 export type BatchTextSource={name:string;bytes:Uint8Array};
 export type BatchTextResult={
   name:string;outputName:string;matches:number;changed:boolean;ruleCounts?:number[];
@@ -173,14 +173,39 @@ function sortOrDeduplicateList(source:string,mode:"sort-list-asc"|"sort-list-des
   return {text,count};
 }
 
+
+/** Plain TXT list cleanup: preserve all surviving line endings; do not interpret Markdown or CSV. */
+function simplifyPlainList(source:string,mode:"strip-list-markers"|"trim-boundary-blank"):{text:string;count:number}{
+  const rows=splitPhysicalLines(source);
+  if(mode==="trim-boundary-blank"){
+    let start=0,end=rows.length;
+    while(start<end&&/^[ \t]*$/u.test(rows[start].content))start++;
+    while(end>start&&/^[ \t]*$/u.test(rows[end-1].content))end--;
+    return {
+      text:rows.slice(start,end).map(row=>row.content+row.ending).join(""),
+      count:start+(rows.length-end),
+    };
+  }
+  let count=0;
+  const text=rows.map(row=>{
+    // Only strip recognizable bullets / numbered list entries followed by actual content.
+    // Keep up to sixteen leading indentation characters; never alter a plain date or negative number.
+    const cleaned=row.content.replace(/^([ \t]{0,16})(?:[-*+•][ \t]+|[0-9]{1,4}[.)][ \t]+)(?=\S)(.*)$/u,
+      (_full:string,indent:string,content:string)=>indent+content);
+    if(cleaned!==row.content)count++;
+    return cleaned+row.ending;
+  }).join("");
+  return {text,count};
+}
+
 export function processBatchTextFiles(sources:readonly BatchTextSource[],mode:BatchTextMode,find="",replacement="",ruleText="",affix="",tabWidth:2|4|8=4):BatchTextResult[]{
   validateBatchTextSelection(sources.map(x=>({name:x.name,size:x.bytes.length})));
-  if(!(["replace","lf","crlf","remove-bom","trim-trailing","remove-blank","dedupe-lines","multi-replace","prefix-lines","suffix-lines","keep-matching","drop-matching","number-lines","collapse-blank","tabs-to-spaces","sort-list-asc","sort-list-desc","dedupe-list"] as string[]).includes(mode))throw Error("Unknown batch text operation.");
+  if(!(["replace","lf","crlf","remove-bom","trim-trailing","remove-blank","dedupe-lines","multi-replace","prefix-lines","suffix-lines","keep-matching","drop-matching","number-lines","collapse-blank","tabs-to-spaces","sort-list-asc","sort-list-desc","dedupe-list","strip-list-markers","trim-boundary-blank"] as string[]).includes(mode))throw Error("Unknown batch text operation.");
   if(mode==="replace"&&(!find||find.length>1000||replacement.length>10000))
     throw Error("Enter a literal search phrase (1–1,000 chars) and up to 10,000 replacement characters.");
-  if((mode==="collapse-blank"||mode==="tabs-to-spaces"||mode==="sort-list-asc"||mode==="sort-list-desc"||mode==="dedupe-list")&&sources.some(file=>!/\.txt$/iu.test(file.name)))
+  if((mode==="collapse-blank"||mode==="tabs-to-spaces"||mode==="sort-list-asc"||mode==="sort-list-desc"||mode==="dedupe-list"||mode==="strip-list-markers"||mode==="trim-boundary-blank")&&sources.some(file=>!/\.txt$/iu.test(file.name)))
     throw Error("These list/whitespace operations are TXT-only; Markdown, CSV and TSV formatting may be structurally meaningful.");
-  const lineMode=(mode==="trim-trailing"||mode==="remove-blank"||mode==="dedupe-lines"||mode==="prefix-lines"||mode==="suffix-lines"||mode==="keep-matching"||mode==="drop-matching"||mode==="number-lines"||mode==="collapse-blank"||mode==="tabs-to-spaces"||mode==="sort-list-asc"||mode==="sort-list-desc"||mode==="dedupe-list");
+  const lineMode=(mode==="trim-trailing"||mode==="remove-blank"||mode==="dedupe-lines"||mode==="prefix-lines"||mode==="suffix-lines"||mode==="keep-matching"||mode==="drop-matching"||mode==="number-lines"||mode==="collapse-blank"||mode==="tabs-to-spaces"||mode==="sort-list-asc"||mode==="sort-list-desc"||mode==="dedupe-list"||mode==="strip-list-markers"||mode==="trim-boundary-blank");
   if(lineMode&&sources.some(file=>/\.(csv|tsv)$/iu.test(file.name)))
     throw Error("This line cleanup is for TXT/Markdown only. CSV/TSV may contain multiline quoted cells; use the CSV Table Desk.");
   if((mode==="keep-matching"||mode==="drop-matching")&&(!find||find.length>1000||/[\u0000-\u001f\u007f]/u.test(find)))
@@ -218,6 +243,8 @@ export function processBatchTextFiles(sources:readonly BatchTextSource[],mode:Ba
       ({text:next,count:matches}=processDocumentLines(original,mode,find));
     }else if(mode==="sort-list-asc"||mode==="sort-list-desc"||mode==="dedupe-list"){
       ({text:next,count:matches}=sortOrDeduplicateList(original,mode));
+    }else if(mode==="strip-list-markers"||mode==="trim-boundary-blank"){
+      ({text:next,count:matches}=simplifyPlainList(original,mode));
     }else if(mode==="collapse-blank"){
       ({text:next,count:matches}=collapseRepeatedBlankLines(original));
     }else if(mode==="tabs-to-spaces"){
