@@ -167,7 +167,10 @@ export default function CommonsPublicRoomDesk(){
    }
    setStatus(frame.name+(resuming?" 已凭本次临时会话凭据恢复连接。":" 已加入房间。"));
   }else if(frame.kind==="pong"&&slot.authenticated){
-   if(frame.id===slot.pendingPing){slot.lastPongAt=Date.now();slot.pendingPing="";}
+   if(frame.id===slot.pendingPing){
+    slot.lastPongAt=Date.now();slot.pendingPing="";
+    if(slot.phase!=="已连接 · 心跳正常"){slot.phase="已连接 · 心跳正常";refresh();}
+   }
   }else if(frame.kind==="ack"&&slot.authenticated){
    const row=deliveryRef.current.get(frame.id);
    if(!row)return;
