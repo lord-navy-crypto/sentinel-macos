@@ -214,7 +214,7 @@ export default function SentinelCenter({initialLens="overview",initialRead="",on
    {result===null&&!loading&&<p className="subtle">该功能已定位到原 Go 引擎中的「{selected.name}」。启动服务后点击「读取/刷新」才会查询真实系统数据；不会只展示演示内容。</p>}
    <h3>{selected.name} · 来自原 Sentinel Go 引擎</h3>
    <div className="actions">
-    <button type="button" className="secondary-button" disabled={loading||!engine?.running} onClick={()=>void (selected.id==="search"?searchSentinel():read(selected))}>刷新并比较</button>
+    <button type="button" className="secondary-button" disabled={loading||!engine?.running} onClick={()=>void (selected.id==="search"?searchSentinel():read(selected))}>{result===null?"读取这项真实数据":"刷新并比较"}</button>
     <button type="button" className="secondary-button" disabled={loading||result===null} onClick={()=>void exportReading("json")}>导出原始 JSON</button>
     <button type="button" className="secondary-button" disabled={loading||!table} onClick={()=>void exportReading("csv")}>导出筛选结果 CSV</button>
     <button type="button" className="secondary-button" disabled={loading||!table} onClick={sendToTable}>在 Universal Box 表格工具中打开</button>
