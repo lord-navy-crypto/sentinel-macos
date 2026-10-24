@@ -27,8 +27,21 @@ test("Existing batch image tool refuses spoofing and exports real JPEG in ZIP",{
   await page.locator("#batch-image-files").setInputFiles([
    {name:"real.png",mimeType:"image/png",buffer:png}
   ]);
+  assert.equal(await page.getByTestId("image-save-reviewed").isDisabled(),true);
+  await page.getByTestId("image-prepare-preview").click();
+  await page.getByTestId("image-output-preview").waitFor({timeout:30000});
+  const preview=await page.getByTestId("image-size-report").innerText();
+  assert.match(preview,/8×6 → 8×6 px/);
+  assert.match(preview,/real.png/);
+  assert.equal(await page.getByTestId("image-save-reviewed").isDisabled(),false);
+  const before=await page.getByTestId("image-output-preview").locator("img").evaluate(async img=>{
+   await (img.complete?Promise.resolve():new Promise((resolve,reject)=>{img.addEventListener("load",resolve,{once:true});img.addEventListener("error",reject,{once:true});}));
+   return {width:img.naturalWidth,height:img.naturalHeight,src:img.src};
+  });
+  assert.deepEqual({width:before.width,height:before.height},{width:8,height:6});
+  assert.ok(before.src.startsWith("blob:"),"Preview must show real converted bytes, not a placeholder");
   const pending=page.waitForEvent("download",{timeout:30000});
-  await page.getByRole("button",{name:"Convert all & save ZIP"}).click();
+  await page.getByTestId("image-save-reviewed").click();
   const dl=await pending;
   const file=path.join(dest,"converted-image.zip");await dl.saveAs(file);
   const zip=await JSZip.loadAsync(fs.readFileSync(file),{checkCRC32:true});
@@ -44,14 +57,23 @@ test("Existing batch image tool refuses spoofing and exports real JPEG in ZIP",{
   assert.equal(report.records[0].sourceBytes,png.length);
   assert.equal(report.records[0].outputBytes,jpeg.length);
   assert.equal(report.records[0].deltaBytes,jpeg.length-png.length);
+  assert.equal(report.records[0].width,8);
+  assert.equal(report.records[0].height,6);
+  assert.equal(report.records[0].sourceWidth,8);
+  assert.equal(report.records[0].sourceHeight,6);
+  const previewBytes=await page.evaluate(async()=>new Uint8Array(await (await fetch(document.querySelector('[data-testid="image-output-preview"] img').src)).arrayBuffer()).length);
+  assert.equal(previewBytes,jpeg.length,"The preview bytes must match the exact ZIP member");
   assert.match(await page.locator('[data-testid="image-size-report"]').innerText(),/Real file size comparison/);
   assert.match(await page.locator('[data-testid="image-size-report"]').innerText(),/real.png/);
   // Try a misleading file extension, which must not yield a fake image result.
   await page.locator("#batch-image-files").setInputFiles([
    {name:"fake.jpg",mimeType:"image/jpeg",buffer:png}
   ]);
-  await page.getByRole("button",{name:"Convert all & save ZIP"}).click();
+  assert.equal(await page.getByTestId("image-save-reviewed").isDisabled(),true,"Changing files clears previous ZIP preview");
+  await page.getByTestId("image-prepare-preview").click();
   assert.match(await page.locator("p[role=status]").last().innerText(),/extension does not match/i);
+  assert.equal(await page.getByTestId("image-save-reviewed").isDisabled(),true);
+  assert.equal(await page.getByTestId("image-output-preview").count(),0);
   await page.screenshot({path:path.join(dest,"image-safety.png"),fullPage:true});
   assert.deepEqual(exceptions,[]);
  }finally{await page.close();await browser.close();}
