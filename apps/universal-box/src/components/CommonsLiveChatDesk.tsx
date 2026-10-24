@@ -1,6 +1,6 @@
 import {useCallback,useEffect,useRef,useState} from "react";
 import {invoke,isTauri} from "@tauri-apps/api/core";
-import {canJoinCommonsChat,mergeLanChatLines,chatHistoryGap,nextChatPage,lanChatNeedsNewSession,type LanChatLine,type LanChatSnapshot} from "../lib/commonsChatUi";
+import {canJoinCommonsChat,parseCommonsChatInvite,mergeLanChatLines,chatHistoryGap,nextChatPage,lanChatNeedsNewSession,type LanChatLine,type LanChatSnapshot} from "../lib/commonsChatUi";
 
 type HostInfo={active:boolean;room:string;invites:string[];secondsRemaining:number};
 const messageError=(error:unknown)=>error instanceof Error?error.message:String(error);
@@ -13,6 +13,7 @@ export default function CommonsLiveChatDesk({visible}:{visible:boolean}){
  const [joinText,setJoinText]=useState("");
  const [activeInvite,setActiveInvite]=useState("");
  const [shareInvite,setShareInvite]=useState("");
+ const [hostInvites,setHostInvites]=useState<string[]>([]);
  const [room,setRoom]=useState("");
  const [hosting,setHosting]=useState(false);
  const [revealed,setRevealed]=useState(false);
@@ -97,7 +98,10 @@ export default function CommonsLiveChatDesk({visible}:{visible:boolean}){
    session.current++;cursor.current=0;memberSession.current=first.sessionToken;setMissingHistory(0);pendingSend.current=null;
    setConnectionDown(false);setNeedsFreshSession(false);
    setMessages([]);setParticipants([]);
-   setHosting(true);setRoom(host.room);setShareInvite(host.invites.find(v=>!v.includes("127.0.0.1:"))??loopback);
+   setHosting(true);setRoom(host.room);
+   const usable=host.invites.filter(v=>!v.includes("127.0.0.1:"));
+   setHostInvites(usable.length?usable:[loopback]);
+   setShareInvite(usable[0]??loopback);
    applySnapshot(first);setActiveInvite(loopback);setNetworkState("已创建临时局域网群聊");
   }catch(e){
    setError("创建群聊失败："+messageError(e));
@@ -117,7 +121,7 @@ export default function CommonsLiveChatDesk({visible}:{visible:boolean}){
    session.current++;cursor.current=0;memberSession.current=first.sessionToken;
    setConnectionDown(false);setNeedsFreshSession(false);setMissingHistory(0);pendingSend.current=null;
    setMessages([]);setParticipants([]);
-   setHosting(false);setShareInvite("");applySnapshot(first);setActiveInvite(invite);
+   setHosting(false);setShareInvite("");setHostInvites([]);applySnapshot(first);setActiveInvite(invite);
    setNetworkState("已加入局域网群聊");
   }catch(e){setError("加入失败："+messageError(e));}
   finally{setBusy(false);}
@@ -159,7 +163,7 @@ export default function CommonsLiveChatDesk({visible}:{visible:boolean}){
     }catch{/* Offline member leaves locally; the host expires inactive sessions within 20 seconds. */}
    }
    memberSession.current="";
-   setActiveInvite("");setShareInvite("");setHosting(false);setRoom("");
+   setActiveInvite("");setShareInvite("");setHostInvites([]);setHosting(false);setRoom("");
    setMessages([]);setParticipants([]);cursor.current=0;setDraft("");setError("");
    setMissingHistory(0);pendingSend.current=null;
    setConnectionDown(false);setNeedsFreshSession(false);
@@ -240,6 +244,18 @@ export default function CommonsLiveChatDesk({visible}:{visible:boolean}){
      onClick={()=>void leave()}>{hosting?"结束群聊":"退出群聊"}</button>
    </div>
    {hosting&&<div>
+    {hostInvites.length>1&&<label className="field-label">
+     选择成员能访问的本机地址（同一 Wi-Fi／有线网络）
+     <select className="field" data-testid="chat-host-address" value={shareInvite}
+      onChange={e=>setShareInvite(e.target.value)}>
+      {hostInvites.map(v=><option key={v} value={v}>{parseCommonsChatInvite(v).address}</option>)}
+     </select>
+    </label>}
+    {hostInvites.length===1&&hostInvites[0].includes("127.0.0.1:")&&
+     <p role="alert" className="subtle" data-testid="chat-loopback-only">
+      当前只发现本机回环地址 127.0.0.1；其他设备无法用此邀请加入。请检查 Wi-Fi／以太网是否已连接并拥有本地 IPv4 地址，再重新创建房间。
+     </p>}
+    <p className="subtle">Mac 上若启用了 VPN 或多个网络，请选择与对方同一子网可达的地址；不要将 127.0.0.1 发给其他设备。</p>
     <label className="field-label">私密邀请（由主持人私下发送）
      <input data-testid="chat-share-invite" className="field" type={revealed?"text":"password"}
       readOnly value={shareInvite} aria-label="LAN group private invitation"/>
