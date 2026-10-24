@@ -30,6 +30,9 @@ jobs:
       fail-fast: false
       matrix:
         target: [aarch64-apple-darwin, x86_64-apple-darwin]
+    env:
+      # Matrix-selected binary architecture, never silently bundle ARM Go in the Intel DMG.
+      SENTINEL_TARGET_ARCH: ${{ matrix.target }}
     defaults:
       run:
         working-directory: apps/universal-box
@@ -42,6 +45,11 @@ jobs:
         with:
           node-version: 22
 
+      - name: Set up Go for the original Sentinel engine
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -50,11 +58,17 @@ jobs:
       - name: Install reproducible dependencies
         run: npm ci
 
+      - name: Build and verify architecture-matched original Sentinel Go engine
+        run: npm run prepare:sentinel
+
       - name: Check TypeScript and build frontend
         run: npm run build
 
       - name: Test transplanted everyday tools
         run: npm test
+
+      - name: Smoke test original Go service token-authenticated loopback handshake
+        run: python3 scripts/smoke-sentinel-service.py
 
       - name: Generate Tauri icons
         run: npx tauri icon src-tauri/app-icon.svg
@@ -96,6 +110,12 @@ jobs:
           [[ "$ICON" == *.icns ]] || ICON="$ICON.icns"
           test -x "$APP/Contents/MacOS/$EXECUTABLE"
           test -s "$APP/Contents/Resources/$ICON"
+          ENGINE="$APP/Contents/Resources/sentinel/sentinel-engine"
+          test -x "$ENGINE"
+          file "$ENGINE"
+          file "$ENGINE" | grep -Eq "${{ matrix.target == 'aarch64-apple-darwin' && 'arm64|arm64e' || 'x86_64' }}"
+          echo "Original Sentinel Go evidence engine bundled for ${{ matrix.target }}"
+
           # Ad-hoc signing is essential for local Apple Silicon builds,
           # but it is NOT Apple Developer ID notarization.
           codesign --verify --deep --strict --verbose=2 "$APP"
