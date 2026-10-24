@@ -502,6 +502,22 @@ mod tests {
         sender.join().unwrap();
     }
     #[test]
+    fn stop_preserves_completed_receipt_but_cancels_active_sending() {
+        for (initial,expected) in [(SENDING,STOPPED),(DELIVERED,DELIVERED)] {
+            let state=CommonsLanState::default();
+            let closed=Arc::new(AtomicBool::new(initial==DELIVERED));
+            let phase=Arc::new(AtomicU8::new(initial));
+            *state.0.lock().unwrap()=Some(ActiveShare {
+                closed:closed.clone(),expiry:Instant::now()+Duration::from_secs(60),
+                addresses:vec![],instance:"test".into(),phase:phase.clone(),
+                sent_bytes:Arc::new(AtomicUsize::new(64)),total_bytes:1024,
+            });
+            state.stop();
+            assert_eq!(phase.load(Ordering::SeqCst),expected);
+            assert!(closed.load(Ordering::SeqCst));
+        }
+    }
+    #[test]
     fn sender_encrypted_payload_progress_is_bounded_monotonic_and_finishes() {
         let listener=TcpListener::bind(("127.0.0.1",0)).unwrap();
         let addr=listener.local_addr().unwrap();
