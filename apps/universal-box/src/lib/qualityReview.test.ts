@@ -22,7 +22,11 @@ describe("DOCX paragraph-level review",()=>{
   const left={name:"before.docx",bytes:a},right={name:"after.docx",bytes:b};
   const review=await compareWordDocuments(left,right);
   expect(review.same).toBe(2);expect(review.removed).toBe(1);expect(review.added).toBe(2);
-  const zip=await JSZip.loadAsync(await wordReviewZip(left,right),{checkCRC32:true});
+  const changed=wordReviewText(review,true);
+  expect(changed).toContain("- Old conclusion");
+  expect(changed).toContain("+ New conclusion");
+  expect(changed).not.toContain("Shared result");
+  const zip=await JSZip.loadAsync(await wordReviewZip(left,right,review),{checkCRC32:true});
   const txt=await zip.file("reports/word-paragraph-diff.txt")!.async("string");
   expect(txt).toContain("- Old conclusion");expect(txt).toContain("+ New conclusion");
   const meta=JSON.parse(await zip.file("reports/word-paragraph-diff.json")!.async("string"));
