@@ -150,7 +150,7 @@ The desktop program remains separate from the AP website. These changes are not 
 
 ## v0.10 offline office tools
 
-- **CSV Table Desk:** opens local `.csv` or `.tsv` files or pasted content, up to 2 MB / 2,000 rows / 100 columns. Includes searching all/one column, numeric-aware sort, deduplicate whole rows, first-80-row preview, non-destructive filtered exports in CSV, JSON and Markdown. CSV output guards against opening untrusted formula-like cells in spreadsheet programs.
+- **CSV Table Desk:** opens local `.csv` or `.tsv` files or pasted content, up to 2 MB / 2,000 rows / 100 columns. Includes searching all/one column, numeric-aware sort, deduplicate whole rows, optional exclusion of fully blank rows (without silently deleting them on import), first-80-row preview, and non-destructive filtered exports in CSV, **TSV**, JSON and Markdown. TSV includes a UTF-8 BOM for Excel and quotes tabs, quotes and embedded line breaks. CSV and TSV output guards against opening untrusted formula-like cells in spreadsheet programs; no source files are changed.
 - **PDF organizer:** `File desk → PDF → Organize` takes explicit one-based page order such as `3,1,2,5-7`; omitting a page removes it. Rejects duplicate or out-of-range page numbers, saves a new PDF and preserves original.
 - **Image batch:** `File desk → Images` can convert up to 12 local JPEG/PNG/WebP images to a common format/width and save a single ZIP. Conservative per-file, pixel and ZIP-size limits protect memory on 16 GB Apple Silicon machines.
 - The searchable All tools catalog includes the new entries; no AP ReasonLab website code is changed.
