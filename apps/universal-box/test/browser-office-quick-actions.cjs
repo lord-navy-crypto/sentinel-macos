@@ -326,3 +326,55 @@ test("TXT blank-run cleanup and chosen tab spacing export verified real ZIP copi
   assert.deepEqual(errors,[]);
  }finally{await page.close();await browser.close();}
 });
+
+
+test("TXT list natural sorting and normalized dedupe export actual verified ZIPs",{timeout:90000},async()=>{
+ const browser=await chromium.launch({headless:true,args:["--no-sandbox"]});
+ const page=await browser.newPage({acceptDownloads:true,viewport:{width:1440,height:920}});
+ const errors=[];page.on("pageerror",e=>errors.push(e.message));
+ try{
+  await page.goto(root,{waitUntil:"domcontentloaded"});await page.locator(".app-shell").waitFor();
+  await openTool(page,"Batch Text Files");
+  const original=Buffer.from("\ufeffitem10\r\n \t\nitem2\rItem1\n");
+  await page.locator('[data-testid="batch-text-picker"]').setInputFiles([
+   {name:"inventory.txt",mimeType:"text/plain",buffer:original},
+  ]);
+  await page.locator('[data-testid="batch-text-mode"]').selectOption("sort-list-asc");
+  assert.match(await page.locator('[data-testid="batch-list-warning"]').innerText(),/natural comparison/);
+  assert.match(await page.locator('[data-testid="batch-text-preview"]').innerText(),/1 changed/);
+  const sorting=page.waitForEvent("download",{timeout:30000});
+  await page.locator('[data-testid="batch-text-save"]').click();
+  const sortedDL=await sorting;
+  const sortPath=path.join(dir,"list-sort-natural.zip");await sortedDL.saveAs(sortPath);
+  const sorted=await JSZip.loadAsync(fs.readFileSync(sortPath),{checkCRC32:true});
+  assert.deepEqual(await sorted.file("processed/inventory.txt").async("nodebuffer"),
+    Buffer.from("\ufeffItem1\r\n \t\nitem2\ritem10\n"));
+  const sortManifest=JSON.parse(await sorted.file("sentinel-box-batch-text-manifest.json").async("string"));
+  assert.equal(sortManifest.operation,"sort-list-asc");
+  assert.equal(sortManifest.files[0].matches,2);
+
+  await page.locator('[data-testid="batch-text-picker"]').setInputFiles([
+   {name:"contacts.txt",mimeType:"text/plain",buffer:Buffer.from("\ufeff Alice \r\nalice\nBOB\rBob\n \t\r\nALIce\t")},
+  ]);
+  await page.locator('[data-testid="batch-text-mode"]').selectOption("dedupe-list");
+  assert.match(await page.locator('[data-testid="batch-text-preview"]').innerText(),/1 changed/);
+  const pending=page.waitForEvent("download",{timeout:30000});
+  await page.locator('[data-testid="batch-text-save"]').click();
+  const dedupedDL=await pending;
+  const dedupPath=path.join(dir,"list-near-dedupe.zip");await dedupedDL.saveAs(dedupPath);
+  const deduped=await JSZip.loadAsync(fs.readFileSync(dedupPath),{checkCRC32:true});
+  assert.deepEqual(await deduped.file("processed/contacts.txt").async("nodebuffer"),
+    Buffer.from("\ufeff Alice \r\nBOB\r \t\r\n"));
+  const dupManifest=JSON.parse(await deduped.file("sentinel-box-batch-text-manifest.json").async("string"));
+  assert.equal(dupManifest.operation,"dedupe-list");
+  assert.equal(dupManifest.files[0].matches,3);
+
+  await page.locator('[data-testid="batch-text-picker"]').setInputFiles([
+   {name:"table.csv",mimeType:"text/csv",buffer:Buffer.from('"one\ntwo",three\n')},
+  ]);
+  assert.match(await page.locator('[data-testid="batch-text-error"]').innerText(),/TXT-only/);
+  assert.equal(await page.locator('[data-testid="batch-text-save"]').isDisabled(),true);
+  assert.deepEqual(original,Buffer.from("\ufeffitem10\r\n \t\nitem2\rItem1\n"));
+  assert.deepEqual(errors,[]);
+ }finally{await page.close();await browser.close();}
+});

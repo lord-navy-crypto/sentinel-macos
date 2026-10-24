@@ -16,6 +16,9 @@ const OPS:{id:BatchTextMode;name:string}[]=[
   {id:"number-lines",name:"Number non-empty lines · 非空行自动编号"},
   {id:"collapse-blank",name:"Collapse repeated blank lines (TXT) · 压缩连续空行"},
   {id:"tabs-to-spaces",name:"Convert tabs to spaces (TXT) · Tab 转空格"},
+  {id:"sort-list-asc",name:"Sort list A–Z (TXT) · 自然顺序升序整理名单"},
+  {id:"sort-list-desc",name:"Sort list Z–A (TXT) · 自然顺序降序整理名单"},
+  {id:"dedupe-list",name:"Remove near-duplicate list items (TXT) · 忽略大小写与首尾空格去重"},
   {id:"lf",name:"Convert newlines to LF · 转 Unix 换行"},
   {id:"crlf",name:"Convert newlines to CRLF · 转 Windows 换行"},
   {id:"remove-bom",name:"Remove UTF-8 BOM · 删除 UTF-8 BOM"},
@@ -125,6 +128,8 @@ export default function BatchTextFilesDesk(){
       </label>
       <p className="subtle" data-testid="batch-filter-warning">This action uses exact, case-sensitive substring matching within each physical line, not regex. A file with no matches may yield an empty copy when keeping lines. Check the preview and byte counts before exporting. Works only on TXT/Markdown, not multiline CSV/TSV.</p>
     </>}
+    {(mode==="sort-list-asc"||mode==="sort-list-desc"||mode==="dedupe-list")&&
+      <p className="subtle" data-testid="batch-list-warning">TXT list files only. Sorting uses English-locale natural comparison (case-insensitive; item2 before item10); it rearranges nonempty line contents while keeping blank-line positions and original CRLF/LF/CR terminators at each slot. Deduplication keeps the first spelling and drops later items differing only by case or leading/trailing whitespace; blank lines are preserved. Review ordering and counts before saving a ZIP copy. Not for Markdown, CSV or TSV.</p>}
     {(mode==="collapse-blank"||mode==="tabs-to-spaces")&&<p className="subtle" data-testid="batch-whitespace-warning">TXT only. Markdown indentation and empty lines can control formatting; CSV/TSV may contain quoted multiline cells. Original files and all existing line endings remain untouched. Preview all transformed text before exporting a copy.</p>}
     {mode==="tabs-to-spaces"&&<>
       <label className="field-label" htmlFor="batch-tab-width">Spaces per TAB · 每个 Tab 替换为空格数</label>
