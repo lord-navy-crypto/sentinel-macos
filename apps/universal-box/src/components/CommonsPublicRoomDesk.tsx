@@ -170,8 +170,9 @@ export default function CommonsPublicRoomDesk(){
    const roomId=roomRef.current,hostName=nickname.trim();
    dc.onmessage=e=>handleHostMessage(slot,e.data,roomId,hostName);
    dc.onopen=()=>{slot.phase="DataChannel 已连接，等待成员加入";refresh();};
-   dc.onclose=()=>{if(slotsRef.current.includes(slot)){slot.authenticated=false;slot.phase="已断开，可重新协商";refresh();}};
+   dc.onclose=()=>{if(slotsRef.current.includes(slot)&&slot.pc===pc){slot.authenticated=false;slot.phase="已断开，可重新协商";refresh();}};
    pc.onconnectionstatechange=()=>{
+    if(slot.pc!==pc)return;
     if(pc?.connectionState==="failed"){slot.authenticated=false;slot.phase="ICE 连接失败，可重新协商";refresh();}
     if(pc?.connectionState==="connected"){
      void pc.getStats().then(report=>{
@@ -189,6 +190,47 @@ export default function CommonsPublicRoomDesk(){
   }catch(e){
    if(pc){const slot=slotsRef.current.find(s=>s.pc===pc);if(slot)removeSlot(slot.id);else pc.close();}
    setStatus("创建成员邀请失败："+errorText(e));
+  }finally{setBusy(false);}
+ };
+ /** Replace only the transport, NOT the logical member session or its ACK identity. */
+ const reinviteMember=async(id:string)=>{
+  const slot=slotsRef.current.find(s=>s.id===id&&!!s.guest);
+  if(!slot||busy||modeRef.current!=="host")return;
+  setBusy(true);
+  let peer:RTCPeerConnection|null=null;
+  try{
+   peer=new RTCPeerConnection({iceServers:options()});
+   const dc=peer.createDataChannel("commons-room",{ordered:true});
+   const previousPeer=slot.pc,previousChannel=slot.dc;
+   slot.pc=peer;slot.dc=dc;slot.authenticated=false;
+   slot.offer="";slot.answer="";slot.fingerprint="";
+   slot.phase="重新搜集 ICE 候选地址";refresh();
+   const roomId=roomRef.current,hostName=nickname.trim();
+   dc.onmessage=e=>{if(slot.pc===peer)handleHostMessage(slot,e.data,roomId,hostName);};
+   dc.onopen=()=>{if(slot.pc===peer){slot.phase="新通道已连接，等待原成员验证";refresh();}};
+   dc.onclose=()=>{if(slot.pc===peer){slot.authenticated=false;slot.phase="连接已断开，可再次重新协商";refresh();}};
+   peer.onconnectionstatechange=()=>{
+    if(slot.pc!==peer)return;
+    if(peer?.connectionState==="failed"){slot.authenticated=false;slot.phase="新连接失败，可重新协商";refresh();}
+    if(peer?.connectionState==="connected"){
+     void peer.getStats().then(report=>{
+      if(slot.pc!==peer)return;
+      const kind=summarizeCommonsIceRoute(report).kind;
+      slot.phase="正在验证重连成员（"+kind+" 路径）";refresh();
+     }).catch(()=>{});
+    }
+   };
+   previousChannel.close();previousPeer.close();
+   await peer.setLocalDescription(await peer.createOffer());
+   await finishIceGathering(peer);
+   if(slot.pc!==peer||!peer.localDescription)throw Error("New invitation was interrupted.");
+   slot.offer=encodePublicRoomSignal(roomId,peer.localDescription);
+   slot.phase="新的专属 Offer 已生成，等待原成员 Answer";refresh();
+   setStatus("将该成员新的 Offer 私下发给原成员；只有持有此前加密通道签发的临时凭据才能恢复原会话。");
+  }catch(e){
+   if(peer)peer.close();
+   if(slot.pc===peer){slot.authenticated=false;slot.offer="";slot.phase="重新协商失败，可再试";refresh();}
+   setStatus("重新邀请失败："+errorText(e));
   }finally{setBusy(false);}
  };
  const applyAnswer=async(id:string)=>{
@@ -358,10 +400,12 @@ export default function CommonsPublicRoomDesk(){
      </>}
     <label className="field-label">粘贴该成员生成的 Answer
      <textarea className="field text-editor" rows={3} value={slot.answer}
-      disabled={!slot.offer||!!slot.guest} maxLength={122000} onChange={e=>updateSlotAnswer(slot.id,e.target.value)}/>
+      disabled={!slot.offer||slot.authenticated} maxLength={122000} onChange={e=>updateSlotAnswer(slot.id,e.target.value)}/>
     </label>
-    <button type="button" className="secondary-button" disabled={busy||!slot.answer||!!slot.guest}
+    <button type="button" className="secondary-button" disabled={busy||!slot.answer||slot.authenticated}
      onClick={()=>void applyAnswer(slot.id)}>应用该成员 Answer</button>
+    {slot.guest&&<button type="button" className="secondary-button" data-testid="room-reinvite"
+     disabled={busy} onClick={()=>void reinviteMember(slot.id)}>重新协商此成员连接</button>}
     <button type="button" className="secondary-button" onClick={()=>removeSlot(slot.id)}>移除连接</button>
    </div>)}
   </div>}
