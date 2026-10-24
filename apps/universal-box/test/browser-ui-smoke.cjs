@@ -353,7 +353,7 @@ test("Three actual Commons browser peers form a manual public room and relay CJK
    await guest.getByRole("group",{name:"Public room role"}).getByRole("button",{name:/通过邀请加入/}).click();
    await host.getByTestId("room-add").click();
    const slot=host.getByTestId("room-slot").nth(i);
-   await slot.locator("textarea").first().waitFor({timeout:30000});
+   await slot.getByRole("button",{name:"复制成员邀请"}).waitFor({timeout:30000});
    const offer=await slot.locator("textarea").first().inputValue();
    assert.equal(JSON.parse(offer).room,roomId);
    await guest.getByTestId("room-invite").fill(offer);
