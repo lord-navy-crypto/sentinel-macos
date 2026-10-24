@@ -75,3 +75,37 @@ test("HEIC browser import refuses unsupported native conversion and never fabric
   assert.deepEqual(s.errors,[]);
  }finally{await s.page.close();await s.browser.close();}
 });
+
+
+test("Photo workbench locks input/quality changes during an active local encoding, then lets user start over",{timeout:85000},async()=>{
+ const {page,browser,errors}=await start();
+ try{
+  const b64=await page.evaluate(()=>{
+   const c=document.createElement("canvas");c.width=560;c.height=420;
+   const ctx=c.getContext("2d");ctx.fillStyle="#acddee";ctx.fillRect(0,0,c.width,c.height);
+   ctx.fillStyle="#132436";ctx.font="24px sans-serif";ctx.fillText("Local office photo",30,80);
+   return c.toDataURL("image/png").split(",")[1];
+  });
+  await page.locator('[data-testid="photo-files"]').setInputFiles({name:"first.png",mimeType:"image/png",buffer:Buffer.from(b64,"base64")});
+  await page.evaluate(()=>{
+   const native=HTMLCanvasElement.prototype.toBlob;
+   HTMLCanvasElement.prototype.toBlob=function(cb,type,quality){
+    if(type==="image/jpeg")return native.call(this,b=>setTimeout(()=>cb(b),500),type,quality);
+    return native.call(this,cb,type,quality);
+   };
+  });
+  await page.locator('[data-testid="photo-preview-run"]').click();
+  for(const id of ["photo-files","photo-format","photo-max-size","photo-target-kb"]){
+   assert.equal(await page.locator('[data-testid="'+id+'"]').isDisabled(),true,"Input locked during encoding: "+id);
+  }
+  await page.locator('[data-testid="photo-actual-preview"] img').waitFor({timeout:30000});
+  assert.equal(await page.locator('[data-testid="photo-files"]').isDisabled(),false);
+  await page.locator('[data-testid="photo-target-kb"]').fill("330");
+  assert.equal(await page.locator('[data-testid="photo-actual-preview"] img').count(),0,"Old conversion preview discarded");
+  assert.equal(await page.locator('[data-testid="photo-report"]').count(),0);
+  await page.locator('[data-testid="photo-files"]').setInputFiles({name:"second.png",mimeType:"image/png",buffer:Buffer.from(b64,"base64")});
+  assert.match(await page.locator('[data-testid="photo-count"]').innerText(),/1 张/);
+  assert.equal(await page.locator('[data-testid="photo-report"]').count(),0);
+  assert.deepEqual(errors,[]);
+ }finally{await page.close();await browser.close();}
+});

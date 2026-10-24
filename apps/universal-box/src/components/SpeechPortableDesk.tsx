@@ -100,9 +100,12 @@ export default function SpeechPortableDesk({mode}:{mode:SpeechPortableMode}){
   setPreparedPhotos(null);setPhotoReports([]);setPhotoPreviewUrl("");
  }
  function pickPhotos(event:ChangeEvent<HTMLInputElement>){
+  // A running conversion belongs to the files/settings it started with; never replace its inputs mid-flight.
+  if(busy){event.target.value="";return;}
   setPhotos([...(event.target.files??[])]);event.target.value="";invalidatePreparedPhotos();setStatus("");
  }
  function changePhotoSettings(update:Partial<PhotoSettings>){
+  if(busy)return;
   setPhotoSettings(prev=>({...prev,...update}));invalidatePreparedPhotos();setStatus("");
  }
  async function previewPhotos(){
@@ -205,13 +208,13 @@ export default function SpeechPortableDesk({mode}:{mode:SpeechPortableMode}){
    <h2>照片目标体积压缩 · Local Target-size Image Compressor</h2>
    <p className="subtle">批量选择最多 10 张 PNG/JPEG/WebP/HEIC，压缩为 JPEG 或 WebP；自动迭代质量并按实际文件字节判断是否达到目标。不是只给图片改扩展名，也不能保证每张都能压到指定体积。</p>
    <label className="field-label">选择照片（包括 iPhone HEIC，单张 ≤8 MB，总计 ≤25 MB）
-    <input className="field" data-testid="photo-files" type="file" multiple accept=".png,.jpg,.jpeg,.webp,.heic,.heif,image/*" onChange={pickPhotos}/></label>
+    <input className="field" data-testid="photo-files" type="file" disabled={busy} multiple accept=".png,.jpg,.jpeg,.webp,.heic,.heif,image/*" onChange={pickPhotos}/></label>
    <div className="tools-pair">
-    <label className="field-label">输出格式<select className="field" data-testid="photo-format" value={photoSettings.format} onChange={e=>changePhotoSettings({format:e.target.value as PhotoSettings["format"]})}>
+    <label className="field-label">输出格式<select className="field" data-testid="photo-format" disabled={busy} value={photoSettings.format} onChange={e=>changePhotoSettings({format:e.target.value as PhotoSettings["format"]})}>
      <option value="jpeg">JPEG · 常见兼容格式</option><option value="webp">WebP · 现代浏览器</option></select></label>
-    <label className="field-label">最长边<select className="field" data-testid="photo-max-size" value={photoSettings.maxDimension} onChange={e=>changePhotoSettings({maxDimension:Number(e.target.value) as PhotoSettings["maxDimension"]})}>
+    <label className="field-label">最长边<select className="field" data-testid="photo-max-size" disabled={busy} value={photoSettings.maxDimension} onChange={e=>changePhotoSettings({maxDimension:Number(e.target.value) as PhotoSettings["maxDimension"]})}>
      <option value={512}>512 px</option><option value={1024}>1024 px</option><option value={2048}>2048 px</option></select></label>
-    <label className="field-label">目标 KB（40–4000）<input className="field" data-testid="photo-target-kb" type="number" min={40} max={4000} step={10} value={photoSettings.targetKB}
+    <label className="field-label">目标 KB（40–4000）<input className="field" data-testid="photo-target-kb" disabled={busy} type="number" min={40} max={4000} step={10} value={photoSettings.targetKB}
      onChange={e=>changePhotoSettings({targetKB:Number(e.target.value)})}/></label>
    </div>
    {photos.length>0&&<p data-testid="photo-count" className="subtle">选中 {photos.length} 张照片</p>}

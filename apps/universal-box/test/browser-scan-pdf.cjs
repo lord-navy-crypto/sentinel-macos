@@ -81,3 +81,46 @@ test("An existing selectable text layer blocks scan-only flattening",{timeout:50
   assert.deepEqual(errors,[]);
  }finally{await page.close();await browser.close();}
 });
+
+
+test("User can cancel active scanned-PDF conversion and re-import another PDF with the same filename",{timeout:100000},async()=>{
+ const {page,browser,errors}=await open();
+ try{
+  const source=await PDFDocument.create();
+  const imgB64=await page.evaluate(()=>{
+   const c=document.createElement("canvas");c.width=700;c.height=920;
+   const g=c.getContext("2d");const data=g.createImageData(c.width,c.height);
+   let n=337;
+   for(let i=0;i<data.data.length;i+=4){n=(Math.imul(n,1664525)+1013904223)|0;
+     const v=(n>>>16)&255;data.data[i]=v;data.data[i+1]=v;data.data[i+2]=v;data.data[i+3]=255;}
+   g.putImageData(data,0,0);
+   return c.toDataURL("image/png").split(",")[1];
+  });
+  const img=await source.embedPng(Buffer.from(imgB64,"base64"));
+  for(let i=0;i<3;i++)source.addPage([612,792]).drawImage(img,{x:0,y:0,width:612,height:792});
+  // Force a slow local JPEG callback so the E2E cancellation path remains observable.
+  await page.evaluate(()=>{
+   const native=HTMLCanvasElement.prototype.toBlob;
+   HTMLCanvasElement.prototype.toBlob=function(callback,type,quality){
+    if(type==="image/jpeg")return native.call(this,blob=>setTimeout(()=>callback(blob),500),type,quality);
+    return native.call(this,callback,type,quality);
+   };
+  });
+  await page.locator("#mini-pdf-input").setInputFiles({name:"same-name.pdf",mimeType:"application/pdf",buffer:Buffer.from(await source.save())});
+  await page.locator('[data-testid="pdf-scan-compressor"]').waitFor();
+  await page.locator('[data-testid="pdf-scan-accept"]').check();
+  await page.locator('[data-testid="pdf-scan-run"]').click();
+  await page.locator('[data-testid="pdf-scan-cancel"]').click();
+  await page.waitForFunction(()=>/Compression cancelled/.test(document.querySelector('[data-testid="pdf-scan-status"]')?.textContent||""),null,{timeout:20000});
+  assert.equal(await page.locator('[data-testid="pdf-scan-save"]').isDisabled(),true);
+  assert.equal(await page.locator('[data-testid="pdf-scan-report"]').count(),0);
+  const replacement=await PDFDocument.create();replacement.addPage([612,792]);
+  replacement.addPage([612,792]);
+  await page.locator("#mini-pdf-input").setInputFiles({name:"same-name.pdf",mimeType:"application/pdf",buffer:Buffer.from(await replacement.save())});
+  await page.locator('[data-testid="pdf-scan-compressor"]').waitFor();
+  assert.equal(await page.locator('[data-testid="pdf-scan-accept"]').isChecked(),false,"New source must have fresh consent");
+  assert.equal(await page.locator('[data-testid="pdf-scan-save"]').isDisabled(),true);
+  assert.match(await page.locator('[aria-label="Imported PDF document information"]').innerText(),/2 pages/);
+  assert.deepEqual(errors,[]);
+ }finally{await page.close();await browser.close();}
+});

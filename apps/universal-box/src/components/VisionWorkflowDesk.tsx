@@ -28,6 +28,7 @@ export default function VisionWorkflowDesk({initialMode="ocr"}:{initialMode?:Vis
   return {plan:null,error:toError(e)};
  }},[project]);
  function selectFile(event:ChangeEvent<HTMLInputElement>){
+  if(busy){event.target.value="";return;}
   const selected=event.target.files?.[0]??null;event.target.value="";
   setFile(selected);setStatus("");setResult(null);setEdited("");
  }
@@ -153,18 +154,18 @@ export default function VisionWorkflowDesk({initialMode="ocr"}:{initialMode?:Vis
     <button data-testid="vision-capture-ocr-copy" type="button" className="secondary-button" disabled={busy||!isTauri()} onClick={()=>void captureRecognizeCopy()}>一键截图 → 本机识字 → 复制</button>
    </>}
    <label className="field-label">选择 PNG、JPEG 或 WebP 图片（最大 8 MB）
-    <input data-testid="vision-image-input" className="field" type="file" accept="image/png,image/jpeg,image/webp" onChange={selectFile}/>
+    <input data-testid="vision-image-input" className="field" type="file" disabled={busy} accept="image/png,image/jpeg,image/webp" onChange={selectFile}/>
    </label>
    {file&&<p className="subtle" data-testid="vision-file-info">已选择：{file.name} · {file.size} 字节</p>}
    <>
     <h3>Apple Vision · 本机文字识别</h3>
     <p className="subtle">仅 Mac 桌面应用具备识别接口；浏览器预览不能识别。支持由系统决定的文字语言，识别结果可能存在错误，请校对。</p>
-    <label><input type="checkbox" checked={fast} onChange={e=>setFast(e.target.checked)}/> 快速识别模式（可能降低准确度）</label>
+    <label><input type="checkbox" checked={fast} disabled={busy} onChange={e=>{setFast(e.target.checked);setResult(null);setEdited("");setStatus("");}}/> 快速识别模式（可能降低准确度）</label>
     <button data-testid="vision-run-ocr" type="button" className="primary-button" disabled={!file||busy||!isTauri()} onClick={()=>void recognize()}>本机识别图片文字</button>
     {!isTauri()&&<p data-testid="vision-native-unavailable" className="subtle">当前是浏览器预览；请使用 macOS Sentinel Box 桌面应用执行 Apple Vision OCR。</p>}
     {result&&<p data-testid="vision-result-lines" className="subtle">识别到 {result.length} 行。结果可编辑，导出之前请检查。</p>}
     {result&&<label className="field-label">识别结果 / 手动校正
-     <textarea data-testid="vision-text-result" className="field text-editor" maxLength={200000} rows={12} value={edited} onChange={e=>setEdited(e.target.value)}/>
+     <textarea data-testid="vision-text-result" className="field text-editor" disabled={busy} maxLength={200000} rows={12} value={edited} onChange={e=>setEdited(e.target.value)}/>
     </label>}
     {result&&<div className="actions">
      <button data-testid="vision-copy-text" className="primary-button" type="button" disabled={busy||!edited.trim()} onClick={()=>void copyOcrText()}>复制识别文字</button>
