@@ -1,13 +1,18 @@
 import {describe,expect,it} from "vitest";
 import {LOCAL_TOOLS} from "../components/ToolLaunchpad";
-import {SENTINEL_EXTRA_READS,SENTINEL_LEGACY_ONLY} from "./sentinelSurfaceCatalog";
+import {SENTINEL_EXTRA_READS,SENTINEL_BASE_EXTRA_CARDS,SENTINEL_LEGACY_ONLY} from "./sentinelSurfaceCatalog";
 
 describe("original Sentinel native workbench visibility",()=>{
  it("registers exactly one browse/search entry per standalone original Go read surface",()=>{
   expect(SENTINEL_EXTRA_READS).toHaveLength(31);
   expect(new Set(SENTINEL_EXTRA_READS.map(x=>x.id)).size).toBe(31);
   const tools=LOCAL_TOOLS.filter(x=>x.id.startsWith("sentinel-original-"));
-  expect(tools).toHaveLength(31);
+  expect(SENTINEL_BASE_EXTRA_CARDS).toHaveLength(8);
+  expect(tools).toHaveLength(39);
+  expect(new Set(tools.map(x=>x.module)).size).toBe(39);
+  // The original workbench registered 18 baseline read routes. Ten were
+  // individually visible already, eight are now individually cataloged.
+  expect(new Set([...SENTINEL_EXTRA_READS,...SENTINEL_BASE_EXTRA_CARDS].map(x=>x.id)).size).toBe(39);
   for(const operation of SENTINEL_EXTRA_READS){
    const tool=tools.find(x=>x.module===operation.id);
    expect(tool).toBeDefined();
