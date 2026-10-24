@@ -332,3 +332,51 @@ test("Two real Commons WebRTC pages negotiate, chat and show peer app ACK",{time
   assert.equal(await first.getByTestId("p2p-stun-opt-in").isChecked(),false);
  }finally{await first.close();await second.close();await browser.close();}
 });
+
+test("Three actual Commons browser peers form a manual public room and relay CJK texts",{timeout:210000},async()=>{
+ const browser=await chromium.launch({headless:true,args:["--no-sandbox"]});
+ const pages=await Promise.all([openApp(browser),openApp(browser),openApp(browser)]);
+ const [host,alice,bob]=pages;
+ try{
+  for(const [page,name] of [[host,"RoomHost"],[alice,"Alice"],[bob,"Bob"]]){
+   await page.locator('.sidebar button.nav-item[aria-label^="Universal Commons"]').click();
+   await page.getByRole("group",{name:"Communication transport"}).getByRole("button",{name:/公网 · 直连实验/}).click();
+   await page.getByTestId("commons-public-room-mode").click();
+   await page.getByTestId("room-name").fill(name);
+   assert.equal(await page.getByTestId("room-opt-in-stun").isChecked(),false);
+   assert.equal(await page.getByTestId("room-opt-in-turn").isChecked(),false);
+  }
+  await host.getByTestId("room-start").click();
+  const roomId=(await host.getByTestId("commons-public-room").innerText()).match(/[0-9a-f]{8}-[0-9a-f-]{27}/i)?.[0];
+  assert.ok(roomId,"host should create temporary random room");
+  for(const [i,guest] of [alice,bob].entries()){
+   await guest.getByRole("group",{name:"Public room role"}).getByRole("button",{name:/通过邀请加入/}).click();
+   await host.getByTestId("room-add").click();
+   const slot=host.getByTestId("room-slot").nth(i);
+   await slot.getByRole("button",{name:"复制成员邀请"}).waitFor({timeout:30000});
+   const offer=await slot.locator("textarea").first().inputValue();
+   assert.equal(JSON.parse(offer).room,roomId);
+   await guest.getByTestId("room-invite").fill(offer);
+   await guest.getByTestId("room-join").click();
+   await guest.getByTestId("room-answer").waitFor({timeout:30000});
+   const answer=await guest.getByTestId("room-answer").inputValue();
+   assert.equal(JSON.parse(answer).room,roomId);
+   await slot.locator("textarea").nth(1).fill(answer);
+   await slot.getByRole("button",{name:"应用该成员 Answer"}).click();
+   await guest.getByTestId("room-draft").waitFor({timeout:30000});
+  }
+  await alice.getByTestId("room-draft").fill("Alice 的公网群聊测试消息");
+  await alice.getByTestId("room-send").click();
+  await host.getByTestId("room-history").getByText("Alice 的公网群聊测试消息").waitFor({timeout:25000});
+  await bob.getByTestId("room-history").getByText("Alice 的公网群聊测试消息").waitFor({timeout:25000});
+  assert.equal(await bob.getByTestId("room-history").locator("p").count(),1);
+  await host.getByTestId("room-draft").fill("主持人确认：这是三台 WebRTC 客户端");
+  await host.getByTestId("room-send").click();
+  await alice.getByTestId("room-history").getByText("主持人确认：这是三台 WebRTC 客户端").waitFor({timeout:25000});
+  await bob.getByTestId("room-history").getByText("主持人确认：这是三台 WebRTC 客户端").waitFor({timeout:25000});
+  await bob.getByTestId("room-leave").click();
+  assert.equal(await bob.getByTestId("room-answer").count(),0,"leave clears answer");
+  assert.match(await bob.getByTestId("room-status").innerText(),/已结束/);
+  assert.equal(await host.getByTestId("room-add").isDisabled(),false,"a slot is released after Leave");
+ }finally{await Promise.all(pages.map(page=>page.close()));await browser.close();}
+});

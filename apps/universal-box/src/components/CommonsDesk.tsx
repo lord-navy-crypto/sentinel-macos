@@ -5,6 +5,7 @@ import {exportFile} from "../lib/output";
 import {canReceiveLan,keyFromNearbyInput,parseCommonsLanInvite} from "../lib/commonsLanUi";
 import CommonsLiveChatDesk from "./CommonsLiveChatDesk";
 import CommonsInternetDirectDesk from "./CommonsInternetDirectDesk";
+import CommonsPublicRoomDesk from "./CommonsPublicRoomDesk";
 import {
  createCommonsRoom,commonsMessage,commonsTask,commonsToggleTask,commonsFile,
  exportCommonsPacket,importCommonsPacket,mergeCommonsPackets,safeAttachmentName,
@@ -55,6 +56,7 @@ export default function CommonsDesk(){
  const [incomingInvite,setIncomingInvite]=useState("");
  const [incoming,setIncoming]=useState<CommonsPacket|null>(null);
  const [transportMode,setTransportMode]=useState<"lan"|"public">("lan");
+ const [publicChatMode,setPublicChatMode]=useState<"direct"|"room">("direct");
  const [lanAction,setLanAction]=useState<"send"|"receive">("receive");
  const [revealInvite,setRevealInvite]=useState(false);
  const [networkBusy,setNetworkBusy]=useState(false);
@@ -373,7 +375,7 @@ export default function CommonsDesk(){
   </>}
   <div className="panel" data-testid="commons-connection-switcher" style={{marginTop:16}}>
    <h3>通讯 · 选择连接方式</h3>
-   <p className="subtle">离线 ZIP → 局域网加密群聊 → 公网 WebRTC 一对一直连实验；公网多人群聊和中继仍未实现。</p>
+   <p className="subtle">离线 ZIP → 局域网加密群聊 → 公网 WebRTC 直连或临时多人房间；公网自动信令与托管服务仍未实现。</p>
    <div className="pill-row" role="group" aria-label="Communication transport">
     <button type="button" className={transportMode==="lan"?"pill active-pill":"pill"} aria-pressed={transportMode==="lan"}
      onClick={()=>setTransportMode("lan")}>局域网发送与接收</button>
@@ -493,7 +495,7 @@ export default function CommonsDesk(){
   {transportMode==="public"&&<div className="panel" data-testid="commons-public-research" style={{marginTop:16}}>
    <p className="eyebrow">P2P RESEARCH · OPT-IN · NO FILE TRANSFER</p>
    <h3>公网连接 · 诊断与后续规划</h3>
-   <p className="subtle">下面的 WebRTC 实验允许双方手动交换 Offer/Answer 后尝试加密点对点文本聊天，不会开放公网 TCP 监听或自动部署中继。仍未实现公网群聊、自动信令或保证所有网络都能连通。</p>
+   <p className="subtle">下面可以选择 WebRTC 一对一直连，或主持人转发式临时群聊。双方仍需手动交换 Offer/Answer，不会开放公网 TCP 监听；可自行提供 TURN 中继，但不保证任意公网连通，亦不提供自动信令与账户服务。</p>
    <p className="subtle">研究阶段：可使用公开 STUN 服务器观察你的 UDP 公网映射。只有主动点击才联系外部服务器；该服务器能看到本次连接的公网 IP。**这不是已经建立了 P2P 文件连接**，也不会上传任何团队文件。</p>
    <button type="button" className="secondary-button" disabled={!nativeLan||stunBusy} onClick={()=>void runP2pProbe()}>
     {stunBusy?"探测中…":"尝试两处免费 STUN 映射对比"}
@@ -512,7 +514,13 @@ export default function CommonsDesk(){
     <p className="subtle">{stun.note}</p>
     <p className="subtle">观测服务器：{stun.server}。此结果不能预测真实 NAT 穿透成功率；跨网打洞、信令和端到端传输还没有实现。</p>
    </div>}
-   <CommonsInternetDirectDesk/>
+   <div className="pill-row" role="group" aria-label="Public communication mode">
+    <button type="button" className={publicChatMode==="direct"?"pill active-pill":"pill"} aria-pressed={publicChatMode==="direct"} data-testid="commons-public-direct-mode"
+     onClick={()=>setPublicChatMode("direct")}>一对一直连</button>
+    <button type="button" className={publicChatMode==="room"?"pill active-pill":"pill"} aria-pressed={publicChatMode==="room"} data-testid="commons-public-room-mode"
+     onClick={()=>setPublicChatMode("room")}>临时多人房间</button>
+   </div>
+   {publicChatMode==="direct"?<CommonsInternetDirectDesk/>:<CommonsPublicRoomDesk/>}
   </div>}
   <div className="panel" style={{marginTop:16}}>
    <h3>接收团队包 · Import / Merge</h3>
