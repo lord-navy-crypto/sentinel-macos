@@ -36,6 +36,13 @@ async function cleanup(s,name){
   assert.deepEqual(s.errors,[]);
  }finally{await s.page.close();await s.browser.close();}
 }
+async function waitForEditorStatus(page,expected){
+ await page.waitForFunction(fragment=>{
+  const node=document.querySelector('section[aria-label="Free Creative Office Studio"] p[role="status"]');
+  return !!node?.textContent?.includes(fragment);
+ },expected,{timeout:12000});
+ return page.locator('section[aria-label="Free Creative Office Studio"] p[role="status"]').innerText();
+}
 test("real DOCX template export substitutes fields as editable Word text",{timeout:60000},async()=>{
  const s=await setup();
  try{
@@ -110,6 +117,7 @@ test("Word editor imports a real UTF-8 Markdown source, exports editable DOCX an
   await page.getByTestId("creative-word-draft-file").setInputFiles({
    name:"office-draft.md",mimeType:"text/markdown",buffer:Buffer.from(markdown,"utf8")
   });
+  await page.waitForFunction(()=>document.querySelector('[data-testid="creative-word-title"]')?.value==="每周工作报告");
   assert.equal(await page.getByTestId("creative-word-title").inputValue(),"每周工作报告");
   assert.match(await page.getByTestId("creative-word-preview").innerText(),/发送给 李同学/);
   const originalBody=await page.getByTestId("creative-word-body").inputValue();
@@ -123,7 +131,7 @@ test("Word editor imports a real UTF-8 Markdown source, exports editable DOCX an
   await page.getByTestId("creative-word-draft-file").setInputFiles({
    name:"bad.md",mimeType:"text/markdown",buffer:Buffer.from("Unknown {{sensitive}}","utf8")
   });
-  assert.match(await page.getByRole("status").last().innerText(),/当前编辑内容已保留/);
+  assert.match(await waitForEditorStatus(page,"当前编辑内容已保留"),/当前编辑内容已保留/);
   assert.equal(await page.getByTestId("creative-word-body").inputValue(),originalBody);
  }finally{await cleanup(session,"word-import-draft.png");}
 });
@@ -137,6 +145,7 @@ test("PowerPoint imports UTF-8 MD outline, keeps slide editability and blocks co
   await page.getByTestId("creative-slide-draft-file").setInputFiles({
    name:"slides.md",mimeType:"text/markdown",buffer:Buffer.from(source,"utf8")
   });
+  await page.waitForFunction(()=>document.querySelector('[data-testid="creative-slide-title"]')?.value==="项目汇报");
   assert.equal(await page.getByTestId("creative-slide-title").inputValue(),"项目汇报");
   assert.match(await page.getByTestId("creative-slide-count").innerText(),/3 张/);
   const outline=await page.getByTestId("creative-slide-outline").inputValue();
@@ -151,12 +160,12 @@ test("PowerPoint imports UTF-8 MD outline, keeps slide editability and blocks co
   await page.getByTestId("creative-slide-draft-file").setInputFiles({
    name:"bad.md",mimeType:"text/plain",buffer:Buffer.from("## One\n"+Array(9).fill("- Too many").join("\n"),"utf8")
   });
-  assert.match(await page.getByRole("status").last().innerText(),/当前编辑内容已保留/);
+  assert.match(await waitForEditorStatus(page,"当前编辑内容已保留"),/当前编辑内容已保留/);
   assert.equal(await page.getByTestId("creative-slide-outline").inputValue(),outline);
   await page.getByTestId("creative-slide-draft-file").setInputFiles({
    name:"not-utf8.txt",mimeType:"text/plain",buffer:Buffer.from([255,254,0,65])
   });
-  assert.match(await page.getByRole("status").last().innerText(),/UTF-8/);
+  assert.match(await waitForEditorStatus(page,"UTF-8"),/UTF-8/);
   assert.equal(await page.getByTestId("creative-slide-outline").inputValue(),outline);
  }finally{await cleanup(session,"pptx-import-draft.png");}
 });
