@@ -81,6 +81,22 @@ export function replaceTableCells(
   return {table:{headers:[...table.headers],rows},matches,changedCells};
 }
 
+/** Export a copy with only chosen columns, in original column order. Never alter source data. */
+export function selectTableColumns(table:DataTable,selected:readonly number[]):DataTable{
+  const width=table.headers.length;
+  if(width<1||width>100||table.rows.length>2000)throw Error("Table exceeds supported limits.");
+  if(!selected.length)throw Error("Select at least one column before exporting.");
+  const unique=new Set(selected);
+  if(selected.length>width||unique.size!==selected.length||
+    selected.some(i=>!Number.isSafeInteger(i)||i<0||i>=width))
+    throw Error("Invalid, repeated or missing table column selection.");
+  const ordered=[...unique].sort((a,b)=>a-b);
+  return {
+    headers:ordered.map(i=>table.headers[i]),
+    rows:table.rows.map(row=>ordered.map(i=>row[i]??"")),
+  };
+}
+
 function neutralizeFormula(cell:string):string {
   // Prevent CSV formula execution by Excel/Numbers when opening exported, untrusted text data.
   return /^[\s\uFEFF]*[=+@]/u.test(cell)||/^[\s\uFEFF]*-(?!\d+(?:\.\d+)?$)/u.test(cell)?"'"+cell:cell;

@@ -1,5 +1,5 @@
 import { describe,expect,it } from "vitest";
-import {makeDataTable,filterSortTable,replaceTableCells,tableToCsv,tableToTsv,tableToJson,tableToMarkdown} from "./tableTools";
+import {makeDataTable,filterSortTable,replaceTableCells,selectTableColumns,tableToCsv,tableToTsv,tableToJson,tableToMarkdown} from "./tableTools";
 
 describe("offline table workbench",()=>{
   const table=makeDataTable([["Name","Score","Name"],["Ada","10","A"],["Bob","2","B"],["Ada","10","A"]]);
@@ -95,6 +95,47 @@ describe("offline table workbench",()=>{
     expect(unchanged.matches).toBe(1);
     expect(unchanged.changedCells).toBe(0);
     expect(unchanged.table.rows).toEqual(src.rows);
+  });
+  it("extracts selected columns in original order without altering CSV values or source",()=>{
+    const raw=makeDataTable([["Name","Department","Salary"],["张三","销售","100"],["Alice","研发","200"]]);
+    const before=JSON.stringify(raw);
+    const projected=selectTableColumns(raw,[2,0]);
+    expect(projected.headers).toEqual(["Name","Salary"]);
+    expect(projected.rows).toEqual([["张三","100"],["Alice","200"]]);
+    expect(JSON.stringify(raw)).toBe(before);
+    projected.rows[0][0]="Edited";
+    expect(raw.rows[0][0]).toBe("张三");
+    expect(tableToCsv(selectTableColumns(raw,[0,2]))).toBe("Name,Salary\r\n张三,100\r\nAlice,200");
+  });
+  it("preserves quoting and formula injection protection in projected TSV and CSV",()=>{
+    const original=makeDataTable([
+      ["Name","Note","Formula","Cost"],
+      ["李","a\tb",'=HYPERLINK("x")',"-42"],
+    ]);
+    const projection=selectTableColumns(original,[2,0,3]);
+    expect(projection.headers).toEqual(["Name","Formula","Cost"]);
+    expect(tableToTsv(projection)).toContain('\t"\'=HYPERLINK(""x"")"\t-42');
+    expect(tableToCsv(projection)).toContain('"\'=HYPERLINK(""x"")"');
+    expect(projection.rows[0][0]).toBe("李");
+    expect(original.headers).toEqual(["Name","Note","Formula","Cost"]);
+  });
+  it("requires a valid nonempty column subset and rejects duplicates/out-of-range positions",()=>{
+    const data=makeDataTable([["A","B"],["a","b"]]);
+    expect(()=>selectTableColumns(data,[])).toThrow(/at least one column/);
+    expect(()=>selectTableColumns(data,[0,0])).toThrow(/Invalid, repeated/);
+    expect(()=>selectTableColumns(data,[-1])).toThrow(/Invalid, repeated/);
+    expect(()=>selectTableColumns(data,[2])).toThrow(/Invalid, repeated/);
+    expect(()=>selectTableColumns(data,[1.5])).toThrow(/Invalid, repeated/);
+    expect(selectTableColumns(data,[1]).rows).toEqual([["b"]]);
+  });
+  it("supports projection of a replaced filtered table without changing original rows",()=>{
+    const initial=makeDataTable([["Name","Dept","Cost"],["甲","old","9"],["乙","old","4"]]);
+    const visible=filterSortTable(initial,"乙",0);
+    const changed=replaceTableCells(visible,"old","new",1);
+    const picked=selectTableColumns(changed.table,[0,1]);
+    expect(picked.rows).toEqual([["乙","new"]]);
+    expect(initial.rows[1][1]).toBe("old");
+    expect(visible.rows[0][1]).toBe("old");
   });
   it("rejects excessive columns",()=>{
     expect(()=>makeDataTable([Array.from({length:101},()=>"" )])).toThrow(/100 columns/);

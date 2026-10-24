@@ -2,7 +2,7 @@ import {type ChangeEvent,useMemo,useState} from "react";
 import {csvRows} from "./EverydayTools";
 import {exportFile} from "../lib/output";
 import {mergeCsvSources,mergedCsvExport,type MergedCsv} from "../lib/csvMerge";
-import {filterSortTable,replaceTableCells,makeDataTable,tableToCsv,tableToTsv,tableToJson,tableToMarkdown,type DataTable} from "../lib/tableTools";
+import {filterSortTable,replaceTableCells,selectTableColumns,makeDataTable,tableToCsv,tableToTsv,tableToJson,tableToMarkdown,type DataTable} from "../lib/tableTools";
 
 export default function DataDesk(){
   const [source,setSource]=useState("Name,Score,Class\nAda,95,A\nBob,88,B\nCara,96,A");
@@ -19,6 +19,7 @@ export default function DataDesk(){
   const [cellFind,setCellFind]=useState("");
   const [cellReplacement,setCellReplacement]=useState("");
   const [replaceColumn,setReplaceColumn]=useState(-1);
+  const [selectedColumns,setSelectedColumns]=useState<number[]|null>(null);
   const [status,setStatus]=useState("");
   const [merged,setMerged]=useState<MergedCsv|null>(null);
   const [mergeNames,setMergeNames]=useState<string[]>([]);
@@ -32,7 +33,13 @@ export default function DataDesk(){
       return {...edited,error:""};
     }catch(e){return {table:null,matches:0,changedCells:0,error:e instanceof Error?e.message:String(e)};}
   },[visible,replaceEnabled,cellFind,cellReplacement,replaceColumn]);
-  const displayTable=editPreview.table;
+  const projection=useMemo(()=>{
+    if(!editPreview.table)return {table:null,error:editPreview.error};
+    if(selectedColumns===null)return {table:editPreview.table,error:""};
+    try{return {table:selectTableColumns(editPreview.table,selectedColumns),error:""};}
+    catch(e){return {table:null,error:e instanceof Error?e.message:String(e)};}
+  },[editPreview,selectedColumns]);
+  const displayTable=projection.table;
   async function importData(event:ChangeEvent<HTMLInputElement>){
     const file=event.target.files?.[0];
     event.target.value="";
@@ -72,12 +79,12 @@ export default function DataDesk(){
       if(source.length>2_000_000)throw Error("Text exceeds the 2 MB limit.");
       const next=makeDataTable(csvRows(source,delimiter,true),header);
       setTable(next);
-      setFilter("");setFilterColumn(-1);setSortColumn(-1);setUnique(false);setRemoveEmptyRows(false);setReplaceEnabled(false);setReplaceColumn(-1);setCellFind("");setCellReplacement("");
+      setFilter("");setFilterColumn(-1);setSortColumn(-1);setUnique(false);setRemoveEmptyRows(false);setReplaceEnabled(false);setReplaceColumn(-1);setCellFind("");setCellReplacement("");setSelectedColumns(null);
       setStatus("Loaded "+next.rows.length+" data rows and "+next.headers.length+" columns. No upload.");
     }catch(e){setStatus("Cannot read table: "+String(e instanceof Error?e.message:e));}
   }
   async function save(format:"csv"|"tsv"|"json"|"md"){
-    if(!displayTable||editPreview.error)return;
+    if(!displayTable||editPreview.error||projection.error)return;
     try{
       const data=format==="csv"?tableToCsv(displayTable):format==="tsv"?"\ufeff"+tableToTsv(displayTable):format==="json"?tableToJson(displayTable):tableToMarkdown(displayTable);
       const saved=await exportFile("daily-desk-table."+format,data);
@@ -133,6 +140,27 @@ export default function DataDesk(){
         <label className="field-label"><input type="checkbox" checked={descending} onChange={e=>setDescending(e.target.checked)}/> Descending</label>
         <label className="field-label"><input type="checkbox" checked={unique} onChange={e=>setUnique(e.target.checked)}/> Remove duplicate rows</label>
         <label className="field-label"><input type="checkbox" data-testid="table-remove-empty" checked={removeEmptyRows} onChange={e=>setRemoveEmptyRows(e.target.checked)}/> Exclude empty rows · 排除全空行</label>
+      </div>
+      <div className="panel" data-testid="table-column-selection">
+        <h4>Choose columns for preview / export · 按列提取</h4>
+        <p className="subtle">Select the fields to keep in your exported copy, such as Name and Department. Columns retain their original order. The imported table stays untouched. Filters and cell replacements run first, then hidden columns are omitted only from the preview and export.</p>
+        <div className="actions">
+          <button type="button" className="secondary-button" data-testid="table-cols-all" onClick={()=>setSelectedColumns(null)}>All columns · 全部</button>
+          <button type="button" className="secondary-button" data-testid="table-cols-none" onClick={()=>setSelectedColumns([])}>Clear selection · 清空选择</button>
+        </div>
+        <div style={{maxHeight:155,overflowY:"auto",display:"flex",gap:10,flexWrap:"wrap"}} data-testid="table-cols-checks">
+          {table.headers.map((name,index)=><label key={index} className="field-label">
+            <input type="checkbox" data-testid={"table-col-"+index}
+              checked={selectedColumns===null||selectedColumns.includes(index)}
+              onChange={e=>{const checked=e.target.checked;setSelectedColumns(previous=>{
+                const old=previous??table.headers.map((_,i)=>i);
+                return checked?[...new Set([...old,index])].sort((a,b)=>a-b):old.filter(i=>i!==index);
+              });}}/>
+            {name}
+          </label>)}
+        </div>
+        {projection.error&&!editPreview.error&&<p role="alert" data-testid="table-cols-error" className="subtle">{projection.error} No file will be exported until a column is selected.</p>}
+        {displayTable&&<p className="subtle" data-testid="table-cols-count">{displayTable.headers.length} / {table.headers.length} columns included in preview/export</p>}
       </div>
       <div className="panel" data-testid="table-cell-replace">
         <h4>Find & replace in table cells · 按列查找替换</h4>
