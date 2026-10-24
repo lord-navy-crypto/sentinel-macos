@@ -25,16 +25,32 @@ export function filterSortTable(
   descending=false,
   unique=false,
   removeEmptyRows=false,
+  uniqueKeyColumn:number|null=null,
 ):DataTable {
   const width=table.headers.length;
   if(column!==null&&(column<0||column>=width))throw new Error("Invalid filter column.");
   if(sortColumn!==null&&(sortColumn<0||sortColumn>=width))throw new Error("Invalid sort column.");
+  if(uniqueKeyColumn!==null&&(!Number.isSafeInteger(uniqueKeyColumn)||uniqueKeyColumn<0||uniqueKeyColumn>=width))
+    throw new Error("Invalid duplicate-key column.");
   const term=filter.toLocaleLowerCase().trim();
   let rows=table.rows.filter(row=>!term||(column===null?row: [row[column]??""]).some(cell=>cell.toLocaleLowerCase().includes(term)));
   if(removeEmptyRows)rows=rows.filter(row=>row.some(cell=>cell.trim().length>0));
   if(unique) {
     const seen=new Set<string>();
-    rows=rows.filter(row=>{const id=JSON.stringify(row);if(seen.has(id))return false;seen.add(id);return true;});
+    rows=rows.filter(row=>{
+      if(uniqueKeyColumn!==null){
+        const key=row[uniqueKeyColumn]??"";
+        // Missing identifiers are not evidence of duplicate records.
+        if(!key.trim())return true;
+        if(seen.has(key))return false;
+        seen.add(key);
+        return true;
+      }
+      const id=JSON.stringify(row);
+      if(seen.has(id))return false;
+      seen.add(id);
+      return true;
+    });
   }
   if(sortColumn!==null){
     rows=[...rows].sort((a,b)=>{

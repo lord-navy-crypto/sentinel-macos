@@ -587,3 +587,37 @@ test("CSV Table Desk selects a column subset and exports safe real CSV / TSV wit
   assert.deepEqual(errors,[]);
  }finally{await page.close();await browser.close();}
 });
+
+test("CSV Table Desk removes repeated customer IDs, retains blank IDs and exports real safe copies",{timeout:90000},async()=>{
+ const browser=await chromium.launch({headless:true,args:["--no-sandbox"]});
+ const page=await browser.newPage({acceptDownloads:true,viewport:{width:1440,height:920}});
+ const errors=[];page.on("pageerror",e=>errors.push(e.message));
+ try{
+  await page.goto(root,{waitUntil:"domcontentloaded"});await page.locator(".app-shell").waitFor();
+  await page.locator('nav.sidebar-nav button.nav-item[aria-label="CSV Table Desk"]').click();
+  const source="ID,Name,Status\r\n001,甲,first\r\n001,乙,second\r\n,缺号1,pending\r\n,缺号2,pending\r\n002,丙,first\r\n002,丁,second\r\n";
+  await page.locator("#data-text").fill(source);
+  await page.getByRole("button",{name:"Load table"}).click();
+  const heading=page.getByRole("heading",{name:/Table preview/});
+  assert.match(await heading.innerText(),/6\s*\/\s*6 rows/);
+  await page.locator('[data-testid="table-dedupe-enable"]').check();
+  assert.match(await heading.innerText(),/6\s*\/\s*6 rows/);
+  await page.locator('[data-testid="table-dedupe-key"]').selectOption("0");
+  assert.match(await page.locator('[data-testid="table-dedupe-help"]').innerText(),/Empty or whitespace-only identifiers are kept/);
+  assert.match(await heading.innerText(),/4\s*\/\s*6 rows/);
+  assert.match(await page.locator('[data-testid="table-dedupe-count"]').innerText(),/2 duplicate rows excluded/);
+  const pending=page.waitForEvent("download",{timeout:30000});
+  await page.getByRole("button",{name:"Save CSV",exact:true}).click();
+  const dl=await pending;const out=path.join(dir,"key-dedup-customers.csv");await dl.saveAs(out);
+  assert.equal(fs.readFileSync(out,"utf8"),
+    "ID,Name,Status\r\n001,甲,first\r\n,缺号1,pending\r\n,缺号2,pending\r\n002,丙,first");
+  assert.equal(await page.locator("#data-text").inputValue(),source);
+  await page.locator('[data-testid="table-dedupe-enable"]').uncheck();
+  assert.equal(await page.locator('[data-testid="table-dedupe-key"]').isDisabled(),true);
+  assert.match(await heading.innerText(),/6\s*\/\s*6 rows/);
+  await page.locator('[data-testid="table-dedupe-enable"]').check();
+  await page.locator('[data-testid="table-dedupe-key"]').selectOption("-1");
+  assert.match(await heading.innerText(),/6\s*\/\s*6 rows/);
+  assert.deepEqual(errors,[]);
+ }finally{await page.close();await browser.close();}
+});

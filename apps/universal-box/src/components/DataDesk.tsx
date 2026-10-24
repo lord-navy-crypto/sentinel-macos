@@ -14,6 +14,7 @@ export default function DataDesk(){
   const [sortColumn,setSortColumn]=useState(-1);
   const [descending,setDescending]=useState(false);
   const [unique,setUnique]=useState(false);
+  const [uniqueKeyColumn,setUniqueKeyColumn]=useState(-1);
   const [removeEmptyRows,setRemoveEmptyRows]=useState(false);
   const [replaceEnabled,setReplaceEnabled]=useState(false);
   const [cellFind,setCellFind]=useState("");
@@ -24,8 +25,12 @@ export default function DataDesk(){
   const [merged,setMerged]=useState<MergedCsv|null>(null);
   const [mergeNames,setMergeNames]=useState<string[]>([]);
 
-  const visible=useMemo(()=>table?filterSortTable(table,filter,filterColumn<0?null:filterColumn,sortColumn<0?null:sortColumn,descending,unique,removeEmptyRows):null,
-    [table,filter,filterColumn,sortColumn,descending,unique,removeEmptyRows]);
+  const visible=useMemo(()=>table?filterSortTable(table,filter,filterColumn<0?null:filterColumn,sortColumn<0?null:sortColumn,descending,unique,removeEmptyRows,uniqueKeyColumn<0?null:uniqueKeyColumn):null,
+    [table,filter,filterColumn,sortColumn,descending,unique,removeEmptyRows,uniqueKeyColumn]);
+  const beforeDedupeRows=useMemo(()=>table&&unique
+    ?filterSortTable(table,filter,filterColumn<0?null:filterColumn,null,false,false,removeEmptyRows).rows.length
+    :0,[table,unique,filter,filterColumn,removeEmptyRows]);
+  const removedDuplicateRows=unique&&visible?beforeDedupeRows-visible.rows.length:0;
   const editPreview=useMemo(()=>{
     if(!visible||!replaceEnabled)return {table:visible,matches:0,changedCells:0,error:""};
     try{
@@ -79,7 +84,7 @@ export default function DataDesk(){
       if(source.length>2_000_000)throw Error("Text exceeds the 2 MB limit.");
       const next=makeDataTable(csvRows(source,delimiter,true),header);
       setTable(next);
-      setFilter("");setFilterColumn(-1);setSortColumn(-1);setUnique(false);setRemoveEmptyRows(false);setReplaceEnabled(false);setReplaceColumn(-1);setCellFind("");setCellReplacement("");setSelectedColumns(null);
+      setFilter("");setFilterColumn(-1);setSortColumn(-1);setUnique(false);setUniqueKeyColumn(-1);setRemoveEmptyRows(false);setReplaceEnabled(false);setReplaceColumn(-1);setCellFind("");setCellReplacement("");setSelectedColumns(null);
       setStatus("Loaded "+next.rows.length+" data rows and "+next.headers.length+" columns. No upload.");
     }catch(e){setStatus("Cannot read table: "+String(e instanceof Error?e.message:e));}
   }
@@ -138,10 +143,19 @@ export default function DataDesk(){
           </select>
         </label>
         <label className="field-label"><input type="checkbox" checked={descending} onChange={e=>setDescending(e.target.checked)}/> Descending</label>
-        <label className="field-label"><input type="checkbox" checked={unique} onChange={e=>setUnique(e.target.checked)}/> Remove duplicate rows</label>
+        <label className="field-label"><input type="checkbox" data-testid="table-dedupe-enable" checked={unique} onChange={e=>setUnique(e.target.checked)}/> Remove duplicate rows · 去重</label>
+        <label className="field-label">Duplicate key · 去重依据
+          <select className="field" data-testid="table-dedupe-key" value={uniqueKeyColumn}
+            disabled={!unique} onChange={e=>setUniqueKeyColumn(Number(e.target.value))}>
+            <option value={-1}>Whole row (exact) · 整行完全相同</option>
+            {table.headers.map((name,index)=><option key={index} value={index}>{name}</option>)}
+          </select>
+        </label>
         <label className="field-label"><input type="checkbox" data-testid="table-remove-empty" checked={removeEmptyRows} onChange={e=>setRemoveEmptyRows(e.target.checked)}/> Exclude empty rows · 排除全空行</label>
       </div>
-      <div className="panel" data-testid="table-column-selection">
+      {unique&&visible&&<p className="subtle" data-testid="table-dedupe-count">{removedDuplicateRows} duplicate rows excluded from the preview and export · 已排除 {removedDuplicateRows} 条重复记录</p>}
+      {unique&&<p className="subtle" data-testid="table-dedupe-help">Deduplication keeps the first visible record before sorting. A selected key uses case-sensitive, exact text matching; different values in other columns do not matter. Empty or whitespace-only identifiers are kept rather than silently merged. Turn off deduplication to restore all rows. The original imported table is never changed.</p>}
+            <div className="panel" data-testid="table-column-selection">
         <h4>Choose columns for preview / export · 按列提取</h4>
         <p className="subtle">Select the fields to keep in your exported copy, such as Name and Department. Columns retain their original order. The imported table stays untouched. Filters and cell replacements run first, then hidden columns are omitted only from the preview and export.</p>
         <div className="actions">
