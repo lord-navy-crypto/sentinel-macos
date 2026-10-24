@@ -142,6 +142,8 @@ export function processBatchTextFiles(sources:readonly BatchTextSource[],mode:Ba
   if(!(["replace","lf","crlf","remove-bom","trim-trailing","remove-blank","dedupe-lines","multi-replace","prefix-lines","suffix-lines","keep-matching","drop-matching","number-lines","collapse-blank","tabs-to-spaces"] as string[]).includes(mode))throw Error("Unknown batch text operation.");
   if(mode==="replace"&&(!find||find.length>1000||replacement.length>10000))
     throw Error("Enter a literal search phrase (1–1,000 chars) and up to 10,000 replacement characters.");
+  if((mode==="collapse-blank"||mode==="tabs-to-spaces")&&sources.some(file=>!/\.txt$/iu.test(file.name)))
+    throw Error("Blank-run collapse and tab expansion are TXT-only; Markdown, CSV and TSV formatting may be structurally meaningful.");
   const lineMode=(mode==="trim-trailing"||mode==="remove-blank"||mode==="dedupe-lines"||mode==="prefix-lines"||mode==="suffix-lines"||mode==="keep-matching"||mode==="drop-matching"||mode==="number-lines"||mode==="collapse-blank"||mode==="tabs-to-spaces");
   if(lineMode&&sources.some(file=>/\.(csv|tsv)$/iu.test(file.name)))
     throw Error("This line cleanup is for TXT/Markdown only. CSV/TSV may contain multiline quoted cells; use the CSV Table Desk.");
@@ -149,8 +151,7 @@ export function processBatchTextFiles(sources:readonly BatchTextSource[],mode:Ba
     throw Error("Enter a literal line filter phrase (1–1,000 printable characters, no tabs or newlines).");
   if(mode==="tabs-to-spaces"){
     if(tabWidth!==2&&tabWidth!==4&&tabWidth!==8)throw Error("Choose 2, 4 or 8 spaces per tab.");
-    if(sources.some(file=>!/\.txt$/iu.test(file.name)))
-      throw Error("Tab expansion is available for TXT only. Markdown, CSV and TSV indentation may be structurally meaningful.");
+
   }
   const rules=mode==="multi-replace"?parseLiteralReplacementRules(ruleText):[];
   if((mode==="prefix-lines"||mode==="suffix-lines")&&
