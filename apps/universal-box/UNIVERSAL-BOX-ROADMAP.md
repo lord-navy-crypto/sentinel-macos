@@ -1,5 +1,8 @@
 # Universal Box · verified free-utility replacement roadmap
 
+> **2026-10-24 — Current priority audit and implementation handoff:** [OFFICE-FIRST-PRIORITY-AUDIT-2026-10-24.md](docs/OFFICE-FIRST-PRIORITY-AUDIT-2026-10-24.md).
+> Stop serial CSV micro-feature expansion. First reduce entry-point friction and complete verifiable PDF, image, clipboard, OCR, Finder/file and Word/PPT office workflows. The repository's 146+ catalog actions are navigation entries, **not observed usage frequency, feature quality or completed user jobs**. This is an explicit priority correction based on issue #62, the October 23 office reset, present code and first-party competitor documentation.
+>
 > **2026-10-23 — Office-first scope correction (current governing decision).**
 > Sentinel Box is a **free, simple, offline-first everyday clerical/office micro-tool collection**.
 > Prioritize PDF, Word/Excel data handoff, file management, image conversion, clipboard/text cleanup, OCR and batch office tasks.
