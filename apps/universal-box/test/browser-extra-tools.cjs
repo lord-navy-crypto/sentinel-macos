@@ -131,6 +131,12 @@ test("two real DOCX files compare in the existing Word review desk and save chan
   await s.page.locator('[data-testid="quality-word-stats"]').waitFor();
   const preview=await s.page.locator('[data-testid="quality-word-preview"]').innerText();
   assert.match(preview,/Office Draft A/);assert.match(preview,/Office Draft B/);
+  await s.page.context().grantPermissions(["clipboard-read","clipboard-write"]);
+  await s.page.locator('[data-testid="quality-word-copy-changes"]').click();
+  const copied=await s.page.evaluate(()=>navigator.clipboard.readText());
+  assert.match(copied,/- Office Draft A/);
+  assert.match(copied,/\+ Office Draft B/);
+  assert.doesNotMatch(copied,/亲爱的/);
   const changes=(await download(s.page,'[data-testid="quality-word-txt-changes"]',"word-diff-changes.txt")).toString("utf8");
   assert.match(changes,/- Office Draft A/);assert.match(changes,/\+ Office Draft B/);
   assert.doesNotMatch(changes,/亲爱的/,"Changes-only export must exclude unchanged paragraphs.");
