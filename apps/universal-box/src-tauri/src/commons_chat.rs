@@ -393,6 +393,23 @@ mod tests {
     host.join().unwrap();
  }
  #[test]
+ fn members_expire_and_can_rejoin_without_inheriting_previous_tokens() {
+    let mut room=new_room();
+    let first=apply_request(&mut room,request("Visitor",None,true,false,None,None,0)).unwrap();
+    let old_token=first.session_token.unwrap();
+    let member=room.presence.get_mut("Visitor").unwrap();
+    member.last_seen=Instant::now()-Duration::from_secs(21);
+    assert!(apply_request(&mut room,request("Visitor",Some(&old_token),false,false,None,None,0)).is_err());
+    let second=apply_request(&mut room,request("Visitor",None,true,false,None,None,0)).unwrap();
+    let token=second.session_token.unwrap();
+    assert_ne!(old_token,token);
+    assert!(apply_request(&mut room,request("Visitor",Some(&old_token),false,false,Some("spoof"),
+        Some("replay-0000000000000001"),0)).is_err());
+    let valid=apply_request(&mut room,request("Visitor",Some(&token),false,false,Some("返校"),
+        Some("fresh-0000000000000001"),0)).unwrap();
+    assert_eq!(valid.messages[0].text,"返校");
+ }
+ #[test]
  fn bounded_history_and_member_limits_are_enforced() {
     let mut data=new_room();
     assert!(apply_request(&mut data,request("\n",None,true,false,None,None,0)).is_err());
