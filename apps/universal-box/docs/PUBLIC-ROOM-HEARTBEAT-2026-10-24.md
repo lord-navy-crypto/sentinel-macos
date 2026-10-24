@@ -4,6 +4,7 @@ Date: 2026-10-24
 This change builds on merged #170 (manual member resume), in the existing Commons > Public > Group Room view.
 
 ## Implementation
+- Capability negotiation is explicit: newer clients set `heartbeat:true` in `join`, and the newer host confirms `heartbeat:true` in `welcome`. Older members that lack this flag continue receiving text and ACK without being marked stale merely for not understanding new Ping frames. New guests connected to older hosts also disable the host-heartbeat timeout.
 - When, and only when, a temporary room is open, the host sends a typed room-scoped `ping` with a fresh UUID through each **already authenticated, open WebRTC DataChannel** every 12 seconds. A guest responds with the matching `pong`, also over the existing DTLS-protected channel.
 - The host validates the exact outstanding ping ID from the corresponding member channel before advancing the last-response timestamp. Invalid/unsolicited/mismatched-room frames cannot mark a member healthy.
 - A 48-second no-response window is deliberately conservative to tolerate transient app throttling. On timeout, the host marks that peer not authenticated/online for subsequent recipient snapshots, closes its stale transport and offers the existing explicit **reinvite same member** action.
