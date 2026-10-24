@@ -59,6 +59,8 @@ pub struct ChatSnapshot {
     messages: Vec<ChatLine>,
     participants: Vec<String>,
     has_more: bool,
+    oldest_seq: u64,
+    latest_seq: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     session_token: Option<String>,
 }
@@ -106,7 +108,7 @@ fn local_ipv4(ip: Ipv4Addr) -> bool {
 fn local_addrs() -> Vec<Ipv4Addr> {
     let mut list: Vec<Ipv4Addr> = if_addrs::get_if_addrs().unwrap_or_default()
         .iter().filter_map(|interface| match interface.ip() {
-            IpAddr::V4(ip) if ip.is_private() && !ip.is_loopback() => Some(ip),
+            IpAddr::V4(ip) if (ip.is_private() || ip.is_link_local()) && !ip.is_loopback() => Some(ip),
             _ => None,
         }).collect();
     list.sort(); list.dedup();
@@ -225,9 +227,10 @@ fn apply_request(data: &mut ChatData, request: ChatRequest) -> Result<ChatSnapsh
         .filter(|message| message.seq > request.since)
         .take(MAX_REPLY_MESSAGES + 1).cloned().collect();
     let has_more = newer.len() > MAX_REPLY_MESSAGES;
+    let oldest_seq = data.messages.front().map_or(0,|message|message.seq);
     Ok(ChatSnapshot {room:data.name.clone(),messages:newer.into_iter()
         .take(MAX_REPLY_MESSAGES).collect(),participants:data.presence.keys().cloned().collect(),
-        has_more,session_token:issued_token})
+        has_more,oldest_seq,latest_seq:data.seq,session_token:issued_token})
 }
 
 fn serve_one(mut socket: TcpStream, secret: &[u8; 32],
@@ -340,6 +343,8 @@ mod tests {
  fn invitations_reject_public_and_malformed_addresses() {
     let key=URL_SAFE_NO_PAD.encode([5_u8;32]);
     assert!(decode_chat_invite(&format!("uboxchat://127.0.0.1:5555/{key}")).is_ok());
+    assert!(local_ipv4(Ipv4Addr::new(169,254,12,3)));
+    assert!(decode_chat_invite(&format!("uboxchat://169.254.12.3:5555/{key}")).is_ok());
     for host in ["8.8.8.8","172.32.1.2","256.0.0.1","example.com"] {
         assert!(decode_chat_invite(&format!("uboxchat://{host}:5555/{key}")).is_err());
     }
@@ -410,6 +415,35 @@ mod tests {
     assert_eq!(valid.messages[0].text,"返校");
  }
  #[test]
+ fn expired_member_can_resume_retained_history_with_new_token_and_same_invite() {
+    let mut data=new_room();
+    let first=apply_request(&mut data,request("Alex",None,true,false,None,None,0)).unwrap();
+    let old_token=first.session_token.unwrap();
+    let other=apply_request(&mut data,request("Blair",None,true,false,None,None,0)).unwrap();
+    let blair=other.session_token.unwrap();
+    let initial=apply_request(&mut data,request("Alex",Some(&old_token),false,false,
+        Some("before outage"),Some("initial-00000000000001"),0)).unwrap();
+    assert_eq!(initial.latest_seq,1);
+    data.presence.get_mut("Alex").unwrap().last_seen=Instant::now()-Duration::from_secs(21);
+    let posted=apply_request(&mut data,request("Blair",Some(&blair),false,false,
+        Some("during outage"),Some("outage-00000000000001"),1)).unwrap();
+    assert_eq!(posted.latest_seq,2);
+    assert!(apply_request(&mut data,request("Alex",Some(&old_token),false,false,None,None,1)).is_err());
+    let fresh=apply_request(&mut data,request("Alex",None,true,false,None,None,1)).unwrap();
+    assert_ne!(fresh.session_token.as_deref(),Some(old_token.as_str()));
+    assert_eq!(fresh.oldest_seq,1);
+    assert_eq!(fresh.latest_seq,2);
+    assert_eq!(fresh.messages.len(),1);
+    assert_eq!(fresh.messages[0].text,"during outage");
+    assert_eq!(fresh.messages[0].seq,2);
+    let current=fresh.session_token.as_deref().unwrap();
+    let replay=apply_request(&mut data,request("Alex",Some(current),false,false,
+        Some("before outage"),Some("initial-00000000000001"),2)).unwrap();
+    assert_eq!(replay.latest_seq,2,"a retried message with the original ID must not be doubled");
+    assert!(apply_request(&mut data,request("Alex",Some(&old_token),false,false,
+        Some("unexpected"),Some("new-forged-000000001"),2)).is_err());
+ }
+ #[test]
  fn bounded_history_and_member_limits_are_enforced() {
     let mut data=new_room();
     assert!(apply_request(&mut data,request("\n",None,true,false,None,None,0)).is_err());
@@ -423,7 +457,23 @@ mod tests {
     let p=apply_request(&mut data,request("N",Some(token),false,false,None,None,0)).unwrap();
     assert_eq!(p.messages.len(),MAX_REPLY_MESSAGES);
     assert!(p.has_more);
+    assert_eq!(p.oldest_seq,16);
+    assert_eq!(p.latest_seq,215);
     assert_eq!(p.messages[0].seq,16);
+    let mut cursor=0_u64;
+    let mut pages=0_usize;
+    let mut collected=vec![];
+    loop {
+        let page=apply_request(&mut data,request("N",Some(token),false,false,None,None,cursor)).unwrap();
+        pages+=1;
+        if let Some(last)=page.messages.last() {cursor=last.seq;}
+        collected.extend(page.messages);
+        if !page.has_more {break;}
+        assert!(pages<=20,"Backfill must terminate within bounded message history");
+    }
+    assert_eq!(collected.len(),MAX_HISTORY,"Backfill must return every still-retained message");
+    assert_eq!(collected[0].seq,16);
+    assert_eq!(collected.last().unwrap().seq,215);
     assert!(apply_request(&mut data,request("N",Some(token),false,false,
         Some(&"x".repeat(1001)),Some("manywords0000000000000"),0)).is_err());
     assert!(apply_request(&mut data,request("N",Some(token),false,false,
