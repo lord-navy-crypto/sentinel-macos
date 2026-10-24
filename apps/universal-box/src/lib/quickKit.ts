@@ -1,4 +1,29 @@
 /** Zero-upload convenience operations for Sentinel Box Quick Tools. */
+/** Open user-selected text drafts without a cloud round trip or permissive binary decoding.
+ * Supports standard UTF-8 and Windows 'Unicode Text' UTF-16LE with an explicit BOM.
+ */
+export function decodeQuickTextDraft(name:string,bytes:Uint8Array):{text:string;encoding:"UTF-8"|"UTF-16LE"}{
+ if(!/\.(?:txt|md)$/iu.test(name))throw Error("Choose a .txt or .md document.");
+ if(bytes.length===0||bytes.length>500_000)throw Error("Text draft must be 1 byte–500 KB.");
+ let text:string;
+ let encoding:"UTF-8"|"UTF-16LE"="UTF-8";
+ if(bytes[0]===0xFE&&bytes[1]===0xFF)throw Error("UTF-16BE is not supported. Save as UTF-8 or UTF-16LE.");
+ if(bytes[0]===0xFF&&bytes[1]===0xFE){
+  if((bytes.length-2)%2!==0)throw Error("Truncated UTF-16LE text draft.");
+  encoding="UTF-16LE";
+  text=new TextDecoder("utf-16le",{fatal:true}).decode(bytes.subarray(2));
+ }else{
+  try{text=new TextDecoder("utf-8",{fatal:true}).decode(bytes);}
+  catch{throw Error("Draft is not valid UTF-8. Choose UTF-8 or a BOM-marked UTF-16LE TXT file.");}
+ }
+ text=text.replace(/^\uFEFF/u,"");
+ if(!text.length||!text.trim())throw Error("Selected text draft is empty.");
+ if(text.length>200_000)throw Error("Text draft exceeds the 200,000-character editor limit.");
+ if(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/u.test(text))
+  throw Error("Text draft contains binary or unsupported control characters.");
+ return {text,encoding};
+}
+
 export type CleanupOptions = {
   collapseSpaces:boolean;
   removeEmptyLines:boolean;
