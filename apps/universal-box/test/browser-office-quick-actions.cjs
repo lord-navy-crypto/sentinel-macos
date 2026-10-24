@@ -621,3 +621,36 @@ test("CSV Table Desk removes repeated customer IDs, retains blank IDs and export
   assert.deepEqual(errors,[]);
  }finally{await page.close();await browser.close();}
 });
+
+
+test("CSV Table Desk adds numbered rows after key dedupe and sort, exports real TSV and restores originals",{timeout:90000},async()=>{
+ const browser=await chromium.launch({headless:true,args:["--no-sandbox"]});
+ const page=await browser.newPage({acceptDownloads:true,viewport:{width:1440,height:920}});
+ const errors=[];page.on("pageerror",e=>errors.push(e.message));
+ try{
+  await page.goto(root,{waitUntil:"domcontentloaded"});await page.locator(".app-shell").waitFor();
+  await page.locator('nav.sidebar-nav button.nav-item[aria-label="CSV Table Desk"]').click();
+  const source="ID,Name,Score\r\nB,甲,10\r\nA,乙,2\r\nA,重复,9\r\nC,丙,7\r\n";
+  await page.locator("#data-text").fill(source);
+  await page.getByRole("button",{name:"Load table"}).click();
+  await page.locator('[data-testid="table-dedupe-enable"]').check();
+  await page.locator('[data-testid="table-dedupe-key"]').selectOption("0");
+  await page.getByLabel("Sort by").selectOption("2");
+  await page.locator('[data-testid="table-col-0"]').uncheck();
+  await page.locator('[data-testid="table-row-numbers-enable"]').check();
+  assert.match(await page.locator('[data-testid="table-dedupe-count"]').innerText(),/1 duplicate rows excluded/);
+  const pending=page.waitForEvent("download",{timeout:30000});
+  await page.locator('[data-testid="table-save-tsv"]').click();
+  const dl=await pending;const out=path.join(dir,"numbered-sort-dedupe.tsv");await dl.saveAs(out);
+  const b=fs.readFileSync(out);
+  assert.deepEqual(b.subarray(0,3),Buffer.from([239,187,191]));
+  assert.equal(b.subarray(3).toString("utf8"),"Row #\tName\tScore\r\n1\t乙\t2\r\n2\t丙\t7\r\n3\t甲\t10");
+  assert.equal(await page.locator("#data-text").inputValue(),source);
+  await page.locator('[data-testid="table-row-numbers-enable"]').uncheck();
+  const pending2=page.waitForEvent("download",{timeout:30000});
+  await page.getByRole("button",{name:"Save CSV",exact:true}).click();
+  const dl2=await pending2;const out2=path.join(dir,"numbering-disabled.csv");await dl2.saveAs(out2);
+  assert.equal(fs.readFileSync(out2,"utf8"),"Name,Score\r\n乙,2\r\n丙,7\r\n甲,10");
+  assert.deepEqual(errors,[]);
+ }finally{await page.close();await browser.close();}
+});
