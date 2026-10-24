@@ -65,6 +65,13 @@ test("Existing batch image tool refuses spoofing and exports real JPEG in ZIP",{
   assert.equal(previewBytes,jpeg.length,"The preview bytes must match the exact ZIP member");
   assert.match(await page.locator('[data-testid="image-size-report"]').innerText(),/Real file size comparison/);
   assert.match(await page.locator('[data-testid="image-size-report"]').innerText(),/real.png/);
+  // Changing output quality invalidates the cached ZIP rather than silently saving stale bytes.
+  await page.getByRole("slider",{name:/Quality/}).fill("0.65");
+  assert.equal(await page.getByTestId("image-save-reviewed").isDisabled(),true);
+  assert.equal(await page.getByTestId("image-output-preview").count(),0);
+  await page.getByTestId("image-prepare-preview").click();
+  await page.getByTestId("image-output-preview").waitFor({timeout:30000});
+  assert.equal(await page.getByTestId("image-save-reviewed").isDisabled(),false);
   // Try a misleading file extension, which must not yield a fake image result.
   await page.locator("#batch-image-files").setInputFiles([
    {name:"fake.jpg",mimeType:"image/jpeg",buffer:png}
