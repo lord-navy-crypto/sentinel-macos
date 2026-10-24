@@ -278,3 +278,51 @@ test("Batch office text audit previews source metrics and exports safe real CSV 
   assert.deepEqual(errors,[]);
  }finally{await page.close();await browser.close();}
 });
+
+
+test("TXT blank-run cleanup and chosen tab spacing export verified real ZIP copies",{timeout:90000},async()=>{
+ const browser=await chromium.launch({headless:true,args:["--no-sandbox"]});
+ const page=await browser.newPage({acceptDownloads:true,viewport:{width:1440,height:920}});
+ const errors=[];page.on("pageerror",e=>errors.push(e.message));
+ try{
+  await page.goto(root,{waitUntil:"domcontentloaded"});await page.locator(".app-shell").waitFor();
+  await openTool(page,"Batch Text Files");
+  const source=Buffer.from("\ufeffAlpha\r\n\r\n\r\nBeta\tX\n");
+  await page.locator('[data-testid="batch-text-picker"]').setInputFiles([
+   {name:"minutes.txt",mimeType:"text/plain",buffer:source},
+  ]);
+  await page.locator('[data-testid="batch-text-mode"]').selectOption("collapse-blank");
+  assert.match(await page.locator('[data-testid="batch-whitespace-warning"]').innerText(),/TXT only/);
+  assert.match(await page.locator('[data-testid="batch-text-preview"]').innerText(),/1 changed/);
+  const firstPending=page.waitForEvent("download",{timeout:30000});
+  await page.locator('[data-testid="batch-text-save"]').click();
+  const firstDownload=await firstPending;
+  const collapsedPath=path.join(dir,"collapsed-blank-lines.zip");
+  await firstDownload.saveAs(collapsedPath);
+  const collapsed=await JSZip.loadAsync(fs.readFileSync(collapsedPath),{checkCRC32:true});
+  const collapsedBytes=await collapsed.file("processed/minutes.txt").async("nodebuffer");
+  assert.deepEqual(collapsedBytes,Buffer.from("\ufeffAlpha\r\n\r\nBeta\tX\n"));
+  const manifest=JSON.parse(await collapsed.file("sentinel-box-batch-text-manifest.json").async("string"));
+  assert.equal(manifest.operation,"collapse-blank");
+  assert.equal(manifest.files[0].matches,1);
+
+  await page.locator('[data-testid="batch-text-mode"]').selectOption("tabs-to-spaces");
+  await page.locator('[data-testid="batch-tab-width"]').selectOption("2");
+  assert.match(await page.locator('[data-testid="batch-text-preview"]').innerText(),/1 changed/);
+  const secondPending=page.waitForEvent("download",{timeout:30000});
+  await page.locator('[data-testid="batch-text-save"]').click();
+  const secondDownload=await secondPending;
+  const spacedPath=path.join(dir,"tab-spaces.zip");
+  await secondDownload.saveAs(spacedPath);
+  const spaced=await JSZip.loadAsync(fs.readFileSync(spacedPath),{checkCRC32:true});
+  const spacedBytes=await spaced.file("processed/minutes.txt").async("nodebuffer");
+  assert.deepEqual(spacedBytes,Buffer.from("\ufeffAlpha\r\n\r\n\r\nBeta  X\n"));
+  assert.deepEqual(source,Buffer.from("\ufeffAlpha\r\n\r\n\r\nBeta\tX\n"));
+  await page.locator('[data-testid="batch-text-picker"]').setInputFiles([
+   {name:"sheet.csv",mimeType:"text/csv",buffer:Buffer.from('"h1\nh2",h3\nv1,v2\n')},
+  ]);
+  assert.match(await page.locator('[data-testid="batch-text-error"]').innerText(),/TXT-only/);
+  assert.equal(await page.locator('[data-testid="batch-text-save"]').isDisabled(),true);
+  assert.deepEqual(errors,[]);
+ }finally{await page.close();await browser.close();}
+});
