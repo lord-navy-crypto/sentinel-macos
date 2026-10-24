@@ -20,20 +20,40 @@ export function planPhotoBatch(files:readonly {name:string;size:number}[],settin
  if(total>25_000_000)throw Error("Photo batch exceeds 25 MB combined.");
  return files.length;
 }
-async function blobFromCanvas(canvas:HTMLCanvasElement,mime:string,quality:number):Promise<Blob>{
- return new Promise((resolve,reject)=>canvas.toBlob(value=>{
-  if(value?.type===mime)resolve(value);else reject(Error(mime+" encoding is unavailable in this WebView."));
- },mime,quality));
+function checkPhotoCancel(signal?:AbortSignal){
+ if(signal?.aborted)throw Error("Photo compression cancelled. No incomplete ZIP was saved.");
 }
-export async function compressOnePhoto(input:File,settings:PhotoSettings):Promise<{data:Uint8Array;report:Omit<PhotoReport,"outputName">}>{
+async function blobFromCanvas(canvas:HTMLCanvasElement,mime:string,quality:number,signal?:AbortSignal):Promise<Blob>{
+ checkPhotoCancel(signal);
+ return new Promise((resolve,reject)=>{
+  let settled=false;
+  const abort=()=>{
+   if(settled)return;
+   settled=true;
+   signal?.removeEventListener("abort",abort);
+   reject(Error("Photo compression cancelled. No incomplete ZIP was saved."));
+  };
+  signal?.addEventListener("abort",abort,{once:true});
+  canvas.toBlob(value=>{
+   if(settled)return;
+   settled=true;signal?.removeEventListener("abort",abort);
+   if(value?.type===mime)resolve(value);
+   else reject(Error(mime+" encoding is unavailable in this WebView."));
+  },mime,quality);
+ });
+}
+export async function compressOnePhoto(input:File,settings:PhotoSettings,signal?:AbortSignal):Promise<{data:Uint8Array;report:Omit<PhotoReport,"outputName">}>{
+ checkPhotoCancel(signal);
  planPhotoBatch([{name:input.name,size:input.size}],settings);
  const renderable=await photoForCanvas(input);
+ checkPhotoCancel(signal);
  const sourceUrl=URL.createObjectURL(renderable),image=new Image();
  try{
   await new Promise<void>((resolve,reject)=>{
    image.onload=()=>resolve();image.onerror=()=>reject(Error("Photo decoder cannot open this picture."));
    image.src=sourceUrl;
   });
+  checkPhotoCancel(signal);
   const dim=imageWorkflowScale(image.naturalWidth,image.naturalHeight,settings.maxDimension);
   const canvas=document.createElement("canvas");canvas.width=dim.width;canvas.height=dim.height;
   const ctx=canvas.getContext("2d");if(!ctx)throw Error("Canvas 2D unavailable.");
@@ -43,13 +63,15 @@ export async function compressOnePhoto(input:File,settings:PhotoSettings):Promis
   let best:Blob|null=null,quality=0.92;
   // Keep best encoding closest to requested upper bound; don't silently claim the target is met.
   for(const q of [0.92,0.82,0.72,0.62,0.52,0.42]){
-   const candidate=await blobFromCanvas(canvas,mime,q);
+   checkPhotoCancel(signal);
+   const candidate=await blobFromCanvas(canvas,mime,q,signal);
    if(!best||candidate.size<best.size){best=candidate;quality=q;}
    if(candidate.size<=settings.targetKB*1000){best=candidate;quality=q;break;}
   }
   canvas.width=0;canvas.height=0;
   if(!best)throw Error("Image could not be encoded.");
   const data=new Uint8Array(await best.arrayBuffer());
+  checkPhotoCancel(signal);
   if(data.length>8_000_000)throw Error("Photo output is larger than 8 MB.");
   return {data,report:{source:input.name,originalBytes:input.size,outputBytes:data.length,
    targetMet:data.length<=settings.targetKB*1000,quality,width:dim.width,height:dim.height,
@@ -57,12 +79,15 @@ export async function compressOnePhoto(input:File,settings:PhotoSettings):Promis
    smallerThanSource:data.length<input.size}};
  }finally{URL.revokeObjectURL(sourceUrl);}
 }
-export async function compressPhotoBatch(files:readonly File[],settings:PhotoSettings):
+export async function compressPhotoBatch(files:readonly File[],settings:PhotoSettings,signal?:AbortSignal):
  Promise<{zip:Uint8Array;reports:PhotoReport[]}>{
+ checkPhotoCancel(signal);
  planPhotoBatch(files,settings);
  const archive=new JSZip(),reports:PhotoReport[]=[];
  for(let i=0;i<files.length;i++){
-  const file=files[i],result=await compressOnePhoto(file,settings);
+  checkPhotoCancel(signal);
+  const file=files[i],result=await compressOnePhoto(file,settings,signal);
+  checkPhotoCancel(signal);
   const path="images/"+String(i+1).padStart(3,"0")+"-"+sanitize(file.name)+(settings.format==="jpeg"?".jpg":".webp");
   archive.file(path,result.data);reports.push({...result.report,outputName:path});
  }
@@ -72,7 +97,9 @@ export async function compressPhotoBatch(files:readonly File[],settings:PhotoSet
    ...reports.filter(x=>!x.smallerThanSource).map(x=>x.source+" result did not shrink compared with original")]
  },null,2));
  archive.file("reports/README.txt","Image optimization is approximate. The target KB may not be achievable. Compare real output bytes and inspect visual quality. PNG transparency becomes white with JPEG. HEIC input is decoded offline by the macOS system converter only; browsers without native support reject HEIC.\n");
+ checkPhotoCancel(signal);
  const zip=await archive.generateAsync({type:"uint8array",compression:"DEFLATE"});
+ checkPhotoCancel(signal);
  if(zip.length>20_000_000)throw Error("Photo ZIP exceeds 20 MB.");
  return {zip,reports};
 }
