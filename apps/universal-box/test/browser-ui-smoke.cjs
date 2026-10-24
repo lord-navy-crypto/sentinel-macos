@@ -183,3 +183,32 @@ test("Commons UI separates offline room, explicit LAN steps and opt-in public di
   assert.deepEqual(errors,[]);
  }finally{await page.close();await browser.close();}
 });
+
+test("Commons LAN group chat has safe native-only Create and Join controls with distinct offline messages",{timeout:80000},async()=>{
+ const browser=await chromium.launch({headless:true,args:["--no-sandbox"]});
+ const page=await openApp(browser);
+ const errors=[];page.on("pageerror",e=>errors.push(e.message));
+ try{
+  await page.locator('.sidebar button.nav-item[aria-label^="Universal Commons"]').click();
+  const panel=page.getByRole("region",{name:"Live LAN group chat"});
+  await panel.waitFor();
+  assert.equal(await panel.isVisible(),true);
+  assert.match(await panel.innerText(),/不是持久化聊天记录/);
+  assert.match(await panel.innerText(),/群聊主机/);
+  const create=page.getByTestId("chat-create"),join=page.getByTestId("chat-join");
+  assert.equal(await create.isDisabled(),true,"Browser preview cannot open native TCP chat host");
+  assert.equal(await join.isDisabled(),true,"Browser preview cannot connect to native group chat");
+  await page.getByTestId("chat-nickname").fill("同事 A");
+  await page.getByTestId("chat-room-name").fill("项目会议");
+  assert.equal(await create.isDisabled(),true);
+  await page.getByTestId("chat-join-invite").fill("uboxchat://8.8.8.8:45678/"+"A".repeat(43));
+  assert.equal(await join.isDisabled(),true,"A public-IP URL cannot be accepted as a LAN invite");
+  await page.getByTestId("chat-join-invite").fill("uboxchat://192.168.1.33:45678/"+"A".repeat(43));
+  assert.equal(await join.isDisabled(),true,"A syntactically valid invite must still need native execution");
+  await page.getByRole("group",{name:"Communication transport"}).getByRole("button",{name:/公网诊断/}).click();
+  assert.equal(await panel.isVisible(),false,"Group chat should be hidden on the separate public research screen");
+  await page.getByRole("group",{name:"Communication transport"}).getByRole("button",{name:/局域网发送与接收/}).click();
+  assert.equal(await panel.isVisible(),true);
+  assert.deepEqual(errors,[]);
+ }finally{await page.close();await browser.close();}
+});
