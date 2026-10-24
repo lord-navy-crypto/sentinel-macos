@@ -1,0 +1,75 @@
+import {decodeDirectSignal,encodeDirectSignal,validDirectChatText} from "./commonsInternetRtc";
+
+/** Experimental host-forwarded WebRTC room. Room identifiers are NOT passwords or identity proof. */
+export const PUBLIC_ROOM_GUEST_LIMIT=3;
+export const PUBLIC_ROOM_MAX_BUFFER=64*1024;
+const ROOM_ID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const MESSAGE_ID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export type PublicRoomSignal={v:1;room:string;type:"offer"|"answer";sdp:string};
+export type PublicRoomFrame=
+ |{v:1;room:string;kind:"join";name:string}
+ |{v:1;room:string;kind:"welcome"}
+ |{v:1;room:string;kind:"deny";reason:"full"|"name"|"invalid"}
+ |{v:1;room:string;kind:"leave"}
+ |{v:1;room:string;kind:"chat";id:string;name:string;text:string};
+
+export function validPublicRoomName(name:string):boolean{
+ return name===name.trim()&&[...name].length>=1&&[...name].length<=24
+  &&new TextEncoder().encode(name).length<=72
+  &&!/\p{Cc}/u.test(name);
+}
+export function encodePublicRoomSignal(room:string,desc:RTCSessionDescriptionInit):string{
+ if(!ROOM_ID.test(room))throw Error("Invalid temporary room identifier.");
+ // Reuse the existing strict SDP/fingerprint validation on both offers and answers.
+ const encoded=encodeDirectSignal(desc);
+ const validated=decodeDirectSignal(encoded,desc.type==="offer"?"offer":"answer");
+ return JSON.stringify({v:1,room,type:validated.type,sdp:validated.sdp});
+}
+export function decodePublicRoomSignal(raw:string,type:"offer"|"answer"):PublicRoomSignal{
+ if(raw.length<100||raw.length>122000)throw Error("Room invitation size is invalid.");
+ let item:unknown;
+ try{item=JSON.parse(raw);}catch{throw Error("Paste the complete room invitation JSON.");}
+ if(!item||typeof item!=="object")throw Error("Room invitation is invalid.");
+ const d=item as Record<string,unknown>;
+ if(d.v!==1||typeof d.room!=="string"||!ROOM_ID.test(d.room))
+  throw Error("Invalid room version or identifier.");
+ const sd=decodeDirectSignal(JSON.stringify({type:d.type,sdp:d.sdp}),type);
+ return {v:1,room:d.room,type:sd.type,sdp:sd.sdp};
+}
+export function encodePublicRoomFrame(frame:PublicRoomFrame):string{
+ return JSON.stringify(frame);
+}
+export function decodePublicRoomFrame(raw:unknown,room:string):PublicRoomFrame|null{
+ if(typeof raw!=="string"||raw.length>9000||!ROOM_ID.test(room))return null;
+ let value:unknown;
+ try{value=JSON.parse(raw);}catch{return null;}
+ if(!value||typeof value!=="object")return null;
+ const d=value as Record<string,unknown>;
+ if(d.v!==1||d.room!==room)return null;
+ switch(d.kind){
+  case "join":
+   return typeof d.name==="string"&&validPublicRoomName(d.name)?
+    {v:1,room,kind:"join",name:d.name}:null;
+  case "welcome":return {v:1,room,kind:"welcome"};
+  case "deny":return d.reason==="full"||d.reason==="name"||d.reason==="invalid"?
+   {v:1,room,kind:"deny",reason:d.reason}:null;
+  case "leave":return {v:1,room,kind:"leave"};
+  case "chat":
+   return typeof d.id==="string"&&MESSAGE_ID.test(d.id)
+    &&typeof d.name==="string"&&validPublicRoomName(d.name)
+    &&typeof d.text==="string"&&validDirectChatText(d.text)?
+     {v:1,room,kind:"chat",id:d.id,name:d.name,text:d.text}:null;
+  default:return null;
+ }
+}
+export function roomSendReady(channel:RTCDataChannel|null):boolean{
+ return !!channel&&channel.readyState==="open"&&channel.bufferedAmount<=PUBLIC_ROOM_MAX_BUFFER;
+}
+/** Do not display duplicate delivery of the same sender/UUID pair. Bounded volatile history. */
+export function rememberRoomMessage(seen:Set<string>,sender:string,id:string):boolean{
+ const key=sender+"|"+id;
+ if(seen.has(key))return false;
+ seen.add(key);
+ if(seen.size>500){const first=seen.values().next().value;if(first!==undefined)seen.delete(first);}
+ return true;
+}
