@@ -103,6 +103,7 @@ export async function recompressScannedPdf(
    const task=page.render({canvasContext:context,viewport});
    const cancelRender=()=>task.cancel();
    signal?.addEventListener("abort",cancelRender,{once:true});
+   if(signal?.aborted)task.cancel();
    try{
     checkCancelled();
     try{await task.promise;}catch(e){checkCancelled();throw e;}
