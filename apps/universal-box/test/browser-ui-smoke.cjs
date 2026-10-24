@@ -22,6 +22,34 @@ async function allTools(page){
  await page.locator('.sidebar button.nav-item[aria-label^="All tools"]').click();
  await page.locator(".catalog-card").first().waitFor();
 }
+test("Desktop redesign: office home, command search, categorized list, and explicit LAN/WAN diagnostics",{timeout:90000},async()=>{
+ const browser=await chromium.launch({headless:true,args:["--no-sandbox"]});
+ const page=await openApp(browser);const errors=[];page.on("pageerror",e=>errors.push(e.message));
+ try{
+  await page.getByTestId("redesigned-home").waitFor();
+  assert.ok(await page.getByTestId("office-first-task-grid").locator("button").count()>=5);
+  assert.ok(await page.getByTestId("home-recent-exports").isVisible());
+  await page.getByTestId("home-find-tool").click();
+  await page.getByTestId("palette-search").fill("PDF");
+  assert.ok(await page.getByTestId("palette-result").count()>0);
+  await page.keyboard.press("Escape");
+  await allTools(page);
+  await page.getByTestId("catalog-list-mode").click();
+  assert.equal(await page.getByTestId("catalog-results").evaluate(e=>e.classList.contains("catalog-list")),true);
+  await page.getByRole("group",{name:"Filter tool category"}).getByRole("button",{name:"PDF 与文档"}).click();
+  assert.ok(await page.locator(".catalog-open").count()>0);
+  await page.getByTestId("catalog-grid-mode").click();
+  assert.equal(await page.getByTestId("catalog-results").evaluate(e=>e.classList.contains("catalog-list")),false);
+  await page.locator('.sidebar button.nav-item[aria-label^="Universal Commons"]').click();
+  await page.getByTestId("commons-diagnostics-mode").click();
+  assert.ok(await page.getByTestId("commons-connection-diagnostics").isVisible());
+  assert.equal(await page.getByTestId("diagnostics-stun-probe").isDisabled(),true);
+  await page.getByRole("button",{name:"检查公网 WebRTC →"}).click();
+  await page.getByTestId("commons-public-direct-mode").waitFor();
+  await page.screenshot({path:path.join(reportPath,"desktop-redesign-communications.png"),fullPage:true});
+  assert.deepEqual(errors,[],"New desktop navigation should not crash.");
+ }finally{await page.close();await browser.close();}
+});
 test("Universal Box loads and every catalog entry routes to a mounted workspace", {timeout:180000},async()=>{
  const browser=await chromium.launch({headless:true,args:["--no-sandbox"]});
  let page;
