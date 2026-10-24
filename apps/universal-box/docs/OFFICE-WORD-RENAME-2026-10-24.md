@@ -20,6 +20,8 @@ This task follows `apps/universal-box/docs/OFFICE-FIRST-RESET-2026-10-23.md`, `E
 - Before bytes are read, check case-insensitive/NFC output filename collisions, Windows reserved names and the `sentinel-box-rename-plan.json` manifest name.
 - Reject numbering beyond 99,999 rather than inventing overflow suffixes.
 - Freeze file selection and name rules while generating ZIP. The ZIP contains copies, not in-place Finder renames, and the old→new JSON manifest remains.
+- Export an **independent old→new CSV plan** before reading any selected file contents; the CSV includes original name, proposed new name and source byte size. UTF-8 BOM supports Chinese filenames in Excel, with quoted cells and spreadsheet formula injection guarding. The preview-plan export is disabled for unsafe/colliding names and never changes original filenames.
+- Browser tests use explicit stable identifiers for rename inputs; broad label selectors once matched a checkbox as well as the Prefix text box. This fixes the observed Chromium selector failure on PR #151.
 - Continue existing 50 files / 16 MB input and 20 MB output safety limits; never overwrite source files.
 
 ## Test evidence expected
