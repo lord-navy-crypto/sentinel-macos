@@ -42,7 +42,7 @@ describe("Prepared target-photo ZIP file integrity",()=>{
   await expect(verifyPhotoZipOutput(invalidSig,SETTINGS)).rejects.toThrow(/wrong actual output format/);
   const wrongSize=await packed(jpeg,[{...report,outputBytes:9}]);
   await expect(verifyPhotoZipOutput(wrongSize,SETTINGS)).rejects.toThrow(/size does not match/);
-  const missing=await packed(jpeg,[{...report,outputName:"images/not-present.jpg"}]);
+  const missing=await packed(jpeg,[{...report,outputName:"images/001-not-present.jpg"}]);
   await expect(verifyPhotoZipOutput(missing,SETTINGS)).rejects.toThrow(/missing/);
   await expect(verifyPhotoZipOutput(await packed(),{...SETTINGS,targetKB:300})).rejects.toThrow(/prepared settings/);
   const broken=await packed(jpeg,[{...report,source:"not-a-match"}]);
