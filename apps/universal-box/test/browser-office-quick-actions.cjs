@@ -517,3 +517,38 @@ test("CSV Table Desk retains optional blank rows and exports spreadsheet-safe TS
   assert.deepEqual(errors,[]);
  }finally{await page.close();await browser.close();}
 });
+
+test("CSV Table Desk cell-scoped replace previews only the selected column and exports safe CSV",{timeout:90000},async()=>{
+ const browser=await chromium.launch({headless:true,args:["--no-sandbox"]});
+ const page=await browser.newPage({acceptDownloads:true,viewport:{width:1440,height:920}});
+ const errors=[];page.on("pageerror",e=>errors.push(e.message));
+ try{
+  await page.goto(root,{waitUntil:"domcontentloaded"});await page.locator(".app-shell").waitFor();
+  await page.locator('nav.sidebar-nav button.nav-item[aria-label="CSV Table Desk"]').click();
+  const source="Team,Notes,Value\r\nOld,Old Old,=SUM(1)\r\nOld,Old,-42\r\n";
+  await page.locator("#data-text").fill(source);
+  await page.getByRole("button",{name:"Load table"}).click();
+  await page.locator('[data-testid="table-cell-find"]').fill("Old");
+  await page.locator('[data-testid="table-cell-with"]').fill('New,"X"');
+  await page.locator('[data-testid="table-replace-column"]').selectOption("1");
+  await page.locator('[data-testid="table-replace-enable"]').check();
+  assert.match(await page.locator('[data-testid="table-replace-count"]').innerText(),/3 replacements in 2 cells/);
+  const pending=page.waitForEvent("download",{timeout:30000});
+  await page.getByRole("button",{name:"Save CSV",exact:true}).click();
+  const dl=await pending;assert.equal(dl.suggestedFilename(),"daily-desk-table.csv");
+  const file=path.join(dir,"column-replace.csv");await dl.saveAs(file);
+  const result=fs.readFileSync(file,"utf8");
+  assert.equal(result,
+    'Team,Notes,Value\r\nOld,"New,""X"" New,""X""",\'=SUM(1)\r\nOld,"New,""X""",-42');
+  assert.equal(await page.locator("#data-text").inputValue(),source,"Original CSV remains untouched");
+  await page.locator('[data-testid="table-cell-find"]').fill("");
+  assert.match(await page.locator('[data-testid="table-replace-error"]').innerText(),/Enter printable literal find/);
+  assert.equal(await page.getByRole("button",{name:"Save CSV",exact:true}).isDisabled(),true);
+  await page.locator('[data-testid="table-replace-enable"]').uncheck();
+  const again=page.waitForEvent("download",{timeout:30000});
+  await page.getByRole("button",{name:"Save CSV",exact:true}).click();
+  const dl2=await again;const back=path.join(dir,"column-replace-off.csv");await dl2.saveAs(back);
+  assert.equal(fs.readFileSync(back,"utf8"),"Team,Notes,Value\r\nOld,Old Old,'=SUM(1)\r\nOld,Old,-42");
+  assert.deepEqual(errors,[]);
+ }finally{await page.close();await browser.close();}
+});
