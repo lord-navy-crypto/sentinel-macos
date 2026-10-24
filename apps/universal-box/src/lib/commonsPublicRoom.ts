@@ -16,8 +16,8 @@ const ROOM_ID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MESSAGE_ID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export type PublicRoomSignal={v:1;room:string;type:"offer"|"answer";sdp:string};
 export type PublicRoomFrame=
- |{v:1;room:string;kind:"join";name:string;resumeToken?:string}
- |{v:1;room:string;kind:"welcome";resumeToken?:string}
+ |{v:1;room:string;kind:"join";name:string;resumeToken?:string;heartbeat?:true}
+ |{v:1;room:string;kind:"welcome";resumeToken?:string;heartbeat?:true}
  |{v:1;room:string;kind:"deny";reason:"full"|"name"|"invalid"}
  |{v:1;room:string;kind:"leave"}
  |{v:1;room:string;kind:"ack";id:string}
@@ -69,11 +69,17 @@ export function decodePublicRoomFrame(raw:unknown,room:string):PublicRoomFrame|n
  switch(d.kind){
   case "join":
    return typeof d.name==="string"&&validPublicRoomName(d.name)&&
-    (d.resumeToken===undefined||validRoomResumeToken(d.resumeToken))?
-    {v:1,room,kind:"join",name:d.name,...(d.resumeToken===undefined?{}:{resumeToken:d.resumeToken as string})}:null;
+    (d.resumeToken===undefined||validRoomResumeToken(d.resumeToken))&&
+    (d.heartbeat===undefined||d.heartbeat===true)?
+    {v:1,room,kind:"join",name:d.name,
+     ...(d.resumeToken===undefined?{}:{resumeToken:d.resumeToken as string}),
+     ...(d.heartbeat===true?{heartbeat:true as const}:{})}:null;
   case "welcome":
-   return d.resumeToken===undefined?{v:1,room,kind:"welcome"}:
-    validRoomResumeToken(d.resumeToken)?{v:1,room,kind:"welcome",resumeToken:d.resumeToken as string}:null;
+   return (d.resumeToken===undefined||validRoomResumeToken(d.resumeToken))&&
+    (d.heartbeat===undefined||d.heartbeat===true)?
+    {v:1,room,kind:"welcome",
+     ...(d.resumeToken===undefined?{}:{resumeToken:d.resumeToken as string}),
+     ...(d.heartbeat===true?{heartbeat:true as const}:{})}:null;
   case "deny":return d.reason==="full"||d.reason==="name"||d.reason==="invalid"?
    {v:1,room,kind:"deny",reason:d.reason}:null;
   case "leave":return {v:1,room,kind:"leave"};
