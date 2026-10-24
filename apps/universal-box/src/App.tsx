@@ -4,6 +4,7 @@ import FocusTimer from "./components/FocusTimer";
 import EverydayTools, {type Utility} from "./components/EverydayTools";
 import ToolLaunchpad, {LOCAL_TOOLS} from "./components/ToolLaunchpad";
 import OfficeHome from "./components/OfficeHome";
+import SentinelCenter from "./components/SentinelCenter";
 import {searchPalette,addPaletteRecent,sanitizePaletteHistory,type PaletteCommand} from "./lib/commandDiscovery";
 import CommonsDesk from "./components/CommonsDesk";
 import WebCaptureHub from "./components/WebCaptureHub";
@@ -52,10 +53,16 @@ import {
   persistWorkspace,
 } from "./lib/nativeStorage";
 
-type View = "vision-workflows" | "life-media" | "daily-studio" | "extra-studio" | "creative-studio" | "web-capture" | "binary-compare" | "system-health" | "file-intake" | "commons" | "local-ai" | "access" | "pdf-mini" | "charts" | "free-formats" | "workflows" | "office-privacy" | "media-files" | "universal-lab" | "universal-box" | "universal" | "quick-tools" | "external" | "all-tools" | "code" | "tables" | "overview" | "tasks" | "cards" | "focus" | "notes" | "utilities" | "data" | "files" | "math" | "learning" | "writing" | "drawing" | "reading" | "presets";
+type View = "sentinel" | "sentinel-investigate" | "sentinel-compare" | "sentinel-system" | "sentinel-actions" | "sentinel-limits" | "vision-workflows" | "life-media" | "daily-studio" | "extra-studio" | "creative-studio" | "web-capture" | "binary-compare" | "system-health" | "file-intake" | "commons" | "local-ai" | "access" | "pdf-mini" | "charts" | "free-formats" | "workflows" | "office-privacy" | "media-files" | "universal-lab" | "universal-box" | "universal" | "quick-tools" | "external" | "all-tools" | "code" | "tables" | "overview" | "tasks" | "cards" | "focus" | "notes" | "utilities" | "data" | "files" | "math" | "learning" | "writing" | "drawing" | "reading" | "presets";
 
 const menu: { id: View; name: string; symbol: string; description: string }[] = [
   { id: "overview", name: "Overview", symbol: "◫", description: "Your workspace at a glance" },
+  { id: "sentinel", name: "Sentinel · 系统概览与扫描", symbol: "◉", description: "原 Go 引擎、系统概览、Easy Scan、Review Queue 与完整 WebView" },
+  { id: "sentinel-investigate", name: "Sentinel · 证据调查", symbol: "⌕", description: "Go 证据搜索、关联图谱、事件时间线" },
+  { id: "sentinel-compare", name: "Sentinel · 历史与变化比较", symbol: "⇄", description: "原 Sentinel 行为、参考基线与证据差异" },
+  { id: "sentinel-system", name: "Sentinel · 进程与网络", symbol: "⌘", description: "系统进程、启动项、后台、网络历史和存储" },
+  { id: "sentinel-actions", name: "Sentinel · 诊断与安全操作", symbol: "✚", description: "System Doctor 与原 WebView 安全审批和恢复中心" },
+  { id: "sentinel-limits", name: "Sentinel · 权限与运行状态", symbol: "◈", description: "可见性、功能权限和原 Go 引擎运行日志" },
   { id: "daily-studio", name: "Daily Utility Studio / 截图 · 打印 · JSON", symbol: "✎", description: "Annotate screenshots, print original A4 cards and infer TypeScript types from JSON" },
   { id: "vision-workflows", name: "OCR & Project Kit / 本机识字 · 选屏 · 一键成果包", symbol: "◎", description: "Apple Vision offline OCR, user-consented screen frame and one-click DOCX/PPTX/SVG project ZIP" },
   { id: "life-media", name: "Life & Media Studio / 字幕 · 文件分类 · 日历", symbol: "♫", description: "Two-point subtitle correction, organized safe ZIP files and multi-event calendars" },
@@ -99,6 +106,7 @@ const menu: { id: View; name: string; symbol: string; description: string }[] = 
 
 const navigationGroups:{title:string;items:View[]}[]=[
   {title:"常用工具 · FAVORITES",items:["overview","all-tools","files","quick-tools","vision-workflows","commons"]},
+  {title:"系统监控与安全 · SENTINEL",items:["sentinel","sentinel-investigate","sentinel-compare","sentinel-system","sentinel-actions","sentinel-limits"]},
   {title:"文档与 PDF",items:["pdf-mini","creative-studio","writing","free-formats","workflows","extra-studio"]},
   {title:"图片、网页与媒体",items:["file-intake","web-capture","life-media","media-files","daily-studio","binary-compare"]},
   {title:"数据与办公",items:["tables","utilities","charts","office-privacy","universal","universal-box"]},
@@ -136,6 +144,7 @@ export default function App() {
     catch{return [];}
   });
   const [commandOpen,setCommandOpen]=useState(false);
+  const [sentinelHandoff,setSentinelHandoff]=useState<{kind:"table"|"log";text:string;id:number}|null>(null);
   const [commandQuery,setCommandQuery]=useState("");
   const paletteCatalog=useMemo<PaletteCommand[]>(()=>[
     ...menu.map(item=>({id:"view-"+item.id,name:item.name,description:item.description,view:item.id})),
@@ -475,6 +484,17 @@ export default function App() {
           {view === "cards" && <Flashcards cards={workspace.cards} onChange={(cards) => setWorkspace((current) => ({ ...current, cards }))} />}
           <div hidden={view !== "focus"}><FocusTimer /></div>
           {view === "notes" && <section className="panel"><p className="eyebrow">LOCAL NOTES</p><h2>Keep ideas close at hand.</h2><p className="subtle">Your notes are automatically saved in this application. Export backups in Backup & privacy.</p><label className="field-label" htmlFor="my-notes">My notebook</label><textarea id="my-notes" className="field text-editor" rows={20} maxLength={50000} placeholder="Capture a thought, write a draft or summarise a concept…" value={workspace.notes} onChange={(event) => setWorkspace((current) => ({ ...current, notes: event.target.value }))}/><p className="subtle">{workspace.notes.length.toLocaleString()} characters</p></section>}
+          {view.startsWith("sentinel")&&<SentinelCenter key={view}
+            initialLens={view==="sentinel"?"overview":view.slice("sentinel-".length)}
+            onSendToTables={csv=>{
+              openTool("tables");
+              setSentinelHandoff({kind:"table",text:csv,id:Date.now()});
+            }}
+            onSendToPrivacy={text=>{
+              openTool("quick-tools","log-privacy");
+              setSentinelHandoff({kind:"log",text,id:Date.now()});
+            }}
+          />}
           {view === "commons" && <CommonsDesk onOpenTool={openTool} />}
           {view === "creative-studio" && <CreativeStudioDesk key={toolMode} initialMode={(toolMode||"word") as CreativeMode}/> }
           {view === "extra-studio" && <ExtraCreationDesk key={toolMode} initialMode={(toolMode||"office") as ExtraMode}/> }
@@ -486,7 +506,7 @@ export default function App() {
           {view === "binary-compare" && <BinaryCompareDesk onOpenTool={openTool}/> }
           {view === "system-health" && <SystemHealthDesk onOpenTool={openTool}/> }
           {view === "all-tools" && <ToolLaunchpad onLaunch={openTool} />}
-          {view === "quick-tools" && <QuickKitDesk key={toolMode} initialMode={(toolMode||"text") as QuickKitMode} />}
+          {view === "quick-tools" && <QuickKitDesk key={toolMode+"-"+(sentinelHandoff?.kind==="log"?sentinelHandoff.id:"base")} initialMode={(toolMode||"text") as QuickKitMode} initialLogText={sentinelHandoff?.kind==="log"?sentinelHandoff.text:""} />}
           {view === "universal" && <UniversalDesk key={toolMode} initialMode={(toolMode||"json-csv") as UniversalMode} onOpenCsv={()=>openTool("tables")}/> }
           {view === "universal-box" && <UniversalBoxDesk key={toolMode} initialMode={(toolMode||"qr") as UniversalBoxMode}/> }
           {view === "universal-lab" && <UniversalLabDesk key={toolMode} initialMode={(toolMode||"lines") as UniversalLabMode}/> }
@@ -500,7 +520,7 @@ export default function App() {
           {view === "pdf-mini" && <PdfEverydayDesk key={toolMode} initialMode={(toolMode||"metadata") as PdfEverydayMode} /> }
           {view === "external" && <ExternalTools onOpenPresets={()=>openTool("presets")} />}
           {view === "code" && <CodeDesk snippets={workspace.snippets??[]} onChange={snippets=>setWorkspace(current=>({...current,snippets}))} />}
-          {view === "tables" && <DataDesk />}
+          {view === "tables" && <DataDesk key={sentinelHandoff?.kind==="table"?sentinelHandoff.id:"base"} initialSource={sentinelHandoff?.kind==="table"?sentinelHandoff.text:undefined} />}
           {view === "utilities" && <EverydayTools key={toolMode} initial={(toolMode || "stats") as Utility} />}
           {view === "files" && <FileDesk key={toolMode} initialPdfMode={toolMode === "organize" ? "organize" : toolMode === "decorate" ? "decorate" : toolMode === "convert" ? "convert" : "merge"} initialTab={(toolMode === "organize" || toolMode === "decorate" || toolMode === "convert" ? "pdf" : toolMode || "pdf") as FileTab} onSendToWriting={markdown => {setWorkspace(current => ({...current, documentMarkdown: markdown})); setView("writing");}} />}
           {view === "math" && <MathDesk key={toolMode} initialTab={(toolMode||"calculator") as MathTab} />}
