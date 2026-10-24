@@ -4,8 +4,8 @@ import {exportFile} from "../lib/output";
 import {mergeCsvSources,mergedCsvExport,type MergedCsv} from "../lib/csvMerge";
 import {filterSortTable,makeDataTable,tableToCsv,tableToTsv,tableToJson,tableToMarkdown,type DataTable} from "../lib/tableTools";
 
-export default function DataDesk(){
-  const [source,setSource]=useState("Name,Score,Class\nAda,95,A\nBob,88,B\nCara,96,A");
+export default function DataDesk({initialSource}:{initialSource?:string}={}){
+  const [source,setSource]=useState(initialSource??"Name,Score,Class\nAda,95,A\nBob,88,B\nCara,96,A");
   const [delimiter,setDelimiter]=useState<","|"\t">(",");
   const [header,setHeader]=useState(true);
   const [table,setTable]=useState<DataTable|null>(null);
@@ -15,7 +15,7 @@ export default function DataDesk(){
   const [descending,setDescending]=useState(false);
   const [unique,setUnique]=useState(false);
   const [removeEmptyRows,setRemoveEmptyRows]=useState(false);
-  const [status,setStatus]=useState("");
+  const [status,setStatus]=useState(initialSource?"已从 Sentinel 证据读取 CSV 到本机内存。请检查后点击加载表格；原始系统记录没有改变。":"");
   const [merged,setMerged]=useState<MergedCsv|null>(null);
   const [mergeNames,setMergeNames]=useState<string[]>([]);
 
