@@ -1,6 +1,6 @@
 import {useCallback,useEffect,useRef,useState} from "react";
 import {invoke,isTauri} from "@tauri-apps/api/core";
-import {canJoinCommonsChat,mergeLanChatLines,type LanChatLine,type LanChatSnapshot} from "../lib/commonsChatUi";
+import {canJoinCommonsChat,mergeLanChatLines,chatHistoryGap,nextChatPage,type LanChatLine,type LanChatSnapshot} from "../lib/commonsChatUi";
 
 type HostInfo={active:boolean;room:string;invites:string[];secondsRemaining:number};
 const messageError=(error:unknown)=>error instanceof Error?error.message:String(error);
@@ -19,6 +19,7 @@ export default function CommonsLiveChatDesk({visible}:{visible:boolean}){
  const [messages,setMessages]=useState<LanChatLine[]>([]);
  const [participants,setParticipants]=useState<string[]>([]);
  const [draft,setDraft]=useState("");
+ const [missingHistory,setMissingHistory]=useState(0);
  const [busy,setBusy]=useState(false);
  const [error,setError]=useState("");
  const [networkState,setNetworkState]=useState("");
@@ -26,23 +27,36 @@ export default function CommonsLiveChatDesk({visible}:{visible:boolean}){
  const memberSession=useRef("");
  const session=useRef(0);
  const polling=useRef(false);
+ const pendingSend=useRef<{text:string;id:string}|null>(null);
  const applySnapshot=useCallback((snapshot:LanChatSnapshot)=>{
+  const gap=chatHistoryGap(cursor.current,snapshot);
+  if(gap>0)setMissingHistory(old=>Math.max(old,gap));
+  const next=nextChatPage(cursor.current,snapshot);
   setRoom(snapshot.room);
   setMessages(old=>mergeLanChatLines(old,snapshot.messages));
   setParticipants(snapshot.participants);
-  const last=snapshot.messages.at(-1)?.seq;
-  if(last&&last>cursor.current)cursor.current=last;
+  cursor.current=next;
  },[]);
  const poll=useCallback(async(invite:string,as:string,revision:number)=>{
   if(polling.current)return;
   polling.current=true;
   try{
-   const snapshot=await invoke<LanChatSnapshot>("commons_chat_exchange",{
-    invite,nickname:as,text:null,messageId:null,since:cursor.current,
-    join:false,leave:false,sessionToken:memberSession.current,
-   });
+   // Drain the host's 12-message pages in one explicit bounded round, rather
+   // than requiring 2.5 seconds per page after a disconnection or group join.
+   // No unbounded retry loop: 200 retained entries fit within 20 pages.
+   let pageCount=0,hasMore=false;
+   do{
+    const snapshot=await invoke<LanChatSnapshot>("commons_chat_exchange",{
+     invite,nickname:as,text:null,messageId:null,since:cursor.current,
+     join:false,leave:false,sessionToken:memberSession.current,
+    });
+    if(session.current!==revision)return;
+    applySnapshot(snapshot);pageCount++;
+    hasMore=snapshot.hasMore;
+   }while(hasMore&&pageCount<20);
    if(session.current!==revision)return;
-   applySnapshot(snapshot);setError("");setNetworkState("已连接 · 群消息已同步");
+   setError("");
+   setNetworkState(hasMore?"已连接 · 消息较多，下一轮继续同步":"已连接 · 最新可用群消息已同步");
   }catch(e){
    if(session.current===revision){setNetworkState("与局域网群聊暂时失去连接");setError(messageError(e));}
   }finally{polling.current=false;}
@@ -71,7 +85,7 @@ export default function CommonsLiveChatDesk({visible}:{visible:boolean}){
     join:true,leave:false,sessionToken:null,
    });
    if(!first.sessionToken)throw Error("Host did not issue a group member session.");
-   session.current++;cursor.current=0;memberSession.current=first.sessionToken;
+   session.current++;cursor.current=0;memberSession.current=first.sessionToken;setMissingHistory(0);pendingSend.current=null;
    setMessages([]);setParticipants([]);
    setHosting(true);setRoom(host.room);setShareInvite(host.invites.find(v=>!v.includes("127.0.0.1:"))??loopback);
    applySnapshot(first);setActiveInvite(loopback);setNetworkState("已创建临时局域网群聊");
@@ -112,6 +126,7 @@ export default function CommonsLiveChatDesk({visible}:{visible:boolean}){
    memberSession.current="";
    setActiveInvite("");setShareInvite("");setHosting(false);setRoom("");
    setMessages([]);setParticipants([]);cursor.current=0;setDraft("");setError("");
+   setMissingHistory(0);pendingSend.current=null;
    setNetworkState(hosting?"已停止群聊，所有连接和临时记录失效。":"已退出群聊。");
   }catch(e){setError("退出失败："+messageError(e));}
   finally{setBusy(false);}
@@ -122,13 +137,20 @@ export default function CommonsLiveChatDesk({visible}:{visible:boolean}){
     ||new TextEncoder().encode(text).length>4000)return;
   setBusy(true);setError("");
   try{
+   // If the server stored a message but the TCP reply was lost, a retry must
+   // reuse the same message ID so the server does not append a duplicate.
+   const id=pendingSend.current?.text===text?pendingSend.current.id:crypto.randomUUID();
+   pendingSend.current={text,id};
    const snapshot=await invoke<LanChatSnapshot>("commons_chat_exchange",{
     invite:activeInvite,nickname:nickname.trim(),text,
-    messageId:crypto.randomUUID(),since:cursor.current,
+    messageId:id,since:cursor.current,
     join:false,leave:false,sessionToken:memberSession.current,
    });
-   applySnapshot(snapshot);setDraft("");setNetworkState("消息已写入群聊主机");
-  }catch(e){setError("发送失败："+messageError(e));}
+   applySnapshot(snapshot);pendingSend.current=null;setDraft("");
+   setNetworkState("群聊主机已确认发送请求，其他成员将于下一轮同步");
+  }catch(e){
+   setError("发送结果未确认："+messageError(e)+"。可重试同一草稿，系统会沿用消息编号防止重复。");
+  }
   finally{setBusy(false);}
  }
  async function copyInvite(){
@@ -187,6 +209,9 @@ export default function CommonsLiveChatDesk({visible}:{visible:boolean}){
    <p className="subtle" data-testid="chat-online-members">
     最近在线昵称（未经身份验证）：{participants.join("、")||"暂无"}
    </p>
+   {missingHistory>0&&<p role="alert" data-testid="chat-history-gap" className="subtle">
+    注意：部分早期消息已超出主机最近 200 条的临时保留范围，至少 {missingHistory} 条无法补收。当前显示的是仍可获取的消息；请联系群主确认缺失内容。
+   </p>}
    <div data-testid="chat-history" role="log" aria-label="Group chat messages"
     style={{maxHeight:360,overflowY:"auto",padding:12,border:"1px solid var(--line,#cbd5e1)",borderRadius:10}}>
     {messages.length===0?<p className="subtle">尚无消息，可以发送第一条内容。</p>:
@@ -197,7 +222,7 @@ export default function CommonsLiveChatDesk({visible}:{visible:boolean}){
    </div>
    <label className="field-label">发送群聊消息
     <textarea className="field text-editor" data-testid="chat-draft" maxLength={1000} rows={3}
-     value={draft} onChange={e=>setDraft(e.target.value)} placeholder="输入消息，所有持有群聊邀请的成员都可查看"/>
+     value={draft} onChange={e=>{setDraft(e.target.value);pendingSend.current=null;}} placeholder="输入消息，所有持有群聊邀请的成员都可查看"/>
    </label>
    <button type="button" className="primary-button" data-testid="chat-send"
     disabled={!canSend||!native||busy} onClick={()=>void sendMessage()}>发送消息</button>
