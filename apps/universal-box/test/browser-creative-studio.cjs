@@ -27,7 +27,7 @@ async function save(page,selector,name){
  const target=path.join(dir,name);
  await file.saveAs(target);
  const bytes=fs.readFileSync(target);
- assert.ok(bytes.length>100,"empty file: "+name);
+ assert.ok(bytes.length>(name.endsWith(".md")?10:100),"empty or invalid export: "+name);
  return bytes;
 }
 async function cleanup(s,name){
@@ -35,6 +35,13 @@ async function cleanup(s,name){
   await s.page.screenshot({path:path.join(dir,name),fullPage:true});
   assert.deepEqual(s.errors,[]);
  }finally{await s.page.close();await s.browser.close();}
+}
+async function waitForEditorStatus(page,expected){
+ await page.waitForFunction(fragment=>{
+  const node=document.querySelector('section[aria-label="Free Creative Office Studio"] p[role="status"]');
+  return !!node?.textContent?.includes(fragment);
+ },expected,{timeout:12000});
+ return page.locator('section[aria-label="Free Creative Office Studio"] p[role="status"]').innerText();
 }
 test("real DOCX template export substitutes fields as editable Word text",{timeout:60000},async()=>{
  const s=await setup();
@@ -99,4 +106,66 @@ test("real flowchart steps export directional SVG shapes and escaped text",{time
   assert.equal((svg.match(/<rect x="170"/g)||[]).length,3);
   assert.equal((svg.match(/<path d="M 500/g)||[]).length,2);
  }finally{await cleanup(s,"flowchart-screen.png");}
+});
+
+test("Word editor imports a real UTF-8 Markdown source, exports editable DOCX and roundtrips raw draft",{timeout:80000},async()=>{
+ const session=await setup();
+ try{
+  const {page}=session;
+  await openTool(page,"Word DOCX Templates");
+  const markdown="\uFEFF# 每周工作报告\r\n\r\n**本周完成**\r\n- 保持离线办公\r\n- 发送给 {{recipient}}";
+  await page.getByTestId("creative-word-draft-file").setInputFiles({
+   name:"office-draft.md",mimeType:"text/markdown",buffer:Buffer.from(markdown,"utf8")
+  });
+  await page.waitForFunction(()=>document.querySelector('[data-testid="creative-word-title"]')?.value==="每周工作报告");
+  assert.equal(await page.getByTestId("creative-word-title").inputValue(),"每周工作报告");
+  assert.match(await page.getByTestId("creative-word-preview").innerText(),/发送给 李同学/);
+  const originalBody=await page.getByTestId("creative-word-body").inputValue();
+  const doc=await JSZip.loadAsync(await save(page,'[data-testid="creative-word-export"]',"imported-word.docx"),{checkCRC32:true});
+  const contents=await doc.file("word/document.xml").async("string");
+  assert.match(contents,/每周工作报告/);
+  assert.match(contents,/保持离线办公/);
+  assert.match(contents,/李同学/);
+  const raw=await save(page,'[data-testid="creative-word-export-draft"]',"imported-word-draft.md");
+  assert.equal(raw.toString("utf8"),"# 每周工作报告\n\n"+originalBody);
+  await page.getByTestId("creative-word-draft-file").setInputFiles({
+   name:"bad.md",mimeType:"text/markdown",buffer:Buffer.from("Unknown {{sensitive}}","utf8")
+  });
+  assert.match(await waitForEditorStatus(page,"当前编辑内容已保留"),/当前编辑内容已保留/);
+  assert.equal(await page.getByTestId("creative-word-body").inputValue(),originalBody);
+ }finally{await cleanup(session,"word-import-draft.png");}
+});
+
+test("PowerPoint imports UTF-8 MD outline, keeps slide editability and blocks corrupt imports",{timeout:80000},async()=>{
+ const session=await setup();
+ try{
+  const {page}=session;
+  await openTool(page,"PowerPoint PPTX Creator");
+  const source="# 项目汇报\n\n## 目标\n- 解决办公重复劳动\n- 保留原文件\n\n## 下一步\n- 真实用户反馈";
+  await page.getByTestId("creative-slide-draft-file").setInputFiles({
+   name:"slides.md",mimeType:"text/markdown",buffer:Buffer.from(source,"utf8")
+  });
+  await page.waitForFunction(()=>document.querySelector('[data-testid="creative-slide-title"]')?.value==="项目汇报");
+  assert.equal(await page.getByTestId("creative-slide-title").inputValue(),"项目汇报");
+  assert.match(await page.getByTestId("creative-slide-count").innerText(),/3 张/);
+  const outline=await page.getByTestId("creative-slide-outline").inputValue();
+  const pptx=await JSZip.loadAsync(await save(page,'[data-testid="creative-pptx-export"]',"imported-slides.pptx"),{checkCRC32:true});
+  const presentation=await pptx.file("ppt/presentation.xml").async("string");
+  const slide=await pptx.file("ppt/slides/slide2.xml").async("string");
+  assert.equal((presentation.match(/<p:sldId id=/g)||[]).length,3);
+  assert.match(slide,/解决办公重复劳动/);
+  assert.match(slide,/<p:txBody>/);
+  const exported=await save(page,'[data-testid="creative-slide-export-draft"]',"imported-slides-outline.md");
+  assert.equal(exported.toString("utf8"),"# 项目汇报\n\n"+outline);
+  await page.getByTestId("creative-slide-draft-file").setInputFiles({
+   name:"bad.md",mimeType:"text/plain",buffer:Buffer.from("## One\n"+Array(9).fill("- Too many").join("\n"),"utf8")
+  });
+  assert.match(await waitForEditorStatus(page,"当前编辑内容已保留"),/当前编辑内容已保留/);
+  assert.equal(await page.getByTestId("creative-slide-outline").inputValue(),outline);
+  await page.getByTestId("creative-slide-draft-file").setInputFiles({
+   name:"not-utf8.txt",mimeType:"text/plain",buffer:Buffer.from([255,254,0,65])
+  });
+  assert.match(await waitForEditorStatus(page,"UTF-8"),/UTF-8/);
+  assert.equal(await page.getByTestId("creative-slide-outline").inputValue(),outline);
+ }finally{await cleanup(session,"pptx-import-draft.png");}
 });

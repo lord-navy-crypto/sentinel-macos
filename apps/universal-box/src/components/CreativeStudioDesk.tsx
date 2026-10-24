@@ -1,7 +1,7 @@
-import {useMemo,useState} from "react";
+import {type ChangeEvent,useMemo,useState} from "react";
 import {exportFile} from "../lib/output";
 import {
- exportSlideDeck,exportWordTemplate,fillWordTemplate,parseSlideOutline,renderCreativeSvg,renderFlowchartSvg,
+ exportSlideDeck,exportWordTemplate,fillWordTemplate,parseSlideOutline,renderCreativeSvg,renderFlowchartSvg,decodeOfficeDraft,officeDraftMarkdown,
  type CreativeTheme,type CreativeFormat,type SlideDeckInput,type WordTemplateInput,type PosterInput,type FlowchartInput,
 } from "../lib/creativeStudio";
 
@@ -50,6 +50,37 @@ export default function CreativeStudioDesk({initialMode="word"}:{initialMode?:Cr
  const updateDesign=<K extends keyof PosterInput>(key:K,v:PosterInput[K])=>{
   setDesign(old=>({...old,[key]:v}));setStatus("");
  };
+ async function importDraft(mode:"word"|"slides",event:ChangeEvent<HTMLInputElement>){
+  const file=event.target.files?.[0];event.target.value="";
+  if(!file||busy)return;
+  setBusy(true);setStatus("");
+  try{
+   const draft=decodeOfficeDraft(file.name,new Uint8Array(await file.arrayBuffer()),mode);
+   if(mode==="word"){
+    const next={...word,title:draft.title??word.title,body:draft.body};
+    fillWordTemplate(next); // A malformed template never replaces the current editor.
+    setWord(next);
+   }else{
+    const next={...slides,title:draft.title??slides.title,outline:draft.body};
+    parseSlideOutline(next); // Validate heading/bullet limits before replacing existing outline.
+    setSlides(next);
+   }
+   setStatus("已从本地导入 "+file.name+"。请检查内容后生成文件；原稿未更改。");
+  }catch(e){setStatus("无法导入草稿："+error(e)+"。当前编辑内容已保留。");}
+  finally{setBusy(false);}
+ }
+ async function exportDraft(mode:"word"|"slides"){
+  if(busy)return;
+  setBusy(true);setStatus("");
+  try{
+   const markdown=mode==="word"?officeDraftMarkdown(word.title,word.body)
+    :officeDraftMarkdown(slides.title,slides.outline);
+   const name=mode==="word"?"sentinel-box-word-draft.md":"sentinel-box-slide-outline.md";
+   const didSave=await exportFile(name,markdown);
+   setStatus(didSave?"已保存可再次编辑的 Markdown 文本草稿。原文件未更改。":"已取消保存。");
+  }catch(e){setStatus("无法保存文本草稿："+error(e));}
+  finally{setBusy(false);}
+ }
  async function save(mode:CreativeMode){
   if(busy)return;
   setBusy(true);setStatus("");
@@ -77,30 +108,36 @@ export default function CreativeStudioDesk({initialMode="word"}:{initialMode?:Cr
   <p className="subtle">不仅是 PDF 或 CSV：从模板制作可编辑 Word 文档、原生 PowerPoint 演示文稿，以及原创 SVG 海报/证书/横幅。无需账号、付费、网络服务或云端上传。</p>
   <div className="pill-row" role="group" aria-label="Creative studio tools">
    {TABS.map(item=><button key={item.id} type="button" className={mode===item.id?"pill active-pill":"pill"}
-    aria-pressed={mode===item.id} onClick={()=>{setMode(item.id);setStatus("");}}>{item.name}</button>)}
+    aria-pressed={mode===item.id} disabled={busy} onClick={()=>{setMode(item.id);setStatus("");}}>{item.name}</button>)}
   </div>
   {mode==="word"&&<>
    <h3>Word 文档模板生成</h3>
    <p className="subtle">使用明确的 {"{{recipient}}"}、{"{{event}}"}、{"{{date}}"} 占位符，生成真实 DOCX，内容可在 Word/LibreOffice 中继续编辑。支持基本标题、粗体和列表；不等于完整的 Word 页面设计。</p>
+   <label className="field-label" htmlFor="creative-word-draft-file">导入已有 Markdown / UTF-8 TXT 正文（可选；不上传）</label>
+   <input id="creative-word-draft-file" data-testid="creative-word-draft-file" className="field" type="file" accept=".md,.txt,text/plain,text/markdown" disabled={busy} onChange={e=>{void importDraft("word",e);}}/>
    <div className="tools-pair">
-    <label className="field-label">文档标题<input className="field" data-testid="creative-word-title" maxLength={120} value={word.title} onChange={e=>updateWord("title",e.target.value)}/></label>
+    <label className="field-label">文档标题<input className="field" data-testid="creative-word-title" disabled={busy} maxLength={120} value={word.title} onChange={e=>updateWord("title",e.target.value)}/></label>
     <label className="field-label">收件人 / 姓名<input className="field" maxLength={120} value={word.recipient} onChange={e=>updateWord("recipient",e.target.value)}/></label>
     <label className="field-label">活动 / 主题<input className="field" maxLength={120} value={word.event} onChange={e=>updateWord("event",e.target.value)}/></label>
     <label className="field-label">日期<input className="field" maxLength={60} value={word.date} onChange={e=>updateWord("date",e.target.value)}/></label>
    </div>
-   <label className="field-label">Word 模板正文（Markdown）<textarea className="field text-editor" data-testid="creative-word-body" rows={8} maxLength={12000} value={word.body} onChange={e=>updateWord("body",e.target.value)}/></label>
+   <label className="field-label">Word 模板正文（Markdown）<textarea className="field text-editor" data-testid="creative-word-body" disabled={busy} rows={8} maxLength={12000} value={word.body} onChange={e=>updateWord("body",e.target.value)}/></label>
    {wordPreview.error?<p role="alert" className="subtle">{wordPreview.error}</p>:<pre data-testid="creative-word-preview" style={{whiteSpace:"pre-wrap",overflowWrap:"anywhere",maxHeight:280,overflow:"auto"}}>{wordPreview.text}</pre>}
+   <div className="actions"><button type="button" className="secondary-button" data-testid="creative-word-export-draft" disabled={busy||!!wordPreview.error}
+     onClick={()=>{void exportDraft("word");}}>另存 Markdown 草稿</button></div>
    <button type="button" className="primary-button" data-testid="creative-word-export" disabled={busy||!!wordPreview.error}
     onClick={()=>void save("word")}>{busy?"正在生成…":"生成并保存可编辑 DOCX"}</button>
   </>}
   {mode==="slides"&&<>
    <h3>PowerPoint 自动排版 · 原生 PPTX</h3>
    <p className="subtle">第一张为封面。以“## 标题”开始每张内容页，每行一个要点，最多 12 张内容页、每页 7 个要点。输出是可编辑的 PowerPoint 文本形状，而不是 PPT 图片截图；尚不支持母版编辑、动画或复杂图片布局。</p>
-   <label className="field-label">演示文稿标题<input data-testid="creative-slide-title" className="field" maxLength={100} value={slides.title} onChange={e=>updateSlides("title",e.target.value)}/></label>
+   <label className="field-label" htmlFor="creative-slide-draft-file">导入现有 Markdown / UTF-8 TXT 幻灯片大纲（可选；以 ## 开始每张内容页）</label>
+   <input id="creative-slide-draft-file" data-testid="creative-slide-draft-file" className="field" type="file" accept=".md,.txt,text/plain,text/markdown" disabled={busy} onChange={e=>{void importDraft("slides",e);}}/>
+   <label className="field-label">演示文稿标题<input data-testid="creative-slide-title" className="field" disabled={busy} maxLength={100} value={slides.title} onChange={e=>updateSlides("title",e.target.value)}/></label>
    <label className="field-label">封面副标题<input className="field" maxLength={180} value={slides.subtitle} onChange={e=>updateSlides("subtitle",e.target.value)}/></label>
    {themeSelect("slides")}
    <label className="field-label">每页标题与要点
-    <textarea className="field text-editor" data-testid="creative-slide-outline" rows={11} maxLength={12000} value={slides.outline} onChange={e=>updateSlides("outline",e.target.value)}/>
+    <textarea className="field text-editor" data-testid="creative-slide-outline" disabled={busy} rows={11} maxLength={12000} value={slides.outline} onChange={e=>updateSlides("outline",e.target.value)}/>
    </label>
    {slidePreview.error?<p role="alert" className="subtle">{slidePreview.error}</p>:<>
     <p className="subtle" data-testid="creative-slide-count">{slidePreview.data.length+1} 张幻灯片（含封面）</p>
@@ -112,6 +149,8 @@ export default function CreativeStudioDesk({initialMode="word"}:{initialMode?:Cr
      </div>)}
     </div>
    </>}
+   <div className="actions"><button type="button" className="secondary-button" data-testid="creative-slide-export-draft" disabled={busy||!!slidePreview.error}
+     onClick={()=>{void exportDraft("slides");}}>另存 Markdown 幻灯片大纲</button></div>
    <button type="button" className="primary-button" data-testid="creative-pptx-export" disabled={busy||!!slidePreview.error}
     onClick={()=>void save("slides")}>{busy?"正在生成…":"生成并保存可编辑 PPTX"}</button>
   </>}

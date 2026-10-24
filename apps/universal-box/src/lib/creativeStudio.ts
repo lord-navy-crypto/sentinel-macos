@@ -20,6 +20,38 @@ function value(label:string,raw:string,max:number):string{
 function assertTheme(theme:CreativeTheme):void{
  if(!Object.prototype.hasOwnProperty.call(PALETTES,theme))throw Error("Unknown creative theme.");
 }
+/** Import an explicitly selected UTF-8 TXT / Markdown draft, never a renamed binary file.
+ * Top-level '# Title' becomes the editable document/deck title; all other text is preserved.
+ */
+export type OfficeDraftKind="word"|"slides";
+export type OfficeDraft={title:string|null;body:string};
+export function decodeOfficeDraft(name:string,bytes:Uint8Array,kind:OfficeDraftKind):OfficeDraft{
+ if(!/\.(?:md|txt)$/iu.test(name))throw Error("Choose a .md or .txt draft.");
+ if(bytes.byteLength<1||bytes.byteLength>48_000)throw Error("Draft must be 1 byte–48 KB.");
+ let text:string;
+ try{text=new TextDecoder("utf-8",{fatal:true}).decode(bytes);}
+ catch{throw Error("Draft is not valid UTF-8; save as UTF-8 TXT or Markdown first.");}
+ text=text.replace(/^\uFEFF/u,"").replace(/\r\n?/gu,"\n");
+ if(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/u.test(text))
+  throw Error("Draft contains unsupported binary/control characters.");
+ text=text.replace(/^\n+/u,"");
+ if(text.length>12_000)throw Error("Draft content exceeds the 12,000-character editing limit.");
+ if(!text.trim())throw Error("Draft has no usable text.");
+ let title:string|null=null;
+ const first=/^# ([^\n]+)(?:\n|$)/u.exec(text);
+ if(first){
+  const heading=first[1].trim(),maximum=kind==="word"?120:100;
+  if(!heading||heading.length>maximum)throw Error("Draft title is too long or empty.");
+  title=heading;
+  text=text.slice(first[0].length).replace(/^\n+/u,"");
+ }
+ if(!text.trim())throw Error("Draft needs body text below the title.");
+ return {title,body:text};
+}
+export function officeDraftMarkdown(title:string,body:string):string{
+ return "# "+title.trim()+"\n\n"+body;
+}
+
 export type WordTemplateInput={
  title:string;recipient:string;event:string;date:string;body:string;
 };

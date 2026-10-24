@@ -1,7 +1,7 @@
 import {describe,expect,it} from "vitest";
 import JSZip from "jszip";
 import {
- exportWordTemplate,fillWordTemplate,parseSlideOutline,exportSlideDeck,renderCreativeSvg,renderFlowchartSvg,
+ exportWordTemplate,fillWordTemplate,parseSlideOutline,exportSlideDeck,renderCreativeSvg,renderFlowchartSvg,decodeOfficeDraft,officeDraftMarkdown,
  type SlideDeckInput,type WordTemplateInput,
 } from "./creativeStudio";
 
@@ -77,5 +77,38 @@ describe("Free creative studio: real native file exports",()=>{
    expect(art).toContain("Safe &amp; creative");
   }
   expect(()=>renderCreativeSvg({title:"",subtitle:"",footer:"",format:"poster",theme:"ocean"})).toThrow(/headline/);
+ });
+});
+describe("Locally imported editable Word and PowerPoint text drafts",()=>{
+ const encoded=(value:string)=>new TextEncoder().encode(value);
+ it("recognizes a UTF-8 BOM, CRLF, CJK, a top-level document title and preserves template tokens",()=>{
+  const draft=decodeOfficeDraft("meeting.md",encoded("\uFEFF# 周会纪要\r\n\r\n与会人：{{recipient}}\r\n- 待办事项"),"word");
+  expect(draft).toEqual({title:"周会纪要",body:"与会人：{{recipient}}\n- 待办事项"});
+  const next={...letter,title:draft.title!,body:draft.body};
+  expect(fillWordTemplate(next)).toContain("与会人：林同学");
+  expect(decodeOfficeDraft("meeting.txt",encoded(officeDraftMarkdown(next.title,next.body)),"word")).toEqual(draft);
+ });
+ it("roundtrips a real slide outline with Chinese bullets and applies a document title",()=>{
+  const input="# 项目介绍\n\n## 主要问题\n- 本地文件\n- 无订阅\n\n## 改进计划\n- 可编辑 PPTX";
+  const draft=decodeOfficeDraft("slides.md",encoded(input),"slides");
+  expect(draft.title).toBe("项目介绍");
+  expect(parseSlideOutline({...deck,title:draft.title!,outline:draft.body})).toHaveLength(2);
+  expect(decodeOfficeDraft("slides.txt",encoded(officeDraftMarkdown(draft.title!,draft.body)),"slides")).toEqual(draft);
+ });
+ it("rejects binary files, invalid UTF-8, empty docs, oversized text and unsupported extensions",()=>{
+  expect(()=>decodeOfficeDraft("data.docx",encoded("# Hi\nHello"),"word")).toThrow(/\.md or \.txt/);
+  expect(()=>decodeOfficeDraft("bad.md",Uint8Array.from([255,254,65,0]),"word")).toThrow(/UTF-8/);
+  expect(()=>decodeOfficeDraft("bad.txt",encoded("data\u0000bin"),"word")).toThrow(/control/);
+  expect(()=>decodeOfficeDraft("empty.md",encoded("\n\n"),"slides")).toThrow(/no usable/);
+  expect(()=>decodeOfficeDraft("title.md",encoded("# Heading\n"),"word")).toThrow(/needs body/);
+  expect(()=>decodeOfficeDraft("large.md",encoded("X".repeat(12001)),"word")).toThrow(/12,000-character/);
+  expect(()=>decodeOfficeDraft("large.md",new Uint8Array(48001),"word")).toThrow(/48 KB/);
+  expect(()=>decodeOfficeDraft("long.md",encoded("# "+("X".repeat(125))+"\nbody"),"slides")).toThrow(/title is too long/);
+ });
+ it("leaves existing editor validation responsible for malformed slide outline and template tokens",()=>{
+  const invalidSlides=decodeOfficeDraft("broken.md",encoded("## First\n- A\n"+Array(8).fill("- B").join("\n")),"slides");
+  expect(()=>parseSlideOutline({...deck,outline:invalidSlides.body})).toThrow(/Maximum 7/);
+  const invalidWord=decodeOfficeDraft("broken.md",encoded("Dear {{unknown}}"),"word");
+  expect(()=>fillWordTemplate({...letter,body:invalidWord.body})).toThrow(/Unknown template field/);
  });
 });
