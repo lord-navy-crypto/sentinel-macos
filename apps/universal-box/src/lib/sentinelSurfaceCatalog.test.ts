@@ -1,6 +1,6 @@
 import {describe,expect,it} from "vitest";
 import {LOCAL_TOOLS} from "../components/ToolLaunchpad";
-import {SENTINEL_EXTRA_READS,SENTINEL_BASE_EXTRA_CARDS,SENTINEL_LEGACY_ONLY} from "./sentinelSurfaceCatalog";
+import {SENTINEL_EXTRA_READS,SENTINEL_BASE_EXTRA_CARDS,SENTINEL_LEGACY_ONLY,SENTINEL_ADVANCED_API_DIRECTORY} from "./sentinelSurfaceCatalog";
 
 describe("original Sentinel native workbench visibility",()=>{
  it("registers exactly one browse/search entry per standalone original Go read surface",()=>{
@@ -25,6 +25,12 @@ describe("original Sentinel native workbench visibility",()=>{
   expect(LOCAL_TOOLS.find(t=>t.id==="sentinel-system-overview")).toBeDefined();
   expect(LOCAL_TOOLS.find(t=>t.id==="sentinel-evidence-search")).toBeDefined();
   expect(LOCAL_TOOLS.find(t=>t.id==="sentinel-log-redactor")).toBeDefined();
+  expect(SENTINEL_ADVANCED_API_DIRECTORY).toHaveLength(50);
+  expect(new Set(SENTINEL_ADVANCED_API_DIRECTORY.map(item=>item.path)).size).toBe(50);
+  expect(SENTINEL_ADVANCED_API_DIRECTORY.find(item=>item.path==="/api/actions/execute")?.access)
+   .toBe("original-webview");
+  expect(SENTINEL_ADVANCED_API_DIRECTORY.find(item=>item.path==="/api/search")?.access)
+   .toBe("native-search");
   expect(SENTINEL_LEGACY_ONLY.length).toBeGreaterThanOrEqual(4);
   const names=SENTINEL_LEGACY_ONLY.map(x=>x.title).join(" ");
   expect(names).toMatch(/安全操作/);
