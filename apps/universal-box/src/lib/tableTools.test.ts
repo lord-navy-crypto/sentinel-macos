@@ -137,6 +137,44 @@ describe("offline table workbench",()=>{
     expect(initial.rows[1][1]).toBe("old");
     expect(visible.rows[0][1]).toBe("old");
   });
+  it("deduplicates by a chosen exact ID field, keeping first record and all missing IDs",()=>{
+    const raw=makeDataTable([
+      ["订单号","客户","备注"],
+      ["001","甲","first"],["001","乙","second"],
+      ["","缺号1","review"],[" ","缺号2","review"],["","缺号3","review"],
+      ["ABC","丙","first"],["abc","丁","separate"],["ABC","戊","second"],
+    ]);
+    const prior=JSON.stringify(raw);
+    const byId=filterSortTable(raw,"",null,null,false,true,false,0);
+    expect(byId.rows).toEqual([
+      ["001","甲","first"],["","缺号1","review"],[" ","缺号2","review"],
+      ["","缺号3","review"],["ABC","丙","first"],["abc","丁","separate"],
+    ]);
+    expect(byId.rows.length).toBe(6);
+    expect(filterSortTable(raw,"",null,null,false,true).rows).toHaveLength(8);
+    expect(filterSortTable(raw,"",null,null,false,false,false,0).rows).toHaveLength(8);
+    expect(JSON.stringify(raw)).toBe(prior);
+  });
+  it("filters before key deduplication, then sorts retained first-occurrence records",()=>{
+    const raw=makeDataTable([
+      ["ID","Item","Cost"],
+      ["10","one","5"],["2","first","12"],["2","second","8"],["3","only","4"],
+    ]);
+    expect(filterSortTable(raw,"second",1,null,false,true,false,0).rows)
+      .toEqual([["2","second","8"]]);
+    expect(filterSortTable(raw,"",null,0,false,true,false,0).rows)
+      .toEqual([["2","first","12"],["3","only","4"],["10","one","5"]]);
+    const kept=filterSortTable(raw,"",null,null,false,true,false,0);
+    expect(tableToTsv(selectTableColumns(kept,[0,1]))).toBe("ID\tItem\r\n10\tone\r\n2\tfirst\r\n3\tonly");
+  });
+  it("rejects invalid duplicate-key indices without silently modifying data",()=>{
+    const original=makeDataTable([["ID","Name"],["a","甲"]]);
+    for(const value of [-1,2,1.5,NaN,Infinity]){
+      expect(()=>filterSortTable(original,"",null,null,false,true,false,value))
+        .toThrow(/Invalid duplicate-key column/);
+    }
+    expect(original.rows).toEqual([["a","甲"]]);
+  });
   it("rejects excessive columns",()=>{
     expect(()=>makeDataTable([Array.from({length:101},()=>"" )])).toThrow(/100 columns/);
   });
