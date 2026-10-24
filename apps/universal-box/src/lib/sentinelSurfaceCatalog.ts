@@ -202,3 +202,55 @@ export const SENTINEL_LEGACY_ONLY=[
 ] as const;
 /** These functions are intentionally kept in the original guarded WebView for now.
  * Never represent these as independent React execution commands. */
+
+/** Existing bridge keys that previously lacked a dedicated All Tools search card. */
+export const SENTINEL_BASE_EXTRA_CARDS:readonly SentinelSurfaceItem[]=[
+  {
+    "id": "profile",
+    "name": "设备系统信息",
+    "description": "macOS 配置与运行环境",
+    "lens": "overview"
+  },
+  {
+    "id": "quick-check",
+    "name": "Easy Scan 快速检查",
+    "description": "显式触发原系统快速证据采集",
+    "lens": "overview"
+  },
+  {
+    "id": "capabilities",
+    "name": "传感器与探测能力",
+    "description": "哪些原系统证据功能可以使用",
+    "lens": "limits"
+  },
+  {
+    "id": "startup",
+    "name": "系统启动项目",
+    "description": "登录项及启动服务概览",
+    "lens": "system"
+  },
+  {
+    "id": "background",
+    "name": "后台任务服务",
+    "description": "后台登记信息",
+    "lens": "system"
+  },
+  {
+    "id": "network-history",
+    "name": "网络历史轨迹",
+    "description": "已保留的历史网络数据",
+    "lens": "system"
+  },
+  {
+    "id": "trust",
+    "name": "当前参考基线状态",
+    "description": "读取已存在的信任参考点",
+    "lens": "compare"
+  },
+  {
+    "id": "runtime-logs",
+    "name": "原引擎运行日志",
+    "description": "运行错误和状态消息",
+    "lens": "limits"
+  }
+];
