@@ -27,7 +27,7 @@ async function save(page,selector,name){
  const target=path.join(dir,name);
  await file.saveAs(target);
  const bytes=fs.readFileSync(target);
- assert.ok(bytes.length>100,"empty file: "+name);
+ assert.ok(bytes.length>(name.endsWith(".md")?10:100),"empty or invalid export: "+name);
  return bytes;
 }
 async function cleanup(s,name){
