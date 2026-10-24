@@ -66,7 +66,7 @@ test("Existing batch image tool refuses spoofing and exports real JPEG in ZIP",{
   assert.match(await page.locator('[data-testid="image-size-report"]').innerText(),/Real file size & dimension comparison/);
   assert.match(await page.locator('[data-testid="image-size-report"]').innerText(),/real.png/);
   // Changing output quality invalidates the cached ZIP rather than silently saving stale bytes.
-  await page.getByRole("slider",{name:/Quality/}).focus();
+  await page.getByTestId("batch-image-quality").focus();
   await page.getByRole("slider",{name:/Quality/}).press("ArrowLeft");
   assert.equal(await page.getByTestId("image-save-reviewed").isDisabled(),true);
   assert.equal(await page.getByTestId("image-output-preview").count(),0);
