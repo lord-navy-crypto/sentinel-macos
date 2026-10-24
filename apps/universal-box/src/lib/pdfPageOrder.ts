@@ -26,6 +26,7 @@ export type PdfPageOrderPlan={
  mapping:{outputPage:number;sourcePage:number}[];
 };
 export function previewPdfOrder(expression:string,count:number):PdfPageOrderPlan{
+ if(count>300)throw Error("Reorder up to 300 PDF pages at a time.");
  const order=parsePdfOrder(expression,count);
  return {originalCount:count,outputCount:order.length,removedCount:count-order.length,
   order,mapping:order.map((from,i)=>({outputPage:i+1,sourcePage:from+1}))};
