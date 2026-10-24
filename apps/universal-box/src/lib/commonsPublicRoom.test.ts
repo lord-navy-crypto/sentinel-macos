@@ -37,6 +37,18 @@ describe("Manual host-forwarded public room protocol",()=>{
   expect(decodePublicRoomFrame(JSON.stringify({v:1,room,kind:"join",name:"路人"}),room)?.kind).toBe("join");
   expect(decodePublicRoomFrame(JSON.stringify({v:1,room,kind:"welcome"}),room)?.kind).toBe("welcome");
  });
+ it("validates bounded peer ACKs and group recipient count receipts",()=>{
+  const ack={v:1 as const,room,kind:"ack" as const,id};
+  const receipt={v:1 as const,room,kind:"receipt" as const,id,acked:2,total:2};
+  expect(decodePublicRoomFrame(encodePublicRoomFrame(ack),room)).toEqual(ack);
+  expect(decodePublicRoomFrame(encodePublicRoomFrame(receipt),room)).toEqual(receipt);
+  expect(decodePublicRoomFrame(encodePublicRoomFrame(receipt),"aaaaaaaa-1234-4234-9234-123456789abc")).toBeNull();
+  for(const bad of [
+   {...receipt,acked:-1},{...receipt,total:4},{...receipt,acked:3},
+   {...receipt,total:1.5},{...receipt,acked:"2"},{...receipt,id:"wrong"}
+  ])expect(decodePublicRoomFrame(JSON.stringify(bad),room)).toBeNull();
+  expect(decodePublicRoomFrame(JSON.stringify({...ack,id:"invalid"}),room)).toBeNull();
+ });
  it("only queues data on an open channel with room-specific backpressure",()=>{
   const channel=(readyState:string,bufferedAmount:number)=>({readyState,bufferedAmount}) as RTCDataChannel;
   expect(roomSendReady(channel("open",0))).toBe(true);
