@@ -253,6 +253,48 @@ describe("offline batch office text utility",()=>{
     expect(()=>processBatchTextFiles([{name:"a.txt",bytes:Uint8Array.from([255])}],"collapse-blank")).toThrow(/invalid UTF-8/);
   });
 
+
+  it("sorts nonblank TXT list contents naturally, preserving blank slots, BOM, CRLF/LF/CR and EOF",()=>{
+    const source=input("inventory.txt","\ufeffitem10\r\n \t\nitem2\rItem1\n");
+    const original=Uint8Array.from(source.bytes);
+    const row=processBatchTextFiles([source],"sort-list-asc")[0];
+    expect(row.changed).toBe(true);
+    expect(row.matches).toBe(2);
+    expect(Array.from(row.bytes.slice(0,3))).toEqual([239,187,191]);
+    expect(d.decode(row.bytes.subarray(3))).toBe("Item1\r\n \t\nitem2\ritem10\n");
+    expect(source.bytes).toEqual(original);
+    const unchanged=processBatchTextFiles([input("a.txt","item10\r\n \t\nitem2\rItem1\n")],"sort-list-desc")[0];
+    expect(unchanged.changed).toBe(false);
+    const descending=processBatchTextFiles([input("b.txt","apple\nBanana\ncherry")],"sort-list-desc")[0];
+    expect(d.decode(descending.bytes)).toBe("cherry\nBanana\napple");
+    expect(descending.matches).toBe(2);
+    expect(processBatchTextFiles([input("c.txt","ALPHA\nalpha\nAlpha")],"sort-list-asc")[0].changed).toBe(false);
+  });
+  it("removes near-duplicate TXT items ignoring outer whitespace/case but keeps first spelling and blank lines",async()=>{
+    const source=input("contacts.txt","\ufeff Alice \r\nalice\nBOB\rBob\n \t\r\nALIce\t");
+    const prior=Uint8Array.from(source.bytes);
+    const rows=processBatchTextFiles([source],"dedupe-list");
+    expect(rows[0].matches).toBe(3);
+    expect(d.decode(rows[0].bytes.subarray(3))).toBe(" Alice \r\nBOB\r \t\r\n");
+    expect(source.bytes).toEqual(prior);
+    const again=processBatchTextFiles([input("clean.txt",d.decode(rows[0].bytes.subarray(3)))],"dedupe-list")[0];
+    expect(again.changed).toBe(false);
+    const zip=await JSZip.loadAsync(await zipBatchTextResults(rows,"dedupe-list"),{checkCRC32:true});
+    expect(await zip.file("processed/contacts.txt")!.async("uint8array")).toEqual(rows[0].bytes);
+    const manifest=JSON.parse(await zip.file("sentinel-box-batch-text-manifest.json")!.async("string"));
+    expect(manifest.operation).toBe("dedupe-list");
+    expect(manifest.files[0].matches).toBe(3);
+  });
+  it("scopes natural sort and near-dedup to UTF-8 TXT files only, not Markdown or tabular data",()=>{
+    for(const mode of ["sort-list-asc","sort-list-desc","dedupe-list"] as const){
+      for(const ext of ["md","markdown","csv","tsv"]){
+        expect(()=>processBatchTextFiles([input("sheet."+ext,"Alpha\nalpha")],mode)).toThrow(/TXT-only/);
+      }
+    }
+    expect(()=>processBatchTextFiles([{name:"a.txt",bytes:Uint8Array.from([255])}],"sort-list-asc")).toThrow(/invalid UTF-8/);
+    expect(processBatchTextFiles([input("a.txt","Apple\n")],"sort-list-asc")[0].changed).toBe(false);
+  });
+
   it("packages changed copies only; JSON manifest and all exported bytes are verifiable",async()=>{
     const rows=processBatchTextFiles([
       input("报价.csv","旧价,5\r\n"),input("no-change.md","untouched"),
