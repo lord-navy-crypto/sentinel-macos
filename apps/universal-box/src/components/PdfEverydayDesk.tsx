@@ -30,6 +30,7 @@ function err(e:unknown){return e instanceof Error?e.message:String(e);}
 export default function PdfEverydayDesk({initialMode="metadata"}:{initialMode?:PdfEverydayMode}){
   const [mode,setMode]=useState<PdfEverydayMode>(initialMode);
   const [file,setFile]=useState<File|null>(null);
+ const [fileRevision,setFileRevision]=useState(0);
   const [bytes,setBytes]=useState<Uint8Array|null>(null);
   const [info,setInfo]=useState<PdfBasicInfo|null>(null);
   const [metadata,setMetadata]=useState<PdfMetadataEdit>(EMPTY_METADATA);
@@ -57,7 +58,9 @@ export default function PdfEverydayDesk({initialMode="metadata"}:{initialMode?:P
   const [busy,setBusy]=useState(false);
   const [status,setStatus]=useState("");
   async function importPdf(event:ChangeEvent<HTMLInputElement>){
+    if(busy){event.target.value="";return;}
     const selected=event.target.files?.[0];event.target.value="";
+    setFileRevision(i=>i+1);
     setFile(null);setBytes(null);setInfo(null);setFields(null);setFormValues({});
     setLinks(null);setLinkSelection("");setLinkDirty(false);setLinkPreview(null);
     setBatchFrom("");setBatchTo("");setBatchPages("all");setShowLinkPicker(false);
@@ -168,15 +171,15 @@ export default function PdfEverydayDesk({initialMode="metadata"}:{initialMode?:P
         aria-pressed={tab.id===mode} onClick={()=>{setMode(tab.id);setStatus("");}}>{tab.label}</button>)}
     </div>
     <label className="field-label" htmlFor="mini-pdf-input">Select PDF (≤15 MB, up to 200 pages)</label>
-    <input type="file" id="mini-pdf-input" className="field" accept=".pdf,application/pdf" onChange={e=>{void importPdf(e);}}/>
+    <input type="file" id="mini-pdf-input" disabled={busy} className="field" accept=".pdf,application/pdf" onChange={e=>{void importPdf(e);}}/>
     {info&&file&&<>
       <div className="metrics" aria-label="Imported PDF document information">
         <span><strong>{pageCount}</strong> pages</span>
         <span><strong>{(file.size/1_000_000).toFixed(2)}</strong> MB</span>
         <span><strong>{Math.round(info.dimensions[0].width)}×{Math.round(info.dimensions[0].height)}</strong> pt first page</span>
       </div>
-      {mode==="scan-compress"&&bytes&&<ScanPdfCompressionPanel key={file.name} source={bytes}/>}
-      {mode==="optimize"&&bytes&&<PdfStructureOptimizationPanel key={file.name} source={bytes}/>}
+      {mode==="scan-compress"&&bytes&&<ScanPdfCompressionPanel key={fileRevision} source={bytes}/>}
+      {mode==="optimize"&&bytes&&<PdfStructureOptimizationPanel key={fileRevision} source={bytes}/>}
       {mode==="metadata"&&<>
         <p className="subtle">Edit standard PDF document properties, without modifying page contents. This does <strong>not</strong> remove embedded XMP metadata, attachments, author traces or prior saved revisions; do not treat it as full anonymization.</p>
         <div className="tools-pair">
