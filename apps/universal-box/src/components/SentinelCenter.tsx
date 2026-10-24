@@ -4,7 +4,7 @@ import {exportFile} from "../lib/output";
 import {sentinelTable,sentinelSummary,sentinelCsv,filteredSentinelRows,sentinelDiff} from "../lib/sentinelPresentation";
 import {quickCheckMetrics,reviewQueueMetrics} from "../lib/sentinelDashboard";
 import {projectSentinelGraph} from "../lib/sentinelGraph";
-import {SENTINEL_EXTRA_READS,SENTINEL_LEGACY_ONLY} from "../lib/sentinelSurfaceCatalog";
+import {SENTINEL_EXTRA_READS,SENTINEL_LEGACY_ONLY,SENTINEL_ADVANCED_API_DIRECTORY} from "../lib/sentinelSurfaceCatalog";
 import SentinelGraphView from "./SentinelGraphView";
 import {projectSentinelTimeline} from "../lib/sentinelTimeline";
 import SentinelTimelineView from "./SentinelTimelineView";
@@ -64,6 +64,7 @@ export default function SentinelCenter({initialLens="overview",initialRead="",on
  const [dashboardError,setDashboardError]=useState("");
  const [searchQuery,setSearchQuery]=useState("");
  const [moduleFilter,setModuleFilter]=useState("");
+ const [advancedFilter,setAdvancedFilter]=useState("");
  const group=useMemo(()=>LENSES.find(x=>x.id===lens)??LENSES[0],[lens]);
  const table=useMemo(()=>sentinelTable(result),[result]);
  const graph=useMemo(()=>projectSentinelGraph(result),[result]);
@@ -280,6 +281,28 @@ export default function SentinelCenter({initialLens="overview",initialRead="",on
     </div>)}
    </div>
   </div>
+  <section className="panel" data-testid="sentinel-advanced-inventory" style={{marginTop:18}}>
+   <p className="eyebrow">COMPLETE ORIGINAL GO API INVENTORY</p>
+   <h3>高级功能目录 · 50 条原系统路由</h3>
+   <p className="subtle">这是原 Sentinel 尚未转换成固定只读 React 查询的功能目录。其中一些需要目标参数、主动扫描、输出文件或系统级安全审批。目录不调用接口；点击「打开完整 Sentinel 工作台」后使用原系统界面操作。部分搜索功能已由上方独立的安全搜索入口实现。</p>
+   <label className="field-label" htmlFor="sentinel-advanced-filter">搜索原 Sentinel 高级功能
+    <input id="sentinel-advanced-filter" type="search" className="field"
+      data-testid="sentinel-advanced-filter" value={advancedFilter} onChange={e=>setAdvancedFilter(e.target.value)}
+      placeholder="例如：隔离、深度搜索、调查报告、资源历史、/api/…" />
+   </label>
+   <div className="sentinel-advanced-list">
+    {SENTINEL_ADVANCED_API_DIRECTORY.filter(item=>
+       [item.title,item.path,item.group].join(" ").toLowerCase().includes(advancedFilter.trim().toLowerCase()))
+      .map(item=><div key={item.path} className="sentinel-advanced-entry" data-testid="sentinel-advanced-entry">
+       <strong>{item.title}</strong><small>{item.group}</small>
+       <code>{item.path}</code>
+       <span>{item.access==="native-search"?"上方独立证据搜索可用":"原完整 WebView 工作台"}</span>
+      </div>)}
+   </div>
+   <div className="actions"><button type="button" className="primary-button" disabled={!engine?.running||working}
+     onClick={()=>void openFull()}>打开完整 Sentinel 工作台 ↗</button>
+    <span className="subtle">禁止自动执行系统修改。实际恢复、清理或隔离操作必须继续按原 Sentinel 的权限与确认流程处理。</span></div>
+  </section>
   <p className="subtle">隐私与安全：所有数据通过 Rust 进程转发；认证令牌不会传给 React。当前页面仅允许查询固定的只读 API。需要完整扫描、审批、恢复和其他高级功能时，使用内置完整工作台。</p>
  </section>;
 }
