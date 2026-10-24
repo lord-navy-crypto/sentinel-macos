@@ -28,6 +28,8 @@ export default function SpeechPortableDesk({mode}:{mode:SpeechPortableMode}){
  const [photoReports,setPhotoReports]=useState<PhotoReport[]>([]);
  const [preparedPhotos,setPreparedPhotos]=useState<Awaited<ReturnType<typeof compressPhotoBatch>>|null>(null);
  const [photoPreviewUrl,setPhotoPreviewUrl]=useState("");
+ const photoJob=useRef<AbortController|null>(null);
+ useEffect(()=>()=>{photoJob.current?.abort();},[]);
  useEffect(()=>()=>{if(photoPreviewUrl)URL.revokeObjectURL(photoPreviewUrl);},[photoPreviewUrl]);
  const [texts,setTexts]=useState<PortableInput[]>([]);
  const [textSettings,setTextSettings]=useState<PortableSettings>({source:"auto",target:"utf-8-bom",lines:"crlf"});
@@ -110,30 +112,37 @@ export default function SpeechPortableDesk({mode}:{mode:SpeechPortableMode}){
  }
  async function previewPhotos(){
   if(busy||!photos.length)return;
+  const job=new AbortController();photoJob.current=job;
   setBusy(true);setStatus("");setPhotoPreviewUrl("");setPreparedPhotos(null);setPhotoReports([]);
   try{
-   const result=await compressPhotoBatch(photos,photoSettings);
-   setPreparedPhotos(result);setPhotoReports(result.reports);
+   const result=await compressPhotoBatch(photos,photoSettings,job.signal);
    const first=result.reports[0];
    const zip=await JSZip.loadAsync(result.zip);
    const file=zip.file(first.outputName);
    if(!file)throw Error("Preview photo is missing from the generated ZIP.");
    const data=await file.async("uint8array");
+   if(job.signal.aborted)throw Error("Photo compression cancelled.");
    const mime=photoSettings.format==="jpeg"?"image/jpeg":"image/webp";
+   setPreparedPhotos(result);setPhotoReports(result.reports);
    setPhotoPreviewUrl(URL.createObjectURL(new Blob([new Uint8Array(data)],{type:mime})));
    setStatus("Compressed "+result.reports.length+" photos locally. Review actual bytes, image clarity and target size, then save.");
-  }catch(e){setStatus("Photo preview failed: "+err(e));invalidatePreparedPhotos();}
-  finally{setBusy(false);}
+  }catch(e){setStatus(job.signal.aborted?"Photo compression cancelled. No ZIP saved.":"Photo preview failed: "+err(e));invalidatePreparedPhotos();}
+  finally{if(photoJob.current===job)photoJob.current=null;setBusy(false);}
  }
  async function savePhotos(){
-  if(busy||!photos.length)return;setBusy(true);setStatus("");
+  if(busy||!photos.length)return;
+  const job=new AbortController();photoJob.current=job;
+  setBusy(true);setStatus("");
   try{
-   const result=preparedPhotos??await compressPhotoBatch(photos,photoSettings);
+   const result=preparedPhotos??await compressPhotoBatch(photos,photoSettings,job.signal);
+   if(job.signal.aborted)throw Error("Photo compression cancelled.");
+   // OS save dialogs cannot be cancelled by this button; disable cancellation once export begins.
+   if(photoJob.current===job)photoJob.current=null;
    const ok=await exportFile("sentinel-box-compressed-photos.zip",result.zip);
    setPhotoReports(result.reports);
    setStatus(ok?"Saved actual JPEG/WebP images and per-file size comparison in a ZIP. Originals unchanged.":"Save cancelled.");
-  }catch(e){setStatus("Photo compression failed: "+err(e));}
-  finally{setBusy(false);}
+  }catch(e){setStatus(job.signal.aborted?"Photo compression cancelled. No ZIP saved.":"Photo compression failed: "+err(e));}
+  finally{if(photoJob.current===job)photoJob.current=null;setBusy(false);}
  }
  async function pickTexts(event:ChangeEvent<HTMLInputElement>){
   const selected=[...(event.target.files??[])];event.target.value="";setTexts([]);setTextReports([]);setStatus("");
@@ -222,6 +231,7 @@ export default function SpeechPortableDesk({mode}:{mode:SpeechPortableMode}){
    <div className="actions">
     <button type="button" className="secondary-button" data-testid="photo-preview-run" disabled={busy||!!photoError||!photos.length} onClick={()=>void previewPhotos()}>先处理并预览实际效果</button>
     <button type="button" className="primary-button" data-testid="photo-save" disabled={busy||!!photoError||!photos.length} onClick={()=>void savePhotos()}>{preparedPhotos?"保存已预览的 ZIP":"压缩并保存 ZIP"}</button>
+    {busy&&photoJob.current&&<button type="button" className="secondary-button" data-testid="photo-cancel" onClick={()=>photoJob.current?.abort()}>取消当前压缩 · Cancel</button>}
    </div>
    {photoReports.length>0&&<div data-testid="photo-size-summary" className="metrics">
     <span>原图合计：{photoReports.reduce((sum,r)=>sum+r.originalBytes,0).toLocaleString()} bytes</span>
