@@ -159,7 +159,7 @@ test("Commons UI separates offline room, explicit LAN steps and opt-in public di
   assert.equal(await page.getByRole("group",{name:"LAN transfer direction"}).getByRole("button",{name:/接收/}).getAttribute("aria-pressed"),"true");
   assert.equal(await page.getByRole("button",{name:/刷新附近设备/}).isDisabled(),true,"Browser must not promise native Bonjour");
   assert.doesNotMatch(await section.innerText(),/自动通过 Bonjour\/mDNS 搜索/);
-  const fullInvite=page.getByRole("textbox",{name:"LAN invitation to receive"});
+  const fullInvite=page.locator('input[aria-label="LAN invitation to receive"]');
   assert.equal(await fullInvite.getAttribute("type"),"password","Private invite must start masked");
   const receive=page.getByRole("button",{name:"接收并校验加密团队包"});
   assert.equal(await receive.isDisabled(),true);
