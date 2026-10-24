@@ -39,11 +39,11 @@ export default function CommonsConnectivityDiagnostics(props:Props){
   <section className="diagnostic-steps">
    <h4>出现连接问题时，按顺序检查</h4>
    <ol>
-    <li>**局域网：** 两台 Mac 是否位于同一可互访 Wi-Fi / 有线网络？访客 Wi-Fi 可能阻止设备通信。</li>
-    <li>**地址：** 邀请应使用当前 Wi-Fi/有线网卡的 IPv4，而不是 127.0.0.1 或不可达的 VPN IP。</li>
-    <li>**权限：** 检查 macOS 防火墙、局域网访问权限及路由器 AP 隔离。</li>
-    <li>**公网：** 手动交换每次新的 WebRTC Offer/Answer；STUN 不保证 NAT 穿透，受限网络可能需要自行配置 TURN。</li>
-    <li>**掉线：** 局域网会话过期后可重新加入原房间；公网群聊需对原成员重新协商。</li>
+    <li><strong>局域网：</strong> 两台 Mac 是否位于同一可互访 Wi-Fi / 有线网络？访客 Wi-Fi 可能阻止设备通信。</li>
+    <li><strong>地址：</strong> 邀请应使用当前 Wi-Fi/有线网卡的 IPv4，而不是 127.0.0.1 或不可达的 VPN IP。</li>
+    <li><strong>权限：</strong> 检查 macOS 防火墙、局域网访问权限及路由器 AP 隔离。</li>
+    <li><strong>公网：</strong> 手动交换每次新的 WebRTC Offer/Answer；STUN 不保证 NAT 穿透，受限网络可能需要自行配置 TURN。</li>
+    <li><strong>掉线：</strong> 局域网会话过期后可重新加入原房间；公网群聊需对原成员重新协商。</li>
    </ol>
   </section>
   <div className="actions">
