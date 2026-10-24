@@ -5,7 +5,7 @@ import {
 } from "../lib/quickKit";
 import {exportFile} from "../lib/output";
 import {replaceTextLiteral} from "../lib/quickBatchText";
-import {addClip,combineClips} from "../lib/multiCopy";
+import {addClip,combineClips,moveClip} from "../lib/multiCopy";
 import {transformTextCase,type TextCaseMode} from "../lib/textCaseWidth";
 import BatchTextFilesDesk from "./BatchTextFilesDesk";
 
@@ -155,7 +155,7 @@ export default function QuickKitDesk({initialMode="text"}:{initialMode?:QuickKit
     </>}
     {mode==="batch-files"&&<BatchTextFilesDesk/>}
     {mode==="multi-copy"&&<>
-      <p className="subtle">Collect up to 30 text snippets in this window, reorder by removal, then copy them as one. No background clipboard monitoring; no saved history or cloud sync. Passwords and private data should not be collected.</p>
+      <p className="subtle">Collect up to 30 text snippets in this window, move snippets up or down to arrange their order, then copy or save the combined text. No background clipboard monitoring; no saved history or cloud sync. Passwords and private data should not be collected.</p>
       <label className="field-label" htmlFor="clip-draft">Text to add · 待添加文本</label>
       <textarea id="clip-draft" className="field text-editor" rows={4} maxLength={20000} value={clipDraft} onChange={e=>setClipDraft(e.target.value)}/>
       <div className="actions">
@@ -167,13 +167,25 @@ export default function QuickKitDesk({initialMode="text"}:{initialMode?:QuickKit
           <option value="newline">One new line</option><option value="blank">Blank line</option><option value="space">Space</option>
         </select>
       </label>
-      {clips.map((clip,i)=><div className="task-row" key={i}>
+      {clips.map((clip,i)=><div className="task-row" data-testid="clip-item" key={i}>
         <span className="task-copy">{i+1}. {clip.slice(0,180)}{clip.length>180?"…":""}</span>
-        <button type="button" className="secondary-button" onClick={()=>setClips(old=>old.filter((_,j)=>i!==j))}>Remove</button>
+        <button type="button" data-testid="clip-up" className="secondary-button" disabled={i===0}
+          aria-label={"Move snippet "+(i+1)+" up"} onClick={()=>{setClips(old=>moveClip(old,i,-1));setStatus("Snippet order updated.");}}>↑ Up</button>
+        <button type="button" data-testid="clip-down" className="secondary-button" disabled={i===clips.length-1}
+          aria-label={"Move snippet "+(i+1)+" down"} onClick={()=>{setClips(old=>moveClip(old,i,1));setStatus("Snippet order updated.");}}>↓ Down</button>
+        <button type="button" className="secondary-button" aria-label={"Remove snippet "+(i+1)}
+          onClick={()=>{setClips(old=>old.filter((_,j)=>i!==j));setStatus("Snippet removed.");}}>Remove</button>
       </div>)}
       <label className="field-label" htmlFor="clip-combined">Combined preview · 合并结果 ({clips.length}/30)</label>
       <textarea className="field text-editor" id="clip-combined" rows={6} readOnly value={clips.length?combineClips(clips,clipSeparator):""}/>
-      <button type="button" className="primary-button" disabled={!clips.length} onClick={()=>{void navigator.clipboard.writeText(combineClips(clips,clipSeparator)).then(()=>setStatus("Copied combined text locally."),()=>setStatus("Clipboard unavailable; select the preview text to copy manually."));}}>Copy combined text</button>
+      <div className="actions">
+        <button type="button" className="primary-button" data-testid="clip-copy-combined" disabled={!clips.length}
+          onClick={()=>{void navigator.clipboard.writeText(combineClips(clips,clipSeparator)).then(()=>setStatus("Copied combined text locally."),()=>setStatus("Clipboard unavailable; select the preview text to copy manually."));}}>Copy combined text</button>
+        <button type="button" className="secondary-button" data-testid="clip-save-combined" disabled={!clips.length}
+          onClick={()=>{void exportFile("sentinel-box-combined-notes.txt",combineClips(clips,clipSeparator))
+            .then(saved=>setStatus(saved?"Saved combined local TXT copy.":"Save cancelled; snippets remain in this window."),
+             e=>setStatus("Save failed: "+String(e instanceof Error?e.message:e)));}}>Save combined TXT</button>
+      </div>
     </>}
     {mode==="dates"&&<>
       <div className="tools-pair">
