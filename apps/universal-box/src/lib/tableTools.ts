@@ -113,6 +113,19 @@ export function selectTableColumns(table:DataTable,selected:readonly number[]):D
   };
 }
 
+/** Add sequential numbers to an EXPORT PREVIEW only, after filters, sort, deduplication and column selection. */
+export function addTableRowNumbers(table:DataTable):DataTable{
+  if(table.headers.length<1||table.headers.length>=100||table.rows.length>2000)
+    throw Error("Row numbering supports at most 99 existing columns and 2,000 rows.");
+  const used=new Set(table.headers);
+  let name="Row #",suffix=2;
+  while(used.has(name))name="Row # ("+(suffix++)+")";
+  return {
+    headers:[name,...table.headers],
+    rows:table.rows.map((row,index)=>[String(index+1),...row]),
+  };
+}
+
 function neutralizeFormula(cell:string):string {
   // Prevent CSV formula execution by Excel/Numbers when opening exported, untrusted text data.
   return /^[\s\uFEFF]*[=+@]/u.test(cell)||/^[\s\uFEFF]*-(?!\d+(?:\.\d+)?$)/u.test(cell)?"'"+cell:cell;
