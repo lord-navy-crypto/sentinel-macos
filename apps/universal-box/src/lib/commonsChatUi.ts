@@ -17,7 +17,33 @@ export function canJoinCommonsChat(text:string):boolean{
  try{parseCommonsChatInvite(text);return true;}catch{return false;}
 }
 export type LanChatLine={seq:number;nickname:string;text:string;timestampMs:number};
-export type LanChatSnapshot={room:string;messages:LanChatLine[];participants:string[];hasMore:boolean;sessionToken?:string};
+export type LanChatSnapshot={
+ room:string;messages:LanChatLine[];participants:string[];hasMore:boolean;
+ sessionToken?:string;oldestSeq:number;latestSeq:number;
+};
+/** The first retained host sequence exposes irretrievable history, never silently pretend
+ * a successful connection fetched messages already discarded from the 200-line RAM window.
+ */
+export function chatHistoryGap(cursor:number,snapshot:LanChatSnapshot):number{
+ if(!Number.isSafeInteger(cursor)||cursor<0)throw Error("Invalid LAN message cursor");
+ if(snapshot.oldestSeq===0)return 0;
+ return Math.max(0,snapshot.oldestSeq-cursor-1);
+}
+export function nextChatPage(cursor:number,snapshot:LanChatSnapshot):number{
+ if(!Number.isSafeInteger(cursor)||cursor<0)throw Error("Invalid LAN message cursor");
+ let previous=0,last=cursor;
+ for(const line of snapshot.messages){
+  if(!Number.isSafeInteger(line.seq)||line.seq<=previous)throw Error("Out-of-order chat page");
+  previous=line.seq;
+  last=Math.max(last,line.seq);
+ }
+ // A simultaneous send response can arrive behind an active poll. Old pages
+ // may be repeated safely; only reject a stale response claiming more pages
+ // if it provided nothing we can advance with.
+ if(snapshot.hasMore&&last===cursor&&snapshot.messages.length===0)
+  throw Error("Host returned an empty page with more messages");
+ return last;
+}
 export function mergeLanChatLines(old:readonly LanChatLine[],incoming:readonly LanChatLine[]):LanChatLine[]{
  const bySeq=new Map(old.map(item=>[item.seq,item]));
  for(const line of incoming)if(Number.isSafeInteger(line.seq)&&line.seq>0)bySeq.set(line.seq,line);
