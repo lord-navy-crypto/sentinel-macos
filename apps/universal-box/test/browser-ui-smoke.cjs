@@ -236,3 +236,49 @@ test("Public Internet WebRTC direct UI requires deliberate signaling and explici
   assert.deepEqual(errors,[]);
  }finally{await page.close();await browser.close();}
 });
+
+test("Two actual browser WebRTC DataChannel peers exchange encrypted text without any STUN server",{timeout:90000},async()=>{
+ const browser=await chromium.launch({headless:true,args:["--no-sandbox"]});
+ const page=await openApp(browser);
+ try{
+  const result=await page.evaluate(async()=>{
+   if(typeof RTCPeerConnection==="undefined")throw Error("WebRTC unavailable in installed Chromium");
+   const a=new RTCPeerConnection({iceServers:[]}),b=new RTCPeerConnection({iceServers:[]});
+   try{
+    const offered=a.createDataChannel("sentinel-p2p-text");
+    let receivedChannel;
+    const incoming=new Promise(resolve=>{
+     b.ondatachannel=evt=>{
+      receivedChannel=evt.channel;
+      evt.channel.onmessage=message=>resolve(message.data);
+     };
+    });
+    const gathered=peer=>new Promise((resolve,reject)=>{
+     if(peer.iceGatheringState==="complete"){resolve();return;}
+     const timer=setTimeout(()=>reject(Error("ICE gathering timeout")),18000);
+     peer.addEventListener("icegatheringstatechange",()=>{
+      if(peer.iceGatheringState==="complete"){clearTimeout(timer);resolve();}
+     });
+    });
+    await a.setLocalDescription(await a.createOffer());
+    await gathered(a);
+    await b.setRemoteDescription(a.localDescription);
+    await b.setLocalDescription(await b.createAnswer());
+    await gathered(b);
+    await a.setRemoteDescription(b.localDescription);
+    if(offered.readyState!=="open")await new Promise((resolve,reject)=>{
+     const timer=setTimeout(()=>reject(Error("Direct WebRTC connection timeout")),18000);
+     offered.addEventListener("open",()=>{clearTimeout(timer);resolve();},{once:true});
+    });
+    offered.send("公网消息协议测试 · WebRTC DTLS");
+    const text=await Promise.race([
+     incoming,new Promise((_,reject)=>setTimeout(()=>reject(Error("DataChannel delivery timeout")),18000))
+    ]);
+    return {text,connection:a.connectionState,remote:receivedChannel.readyState};
+   }finally{a.close();b.close();}
+  });
+  assert.equal(result.text,"公网消息协议测试 · WebRTC DTLS");
+  assert.equal(result.connection,"connected");
+  assert.equal(result.remote,"open");
+ }finally{await page.close();await browser.close();}
+});
