@@ -295,3 +295,40 @@ test("Two actual browser WebRTC DataChannel peers exchange encrypted text withou
   assert.equal(result.remote,"open");
  }finally{await page.close();await browser.close();}
 });
+
+test("Two real Commons WebRTC pages negotiate, chat and show peer app ACK",{timeout:140000},async()=>{
+ const browser=await chromium.launch({headless:true,args:["--no-sandbox"]});
+ const first=await openApp(browser),second=await openApp(browser);
+ try{
+  for(const [page,name] of [[first,"Alex"],[second,"Blair"]]){
+   await page.locator('.sidebar button.nav-item[aria-label^="Universal Commons"]').click();
+   await page.getByRole("group",{name:"Communication transport"}).getByRole("button",{name:/公网 · 直连实验/}).click();
+   await page.getByTestId("p2p-nickname").fill(name);
+   assert.equal(await page.getByTestId("p2p-stun-opt-in").isChecked(),false);
+   assert.equal(await page.getByTestId("p2p-own-turn").isChecked(),false);
+  }
+  await first.getByTestId("p2p-offer").click();
+  await first.getByTestId("p2p-local-description").waitFor({timeout:30000});
+  const offer=await first.getByTestId("p2p-local-description").inputValue();
+  assert.equal(JSON.parse(offer).type,"offer");
+  await second.getByTestId("p2p-remote-description").fill(offer);
+  await second.getByTestId("p2p-answer").click();
+  await second.getByTestId("p2p-local-description").waitFor({timeout:30000});
+  const answer=await second.getByTestId("p2p-local-description").inputValue();
+  assert.equal(JSON.parse(answer).type,"answer");
+  await first.getByTestId("p2p-remote-description").fill(answer);
+  await first.getByTestId("p2p-apply").click();
+  await first.getByTestId("p2p-draft").waitFor({timeout:30000});
+  await second.getByTestId("p2p-draft").waitFor({timeout:30000});
+  await first.getByTestId("p2p-draft").fill("局域网之外的 WebRTC 消息回执测试");
+  await first.getByTestId("p2p-send").click();
+  await second.getByTestId("p2p-history").getByText("局域网之外的 WebRTC 消息回执测试").waitFor({timeout:20000});
+  await first.getByTestId("p2p-message-receipt").getByText("对方应用已确认收到").waitFor({timeout:20000});
+  assert.equal(await second.getByTestId("p2p-history").locator("p").count(),1);
+  await second.getByTestId("p2p-draft").fill("收到，并确认");
+  await second.getByTestId("p2p-send").click();
+  await first.getByTestId("p2p-history").getByText("收到，并确认").waitFor({timeout:20000});
+  await second.getByTestId("p2p-message-receipt").getByText("对方应用已确认收到").waitFor({timeout:20000});
+  assert.equal(await first.getByTestId("p2p-stun-opt-in").isChecked(),false);
+ }finally{await first.close();await second.close();await browser.close();}
+});
