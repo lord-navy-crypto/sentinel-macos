@@ -8,7 +8,7 @@ import PdfPagePreview from "./PdfPagePreview";
 import PdfTextDesk from "./PdfTextDesk";
 import PdfFreedomDesk from "./PdfFreedomDesk";
 import PdfConvertDesk from "./PdfConvertDesk";
-import { parsePdfOrder } from "../lib/pdfPageOrder";
+import { previewPdfOrder, exportReorderedPdf } from "../lib/pdfPageOrder";
 import {inspectOfficePdfMerge,mergeOfficePdfs,type PdfMergePlan} from "../lib/officePdfMerge";
 import BatchImageDesk from "./BatchImageDesk";
 import ImageAnnotationDesk from "./ImageAnnotationDesk";
@@ -95,6 +95,10 @@ export default function FileDesk({ onSendToWriting, initialTab = "pdf", initialP
   const [markdown, setMarkdown] = useState("");
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
+  const organizePreview = pdfMode==="organize"&&pdfCount>0
+    ? (()=>{try{return {plan:previewPdfOrder(pages,pdfCount),error:""};}
+      catch(e){return {plan:null,error:errorMessage(e)};}})()
+    : {plan:null,error:""};
 
   useEffect(() => {
     if (!image) {
@@ -107,6 +111,7 @@ export default function FileDesk({ onSendToWriting, initialTab = "pdf", initialP
   }, [image]);
 
   async function onPdfChange(event: ChangeEvent<HTMLInputElement>) {
+    if(busy){event.target.value="";return;}
     const selected=[...(event.target.files??[])];
     event.target.value="";
     setFiles([]);setMergePlan(null);setPdfCount(0);setPages("1-");setStatus("");
@@ -157,6 +162,17 @@ export default function FileDesk({ onSendToWriting, initialTab = "pdf", initialP
               zip.file(outputName, await pageFile.save());
             }
             const archive = await zip.generateAsync({ type: "uint8array", compression: "DEFLATE", compressionOptions: { level: 3 } });
+            const reread=await JSZip.loadAsync(archive,{checkCRC32:true});
+            for(const pageIndex of selected){
+              const outputName=safeName(file.name)+"-page-"+String(pageIndex+1).padStart(3,"0")+".pdf";
+              const entry=reread.file(outputName);
+              if(!entry)throw Error("Missing split page from archive: "+outputName);
+              const checked=await PDFDocument.load(await entry.async("uint8array"),{ignoreEncryption:false});
+              if(checked.getPageCount()!==1)throw Error("Split page is not a one-page PDF: "+outputName);
+              const a=source.getPage(pageIndex).getSize(),b=checked.getPage(0).getSize();
+              if(Math.abs(a.width-b.width)>0.01||Math.abs(a.height-b.height)>0.01)
+                throw Error("Split page dimensions changed unexpectedly: "+outputName);
+            }
             const saved = await exportFile(safeName(file.name) + "-individual-pages.zip", archive);
             setStatus(saved ? `Saved ${selected.length} one-page PDFs in a ZIP archive.` : "Save cancelled.");
           } else {
@@ -167,12 +183,9 @@ export default function FileDesk({ onSendToWriting, initialTab = "pdf", initialP
             setStatus(saved ? `Exported ${selected.length} pages into one PDF.` : "Save cancelled.");
           }
         } else if (pdfMode === "organize") {
-          const order = parsePdfOrder(pages, source.getPageCount());
-          const output = await PDFDocument.create();
-          const copied = await output.copyPages(source, order);
-          copied.forEach((page) => output.addPage(page));
-          const saved = await exportFile(safeName(file.name) + "-organized.pdf", await output.save());
-          setStatus(saved ? "Saved "+order.length+" pages in your requested order. The original was not changed." : "Save cancelled.");
+          const output=await exportReorderedPdf(source,pages);
+          const saved=await exportFile(safeName(file.name)+"-organized.pdf",output.bytes);
+          setStatus(saved?"Saved and verified "+output.plan.outputCount+" reordered pages; "+output.plan.removedCount+" removed from the exported copy. Original unchanged.":"Save cancelled.");
         } else if (pdfMode === "rotate") {
           for (const index of selected) {
             const page = source.getPage(index);
@@ -266,14 +279,14 @@ export default function FileDesk({ onSendToWriting, initialTab = "pdf", initialP
       <h2>File workbench</h2>
       <p className="subtle">Ported from the web file lab. Your selected documents stay in this app, without uploading to the AP website.</p>
       <div className="pill-row" role="group" aria-label="File tool">
-        {(["pdf", "images", "word"] as const).map((item) => <button key={item} type="button" className={tab === item ? "pill active-pill" : "pill"} onClick={() => { setTab(item); setStatus(""); }}>{item === "pdf" ? "PDF desk" : item === "images" ? "Image desk" : "Word → Markdown"}</button>)}
+        {(["pdf", "images", "word"] as const).map((item) => <button key={item} type="button" className={tab === item ? "pill active-pill" : "pill"} disabled={busy} onClick={() => { setTab(item); setStatus(""); }}>{item === "pdf" ? "PDF desk" : item === "images" ? "Image desk" : "Word → Markdown"}</button>)}
       </div>
       {tab === "pdf" && <>
         <div className="pill-row compact" role="group" aria-label="PDF operation">
-          {(["merge", "split", "rotate", "organize", "decorate", "convert", "compress"] as const).map((item) => <button type="button" key={item} onClick={() => { setPdfMode(item); setFiles([]);setMergePlan(null); setStatus(""); }} className={pdfMode === item ? "pill active-pill" : "pill"}>{item === "compress" ? "Optimize (light)" : item === "decorate" ? "Add text / sign / watermark" : item === "convert" ? "Image ↔ PDF" : item[0].toUpperCase() + item.slice(1)}</button>)}
+          {(["merge", "split", "rotate", "organize", "decorate", "convert", "compress"] as const).map((item) => <button type="button" key={item} disabled={busy} onClick={() => { setPdfMode(item); setFiles([]);setMergePlan(null); setStatus(""); }} className={pdfMode === item ? "pill active-pill" : "pill"}>{item === "compress" ? "Optimize (light)" : item === "decorate" ? "Add text / sign / watermark" : item === "convert" ? "Image ↔ PDF" : item[0].toUpperCase() + item.slice(1)}</button>)}
         </div>
         <label htmlFor="pdf-picker" className="field-label">{pdfMode === "merge" ? "Choose up to 20 PDFs in order" : pdfMode === "convert" ? "Optional PDF source (for PDF → images)" : "Choose a PDF"}</label>
-        <input id="pdf-picker" className="field" type="file" accept=".pdf,application/pdf" multiple={pdfMode === "merge"} onChange={(event) => { void onPdfChange(event); }} />
+        <input id="pdf-picker" className="field" type="file" disabled={busy} accept=".pdf,application/pdf" multiple={pdfMode === "merge"} onChange={(event) => { void onPdfChange(event); }} />
         {files.length > 0 && <p className="subtle">Selected: {files.map((file) => file.name).join(" · ")} {pdfCount > 0 && `· first PDF ${pdfCount} page(s)`}</p>}
         {pdfMode==="merge"&&mergePlan&&<section className="panel" data-testid="pdf-merge-preflight">
           <h4>Merge preview · 合并顺序检查</h4>
@@ -281,12 +294,24 @@ export default function FileDesk({ onSendToWriting, initialTab = "pdf", initialP
           {mergePlan.files.map((item,i)=><p className="subtle" key={i}>{i+1}. {item.name} · {item.pages} page(s) · {item.sourceBytes.toLocaleString()} bytes</p>)}
           <p className="subtle">Pages are appended in the displayed order. The output PDF is reopened and its page count verified before saving. Merging can increase file size; original files remain unchanged.</p>
         </section>}
-        {(pdfMode === "split" || pdfMode === "rotate" || pdfMode === "organize") && <><label className="field-label" htmlFor="pdf-pages">{pdfMode === "organize" ? "Pages in desired order (e.g. 3,1,2,5-8). Omit pages to remove them." : "Pages (e.g. 1-3,5,7-)"}</label><input id="pdf-pages" className="field" value={pages} onChange={(e) => setPages(e.target.value)} /></>}
-        {pdfMode === "organize" && <p className="subtle">Reorder pages or remove unwanted pages by listing only those you want. Each page may appear once. No changes are made to the original file.</p>}
+        {(pdfMode === "split" || pdfMode === "rotate" || pdfMode === "organize") && <><label className="field-label" htmlFor="pdf-pages">{pdfMode === "organize" ? "Pages in desired order (e.g. 3,1,2,5-8). Omit pages to remove them." : "Pages (e.g. 1-3,5,7-)"}</label><input id="pdf-pages" className="field" disabled={busy} value={pages} onChange={(e) => setPages(e.target.value)} /></>}
+        {pdfMode === "organize" && <>
+          <p className="subtle">Reorder or omit pages to create a <strong>new PDF copy</strong>. No originals are changed. Complex form fields, signatures, annotations or PDF/A characteristics may not survive page copying; check the result in Preview or Acrobat.</p>
+          {organizePreview.error&&<p data-testid="pdf-order-error" role="alert" className="subtle">{organizePreview.error}</p>}
+          {organizePreview.plan&&<section data-testid="pdf-order-preflight" className="panel">
+            <h4>Page order preview · 输出页 ← 原始页</h4>
+            <p className="subtle">{organizePreview.plan.originalCount} original pages → {organizePreview.plan.outputCount} output pages · {organizePreview.plan.removedCount} omitted from exported copy.</p>
+            <div className="task-list">
+              {organizePreview.plan.mapping.slice(0,30).map(row=><p className="subtle" key={row.outputPage}>{row.outputPage} ← {row.sourcePage}</p>)}
+            </div>
+            {organizePreview.plan.mapping.length>30&&<p className="subtle">First 30 mappings shown · all {organizePreview.plan.outputCount} selected pages will be saved in order.</p>}
+            <p className="subtle">A new PDF will be reopened to check page count, dimensions, crop boxes and rotation before saving. This is not a full visual fidelity guarantee.</p>
+          </section>}
+        </>}
         {pdfMode === "split" && <label className="field-label"><input type="checkbox" checked={splitEach} onChange={e => setSplitEach(e.target.checked)} /> Export each selected page as its own PDF inside a ZIP (up to 50 pages)</label>}
         {pdfMode === "rotate" && <><label className="field-label" htmlFor="pdf-angle">Degrees clockwise</label><select id="pdf-angle" className="field" value={rotation} onChange={(e) => setRotation(Number(e.target.value))}><option value={90}>90°</option><option value={180}>180°</option><option value={270}>270°</option></select></>}
         {pdfMode === "compress" && <p className="subtle">Like the web's light-compress mode, this reserializes PDF objects. Scanned/image-heavy PDFs may not shrink.</p>}
-        {pdfMode !== "decorate" && pdfMode !== "convert" && <div className="actions"><button type="button" className="primary-button" disabled={!files.length || busy || (pdfMode==="merge"&&!mergePlan)} onClick={() => { void processPdf(); }}>{busy ? "Processing…" : "Process & save PDF"}</button></div>}
+        {pdfMode !== "decorate" && pdfMode !== "convert" && <div className="actions"><button type="button" className="primary-button" disabled={!files.length || busy || (pdfMode==="merge"&&!mergePlan)||(pdfMode==="organize"&&!organizePreview.plan)} onClick={() => { void processPdf(); }}>{busy ? "Processing…" : "Process & save PDF"}</button></div>}
         {pdfMode === "decorate" && <PdfFreedomDesk file={files[0]??null} pageCount={pdfCount}/>}
         {pdfMode === "convert" && <PdfConvertDesk pdfFile={files[0]??null} pageCount={pdfCount}/>}
         {files.length > 0 && <PdfPagePreview file={files[0]} onPickPage={page=>{if(pdfMode!=="organize")setPages(String(page));}} />}
