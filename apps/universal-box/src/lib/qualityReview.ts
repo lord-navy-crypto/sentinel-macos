@@ -39,9 +39,15 @@ export async function compareWordDocuments(a:ReviewInput,b:ReviewInput):Promise<
  }
  return {changes,same,added,removed,left:n,right:m};
 }
-export async function wordReviewZip(a:ReviewInput,b:ReviewInput):Promise<Uint8Array>{
- const review=await compareWordDocuments(a,b),zip=new JSZip();
- zip.file("reports/word-paragraph-diff.txt",review.changes.map(x=>(x.kind==="added"?"+ ":x.kind==="removed"?"- ":"  ")+x.line).join("\n")+"\n");
+/** One text formatter feeds preview copy, direct TXT export and the complete ZIP report. */
+export function wordReviewText(review:WordReview,changedOnly=false):string{
+ const lines=review.changes.filter(x=>!changedOnly||x.kind!=="same")
+  .map(x=>(x.kind==="added"?"+ ":x.kind==="removed"?"- ":"  ")+x.line);
+ return (lines.length?lines.join("\n"):"No paragraph text changes.")+"\n";
+}
+export async function wordReviewZip(a:ReviewInput,b:ReviewInput,prepared?:WordReview):Promise<Uint8Array>{
+ const review=prepared??await compareWordDocuments(a,b),zip=new JSZip();
+ zip.file("reports/word-paragraph-diff.txt",wordReviewText(review));
  zip.file("reports/word-paragraph-diff.json",JSON.stringify({
   generator:"Sentinel Box",mode:"paragraph-level Word text comparison",a:a.name,b:b.name,
   ...review,limitations:"Text-only paragraph comparison; not Microsoft Word Track Changes. Formatting, tables, images, comments and revision history are not compared."

@@ -111,3 +111,42 @@ test("real video WebM upload and extracted PNG frame in Chromium",{timeout:90000
   assert.ok(png.length>200);
  }finally{await close(s,"video-frame.png");}
 });
+
+test("two real DOCX files compare in the existing Word review desk and save changed-only TXT",{timeout:85000},async()=>{
+ const s=await setup();
+ try{
+  await navigate(s.page,"Word DOCX Templates");
+  await s.page.locator('[data-testid="creative-word-title"]').fill("Office Draft A");
+  const a=await download(s.page,'[data-testid="creative-word-export"]',"diff-source-a.docx");
+  await s.page.locator('[data-testid="creative-word-title"]').fill("Office Draft B");
+  const b=await download(s.page,'[data-testid="creative-word-export"]',"diff-source-b.docx");
+  await navigate(s.page,"Word Paragraph Diff");
+  await s.page.locator('[data-testid="quality-word-a"]').setInputFiles({
+   name:"draft-a.docx",mimeType:"application/vnd.openxmlformats-officedocument.wordprocessingml.document",buffer:a
+  });
+  await s.page.locator('[data-testid="quality-word-b"]').setInputFiles({
+   name:"draft-b.docx",mimeType:"application/vnd.openxmlformats-officedocument.wordprocessingml.document",buffer:b
+  });
+  await s.page.locator('[data-testid="quality-review"]').click();
+  await s.page.locator('[data-testid="quality-word-stats"]').waitFor();
+  const preview=await s.page.locator('[data-testid="quality-word-preview"]').innerText();
+  assert.match(preview,/Office Draft A/);assert.match(preview,/Office Draft B/);
+  await s.page.context().grantPermissions(["clipboard-read","clipboard-write"]);
+  await s.page.locator('[data-testid="quality-word-copy-changes"]').click();
+  const copied=await s.page.evaluate(()=>navigator.clipboard.readText());
+  assert.match(copied,/- Office Draft A/);
+  assert.match(copied,/\+ Office Draft B/);
+  assert.doesNotMatch(copied,/亲爱的/);
+  const changes=(await download(s.page,'[data-testid="quality-word-txt-changes"]',"word-diff-changes.txt")).toString("utf8");
+  assert.match(changes,/- Office Draft A/);assert.match(changes,/\+ Office Draft B/);
+  assert.doesNotMatch(changes,/亲爱的/,"Changes-only export must exclude unchanged paragraphs.");
+  await s.page.locator('[data-testid="quality-word-a"]').setInputFiles({
+   name:"invalid.docx",mimeType:"application/octet-stream",buffer:Buffer.from("not a DOCX")
+  });
+  assert.equal(await s.page.locator('[data-testid="quality-word-txt-changes"]').count(),0,
+   "Changing Word input invalidates older comparison.");
+  await s.page.locator('[data-testid="quality-review"]').click();
+  await s.page.locator("p[role='status']").filter({hasText:"Review error"}).waitFor();
+  assert.equal(await s.page.locator('[data-testid="quality-word-txt-changes"]').count(),0);
+ }finally{await close(s,"word-review-changes.png");}
+});
