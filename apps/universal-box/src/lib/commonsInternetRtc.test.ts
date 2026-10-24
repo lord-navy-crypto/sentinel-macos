@@ -12,7 +12,7 @@ describe("Public WebRTC manual signaling and privacy boundaries",()=>{
  });
  it("rejects swapped response types and malformed or non-DataChannel descriptions",()=>{
   expect(()=>decodeDirectSignal(encodeDirectSignal({type:"offer",sdp}),"answer")).toThrow(/answer/);
-  expect(()=>decodeDirectSignal(JSON.stringify({type:"offer",sdp:"v=0\n"}),"offer")).toThrow(/DTLS/);
+  expect(()=>decodeDirectSignal(JSON.stringify({type:"offer",sdp:"v=0\n"+"a=inactive\n".repeat(15)}),"offer")).toThrow(/DTLS/);
   expect(()=>decodeDirectSignal("not json","offer")).toThrow();
   expect(()=>decodeDirectSignal("x".repeat(130000),"offer")).toThrow(/size/);
   expect(()=>encodeDirectSignal({type:"offer"})).toThrow(/Missing/);
