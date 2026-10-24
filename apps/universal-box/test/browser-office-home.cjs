@@ -107,6 +107,12 @@ test("All original Go read surfaces are searchable and deep-link to real opt-in 
   assert.equal(await page.getByRole("button",{name:"读取这项真实数据"}).isDisabled(),true,
    "Browser without authorized local Go engine must never fabricate results");
   assert.equal(await page.getByTestId("sentinel-legacy-complete-directory").isVisible(),true);
+  assert.equal(await page.getByTestId("sentinel-advanced-entry").count(),50,
+   "Every remaining original Go API endpoint must appear in the feature inventory");
+  await page.getByTestId("sentinel-advanced-filter").fill("隔离");
+  assert.ok(await page.getByTestId("sentinel-advanced-entry").count()>=1);
+  await page.getByTestId("sentinel-advanced-filter").fill("");
+
   assert.equal(await page.getByTestId("sentinel-legacy-complete-directory").getByRole("button",{name:"在原 Sentinel 工作台中操作 ↗"}).count(),4);
   assert.deepEqual(errors,[]);
  }finally{await page.close();await browser.close();}
