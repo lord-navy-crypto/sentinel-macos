@@ -195,7 +195,10 @@ fn serve_one(mut socket: TcpStream, secret: &[u8; 32],
     let raw = read_sealed(&mut socket, secret)?;
     if stopped.load(Ordering::SeqCst) {return Err("Chat room closed".into());}
     let req:ChatRequest=serde_json::from_slice(&raw).map_err(|_|"Invalid chat request JSON")?;
-    let snapshot = apply_request(&mut room.lock().map_err(|_|"Chat state unavailable")?,req)?;
+    let snapshot = {
+        let mut guard = room.lock().map_err(|_|"Chat state unavailable")?;
+        apply_request(&mut guard, req)?
+    };
     let encoded = serde_json::to_vec(&snapshot).map_err(|_|"Could not serialize chat response")?;
     if stopped.load(Ordering::SeqCst) {return Err("Chat room closed".into());}
     write_sealed(&mut socket, secret, &encoded)
