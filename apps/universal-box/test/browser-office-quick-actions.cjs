@@ -583,7 +583,7 @@ test("Quick office TXT draft is opened locally, cleaned and saved as real TXT wi
   await page.waitForFunction(()=>document.querySelector("#quick-text-input")?.value.includes("合同"));
   assert.equal(await page.locator("#quick-text-input").inputValue(),"  合同   草稿\r\n下一个  章节\r\n");
   assert.equal(await page.locator("#quick-result").inputValue(),"合同 草稿\n下一个 章节\n");
-  assert.match(await page.locator("p[role=status]").last().innerText(),/Loaded .*UTF-8 locally/);
+  assert.match(await page.locator('section[aria-label="Quick Tools"] p[role="status"]').last().innerText(),/Loaded .*UTF-8 locally/);
   const pending=page.waitForEvent("download",{timeout:30000});
   await page.getByRole("button",{name:"Save as TXT"}).click();
   const download=await pending;assert.equal(download.suggestedFilename(),"clean-text.txt");
@@ -593,7 +593,7 @@ test("Quick office TXT draft is opened locally, cleaned and saved as real TXT wi
   await page.getByTestId("quick-draft-file").setInputFiles({
    name:"binary.txt",mimeType:"text/plain",buffer:Buffer.from([0,1,2,3])
   });
-  assert.match(await page.locator("p[role=status]").last().innerText(),/Existing text preserved/);
+  assert.match(await page.locator('section[aria-label="Quick Tools"] p[role="status"]').last().innerText(),/Existing text preserved/);
   assert.equal(await page.locator("#quick-text-input").inputValue(),"  合同   草稿\r\n下一个  章节\r\n");
   assert.deepEqual(errors,[]);
  }finally{await page.close();await browser.close();}
@@ -615,7 +615,7 @@ test("Quick replace and case tools read real Windows UTF-16LE files without losi
   await page.getByRole("textbox",{name:"Find",exact:true}).fill("张三");
   await page.getByRole("textbox",{name:"Replace with"}).fill("李四");
   assert.equal(await page.locator("#quick-result").inputValue(),"编号: 00123\r\n客户: 李四");
-  assert.match(await page.locator("p[role=status]").last().innerText(),/UTF-16LE/);
+  assert.match(await page.locator('section[aria-label="Quick Tools"] p[role="status"]').last().innerText(),/UTF-16LE/);
   await page.getByRole("group",{name:"Quick tool"}).getByRole("button",{name:/Case & width/}).click();
   await page.getByTestId("quick-draft-file").setInputFiles({name:"Mixed.TXT",mimeType:"text/plain",buffer:Buffer.from("ａｂｃ  00123\n","utf8")});
   await page.waitForFunction(()=>document.querySelector("#quick-case-source")?.value.includes("00123"));
