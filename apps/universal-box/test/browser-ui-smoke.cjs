@@ -369,11 +369,15 @@ test("Three actual Commons browser peers form a manual public room and relay CJK
   await alice.getByTestId("room-send").click();
   await host.getByTestId("room-history").getByText("Alice 的公网群聊测试消息").waitFor({timeout:25000});
   await bob.getByTestId("room-history").getByText("Alice 的公网群聊测试消息").waitFor({timeout:25000});
+  await alice.getByTestId("room-receipt").getByText(/成员应用确认 1\/1/).waitFor({timeout:25000});
+  assert.equal(await alice.getByTestId("room-receipt").count(),1,"one logical guest message is tracked");
   assert.equal(await bob.getByTestId("room-history").locator("p").count(),1);
   await host.getByTestId("room-draft").fill("主持人确认：这是三台 WebRTC 客户端");
   await host.getByTestId("room-send").click();
   await alice.getByTestId("room-history").getByText("主持人确认：这是三台 WebRTC 客户端").waitFor({timeout:25000});
   await bob.getByTestId("room-history").getByText("主持人确认：这是三台 WebRTC 客户端").waitFor({timeout:25000});
+  await host.getByTestId("room-receipt").getByText(/成员应用确认 2\/2/).waitFor({timeout:25000});
+  assert.equal(await host.getByTestId("room-receipt").count(),1,"host fanout has two distinct ACKs");
   await bob.getByTestId("room-leave").click();
   assert.equal(await bob.getByTestId("room-answer").count(),0,"leave clears answer");
   assert.match(await bob.getByTestId("room-status").innerText(),/已结束/);
