@@ -3,6 +3,8 @@ import {buildCommonsIceServers,finishIceGathering,summarizeCommonsIceRoute,valid
 import {PUBLIC_ROOM_GUEST_LIMIT,decodePublicRoomFrame,decodePublicRoomSignal,
  encodePublicRoomFrame,encodePublicRoomSignal,rememberRoomMessage,roomSendReady,
  validPublicRoomName,type PublicRoomFrame} from "../lib/commonsPublicRoom";
+import {newRoomDelivery,recordRoomAck,remainingRoomRecipients,roomDeliveryProgress,
+ upsertRoomReceipt,type RoomChat,type RoomDelivery,type RoomDeliveryView} from "../lib/commonsRoomDelivery";
 
 type MemberSlot={id:string;pc:RTCPeerConnection;dc:RTCDataChannel;offer:string;answer:string;guest:string;phase:string;fingerprint:string};
 type DisplaySlot={id:string;offer:string;answer:string;guest:string;phase:string;fingerprint:string};
@@ -19,6 +21,9 @@ export default function CommonsPublicRoomDesk(){
  const guestRef=useRef<RTCPeerConnection|null>(null);
  const guestChannelRef=useRef<RTCDataChannel|null>(null);
  const seenRef=useRef(new Set<string>());
+ const deliveryRef=useRef(new Map<string,RoomDelivery>());
+ const outboxRef=useRef(new Map<string,RoomChat>());
+ const [deliveryViews,setDeliveryViews]=useState<RoomDeliveryView[]>([]);
  const roomRef=useRef("");
  const modeRef=useRef<"host"|"guest"|null>(null);
  const [mode,setMode]=useState<"host"|"guest">("host");
@@ -52,6 +57,7 @@ export default function CommonsPublicRoomDesk(){
   if(modeRef.current==="guest"&&guestChannelRef.current?.readyState==="open"&&roomRef.current)
    guestChannelRef.current.send(encodePublicRoomFrame({v:1,room:roomRef.current,kind:"leave"}));
   destroy();roomRef.current="";modeRef.current=null;seenRef.current.clear();
+  deliveryRef.current.clear();outboxRef.current.clear();setDeliveryViews([]);
   setRoom("");setJoined(false);setGuestAnswer("");setHostFingerprint("");setInvitation("");setSlotViews([]);
   setLines([]);setDraft("");setRoute("");setTurnPassword("");
   setStatus("房间已结束，连接、消息与临时 TURN 密码已清空。");
@@ -60,6 +66,31 @@ export default function CommonsPublicRoomDesk(){
  const sendFrame=(dc:RTCDataChannel,frame:PublicRoomFrame):boolean=>{
   if(!roomSendReady(dc))return false;
   try{dc.send(encodePublicRoomFrame(frame));return true;}catch{return false;}
+ };
+ /** Freeze the target list at first send. Retries cannot silently include new members. */
+ const keepRecord=(row:RoomDelivery)=>{
+  deliveryRef.current.set(row.frame.id,row);
+  while(deliveryRef.current.size>200){
+   const oldest=deliveryRef.current.keys().next().value;
+   if(oldest)deliveryRef.current.delete(oldest);else break;
+  }
+ };
+ const showReceipt=(row:RoomDelivery)=>{
+  const {acked,total}=roomDeliveryProgress(row);
+  if(row.origin===null){
+   setDeliveryViews(old=>upsertRoomReceipt(old,{
+    id:row.frame.id,text:row.frame.text,acked,total,hostAccepted:true
+   }));
+  }else{
+   const origin=slotsRef.current.find(s=>s.id===row.origin&&!!s.guest);
+   if(origin)sendFrame(origin.dc,{v:1,room:row.frame.room,kind:"receipt",id:row.frame.id,acked,total});
+  }
+ };
+ const forwardPending=(row:RoomDelivery)=>{
+  for(const id of remainingRoomRecipients(row)){
+   const slot=slotsRef.current.find(s=>s.id===id&&!!s.guest);
+   if(slot)sendFrame(slot.dc,row.frame);
+  }
  };
  const removeSlot=(id:string)=>{
   const slot=slotsRef.current.find(s=>s.id===id);
@@ -81,12 +112,27 @@ export default function CommonsPublicRoomDesk(){
    slot.guest=frame.name;slot.phase="已加入群聊";refresh();
    sendFrame(slot.dc,{v:1,room:roomId,kind:"welcome"});
    setStatus(frame.name+" 已加入房间。主持人可以向所有在线成员转发文字。");
+  }else if(frame.kind==="ack"&&slot.guest){
+   const row=deliveryRef.current.get(frame.id);
+   if(!row)return;
+   const changed=recordRoomAck(row,slot.id);
+   if(changed!==row){keepRecord(changed);showReceipt(changed);}
   }else if(frame.kind==="chat"&&slot.guest&&frame.name===slot.guest){
-   if(!rememberRoomMessage(seenRef.current,slot.id,frame.id))return;
-   append(frame.name,frame.text,false);
-   for(const peer of slotsRef.current){
-    if(peer!==slot&&peer.guest)sendFrame(peer.dc,frame);
+   const existing=deliveryRef.current.get(frame.id);
+   if(existing){
+    // Same member, ID and payload: idempotent retry to previously unconfirmed recipients.
+    if(existing.origin===slot.id&&existing.frame.name===frame.name&&existing.frame.text===frame.text){
+     forwardPending(existing);showReceipt(existing);
+    }
+    return;
    }
+   if(!rememberRoomMessage(seenRef.current,slot.id,frame.id))return;
+   const targets=slotsRef.current.filter(peer=>peer!==slot&&!!peer.guest).map(peer=>peer.id);
+   const row=newRoomDelivery(frame,slot.id,targets);
+   keepRecord(row);
+   append(frame.name,frame.text,false);
+   forwardPending(row);
+   showReceipt(row);
   }else if(frame.kind==="leave"&&slot.guest){
    const who=slot.guest;removeSlot(slot.id);setStatus(who+" 已主动退出房间。");
   }
@@ -164,8 +210,18 @@ export default function CommonsPublicRoomDesk(){
      if(!frame)return;
      if(frame.kind==="welcome"){setJoined(true);setStatus("主持人已接纳此昵称，群聊可用。成员身份仍未经过真实认证。");}
      if(frame.kind==="deny"){setJoined(false);setStatus("主持人拒绝加入："+frame.reason);dc.close();}
-     if(frame.kind==="chat"&&rememberRoomMessage(seenRef.current,frame.name,frame.id))
-      append(frame.name,frame.text,false);
+     if(frame.kind==="chat"){
+      if(rememberRoomMessage(seenRef.current,frame.name,frame.id))
+       append(frame.name,frame.text,false);
+      // Repeated delivery gets ACK again but is never duplicated in the timeline.
+      sendFrame(dc,{v:1,room:expectedRoom,kind:"ack",id:frame.id});
+     }
+     if(frame.kind==="receipt"){
+      const own=outboxRef.current.get(frame.id);
+      if(own)setDeliveryViews(old=>upsertRoomReceipt(old,{
+       id:frame.id,text:own.text,acked:frame.acked,total:frame.total,hostAccepted:true
+      }));
+     }
     };
     dc.onclose=()=>{setJoined(false);setStatus("与主持人的 DataChannel 已断开。需要重新交换 Offer／Answer 才能加入。");};
    };
@@ -200,18 +256,44 @@ export default function CommonsPublicRoomDesk(){
  const send=()=>{
   const name=nickname.trim(),text=draft.trim(),id=roomRef.current;
   if(!id||!validPublicRoomName(name)||!text||!validDirectChatText(text))return;
-  const frame:PublicRoomFrame={v:1,room:id,kind:"chat",id:crypto.randomUUID(),name,text};
+  const frame:RoomChat={v:1,room:id,kind:"chat",id:crypto.randomUUID(),name,text};
   if(modeRef.current==="guest"){
    if(!joined||!guestChannelRef.current||!sendFrame(guestChannelRef.current,frame)){
     setStatus("未发送：连接暂不可用或缓冲区已满。");return;
    }
-   append(name,text,true);setDraft("");setStatus("已送入主持人数据通道；不等于全部成员收到。");
+   outboxRef.current.set(frame.id,frame);
+   while(outboxRef.current.size>50){
+    const oldest=outboxRef.current.keys().next().value;
+    if(oldest)outboxRef.current.delete(oldest);else break;
+   }
+   setDeliveryViews(old=>upsertRoomReceipt(old,{
+    id:frame.id,text,acked:0,total:0,hostAccepted:false
+   }));
+   append(name,text,true);setDraft("");
+   setStatus("消息已送入主持人通道，正在等待主持人接收确认。");
   }else if(modeRef.current==="host"){
    const members=slotsRef.current.filter(s=>!!s.guest);
-   const sent=members.filter(s=>sendFrame(s.dc,frame)).length;
-   if(!sent){setStatus("暂无可用成员连接，尚未发送。");return;}
+   if(!members.length){setStatus("暂无在线成员，消息尚未发送。");return;}
+   const row=newRoomDelivery(frame,null,members.map(s=>s.id));
+   keepRecord(row);
+   forwardPending(row);
+   showReceipt(row);
    append(name,text,true);setDraft("");
-   setStatus("已提交到 "+sent+"/"+members.length+" 条成员连接；不是全员送达确认。");
+   setStatus("已尝试向当前成员发送，等待各成员应用 ACK。");
+  }
+ };
+ const retryDelivery=(id:string)=>{
+  if(modeRef.current==="guest"){
+   const frame=outboxRef.current.get(id);
+   if(!frame||!guestChannelRef.current||!joined||!sendFrame(guestChannelRef.current,frame)){
+    setStatus("重试未发出：连接不可用或缓冲区已满。");return;
+   }
+   setStatus("已按原消息 ID 重试，避免接收端重复显示。");
+  }else if(modeRef.current==="host"){
+   const row=deliveryRef.current.get(id);
+   if(!row){setStatus("消息已超出当前内存重试窗口。");return;}
+   forwardPending(row);showReceipt(row);
+   setStatus("仅向尚未确认的原始接收成员重试；不增加新成员。");
   }
  };
  return <section className="panel" data-testid="commons-public-room">
@@ -289,6 +371,20 @@ export default function CommonsPublicRoomDesk(){
     {lines.map(line=><p key={line.id} style={{whiteSpace:"pre-wrap",overflowWrap:"anywhere"}}>
      <strong>{line.name}{line.self?"（我）":""}：</strong>{line.text}</p>)}
    </div>
+   {deliveryViews.length>0&&<div className="panel" data-testid="room-delivery-status">
+    <p className="subtle"><strong>本次发送的接收确认</strong>（应用 ACK，不代表已读或永久保存）</p>
+    {deliveryViews.map(item=><div key={item.id} data-testid="room-receipt" className="task-row">
+     <div className="task-copy">
+      <strong>{item.text}</strong>
+      <div className="subtle">{!item.hostAccepted?"等待主持人确认接收":
+       item.total===0?"主持人已接收 · 当前没有其他接收成员":
+       "成员应用确认 "+item.acked+"/"+item.total+(item.acked===item.total?" · 全部已确认":" · 仍有未确认")}
+      </div>
+     </div>
+     {(!item.hostAccepted||item.acked<item.total)&&<button type="button" className="secondary-button"
+      data-testid="room-retry" onClick={()=>retryDelivery(item.id)}>重试未确认</button>}
+    </div>)}
+   </div>}
    <label className="field-label">发送群聊文字
     <textarea className="field text-editor" data-testid="room-draft" rows={2}
      value={draft} maxLength={1000} onChange={e=>setDraft(e.target.value)}/></label>
