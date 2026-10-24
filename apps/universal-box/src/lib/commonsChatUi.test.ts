@@ -43,7 +43,10 @@ describe("LAN chat history recovery / cursor contracts",()=>{
  });
  it("rejects empty hasMore responses and non-monotonic message sequences",()=>{
   expect(()=>nextChatPage(10,make(11,0,true))).toThrow(/empty page/);
-  expect(()=>nextChatPage(12,make(11,2,false))).toThrow(/Out-of-order/);
+  expect(nextChatPage(12,make(11,2,false))).toBe(12);
+  expect(()=>nextChatPage(12,{...make(11,2,false),
+   messages:[{seq:12,nickname:"A",text:"1",timestampMs:0},
+    {seq:11,nickname:"A",text:"2",timestampMs:0}]})).toThrow(/Out-of-order/);
   expect(chatHistoryGap(0,{...make(0,0,false),oldestSeq:0})).toBe(0);
  });
 });
