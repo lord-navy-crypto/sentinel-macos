@@ -41,8 +41,8 @@ const LENSES:Lens[] = [
 function prettyJson(value:unknown):string {
  try {return JSON.stringify(value,null,2)??String(value);} catch{return String(value);}
 }
-export default function SentinelCenter({onSendToTables,onSendToPrivacy}:{onSendToTables:(csv:string)=>void;onSendToPrivacy:(text:string)=>void}){
- const [lens,setLens]=useState("overview");
+export default function SentinelCenter({initialLens="overview",onSendToTables,onSendToPrivacy}:{initialLens?:string;onSendToTables:(csv:string)=>void;onSendToPrivacy:(text:string)=>void}){
+ const [lens,setLens]=useState(()=>LENSES.some(x=>x.id===initialLens)?initialLens:"overview");
  const [engine,setEngine]=useState<EngineStatus|null>(null);
  const [working,setWorking]=useState(false);
  const [selected,setSelected]=useState<ReadOperation|null>(null);
@@ -147,7 +147,7 @@ export default function SentinelCenter({onSendToTables,onSendToPrivacy}:{onSendT
   finally{setLoading(false);}
  }
  return <section className="panel" aria-label="Sentinel Mac System Center">
-  <p className="eyebrow">UNIVERSAL BOX · ORIGINAL GO ENGINE</p>
+  <p className="eyebrow">SENTINEL · ORIGINAL GO SYSTEM WORKBENCH</p>
   <h2>Sentinel · Mac 系统中心</h2>
   <p className="subtle">原 Sentinel Go 引擎作为内置服务运行。历史记录、证据分析、权限、安全操作和恢复逻辑都保留在原引擎，不重新实现。</p>
   <div style={{padding:14,borderRadius:12,border:"1px solid var(--line, #cbd5e1)"}}>
@@ -158,7 +158,7 @@ export default function SentinelCenter({onSendToTables,onSendToPrivacy}:{onSendT
     <button type="button" className="secondary-button" disabled={working||!engine?.running} onClick={()=>void openFull()}>打开完整 Sentinel 工作台</button>
     <button type="button" className="secondary-button" disabled={working||!engine?.running} onClick={()=>void stop()}>安全停止服务</button>
    </div>
-   <p className="subtle">启动仅开启本机服务，不会自动运行完整扫描。完整工作台在 Universal Box 内另开窗口，原 Sentinel 操作与确认流程保持不变。</p>
+   <p className="subtle">启动仅开启本机服务，不会自动运行完整扫描。完整工作台在 Sentinel Box 内另开同一应用的 WebView 窗口，原 Sentinel 操作与确认流程保持不变。</p>
   </div>
   <form onSubmit={e=>{e.preventDefault();void searchSentinel();}} style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"end",marginTop:14}}>
    <label style={{flex:"1 1 260px"}}>Sentinel 全局证据搜索
