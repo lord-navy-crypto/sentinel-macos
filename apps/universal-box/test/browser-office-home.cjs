@@ -88,3 +88,26 @@ test("Original Sentinel Go service is represented by six real modular workbenche
   assert.deepEqual(errors,[]);
  }finally{await page.close();await browser.close();}
 });
+
+
+test("All original Go read surfaces are searchable and deep-link to real opt-in requests",{timeout:90000},async()=>{
+ const browser=await chromium.launch({headless:true,args:["--no-sandbox"]});
+ const page=await browser.newPage({viewport:{width:1440,height:900}});
+ const errors=[];page.on("pageerror",e=>errors.push(e.message));
+ try{
+  await page.goto(root,{waitUntil:"domcontentloaded"});
+  await page.locator(".app-shell").waitFor();
+  await page.locator("nav.sidebar-nav").getByRole("button",{name:/All tools/}).click();
+  await page.locator("#all-tools-search").fill("Sentinel");
+  assert.ok(await page.locator(".catalog-open").count()>=44,"13 prior and 31 newly surfaced Go tool cards must be visible");
+  await page.locator("#all-tools-search").fill("高级证据关联图 v2");
+  await page.locator(".catalog-open").first().click();
+  await page.getByRole("region",{name:"Sentinel Mac System Center"}).waitFor();
+  assert.match(await page.locator("#main-content").innerText(),/高级证据关联图 v2/);
+  assert.equal(await page.getByRole("button",{name:"读取这项真实数据"}).isDisabled(),true,
+   "Browser without authorized local Go engine must never fabricate results");
+  assert.equal(await page.getByTestId("sentinel-legacy-complete-directory").isVisible(),true);
+  assert.equal(await page.getByTestId("sentinel-legacy-complete-directory").getByRole("button",{name:"在原 Sentinel 工作台中操作 ↗"}).count(),4);
+  assert.deepEqual(errors,[]);
+ }finally{await page.close();await browser.close();}
+});
