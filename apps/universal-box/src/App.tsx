@@ -3,7 +3,7 @@ import Flashcards from "./components/Flashcards";
 import FocusTimer from "./components/FocusTimer";
 import EverydayTools, {type Utility} from "./components/EverydayTools";
 import ToolLaunchpad, {LOCAL_TOOLS} from "./components/ToolLaunchpad";
-import {OFFICE_MAIN_SHORTCUTS,OFFICE_FAST_ACTIONS} from "./lib/officeHomeShortcuts";
+import OfficeHome from "./components/OfficeHome";
 import {searchPalette,addPaletteRecent,sanitizePaletteHistory,type PaletteCommand} from "./lib/commandDiscovery";
 import CommonsDesk from "./components/CommonsDesk";
 import WebCaptureHub from "./components/WebCaptureHub";
@@ -98,10 +98,12 @@ const menu: { id: View; name: string; symbol: string; description: string }[] = 
 ];
 
 const navigationGroups:{title:string;items:View[]}[]=[
-  {title:"EVERYDAY OFFICE · 常用办公",items:["overview","files","pdf-mini","quick-tools","vision-workflows","utilities","creative-studio","workflows","all-tools"]},
-  {title:"DOCUMENTS & FILES · 文件与文档",items:["media-files","file-intake","free-formats","office-privacy","web-capture","writing","life-media","binary-compare"]},
-  {title:"MORE WORKSPACES · 更多工作台",items:["universal","universal-box","universal-lab","extra-studio","daily-studio","commons","tables","drawing","access","external"]},
-  {title:"OTHER & STUDY · 其他工具",items:["tasks","notes","cards","focus","math","learning","reading","presets","code","data","charts","local-ai","system-health"]},
+  {title:"常用工具 · FAVORITES",items:["overview","all-tools","files","quick-tools","vision-workflows","commons"]},
+  {title:"文档与 PDF",items:["pdf-mini","creative-studio","writing","free-formats","workflows","extra-studio"]},
+  {title:"图片、网页与媒体",items:["file-intake","web-capture","life-media","media-files","daily-studio","binary-compare"]},
+  {title:"数据与办公",items:["tables","utilities","charts","office-privacy","universal","universal-box"]},
+  {title:"个人与学习",items:["tasks","notes","focus","reading","learning","cards","math","drawing"]},
+  {title:"更多与设置",items:["system-health","access","data","universal-lab","local-ai","presets","external","code"]},
 ];
 
 function todayIso(): string {
@@ -188,7 +190,7 @@ export default function App() {
   },[recentViews]);
   useEffect(()=>{
     const keydown=(event:KeyboardEvent)=>{
-      if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==="k"){
+      if((event.metaKey||event.ctrlKey)&&(event.key.toLowerCase()==="k"||event.key==="/")){
         event.preventDefault();setCommandOpen(open=>!open);
       }else if(event.key==="Escape")setCommandOpen(false);
     };
@@ -394,7 +396,7 @@ export default function App() {
           </span>
         </button>
         <button className="sidebar-quick-search" type="button" onClick={()=>{setCommandOpen(true);setCommandQuery("");}}>
-          <span aria-hidden="true">⌕</span><span>Search tools</span><kbd>⌘ K</kbd>
+          <span aria-hidden="true">⌕</span><span>搜索工具</span><kbd>⌘ K</kbd>
         </button>
         <nav aria-label="Sentinel Box workspaces" className="sidebar-nav">
           {navigationGroups.map(group=><details className="nav-group" key={group.title} open>
@@ -410,6 +412,28 @@ export default function App() {
             })}
           </details>)}
         </nav>
+        <div className="sidebar-personal" data-testid="sidebar-quick-access">
+          {favoriteViews.length>0&&<section aria-label="收藏的工作台">
+            <p className="nav-label">★ 收藏</p>
+            {favoriteViews.slice(0,4).map(id=>{
+              const item=menu.find(entry=>entry.id===id)!;
+              return <button type="button" key={id} className="nav-item personal-nav-item"
+                title={item.name} aria-current={view===id?"page":undefined} onClick={()=>openTool(id)}>
+                <span className="nav-symbol" aria-hidden="true">{item.symbol}</span><span className="nav-name">{item.name}</span>
+              </button>;
+            })}
+          </section>}
+          {recentViews.length>0&&<section aria-label="最近打开的工具">
+            <p className="nav-label">◷ 最近打开</p>
+            {recentViews.filter(id=>!favoriteViews.includes(id)).slice(0,3).map(id=>{
+              const item=menu.find(entry=>entry.id===id)!;
+              return <button type="button" key={id} className="nav-item personal-nav-item"
+                title={item.name} onClick={()=>openTool(id)}>
+                <span className="nav-symbol" aria-hidden="true">{item.symbol}</span><span className="nav-name">{item.name}</span>
+              </button>;
+            })}
+          </section>}
+        </div>
         <div className="sidebar-bottom">
           <div className="sidebar-health"><span className="status-dot" /><span role="status">{savedStatus}</span></div>
           <p>Private by default. Your work stays on your device. Export a backup before switching computers.</p>
@@ -420,7 +444,7 @@ export default function App() {
         <header className="topbar">
           <div className="topbar-title"><span className="topbar-location">WORKSPACE / {activeMenu.name}</span><strong>{activeMenu.name.split(" / ")[0]}</strong></div>
           <div className="topbar-actions">
-            <button className="topbar-control topbar-search" type="button" title="Search tools (⌘/Ctrl+K)" onClick={()=>{setCommandOpen(true);setCommandQuery("");}}>⌕ <span>Find a tool</span> <kbd>⌘K</kbd></button>
+            <button className="topbar-control topbar-search" type="button" title="Search tools (⌘/Ctrl+K)" onClick={()=>{setCommandOpen(true);setCommandQuery("");}}>⌕ <span>搜索工具</span> <kbd>⌘K</kbd></button>
             <button className="topbar-control icon-control" type="button" onClick={()=>toggleFavorite(view)} title={favoriteViews.includes(view)?"Remove workspace favorite":"Favorite this workspace"}
               aria-label={favoriteViews.includes(view)?"Remove favorite":"Add workspace favorite"} aria-pressed={favoriteViews.includes(view)}>{favoriteViews.includes(view)?"★":"☆"}</button>
             <button className="topbar-control icon-control" type="button" onClick={()=>setTheme(previous=>previous==="light"?"dark":"light")}
@@ -433,126 +457,25 @@ export default function App() {
           </div>
         </header>
         <div id="main-content" className="content" tabIndex={-1}>
-          {view === "overview" && <>
-            <div className="welcome-heading"><div>
-              <p className="eyebrow">YOUR PRIVATE DIGITAL TOOLBOX</p>
-              <h1>Free everyday office tools, without the fuss.</h1>
-              <p className="intro">Sentinel Box is a free, offline-first macOS toolbox for ordinary document, PDF, image, text and file jobs. Select a task, check the result, and save it — without a required account or subscription.</p>
-            </div></div>
-            <section className="panel" data-testid="office-home-shortcuts" aria-label="Everyday office shortcuts">
-              <h2>常用办公 · Choose a job</h2>
-              <p className="subtle">选一个具体任务，直接进入现有工具。处理前检查预览，保存结果为新文件；无需账号或上传私有文档。</p>
-              <div className="tool-grid overview-grid" data-testid="office-first-task-grid">
-                {OFFICE_MAIN_SHORTCUTS.map(item=><button key={item.id} type="button" data-testid={item.id}
-                  className="tool-card" onClick={()=>openTool(item.view,item.module)}>
-                  <span className="tool-icon" aria-hidden="true">{item.icon}</span>
-                  <strong>{item.title}</strong><span className="subtle">{item.hint}</span>
-                  <span className="tool-state">打开现有工具 →</span>
-                </button>)}
-              </div>
-            </section>
-            <section className="panel" data-testid="office-fast-actions" aria-label="Common one-click office workflows">
-              <h3>直达常用操作 · Quick actions</h3>
-              <p className="subtle">不增加第二套转换器：直接打开已有的 PDF 体积优化、照片目标 KB 压缩、PPT 制作与 ZIP 打包。</p>
-              <div className="pill-row">
-                {OFFICE_FAST_ACTIONS.map(item=><button key={item.id} type="button" data-testid={item.id}
-                  className="pill" title={item.hint} onClick={()=>openTool(item.view,item.module)}>{item.title}</button>)}
-              </div>
-            </section>
-            <details className="panel" data-testid="office-more-workflows">
-              <summary>更多专业工作流 · 文件校验、网页捕获、二进制比较与其他功能</summary>
-              <p className="subtle">常用操作已经放在首页上方。只有需要高级功能时才展开这里；所有工作台仍可通过侧边栏或 ⌘K 搜索打开。</p>
-            <div className="hero-card">
-              <div className="hero-copy">
-                <p className="card-eyebrow">WELCOME TO SENTINEL BOX</p>
-                <h2>Your tools.<br/>Your rules.</h2>
-                <p>Work faster with a connected desktop toolbox, not a maze of websites.</p>
-                <div className="hero-actions">
-                  <button type="button" className="hero-primary" onClick={()=>openTool("all-tools")}>Browse all tools <span aria-hidden="true">↗</span></button>
-                  <button type="button" className="hero-secondary" onClick={()=>{setCommandOpen(true);setCommandQuery("");}}>⌘K Quick launch</button>
-                </div>
-              </div>
-              <div className="hero-visual" aria-hidden="true">
-                <div className="visual-orbit orbit-one"/><div className="visual-orbit orbit-two"/>
-                <div className="visual-core">S</div>
-                <div className="visual-chip chip-top">✦ &nbsp; Create</div>
-                <div className="visual-chip chip-right">◈ &nbsp; Convert</div>
-                <div className="visual-chip chip-bottom">▥ &nbsp; Visualize</div>
-              </div>
-            </div>
-            <div className="ub-home-fast-track" aria-label="Quick start workflows">
-              <div className="ub-home-fast-heading">
-                <div><p className="eyebrow">QUICK START · 常用工作流</p><h2>从文件开始，快速完成工作</h2>
-                 <p className="subtle">先检查文件，再编辑、转换或分享。核心操作都在本机。</p></div>
-              </div>
-              <div className="ub-home-fast-grid">
-                <button type="button" onClick={()=>openTool("file-intake")}>
-                  <span className="ub-home-fast-number">01</span><span className="ub-home-fast-icon">⇪</span>
-                  <strong>拖入并检查文件</strong><small>识别格式 · 检查重复 · SHA-256</small><span className="ub-home-fast-arrow">→</span>
-                </button>
-                <button type="button" onClick={()=>openTool("pdf-mini","links")}>
-                  <span className="ub-home-fast-number">02</span><span className="ub-home-fast-icon">▣</span>
-                  <strong>PDF 可视化编辑</strong><small>链接批量修复 · 鼠标框选</small><span className="ub-home-fast-arrow">→</span>
-                </button>
-                <button type="button" onClick={()=>openTool("commons")}>
-                  <span className="ub-home-fast-number">03</span><span className="ub-home-fast-icon">⇄</span>
-                  <strong>安全分享与协作</strong><small>免费加密局域网传输 · 离线团队空间</small><span className="ub-home-fast-arrow">→</span>
-                </button>
-              </div>
-            </div>
-            <div className="ub-companion-home">
-              <div><strong>新增 · 网页捕获 + 免费 CSV 清理</strong>
-                <p className="subtle">浏览器助手随桌面软件打包 · 选择表格 · 清理重复行 · 安全导出，不需要付费服务</p></div>
-              <button className="primary-button" type="button" onClick={()=>openTool("web-capture")}>打开网页捕获工作台 →</button>
-            </div>
-            <div className="ub-compare-home">
-             <span aria-hidden="true">≠</span>
-             <div><strong>新功能 · 双文件差异分析</strong>
-              <p className="subtle">可视化定位文件被修改的位置，支持 PDF、图片、压缩包与任意二进制文件</p></div>
-             <button type="button" className="primary-button" onClick={()=>openTool("binary-compare")}>开始对比 →</button>
-            </div>
-            <div className="ub-home-reliability">
-              <div><strong>文件传输完整性验证</strong><p className="subtle">跨设备 SHA-256 校验清单 · 快速发现文件是否改变</p></div>
-              <button className="secondary-button" type="button" onClick={()=>openTool("file-intake")}>打开校验工作台 →</button>
-              <div><strong>应用健康检查</strong><p className="subtle">检查桌面外壳、加密、存储与图片能力</p></div>
-              <button className="secondary-button" type="button" onClick={()=>openTool("system-health")}>运行自检 →</button>
-            </div>
-            <div className="overview-insights">
-              <div className="insight-card"><span>READY TO USE</span><strong>{LOCAL_TOOLS.length}</strong><small>searchable tool entries</small></div>
-              <div className="insight-card"><span>YOUR MOMENTUM</span><strong>{progress}%</strong><small>tasks completed</small>
-                <div className="insight-progress"><span style={{width:progress+"%"}} /></div>
-              </div>
-              <div className="insight-card"><span>LOCAL WORKSPACE</span><strong>{workspace.cards.length}</strong><small>flashcards available</small></div>
-            </div>
-            </details>
-            <div className="section-heading"><div><p className="eyebrow">GO STRAIGHT TO WHAT MATTERS</p><h2>{favoriteViews.length?"Your favorites":"Start creating"}</h2>
-              <p className="subtle">Pin workspaces with the star in the top bar. Favorite choices stay on this device.</p></div>
-              <button className="secondary-button" type="button" onClick={()=>openTool("all-tools")}>All tools ↗</button>
-            </div>
-            <div className="tool-grid overview-grid">
-              {(favoriteViews.length?favoriteViews:["vision-workflows","creative-studio","extra-studio","daily-studio","life-media","file-intake"] as View[]).map(id=>{
-                const item=menu.find(m=>m.id===id)!;
-                return <button key={id} type="button" className="tool-card" onClick={()=>openTool(id)}>
-                  <span className="tool-icon">{item.symbol}</span><strong>{item.name}</strong>
-                  <span className="subtle">{item.description}</span><span className="tool-state">OPEN WORKSPACE →</span>
-                </button>;
-              })}
-            </div>
-            {recentViews.length>0&&<>
-              <div className="section-heading"><div><p className="eyebrow">PICK UP WHERE YOU LEFT OFF</p><h2>Recently opened</h2></div></div>
-              <div className="recent-strip">{recentViews.slice(0,6).map(id=>{
-                const item=menu.find(x=>x.id===id)!;
-                return <button className="recent-link" type="button" key={id} onClick={()=>openTool(id)}>
-                  <span aria-hidden="true">{item.symbol}</span>{item.name}<span aria-hidden="true">↗</span>
-                </button>;
-              })}</div>
-            </>}
-          </>}
+          {view!=="overview"&&<div className="workspace-context" data-testid="workspace-context">
+            <button type="button" className="workspace-back" onClick={()=>openTool("overview")} aria-label="返回首页">← 首页</button>
+            <span className="workspace-context-divider" aria-hidden="true">/</span>
+            <span>{activeMenu.name}</span>
+            <p>{activeMenu.description}</p>
+          </div>}
+          {view === "overview" && <OfficeHome
+            favorites={favoriteViews.map(id=>menu.find(item=>item.id===id)!).filter(Boolean)}
+            recents={recentViews.map(id=>menu.find(item=>item.id===id)!).filter(Boolean)}
+            totalTools={LOCAL_TOOLS.length}
+            onOpen={openTool}
+            onSearch={()=>{setCommandOpen(true);setCommandQuery("");}}
+            onUnpin={id=>toggleFavorite(id as View)}
+          />}
           {view === "tasks" && renderPlanner()}
           {view === "cards" && <Flashcards cards={workspace.cards} onChange={(cards) => setWorkspace((current) => ({ ...current, cards }))} />}
           <div hidden={view !== "focus"}><FocusTimer /></div>
           {view === "notes" && <section className="panel"><p className="eyebrow">LOCAL NOTES</p><h2>Keep ideas close at hand.</h2><p className="subtle">Your notes are automatically saved in this application. Export backups in Backup & privacy.</p><label className="field-label" htmlFor="my-notes">My notebook</label><textarea id="my-notes" className="field text-editor" rows={20} maxLength={50000} placeholder="Capture a thought, write a draft or summarise a concept…" value={workspace.notes} onChange={(event) => setWorkspace((current) => ({ ...current, notes: event.target.value }))}/><p className="subtle">{workspace.notes.length.toLocaleString()} characters</p></section>}
-          {view === "commons" && <CommonsDesk />}
+          {view === "commons" && <CommonsDesk onOpenTool={openTool} />}
           {view === "creative-studio" && <CreativeStudioDesk key={toolMode} initialMode={(toolMode||"word") as CreativeMode}/> }
           {view === "extra-studio" && <ExtraCreationDesk key={toolMode} initialMode={(toolMode||"office") as ExtraMode}/> }
           {view === "life-media" && <LifeMediaDesk key={toolMode} initialMode={(toolMode||"subtitle") as LifeMediaMode}/> }

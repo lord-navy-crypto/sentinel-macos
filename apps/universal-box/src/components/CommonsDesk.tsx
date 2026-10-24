@@ -6,6 +6,7 @@ import {canReceiveLan,keyFromNearbyInput,parseCommonsLanInvite} from "../lib/com
 import CommonsLiveChatDesk from "./CommonsLiveChatDesk";
 import CommonsInternetDirectDesk from "./CommonsInternetDirectDesk";
 import CommonsPublicRoomDesk from "./CommonsPublicRoomDesk";
+import CommonsConnectivityDiagnostics from "./CommonsConnectivityDiagnostics";
 import {
  createCommonsRoom,commonsMessage,commonsTask,commonsToggleTask,commonsFile,
  exportCommonsPacket,importCommonsPacket,mergeCommonsPackets,safeAttachmentName,
@@ -40,7 +41,7 @@ const tabs:{key:View;name:string}[]=[
 function errorText(e:unknown):string {return e instanceof Error?e.message:String(e);}
 function sizeText(n:number):string{return n>=1_000_000?(n/1_000_000).toFixed(2)+" MB":(n/1000).toFixed(1)+" KB";}
 
-export default function CommonsDesk(){
+export default function CommonsDesk({onOpenTool}:{onOpenTool:(view:string)=>void}){
  const [teamName,setTeamName]=useState("Our project");
  const [myName,setMyName]=useState("");
  const [packet,setPacket]=useState<CommonsPacket|null>(null);
@@ -55,7 +56,7 @@ export default function CommonsDesk(){
  const [selectedInvite,setSelectedInvite]=useState("");
  const [incomingInvite,setIncomingInvite]=useState("");
  const [incoming,setIncoming]=useState<CommonsPacket|null>(null);
- const [transportMode,setTransportMode]=useState<"lan"|"public">("lan");
+ const [transportMode,setTransportMode]=useState<"lan"|"public"|"diagnostics">("lan");
  const [publicChatMode,setPublicChatMode]=useState<"direct"|"room">("direct");
  const [lanAction,setLanAction]=useState<"send"|"receive">("receive");
  const [revealInvite,setRevealInvite]=useState(false);
@@ -374,13 +375,15 @@ export default function CommonsDesk(){
    </div>}
   </>}
   <div className="panel" data-testid="commons-connection-switcher" style={{marginTop:16}}>
-   <h3>通讯 · 选择连接方式</h3>
-   <p className="subtle">离线 ZIP → 局域网加密群聊 → 公网 WebRTC 直连或临时多人房间；公网自动信令与托管服务仍未实现。</p>
-   <div className="pill-row" role="group" aria-label="Communication transport">
+   <h3>连接与协作 · Connectivity</h3>
+   <p className="subtle">局域网发送与群聊、公网 WebRTC 临时通讯、连接排查分开显示。公网仍需手动交换 Offer/Answer。</p>
+   <div className="pill-row connection-switch-tabs" role="group" aria-label="Communication transport">
     <button type="button" className={transportMode==="lan"?"pill active-pill":"pill"} aria-pressed={transportMode==="lan"}
      onClick={()=>setTransportMode("lan")}>局域网发送与接收</button>
     <button type="button" className={transportMode==="public"?"pill active-pill":"pill"} aria-pressed={transportMode==="public"}
      onClick={()=>setTransportMode("public")}>公网 · 直连实验</button>
+     <button type="button" className={transportMode==="diagnostics"?"pill active-pill":"pill"} aria-pressed={transportMode==="diagnostics"}
+      data-testid="commons-diagnostics-mode" onClick={()=>setTransportMode("diagnostics")}>连接诊断</button>
    </div>
    {!nativeLan&&<p role="status" className="subtle">浏览器仅供界面预览和离线 ZIP；Bonjour、局域网收发及 STUN 探测需要 Mac 桌面应用。</p>}
   </div>
@@ -492,11 +495,24 @@ export default function CommonsDesk(){
    {networkStatus&&<p className="subtle" role="status" data-testid="commons-network-status">{networkStatus}</p>}
   </div>}
   <CommonsLiveChatDesk visible={transportMode==="lan"}/>
+   {transportMode==="diagnostics"&&<CommonsConnectivityDiagnostics
+    native={nativeLan}
+    lanShareActive={!!lan?.active}
+    lanPhase={lan?.phase??"idle"}
+    lanStatus={networkStatus}
+    publicProbe={stun?stun.observedPublicEndpoint:""}
+    publicProbeError={stunError}
+    probeBusy={stunBusy}
+    onOpenLan={()=>setTransportMode("lan")}
+    onOpenPublic={()=>setTransportMode("public")}
+    onProbe={()=>void runP2pProbe()}
+    onSystemHealth={()=>onOpenTool("system-health")}
+   />}
   {transportMode==="public"&&<div className="panel" data-testid="commons-public-research" style={{marginTop:16}}>
    <p className="eyebrow">P2P RESEARCH · OPT-IN · NO FILE TRANSFER</p>
-   <h3>公网连接 · 诊断与后续规划</h3>
+   <h3>公网通讯 · WebRTC</h3>
    <p className="subtle">下面可以选择 WebRTC 一对一直连，或主持人转发式临时群聊。双方仍需手动交换 Offer/Answer，不会开放公网 TCP 监听；可自行提供 TURN 中继，但不保证任意公网连通，亦不提供自动信令与账户服务。</p>
-   <p className="subtle">研究阶段：可使用公开 STUN 服务器观察你的 UDP 公网映射。只有主动点击才联系外部服务器；该服务器能看到本次连接的公网 IP。**这不是已经建立了 P2P 文件连接**，也不会上传任何团队文件。</p>
+   <p className="subtle">可主动使用 STUN 探测 UDP 地址映射；只有点击探测才会联系外部服务器，服务器会看到公网 IP。探测不等于实际 WebRTC 连接，也不会上传团队文件。</p>
    <button type="button" className="secondary-button" disabled={!nativeLan||stunBusy} onClick={()=>void runP2pProbe()}>
     {stunBusy?"探测中…":"尝试两处免费 STUN 映射对比"}
    </button>
@@ -512,7 +528,7 @@ export default function CommonsDesk(){
      <p className="subtle">{stun.mappingConsistent===true?"两处观测相同；这仍不能证明能够异地直连。":stun.mappingConsistent===false?"两处观测不同，可能存在目标相关的 NAT 映射；异地打洞更难，但不能由此确定 NAT 类型。":"只有一处或没有可比较的观测，无法判断映射是否一致。"}</p>
     </div>
     <p className="subtle">{stun.note}</p>
-    <p className="subtle">观测服务器：{stun.server}。此结果不能预测真实 NAT 穿透成功率；跨网打洞、信令和端到端传输还没有实现。</p>
+    <p className="subtle">观测服务器：{stun.server}。此结果不能预测真实 NAT 穿透成功率；已实现的 WebRTC 临时聊天仍需手动交换 Offer/Answer。</p>
    </div>}
    <div className="pill-row" role="group" aria-label="Public communication mode">
     <button type="button" className={publicChatMode==="direct"?"pill active-pill":"pill"} aria-pressed={publicChatMode==="direct"} data-testid="commons-public-direct-mode"

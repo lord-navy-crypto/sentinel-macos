@@ -1,3 +1,4 @@
+import {registerRecentExport} from "./recentExports";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
 
@@ -46,6 +47,7 @@ export async function exportFile(
       path: selected,
       bytes: Array.from(payload),
     });
+    registerRecentExport(suggestedName,payload.length);
     return true;
   }
   const copy = new Uint8Array(payload);
@@ -60,5 +62,6 @@ export async function exportFile(
   } finally {
     window.setTimeout(() => URL.revokeObjectURL(url), 2000);
   }
+  registerRecentExport(suggestedName,payload.length);
   return true;
 }
