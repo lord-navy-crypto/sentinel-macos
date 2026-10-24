@@ -11,6 +11,21 @@ describe("web tool equivalents", () => {
     ]);
   });
 
+  it("optionally retains physical blank CSV rows without inventing a row after final newline",()=>{
+    const input='name,notes\r\n甲,"第一行\n第二行"\r\n\r\n \t \r\n乙,last\r\n';
+    expect(csvRows(input,",").length).toBe(3);
+    const preserved=csvRows(input,",",true);
+    expect(preserved).toEqual([
+      ["name","notes"],["甲","第一行\n第二行"],[""],[" \t "],["乙","last"],
+    ]);
+    expect(csvRows("a,b\n",",",true)).toEqual([["a","b"]]);
+    expect(csvRows("\n",",",true)).toEqual([[""]]);
+    expect(csvRows("",",",true)).toEqual([]);
+    expect(csvRows("x\ty\n\nz\t1\n","\t",true)).toEqual([["x","y"],[""],["z","1"]]);
+    // Existing call sites still get their prior skip-blank behavior by default.
+    expect(csvRows("x\n\nz\n")).toEqual([["x"],["z"]]);
+  });
+
   it("rejects malformed and oversized CSV instead of silently losing rows", () => {
     expect(() => csvRows('"unclosed')).toThrow(/unmatched/i);
     expect(() => csvRows("h\n" + "x\n".repeat(2001))).toThrow(/2,000/);

@@ -2,7 +2,7 @@ import {type ChangeEvent,useMemo,useState} from "react";
 import {csvRows} from "./EverydayTools";
 import {exportFile} from "../lib/output";
 import {mergeCsvSources,mergedCsvExport,type MergedCsv} from "../lib/csvMerge";
-import {filterSortTable,makeDataTable,tableToCsv,tableToJson,tableToMarkdown,type DataTable} from "../lib/tableTools";
+import {filterSortTable,makeDataTable,tableToCsv,tableToTsv,tableToJson,tableToMarkdown,type DataTable} from "../lib/tableTools";
 
 export default function DataDesk(){
   const [source,setSource]=useState("Name,Score,Class\nAda,95,A\nBob,88,B\nCara,96,A");
@@ -14,12 +14,13 @@ export default function DataDesk(){
   const [sortColumn,setSortColumn]=useState(-1);
   const [descending,setDescending]=useState(false);
   const [unique,setUnique]=useState(false);
+  const [removeEmptyRows,setRemoveEmptyRows]=useState(false);
   const [status,setStatus]=useState("");
   const [merged,setMerged]=useState<MergedCsv|null>(null);
   const [mergeNames,setMergeNames]=useState<string[]>([]);
 
-  const visible=useMemo(()=>table?filterSortTable(table,filter,filterColumn<0?null:filterColumn,sortColumn<0?null:sortColumn,descending,unique):null,
-    [table,filter,filterColumn,sortColumn,descending,unique]);
+  const visible=useMemo(()=>table?filterSortTable(table,filter,filterColumn<0?null:filterColumn,sortColumn<0?null:sortColumn,descending,unique,removeEmptyRows):null,
+    [table,filter,filterColumn,sortColumn,descending,unique,removeEmptyRows]);
   async function importData(event:ChangeEvent<HTMLInputElement>){
     const file=event.target.files?.[0];
     event.target.value="";
@@ -57,16 +58,16 @@ export default function DataDesk(){
   function load(){
     try{
       if(source.length>2_000_000)throw Error("Text exceeds the 2 MB limit.");
-      const next=makeDataTable(csvRows(source,delimiter),header);
+      const next=makeDataTable(csvRows(source,delimiter,true),header);
       setTable(next);
-      setFilter("");setFilterColumn(-1);setSortColumn(-1);setUnique(false);
+      setFilter("");setFilterColumn(-1);setSortColumn(-1);setUnique(false);setRemoveEmptyRows(false);
       setStatus("Loaded "+next.rows.length+" data rows and "+next.headers.length+" columns. No upload.");
     }catch(e){setStatus("Cannot read table: "+String(e instanceof Error?e.message:e));}
   }
-  async function save(format:"csv"|"json"|"md"){
+  async function save(format:"csv"|"tsv"|"json"|"md"){
     if(!visible)return;
     try{
-      const data=format==="csv"?tableToCsv(visible):format==="json"?tableToJson(visible):tableToMarkdown(visible);
+      const data=format==="csv"?tableToCsv(visible):format==="tsv"?"\ufeff"+tableToTsv(visible):format==="json"?tableToJson(visible):tableToMarkdown(visible);
       const saved=await exportFile("daily-desk-table."+format,data);
       setStatus(saved?"Saved "+visible.rows.length+" visible rows as "+format.toUpperCase()+".":"Save cancelled.");
     }catch(e){setStatus("Export failed: "+String(e));}
@@ -74,7 +75,7 @@ export default function DataDesk(){
   return <section className="panel">
     <p className="eyebrow">OFFLINE DATA / TABLE WORKBENCH</p>
     <h2>CSV table desk · 表格处理</h2>
-    <p className="subtle">Import or paste CSV/TSV. Search, sort, remove duplicate rows, preview and export CSV, JSON or Markdown. Originals remain unchanged.</p>
+    <p className="subtle">Import or paste CSV/TSV. Search, sort, remove duplicate or completely empty rows, preview and export CSV, TSV, JSON or Markdown. Originals remain unchanged.</p>
     <div className="actions">
       <label className="field-label" htmlFor="data-file">Import .csv / .tsv</label>
       <input id="data-file" type="file" className="field" accept=".csv,.tsv,text/csv,text/tab-separated-values" onChange={event=>{void importData(event);}}/>
@@ -119,6 +120,7 @@ export default function DataDesk(){
         </label>
         <label className="field-label"><input type="checkbox" checked={descending} onChange={e=>setDescending(e.target.checked)}/> Descending</label>
         <label className="field-label"><input type="checkbox" checked={unique} onChange={e=>setUnique(e.target.checked)}/> Remove duplicate rows</label>
+        <label className="field-label"><input type="checkbox" data-testid="table-remove-empty" checked={removeEmptyRows} onChange={e=>setRemoveEmptyRows(e.target.checked)}/> Exclude empty rows · 排除全空行</label>
       </div>
       <div style={{overflowX:"auto",maxHeight:"440px",overflowY:"auto",border:"1px solid var(--line, #cbd5e1)",borderRadius:"8px"}}>
         <table style={{borderCollapse:"collapse",width:"100%",fontSize:13}}>
@@ -129,10 +131,11 @@ export default function DataDesk(){
       {visible.rows.length>80&&<p className="subtle">Showing the first 80 rows for responsiveness. Exports include all {visible.rows.length} filtered rows.</p>}
       <div className="actions">
         <button className="secondary-button" type="button" onClick={()=>{void save("csv");}}>Save CSV</button>
+        <button className="secondary-button" data-testid="table-save-tsv" type="button" onClick={()=>{void save("tsv");}}>Save TSV (Excel)</button>
         <button className="secondary-button" type="button" onClick={()=>{void save("json");}}>Save JSON</button>
         <button className="secondary-button" type="button" onClick={()=>{void save("md");}}>Save Markdown</button>
       </div>
-      <p className="subtle">CSV export guards against formula injection when opened in a spreadsheet. All results are written to new files.</p>
+      <p className="subtle">CSV and TSV exports protect formula-like values, quote embedded line breaks/delimiters, and save to new files. TSV output includes a UTF-8 BOM to help Excel recognize Chinese text. The empty-row checkbox changes only the filtered preview/export, never the imported source.</p>
     </>}
     {status&&<p role="status" className="subtle">{status}</p>}
   </section>;

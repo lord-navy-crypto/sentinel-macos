@@ -486,3 +486,34 @@ test("Copied-text hidden-space cleanup produces verified ZIP files and protects 
   assert.deepEqual(errors,[]);
  }finally{await page.close();await browser.close();}
 });
+
+test("CSV Table Desk retains optional blank rows and exports spreadsheet-safe TSV with real data",{timeout:90000},async()=>{
+ const browser=await chromium.launch({headless:true,args:["--no-sandbox"]});
+ const page=await browser.newPage({acceptDownloads:true,viewport:{width:1440,height:920}});
+ const errors=[];page.on("pageerror",e=>errors.push(e.message));
+ try{
+  await page.goto(root,{waitUntil:"domcontentloaded"});await page.locator(".app-shell").waitFor();
+  await page.locator('nav.sidebar-nav button.nav-item[aria-label="CSV Table Desk"]').click();
+  const source='Name,Note,Value\r\n甲,"第一行\n第二行",=2+3\r\n\r\n乙,"literal\t""quoted""",-42\r\n';
+  await page.locator("#data-text").fill(source);
+  await page.getByRole("button",{name:"Load table"}).click();
+  const heading=page.getByRole("heading",{name:/Table preview/});
+  assert.match(await heading.innerText(),/3\s*\/\s*3 rows/);
+  await page.locator('[data-testid="table-remove-empty"]').check();
+  assert.match(await heading.innerText(),/2\s*\/\s*3 rows/);
+  const pending=page.waitForEvent("download",{timeout:30000});
+  await page.locator('[data-testid="table-save-tsv"]').click();
+  const dl=await pending;
+  assert.equal(dl.suggestedFilename(),"daily-desk-table.tsv");
+  const dest=path.join(dir,"filtered-excel-table.tsv");
+  await dl.saveAs(dest);
+  const bytes=fs.readFileSync(dest);
+  assert.deepEqual(bytes.subarray(0,3),Buffer.from([239,187,191]));
+  const actual=bytes.subarray(3).toString("utf8");
+  assert.equal(actual,'Name\tNote\tValue\r\n甲\t"第一行\n第二行"\t\'=2+3\r\n乙\t"literal\t""quoted"""\t-42');
+  assert.equal(await page.locator("#data-text").inputValue(),source);
+  await page.locator('[data-testid="table-remove-empty"]').uncheck();
+  assert.match(await heading.innerText(),/3\s*\/\s*3 rows/);
+  assert.deepEqual(errors,[]);
+ }finally{await page.close();await browser.close();}
+});

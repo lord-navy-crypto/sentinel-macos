@@ -21,7 +21,7 @@ export const UTILITIES: { id: Utility; title: string; description: string }[] = 
   { id: "rename", title: "Batch rename copies", description: "Preview and export renamed file copies one by one." },
 ];
 
-export function csvRows(text: string, delimiter = ","): string[][] {
+export function csvRows(text: string, delimiter = ",", preserveBlankRows = false): string[][] {
   const rows: string[][] = [];
   let cells: string[] = [], cell = "", quoted = false;
   const input = text.replace(/^\uFEFF/u, "");
@@ -36,13 +36,14 @@ export function csvRows(text: string, delimiter = ","): string[][] {
     else if (c === "\n" || c === "\r") {
       if (c === "\r" && n === "\n") i++;
       cells.push(cell); cell = "";
-      if (cells.some(x => x.trim())) rows.push(cells);
+      if (preserveBlankRows || cells.some(x => x.trim())) rows.push(cells);
       cells = [];
     } else cell += c;
   }
   if (quoted) throw new Error("CSV has an unmatched quoted field");
   cells.push(cell);
-  if (cells.some(x => x.trim())) rows.push(cells);
+  // A final line terminator is not another blank physical row.
+  if ((preserveBlankRows && input.length>0 && !/[\r\n]$/u.test(input)) || cells.some(x => x.trim())) rows.push(cells);
   if (rows.length > 2000) throw new Error("CSV exceeds the 2,000-row preview limit. No rows were silently dropped.");
   return rows;
 }

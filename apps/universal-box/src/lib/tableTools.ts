@@ -24,12 +24,14 @@ export function filterSortTable(
   sortColumn:number|null=null,
   descending=false,
   unique=false,
+  removeEmptyRows=false,
 ):DataTable {
   const width=table.headers.length;
   if(column!==null&&(column<0||column>=width))throw new Error("Invalid filter column.");
   if(sortColumn!==null&&(sortColumn<0||sortColumn>=width))throw new Error("Invalid sort column.");
   const term=filter.toLocaleLowerCase().trim();
   let rows=table.rows.filter(row=>!term||(column===null?row: [row[column]??""]).some(cell=>cell.toLocaleLowerCase().includes(term)));
+  if(removeEmptyRows)rows=rows.filter(row=>row.some(cell=>cell.trim().length>0));
   if(unique) {
     const seen=new Set<string>();
     rows=rows.filter(row=>{const id=JSON.stringify(row);if(seen.has(id))return false;seen.add(id);return true;});
@@ -55,6 +57,14 @@ export function tableToCsv(table:DataTable):string {
     return /[",\r\n]/u.test(text)?'"'+text.replace(/"/gu,'""')+'"':text;
   };
   return [table.headers,...table.rows].map(row=>row.map(cell).join(",")).join("\r\n");
+}
+/** Real tab-separated export, with quoted embedded tabs/newlines and spreadsheet-safe literal cells. */
+export function tableToTsv(table:DataTable):string {
+  const cell=(value:string)=>{
+    const text=neutralizeFormula(value);
+    return /["\t\r\n]/u.test(text)?'"'+text.replace(/"/gu,'""')+'"':text;
+  };
+  return [table.headers,...table.rows].map(row=>row.map(cell).join("\t")).join("\r\n");
 }
 export function tableToJson(table:DataTable):string {
   return JSON.stringify(table.rows.map(row=>Object.fromEntries(table.headers.map((name,index)=>[name,row[index]??""]))),null,2);
