@@ -23,7 +23,7 @@ const SOCKET_TIMEOUT: Duration = Duration::from_secs(4);
 const MAX_ACTIVE_CONNECTIONS: usize = 12;
 const MAX_PARTICIPANTS: usize = 12;
 const MAX_HISTORY: usize = 200;
-const MAX_REPLY_MESSAGES: usize = 30;
+const MAX_REPLY_MESSAGES: usize = 12;
 const MAX_FRAME: usize = 65_536;
 
 #[derive(Default)]
