@@ -1,11 +1,11 @@
 import {useEffect,useRef,useState} from "react";
-import {buildCommonsIceServers,finishIceGathering,summarizeCommonsIceRoute,validDirectChatText} from "../lib/commonsInternetRtc";
+import {buildCommonsIceServers,finishIceGathering,summarizeCommonsIceRoute,validDirectChatText,readDirectFingerprint} from "../lib/commonsInternetRtc";
 import {PUBLIC_ROOM_GUEST_LIMIT,decodePublicRoomFrame,decodePublicRoomSignal,
  encodePublicRoomFrame,encodePublicRoomSignal,rememberRoomMessage,roomSendReady,
  validPublicRoomName,type PublicRoomFrame} from "../lib/commonsPublicRoom";
 
-type MemberSlot={id:string;pc:RTCPeerConnection;dc:RTCDataChannel;offer:string;answer:string;guest:string;phase:string};
-type DisplaySlot={id:string;offer:string;answer:string;guest:string;phase:string};
+type MemberSlot={id:string;pc:RTCPeerConnection;dc:RTCDataChannel;offer:string;answer:string;guest:string;phase:string;fingerprint:string};
+type DisplaySlot={id:string;offer:string;answer:string;guest:string;phase:string;fingerprint:string};
 type ChatLine={id:string;name:string;text:string;self:boolean};
 const errorText=(e:unknown)=>e instanceof Error?e.message:String(e);
 
@@ -31,13 +31,14 @@ export default function CommonsPublicRoomDesk(){
  const [slotViews,setSlotViews]=useState<DisplaySlot[]>([]);
  const [invitation,setInvitation]=useState("");
  const [guestAnswer,setGuestAnswer]=useState("");
+ const [hostFingerprint,setHostFingerprint]=useState("");
  const [joined,setJoined]=useState(false);
  const [draft,setDraft]=useState("");
  const [lines,setLines]=useState<ChatLine[]>([]);
  const [route,setRoute]=useState("");
  const options=()=>buildCommonsIceServers({publicStun:stun,ownTurn:useTurn,
   turnUrl,turnUsername:turnUser,turnCredential:turnPassword});
- const refresh=()=>setSlotViews(slotsRef.current.map(s=>({id:s.id,offer:s.offer,answer:s.answer,guest:s.guest,phase:s.phase})));
+ const refresh=()=>setSlotViews(slotsRef.current.map(s=>({id:s.id,offer:s.offer,answer:s.answer,guest:s.guest,phase:s.phase,fingerprint:s.fingerprint})));
  const append=(name:string,text:string,self:boolean)=>{
   setLines(old=>[...old,{id:crypto.randomUUID(),name,text,self}].slice(-200));
  };
@@ -51,7 +52,7 @@ export default function CommonsPublicRoomDesk(){
   if(modeRef.current==="guest"&&guestChannelRef.current?.readyState==="open"&&roomRef.current)
    guestChannelRef.current.send(encodePublicRoomFrame({v:1,room:roomRef.current,kind:"leave"}));
   destroy();roomRef.current="";modeRef.current=null;seenRef.current.clear();
-  setRoom("");setJoined(false);setGuestAnswer("");setInvitation("");setSlotViews([]);
+  setRoom("");setJoined(false);setGuestAnswer("");setHostFingerprint("");setInvitation("");setSlotViews([]);
   setLines([]);setDraft("");setRoute("");setTurnPassword("");
   setStatus("房间已结束，连接、消息与临时 TURN 密码已清空。");
  };
@@ -102,7 +103,7 @@ export default function CommonsPublicRoomDesk(){
   try{
    pc=new RTCPeerConnection({iceServers:options()});
    const dc=pc.createDataChannel("commons-room",{ordered:true});
-   const slot:MemberSlot={id:crypto.randomUUID(),pc,dc,offer:"",answer:"",guest:"",phase:"搜集 ICE 候选地址"};
+   const slot:MemberSlot={id:crypto.randomUUID(),pc,dc,offer:"",answer:"",guest:"",phase:"搜集 ICE 候选地址",fingerprint:""};
    slotsRef.current.push(slot);refresh();
    const roomId=roomRef.current,hostName=nickname.trim();
    dc.onmessage=e=>handleHostMessage(slot,e.data,roomId,hostName);
@@ -136,6 +137,7 @@ export default function CommonsPublicRoomDesk(){
    const desc=decodePublicRoomSignal(slot.answer,"answer");
    if(desc.room!==roomRef.current)throw Error("Answer belongs to a different room.");
    await slot.pc.setRemoteDescription({type:"answer",sdp:desc.sdp});
+   slot.fingerprint=readDirectFingerprint(desc.sdp);
    slot.phase="已应用 Answer，等待 ICE 连接";refresh();
   }catch(e){setStatus("无法应用 Answer："+errorText(e));}
   finally{setBusy(false);}
@@ -147,6 +149,7 @@ export default function CommonsPublicRoomDesk(){
   try{
    const invite=decodePublicRoomSignal(invitation,"offer");
    pc=new RTCPeerConnection({iceServers:options()});
+   setHostFingerprint(readDirectFingerprint(invite.sdp));
    guestRef.current=pc;modeRef.current="guest";
    roomRef.current=invite.room;setRoom(invite.room);
    const expectedRoom=invite.room,memberName=nickname.trim();
@@ -250,6 +253,7 @@ export default function CommonsPublicRoomDesk(){
    </button>
    {slotViews.map((slot,index)=><div key={slot.id} className="panel" data-testid="room-slot">
     <p><strong>成员连接 {index+1}</strong> · {slot.guest||"尚未加入"} · {slot.phase}</p>
+   {slot.fingerprint&&<p className="subtle">该成员 Answer 声明的 DTLS 指纹：{slot.fingerprint}。只能与可信渠道核对，不能凭此确认真实身份。</p>}
     {slot.offer&&<><label className="field-label">将此专属邀请 JSON 私下交给该成员
      <textarea className="field text-editor" readOnly rows={3} value={slot.offer}/></label>
      <button type="button" className="secondary-button" onClick={()=>void copy(slot.offer)}>复制成员邀请</button>
@@ -271,6 +275,7 @@ export default function CommonsPublicRoomDesk(){
     onClick={()=>void joinRoom()}>{busy?"生成中…":"生成本机 Answer 并加入"}</button>
   </div>}
   {mode==="guest"&&room&&guestAnswer&&<div>
+   <p className="subtle">主持人 Offer 声明的 DTLS 指纹：{hostFingerprint}。请通过可信渠道另行核对，指纹本身不证明身份。</p>
    <label className="field-label">将 Answer JSON 私下发回主持人
     <textarea className="field text-editor" readOnly rows={4} value={guestAnswer} data-testid="room-answer"/></label>
    <button type="button" className="secondary-button" onClick={()=>void copy(guestAnswer)}>复制 Answer</button>
