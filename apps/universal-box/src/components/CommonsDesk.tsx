@@ -1,7 +1,8 @@
 import {useEffect,useMemo,useState,type ChangeEvent} from "react";
-import {invoke} from "@tauri-apps/api/core";
+import {invoke,isTauri} from "@tauri-apps/api/core";
 import {listen} from "@tauri-apps/api/event";
 import {exportFile} from "../lib/output";
+import {canReceiveLan,keyFromNearbyInput,parseCommonsLanInvite} from "../lib/commonsLanUi";
 import {
  createCommonsRoom,commonsMessage,commonsTask,commonsToggleTask,commonsFile,
  exportCommonsPacket,importCommonsPacket,mergeCommonsPackets,safeAttachmentName,
@@ -50,6 +51,9 @@ export default function CommonsDesk(){
  const [selectedInvite,setSelectedInvite]=useState("");
  const [incomingInvite,setIncomingInvite]=useState("");
  const [incoming,setIncoming]=useState<CommonsPacket|null>(null);
+ const [transportMode,setTransportMode]=useState<"lan"|"public">("lan");
+ const [lanAction,setLanAction]=useState<"send"|"receive">("receive");
+ const [revealInvite,setRevealInvite]=useState(false);
  const [networkBusy,setNetworkBusy]=useState(false);
  const [networkStatus,setNetworkStatus]=useState("");
  const [transferProgress,setTransferProgress]=useState<LanTransferProgress|null>(null);
@@ -61,21 +65,13 @@ export default function CommonsDesk(){
  const [stun,setStun]=useState<StunObservation|null>(null);
  const [stunBusy,setStunBusy]=useState(false);
  const [stunError,setStunError]=useState("");
- useEffect(()=>{
-  let mounted=true;
-  async function browse(){
-   try{
-    const peers=await invoke<NearbyShare[]>("commons_lan_discover");
-    if(mounted){setNearby(peers);setDiscoveryError("");}
-   }catch(e){if(mounted)setDiscoveryError(errorText(e));}
-   finally{if(mounted)setDiscovering(false);}
-  }
-  setDiscovering(true);
-  void browse();
-  // Discovery stops on leaving the Commons screen. No silent always-on scan.
-  const timer=window.setInterval(()=>{void browse();},20000);
-  return ()=>{mounted=false;window.clearInterval(timer);void invoke("commons_lan_stop").catch(()=>{});};
- },[]);
+ const nativeLan=isTauri();
+ const nearbyKeyReady=useMemo(()=>{
+  if(!selectedNearby)return false;
+  try{keyFromNearbyInput(nearbyKey,selectedNearby);return true;}catch{return false;}
+ },[nearbyKey,selectedNearby]);
+ // Discovery happens only when user presses Refresh; do not poll mDNS automatically.
+ useEffect(()=>()=>{if(isTauri())void invoke("commons_lan_stop").catch(()=>{});},[]);
  async function runP2pProbe(){
   setStunBusy(true);setStunError("");setStun(null);
   try{setStun(await invoke<StunObservation>("commons_p2p_stun_probe"));}
@@ -93,28 +89,30 @@ export default function CommonsDesk(){
   return ()=>{live=false;window.clearInterval(poll);};
  },[lan?.active]);
  async function scanNearby(){
-  setDiscovering(true);setDiscoveryError("");
+  if(!nativeLan){setDiscoveryError("Nearby discovery is available in the Mac desktop app.");return;}
+  setDiscovering(true);setDiscoveryError("");setSelectedNearby(null);setNearbyKey("");
   try{setNearby(await invoke<NearbyShare[]>("commons_lan_discover"));}
   catch(e){setDiscoveryError(errorText(e));}
   finally{setDiscovering(false);}
  }
  function chooseNearby(peer:NearbyShare){
-  setSelectedNearby(peer);
-  setNetworkStatus("已选择附近设备。还需要发送方私下提供的一次性密钥；自动发现不会广播密钥。");
+  setSelectedNearby(peer);setNearbyKey("");setIncoming(null);
+  setNetworkStatus("已选择附近设备。请私下取得发送方的密钥，完整邀请的地址必须与所选设备一致。");
  }
  async function pasteNearbyKey(){
   try{
    const pasted=(await navigator.clipboard.readText()).trim();
-   const key=pasted.includes("uboxlan://")?pasted.split("/").pop()??"":pasted;
-   if(!/^[A-Za-z0-9_-]{43}$/.test(key))throw Error("Clipboard does not contain a valid one-time key");
-   setNearbyKey(key);
+   if(!selectedNearby)throw Error("Select the nearby sender first.");
+   setNearbyKey(keyFromNearbyInput(pasted,selectedNearby));
    setNetworkStatus("已提取邀请密钥。点击接收即可从选中的附近设备传输。");
   }catch(e){setNetworkStatus("无法读取邀请密钥："+errorText(e));}
  }
  async function receiveNearby(){
-  if(!selectedNearby||!(/^[A-Za-z0-9_-]{43}$/.test(nearbyKey.trim())))return;
-  const {ip,port}=selectedNearby;
-  await receiveLanWithInvite("uboxlan://"+ip+":"+port+"/"+nearbyKey.trim());
+  if(!selectedNearby)return;
+  try{
+   const key=keyFromNearbyInput(nearbyKey,selectedNearby);
+   await receiveLanWithInvite("uboxlan://"+selectedNearby.ip+":"+selectedNearby.port+"/"+key);
+  }catch(e){setNetworkStatus("邀请与所选设备不一致："+errorText(e));}
  }
  const room=packet?.room??null;
  const attachments=useMemo(()=>new Map((packet?.attachments??[]).map(f=>[f.id,f.bytes])),[packet]);
@@ -128,7 +126,7 @@ export default function CommonsDesk(){
   notify(()=>{
    if(packet)throw Error("Export the current room before creating another; use Reset room explicitly.");
    const next=createCommonsRoom(teamName,myName);
-   setPacket({room:next,attachments:[]});setTab("files");
+   setPacket({room:next,attachments:[]});setTab("files");setLanAction("send");
   });
  }
  function updateRoom(next:CommonsRoom){
@@ -237,7 +235,10 @@ export default function CommonsDesk(){
    setNetworkStatus("邀请已复制。它包含解密密钥，请只发给预期接收者。");}
   catch{setNetworkStatus("系统不允许自动复制，请手动选中并复制邀请。");}
  }
- async function receiveLan(){await receiveLanWithInvite(incomingInvite.trim());}
+ async function receiveLan(){
+  try{parseCommonsLanInvite(incomingInvite);await receiveLanWithInvite(incomingInvite.trim());}
+  catch(e){setNetworkStatus("邀请无效："+errorText(e));}
+ }
  async function receiveLanWithInvite(invite:string){
   setNetworkBusy(true);setNetworkStatus("");setTransferProgress(null);
   let unlisten:(()=>void)|null=null;
