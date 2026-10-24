@@ -593,6 +593,7 @@ test("Quick office TXT draft is opened locally, cleaned and saved as real TXT wi
   await page.getByTestId("quick-draft-file").setInputFiles({
    name:"binary.txt",mimeType:"text/plain",buffer:Buffer.from([0,1,2,3])
   });
+  await page.waitForFunction(()=>Array.from(document.querySelectorAll('section[aria-label="Quick Tools"] p[role="status"]')).some(el=>el.textContent?.includes("Existing text preserved")),{},{timeout:10000});
   assert.match(await page.locator('section[aria-label="Quick Tools"] p[role="status"]').last().innerText(),/Existing text preserved/);
   assert.equal(await page.locator("#quick-text-input").inputValue(),"  合同   草稿\n下一个  章节\n");
   assert.deepEqual(errors,[]);
