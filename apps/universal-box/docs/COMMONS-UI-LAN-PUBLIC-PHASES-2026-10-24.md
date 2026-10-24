@@ -13,7 +13,7 @@ Date: 2026-10-24. This work follows the office-first product reset and keeps one
 
 1. **Offline team**: create/import or review a local ZIP with hashed attachments and task/message records. Message records are **offline notes**, not live chat.
 2. **LAN → Send**: create/import room → exportable packet → click Start encrypted share → securely copy invite → share out of band. Mask the capability URL by default and offer deliberate reveal. One receiver / five minutes.
-3. **LAN → Receive**: click optional Refresh Nearby (short mDNS scan, *not continuous*) and choose sender OR paste a full private invite → validate local endpoint → request → receive AES? **No**: XChaCha20-Poly1305 ciphertext → verify ZIP SHA-256 attachments → show contents → explicitly Approve or Reject. Typing a key into an unverified nearby device is not an identity proof.
+3. **LAN → Receive**: click optional Refresh Nearby (short mDNS scan, *not continuous*) and choose sender OR paste a full private invite → validate local endpoint → request → receive authenticated XChaCha20-Poly1305 ciphertext → verify ZIP SHA-256 attachments → show contents → explicitly Approve or Reject. Typing a key into an unverified nearby device is not an identity proof.
 4. **Public research**: warnings and deliberately initiated STUN observations only. No claim that a NAT mapping equals connectivity, and no public file server.
 
 Privacy: Bonjour advertises *only* randomly named, actively sharing sessions; never transmit invitation key in service metadata. Browsers show the UI but disable native networking and do not launch discovery when the page opens. macOS production builds must include `NSLocalNetworkUsageDescription` and `NSBonjourServices` matching `_uboxcom._tcp` (existing Info.plist verified).
