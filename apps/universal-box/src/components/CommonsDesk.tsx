@@ -420,6 +420,9 @@ export default function CommonsDesk(){
       <label className="field-label">一次性密钥或完整邀请（地址须与选择的设备一致）
        <input className="field" type={revealInvite?"text":"password"} autoComplete="off" maxLength={180} value={nearbyKey} onChange={e=>setNearbyKey(e.target.value)} placeholder="43 位一次性密钥"/>
       </label>
+      {nearbyKey.trim()&&!nearbyKeyReady&&<p role="alert" className="subtle">
+       请核对密钥长度，以及完整邀请中的 IP、端口是否与所选附近设备一致。也可以改用下方手动完整邀请接收。
+      </p>}
       <div className="actions">
        <button type="button" className="secondary-button" onClick={()=>void pasteNearbyKey()}>从剪贴板提取邀请密钥</button>
        <button type="button" className="primary-button" disabled={!nativeLan||networkBusy||!nearbyKeyReady} onClick={()=>void receiveNearby()}>向该设备请求加密传输</button>
