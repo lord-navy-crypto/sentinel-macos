@@ -19,12 +19,19 @@ test("Actual PDF desk preflights every selected file and downloads a verified re
   assert.equal(await page.locator(".catalog-open").count(),1);
   await page.locator(".catalog-open").click();
   await page.locator("#pdf-picker").waitFor();
-  const inputs=[await makePdf("part-one.pdf",2,300),await makePdf("part-two.pdf",1,700)];
+  const inputs=[await makePdf("part-one.pdf",2,300),await makePdf("part-two.pdf",1,700),
+   await makePdf("unneeded-appendix.pdf",1,900)];
   await page.locator("#pdf-picker").setInputFiles(inputs);
   await page.locator('[data-testid="pdf-merge-preflight"]').waitFor();
   const text=await page.locator('[data-testid="pdf-merge-preflight"]').innerText();
-  assert.match(text,/3 total pages/);
+  assert.match(text,/4 total pages/);
   assert.ok(text.indexOf("part-one.pdf")<text.indexOf("part-two.pdf"),"Selected order must be visible");
+  assert.equal(await page.locator('[data-testid="pdf-merge-row"]').count(),3);
+  await page.getByRole("button",{name:"Exclude file 3 from merge"}).click();
+  assert.equal(await page.locator('[data-testid="pdf-merge-row"]').count(),2);
+  assert.match(await page.locator('[data-testid="pdf-merge-preflight"]').innerText(),/3 total pages/);
+  assert.doesNotMatch(await page.locator('[data-testid="pdf-merge-preflight"]').innerText(),/unneeded-appendix.pdf/);
+  assert.match(await page.locator("p[role=status]").last().innerText(),/not changed/);
   assert.equal(await page.locator('[data-testid="pdf-merge-row"]').count(),2);
   assert.equal(await page.getByRole("button",{name:"Move file 1 up"}).isDisabled(),true);
   assert.equal(await page.getByRole("button",{name:"Move file 2 down"}).isDisabled(),true);
