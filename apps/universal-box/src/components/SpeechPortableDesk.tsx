@@ -1,11 +1,10 @@
 import {useEffect,useRef,useState,type ChangeEvent} from "react";
 import {invoke,isTauri} from "@tauri-apps/api/core";
 import {exportFile} from "../lib/output";
-import JSZip from "jszip";
 import {markdownToDocx} from "../lib/documentExport";
 import {decodeAudioToWav} from "../lib/speechAudio";
 import {speechCues,exportTimedCaptions,type SpeechTiming} from "../lib/speechCaptions";
-import {compressPhotoBatch,planPhotoBatch,type PhotoSettings,type PhotoReport} from "../lib/photoCompression";
+import {compressPhotoBatch,planPhotoBatch,verifyPhotoZipOutput,type PhotoSettings,type PhotoReport} from "../lib/photoCompression";
 import {exportPortableText,planPortable,type SourceCharset,type OutputCharset,type LineStyle,type PortableInput,type PortableSettings} from "../lib/portableText";
 
 export type SpeechPortableMode="speech"|"photo-target"|"portable-text";
@@ -118,7 +117,7 @@ export default function SpeechPortableDesk({mode}:{mode:SpeechPortableMode}){
   try{
    const result=await compressPhotoBatch(photos,photoSettings,job.signal);
    const first=result.reports[0];
-   const zip=await JSZip.loadAsync(result.zip);
+   const zip=await verifyPhotoZipOutput(result,photoSettings,job.signal);
    const file=zip.file(first.outputName);
    if(!file)throw Error("Preview photo is missing from the generated ZIP.");
    const data=await file.async("uint8array");
@@ -136,6 +135,7 @@ export default function SpeechPortableDesk({mode}:{mode:SpeechPortableMode}){
   setBusy(true);setStatus("");
   try{
    const result=preparedPhotos??await compressPhotoBatch(photos,photoSettings,job.signal);
+   await verifyPhotoZipOutput(result,photoSettings,job.signal);
    if(job.signal.aborted)throw Error("Photo compression cancelled.");
    // OS save dialogs cannot be cancelled by this button; disable cancellation once export begins.
    if(photoJob.current===job)photoJob.current=null;
