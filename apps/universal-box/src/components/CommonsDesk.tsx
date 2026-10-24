@@ -355,13 +355,31 @@ export default function CommonsDesk(){
     <ul>{room.members.map(name=><li key={name}>{name}</li>)}</ul>
    </div>}
   </>}
-  <div className="panel" style={{marginTop:16}}>
+  <div className="panel" data-testid="commons-connection-switcher" style={{marginTop:16}}>
+   <h3>通讯 · 选择连接方式</h3>
+   <p className="subtle">离线 ZIP → 局域网加密传输 → 公网诊断；公网收发仍未实现。</p>
+   <div className="pill-row" role="group" aria-label="Communication transport">
+    <button type="button" className={transportMode==="lan"?"pill active-pill":"pill"} aria-pressed={transportMode==="lan"}
+     onClick={()=>setTransportMode("lan")}>局域网发送与接收</button>
+    <button type="button" className={transportMode==="public"?"pill active-pill":"pill"} aria-pressed={transportMode==="public"}
+     onClick={()=>setTransportMode("public")}>公网诊断 · 尚不可传输</button>
+   </div>
+   {!nativeLan&&<p role="status" className="subtle">浏览器仅供界面预览和离线 ZIP；Bonjour、局域网收发及 STUN 探测需要 Mac 桌面应用。</p>}
+  </div>
+  {transportMode==="lan"&&<div className="panel" data-testid="commons-lan-workflow" style={{marginTop:16}}>
    <p className="eyebrow">LOCAL NETWORK · NO CLOUD · ENCRYPTED</p>
    <h3>局域网加密传输 · LAN Transfer</h3>
    <p className="subtle">同一 Wi-Fi 或有线网络下，发送者开启临时原生 TCP 端口，文件使用 XChaCha20-Poly1305 端到端加密。不依赖外部服务器或账号。</p>
    <p className="subtle">双方都需安装包含局域网功能的 Sentinel Box。Mac 防火墙可能询问是否允许入站连接；访客 Wi-Fi 或 AP 隔离可能阻止设备互通。</p>
-   {room&&<div className="panel">
-    <h4>发送当前团队空间</h4>
+   <div className="pill-row" role="group" aria-label="LAN transfer direction">
+    <button type="button" className={lanAction==="send"?"pill active-pill":"pill"} aria-pressed={lanAction==="send"}
+     onClick={()=>{setLanAction("send");setNetworkStatus("");}}>1 · 发送</button>
+    <button type="button" className={lanAction==="receive"?"pill active-pill":"pill"} aria-pressed={lanAction==="receive"}
+     onClick={()=>{setLanAction("receive");setNetworkStatus("");}}>2 · 接收</button>
+   </div>
+   {lanAction==="send"&&!room&&<p role="status" className="subtle">先创建或导入一个团队空间，才能发送加密文件包。</p>}
+   {lanAction==="send"&&room&&<div className="panel">
+    <h4>步骤 1 · 准备发送</h4>
     <div className="actions">
      <button className="primary-button" type="button" disabled={busy||networkBusy||!!lan?.active} onClick={()=>void startLan()}>开启 5 分钟一次性加密发送</button>
      <button className="secondary-button" type="button" disabled={networkBusy||!lan?.active} onClick={()=>void stopLan()}>停止共享</button>
@@ -380,12 +398,13 @@ export default function CommonsDesk(){
      <p className="subtle">仅私下发给预期接收者；邀请内含解密密钥。5 分钟后到期，完成一次有效传输后自动关闭。</p>
     </>}
    </div>}
+   {lanAction==="receive"&&<>
    <div className="panel">
     <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-     <h4 style={{margin:0}}>附近正在共享的 Sentinel Box 设备</h4>
+     <h4 style={{margin:0}}>步骤 1 · 查找正在共享的设备（可选）</h4>
      <button type="button" className="secondary-button" disabled={discovering} onClick={()=>void scanNearby()}>{discovering?"搜索中…":"刷新附近设备"}</button>
     </div>
-    <p className="subtle">打开此页面会自动通过 Bonjour/mDNS 搜索同一局域网内**主动开启了共享**的电脑，每 20 秒刷新一次。未开启共享的电脑不会被广播或显示。</p>
+    <p className="subtle">只有点击「刷新附近设备」才开始约 3 秒的 Bonjour/mDNS 搜索；不持续扫描。附近设备名称不是经过验证的身份。</p>
     {discoveryError&&<p role="alert" className="subtle">设备发现暂时不可用：{discoveryError}。可以使用下方手动邀请。</p>}
     {nearby.length===0?<p className="subtle">{discovering?"搜索附近设备中…":"没有发现正在共享的设备。请让发送方先点击「开启 5 分钟一次性加密发送」。"}</p>:
      nearby.map(peer=><div className="task-row" key={peer.instance+"-"+peer.ip+":"+peer.port}>
@@ -425,6 +444,7 @@ export default function CommonsDesk(){
      </div>
     </div>}
    </div>
+   </>}
    {networkBusy&&transferProgress&&<div style={{padding:10,border:"1px solid var(--line,#cbd5e1)",borderRadius:9}}>
     <strong>正在接收加密数据</strong>
     <progress style={{width:"100%"}} aria-label="Encrypted LAN packet received" max={100}
@@ -435,9 +455,9 @@ export default function CommonsDesk(){
    {lan?.active&&<p className="subtle">此一次性共享预计剩余约 {lan.secondsRemaining} 秒；成功发送或过期后会自动停止。</p>}
    {networkBusy&&<p role="status">正在进行局域网加密操作…</p>}
    {networkStatus&&<p className="subtle" role="status">{networkStatus}</p>}
-  </div>
-  <div className="panel" style={{marginTop:16}}>
-   <p className="eyebrow">P2P RESEARCH · OPT-IN</p>
+  </div>}
+  {transportMode==="public"&&<div className="panel" data-testid="commons-public-research" style={{marginTop:16}}>
+   <p className="eyebrow">P2P RESEARCH · OPT-IN · NO FILE TRANSFER</p>
    <h3>跨局域网直连可行性探测</h3>
    <p className="subtle">研究阶段：可使用公开 STUN 服务器观察你的 UDP 公网映射。只有主动点击才联系外部服务器；该服务器能看到本次连接的公网 IP。**这不是已经建立了 P2P 文件连接**，也不会上传任何团队文件。</p>
    <button type="button" className="secondary-button" disabled={stunBusy} onClick={()=>void runP2pProbe()}>
@@ -457,7 +477,7 @@ export default function CommonsDesk(){
     <p className="subtle">{stun.note}</p>
     <p className="subtle">观测服务器：{stun.server}。此结果不能预测真实 NAT 穿透成功率；跨网打洞、信令和端到端传输还没有实现。</p>
    </div>}
-  </div>
+  </div>}
   <div className="panel" style={{marginTop:16}}>
    <h3>接收团队包 · Import / Merge</h3>
    <input className="field" type="file" accept=".zip,application/zip" aria-label="Import team ZIP" disabled={busy} onChange={e=>void receiveTeam(e)}/>
