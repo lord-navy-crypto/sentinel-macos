@@ -37,3 +37,74 @@ export async function finishIceGathering(pc:RTCPeerConnection,timeoutMs=20000):P
 export function validDirectChatText(text:string):boolean{
  return !!text.trim()&&[...text.trim()].length<=1000&&new TextEncoder().encode(text.trim()).length<=4000;
 }
+
+/** ICE servers are constructed ONLY after a user's explicit Connect action.
+ * A custom TURN server is never probed during form editing or passive page visits.
+ * Credentials stay in React memory and must not be copied into offers or status text.
+ */
+export type CommonsIceOptions={
+ publicStun:boolean;
+ ownTurn:boolean;
+ turnUrl:string;
+ turnUsername:string;
+ turnCredential:string;
+};
+export function buildCommonsIceServers(config:CommonsIceOptions):RTCIceServer[]{
+ const servers:RTCIceServer[]=[];
+ if(config.publicStun)servers.push({urls:"stun:stun.l.google.com:19302"});
+ if(!config.ownTurn)return servers;
+ const url=config.turnUrl.trim();
+ if(url.length>250||url!==config.turnUrl||/[\u0000-\u0020\u007f]/u.test(url))
+  throw Error("TURN address must be a single URL without spaces.");
+ const match=/^(turns?):([a-z0-9.-]+|\[[0-9a-f:]+\])(?::([0-9]{1,5}))?(?:\?transport=(tcp|udp))?$/iu.exec(url);
+ if(!match)throw Error("Use a turn:host:port or turns:host:port address without embedded credentials.");
+ if(match[2].startsWith(".")||match[2].endsWith(".")||match[2].includes(".."))
+  throw Error("TURN host is invalid.");
+ const port=match[3]?Number(match[3]):match[1]==="turns"?5349:3478;
+ if(port<1||port>65535)throw Error("TURN port must be between 1 and 65535.");
+ if(match[1]==="turns"&&match[4]==="udp")
+  throw Error("TURN over TLS needs TCP transport (turns:... or ?transport=tcp).");
+ if(!config.turnUsername||config.turnUsername.length>256||
+   /[\u0000-\u001f\u007f]/u.test(config.turnUsername))
+  throw Error("Provide a valid TURN username.");
+ if(!config.turnCredential||config.turnCredential.length>512||
+   /[\u0000-\u001f\u007f]/u.test(config.turnCredential))
+  throw Error("Provide a valid TURN credential.");
+ servers.push({urls:url,username:config.turnUsername,credential:config.turnCredential});
+ return servers;
+}
+
+/** Report the selected ICE candidate types without revealing raw IPs or ports.
+ * A configured TURN server does not prove that it was actually selected.
+ */
+export type IceRouteSummary={kind:"direct"|"relay"|"unknown";localType:string;remoteType:string};
+export function summarizeCommonsIceRoute(report:RTCStatsReport):IceRouteSummary{
+ const records=new Map<string,RTCStats>();
+ report.forEach((value,key)=>records.set(key,value));
+ let selected:RTCStats|undefined;
+ for(const item of records.values()){
+  const transport=item as RTCStats & {selectedCandidatePairId?:string};
+  if(item.type==="transport"&&transport.selectedCandidatePairId){
+   selected=records.get(transport.selectedCandidatePairId);
+   if(selected)break;
+  }
+ }
+ if(!selected){
+  for(const item of records.values()){
+   const pair=item as RTCStats & {selected?:boolean;nominated?:boolean;state?:string};
+   if(item.type==="candidate-pair"&&pair.selected&&pair.state==="succeeded"){selected=item;break;}
+  }
+ }
+ if(!selected)return {kind:"unknown",localType:"unknown",remoteType:"unknown"};
+ const pair=selected as RTCStats & {localCandidateId?:string;remoteCandidateId?:string};
+ const local=pair.localCandidateId?records.get(pair.localCandidateId):undefined;
+ const remote=pair.remoteCandidateId?records.get(pair.remoteCandidateId):undefined;
+ const valid=(item:RTCStats|undefined):string=>{
+  const type=(item as RTCStats & {candidateType?:unknown}|undefined)?.candidateType;
+  return type==="host"||type==="srflx"||type==="prflx"||type==="relay"?type:"unknown";
+ };
+ const localType=valid(local),remoteType=valid(remote);
+ return {kind:localType==="relay"||remoteType==="relay"?"relay":
+    localType!=="unknown"&&remoteType!=="unknown"?"direct":"unknown",
+  localType,remoteType};
+}

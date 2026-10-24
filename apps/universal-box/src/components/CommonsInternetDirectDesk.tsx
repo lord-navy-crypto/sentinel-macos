@@ -1,6 +1,6 @@
 import {useEffect,useRef,useState} from "react";
 import {decodeDirectSignal,encodeDirectSignal,finishIceGathering,
- readDirectFingerprint,validDirectChatText} from "../lib/commonsInternetRtc";
+ readDirectFingerprint,validDirectChatText,buildCommonsIceServers,summarizeCommonsIceRoute,type IceRouteSummary} from "../lib/commonsInternetRtc";
 
 type Line={id:string;name:string;text:string;self:boolean};
 const errorText=(e:unknown)=>e instanceof Error?e.message:String(e);
@@ -11,6 +11,11 @@ export default function CommonsInternetDirectDesk(){
  const supported=typeof RTCPeerConnection!=="undefined";
  const pcRef=useRef<RTCPeerConnection|null>(null),channelRef=useRef<RTCDataChannel|null>(null);
  const [useStun,setUseStun]=useState(false);
+ const [ownTurn,setOwnTurn]=useState(false);
+ const [turnUrl,setTurnUrl]=useState("");
+ const [turnUsername,setTurnUsername]=useState("");
+ const [turnCredential,setTurnCredential]=useState("");
+ const [icePath,setIcePath]=useState<IceRouteSummary|null>(null);
  const [name,setName]=useState("");
  const [remoteText,setRemoteText]=useState("");
  const [outgoing,setOutgoing]=useState("");
@@ -25,8 +30,8 @@ export default function CommonsInternetDirectDesk(){
  const stop=()=>{
   channelRef.current?.close();pcRef.current?.close();
   channelRef.current=null;pcRef.current=null;setConnected(false);setRole("");
-  setOutgoing("");setRemoteText("");setLocalFingerprint("");setRemoteFingerprint("");
-  setLines([]);setStatus("连接已关闭；连接内容没有保存到本地文件。");
+  setOutgoing("");setRemoteText("");setLocalFingerprint("");setRemoteFingerprint("");setIcePath(null);
+  setLines([]);setTurnCredential("");setStatus("连接已关闭，临时消息和 TURN 凭证已清空。");
  };
  useEffect(()=>()=>{channelRef.current?.close();pcRef.current?.close();},[]);
  function append(name:string,text:string,self:boolean){
@@ -48,15 +53,19 @@ export default function CommonsInternetDirectDesk(){
   };
  }
  function createConnection(){
-  pcRef.current?.close();channelRef.current=null;setConnected(false);setLines([]);
-  const peer=new RTCPeerConnection({iceServers:useStun?
-   [{urls:"stun:stun.l.google.com:19302"}]:[]});
+  pcRef.current?.close();channelRef.current=null;setConnected(false);setLines([]);setIcePath(null);
+  const servers=buildCommonsIceServers({publicStun:useStun,ownTurn,turnUrl,turnUsername,turnCredential});
+  const peer=new RTCPeerConnection({iceServers:servers});
   pcRef.current=peer;
   peer.ondatachannel=e=>attach(e.channel);
   peer.onconnectionstatechange=()=>{
    if(pcRef.current!==peer)return;
    const state=peer.connectionState;
-   if(state==="failed")setStatus("ICE 连接失败：该网络可能需要 TURN 中继或无法直接互通。");
+   if(state==="connected"){
+    void peer.getStats().then(report=>{
+     if(pcRef.current===peer)setIcePath(summarizeCommonsIceRoute(report));
+    }).catch(()=>{if(pcRef.current===peer)setIcePath(null);});
+   }else if(state==="failed")setStatus("ICE 连接失败：可能需要可用的 TURN 中继，或当前网络不允许连接。可断开后修改配置重试。");
    else if(state==="disconnected")setStatus("暂时断开，正在等待网络恢复。");
    else if(state==="closed")setConnected(false);
    else if(state==="connecting")setStatus("正在检查 P2P 直连候选地址…");
@@ -120,12 +129,37 @@ export default function CommonsInternetDirectDesk(){
  }
  return <section className="panel" data-testid="commons-direct-p2p" aria-label="Experimental internet direct chat">
   <h4>公网直连实验 · WebRTC DataChannel（一对一）</h4>
-  <p className="subtle">这是真实的网络数据通道，不是 STUN 数值演示。但当前采用手动 Offer/Answer 交换、**没有 TURN 中继**，因此只能在双方 NAT／防火墙允许时直连；不保证所有公网网络都连接成功。仍未实现公网多人群聊或账号服务。</p>
+  <p className="subtle">这是真实的网络数据通道，不是 STUN 数值演示。但当前采用手动 Offer/Answer 交换、**不会提供默认 TURN 服务器**。可以明确选择自己的 TURN 中继尝试连接受限网络，但不保证所有公网都成功。仍未实现公网多人群聊或账号服务。</p>
   <label className="subtle" style={{display:"flex",alignItems:"center",gap:8}}>
    <input type="checkbox" data-testid="p2p-stun-opt-in" checked={useStun}
     disabled={busy||!!role} onChange={e=>setUseStun(e.target.checked)}/>
    允许本次连接使用公共 STUN 服务发现公网映射（会向 STUN 服务披露本机公网 IP）
   </label>
+  <div className="panel" data-testid="p2p-turn-settings">
+   <label className="subtle" style={{display:"flex",alignItems:"center",gap:8}}>
+    <input type="checkbox" data-testid="p2p-own-turn" checked={ownTurn}
+     disabled={busy||!!role} onChange={e=>setOwnTurn(e.target.checked)}/>
+    使用自己提供的 TURN 中继（可选，不由 Sentinel 提供账号或服务器）
+   </label>
+   {ownTurn&&<div>
+    <label className="field-label">TURN 服务器地址
+     <input className="field" data-testid="p2p-turn-url" value={turnUrl}
+      maxLength={250} disabled={busy||!!role} onChange={e=>setTurnUrl(e.target.value)}
+      placeholder="turns:relay.example.org:5349?transport=tcp" autoComplete="off"/>
+    </label>
+    <label className="field-label">TURN 用户名
+     <input className="field" data-testid="p2p-turn-username" value={turnUsername}
+      maxLength={256} disabled={busy||!!role} onChange={e=>setTurnUsername(e.target.value)}
+      autoComplete="off"/>
+    </label>
+    <label className="field-label">TURN 临时密码（不写入磁盘，断开时清除）
+     <input className="field" data-testid="p2p-turn-credential" type="password"
+      value={turnCredential} maxLength={512} disabled={busy||!!role}
+      onChange={e=>setTurnCredential(e.target.value)} autoComplete="off"/>
+    </label>
+    <p className="subtle">仅在点击建立连接后使用这些设置。中继服务器能看到连接 IP 与传输元数据，可能产生带宽费用；WebRTC 的 DTLS 仍加密聊天内容。建议使用 TLS 的 turns: 地址。</p>
+   </div>}
+  </div>
   <p className="subtle">Offer / Answer 可能含有双方网络候选地址与 DTLS 指纹；只能通过可信的另一个渠道交换，并由双方核对身份。DTLS 保护传输，但不验证昵称或对方的真实身份。</p>
   {!supported&&<p role="alert">当前浏览器/WebView 不支持 WebRTC DataChannel。</p>}
   <label className="field-label">你的昵称
@@ -158,6 +192,12 @@ export default function CommonsInternetDirectDesk(){
    {remoteFingerprint&&<p className="subtle">对方 SDP 声明的指纹：{remoteFingerprint}（须经可信渠道核对，不能仅凭此字段建立身份信任）</p>}
   </div>}
   <p className="subtle" role="status" data-testid="p2p-status">{status}</p>
+  {connected&&<p className="subtle" role="status" data-testid="p2p-ice-route">
+   实际选中的 ICE 连接路径：{icePath?.kind==="relay"?"经过 TURN 中继":
+    icePath?.kind==="direct"?"点对点直连":"尚未能够确认候选路径"}
+   {icePath?.kind!=="unknown"&&icePath?(" · 本地 "+icePath.localType+" / 远端 "+icePath.remoteType):""}
+   。这里只显示候选类型，不显示双方 IP 或端口。
+  </p>}
   {connected&&<div>
    <div data-testid="p2p-history" role="log" aria-label="Direct peer messages"
     style={{maxHeight:240,overflowY:"auto",border:"1px solid var(--line,#cbd5e1)",borderRadius:10,padding:12}}>
