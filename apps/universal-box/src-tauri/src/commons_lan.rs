@@ -60,7 +60,10 @@ impl CommonsLanState {
     pub fn stop(&self) {
         if let Ok(mut guard) = self.0.lock() {
             if let Some(active) = guard.take() {
-                active.phase.store(STOPPED, Ordering::SeqCst);
+                // Stop must never overwrite an already completed sender receipt.
+                let _ = active.phase.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |phase| {
+                    if phase == DELIVERED { None } else { Some(STOPPED) }
+                });
                 active.closed.store(true, Ordering::SeqCst);
             }
         }
@@ -361,8 +364,13 @@ pub async fn commons_lan_start(
                         }
                     });
                     if result.is_ok() && !flag.load(Ordering::SeqCst) {
-                        thread_phase.store(DELIVERED, Ordering::SeqCst);
-                        flag.store(true, Ordering::SeqCst);
+                        // Only the still-active sending phase may become delivered.
+                        // If Stop won the race, the truncated/aborted send stays stopped.
+                        if thread_phase.compare_exchange(
+                            SENDING, DELIVERED, Ordering::SeqCst, Ordering::SeqCst,
+                        ).is_ok() {
+                            flag.store(true, Ordering::SeqCst);
+                        }
                         break;
                     }
                     if !flag.load(Ordering::SeqCst) {
