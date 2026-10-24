@@ -278,6 +278,30 @@ mod tests {
         assert_eq!(allowed_read_path("search?q=anything"),None);
     }
     #[test]
+    fn fixed_extended_system_read_surfaces_and_no_write_escalation() {
+        // Each UI deep link is backed by an explicit original Go read-only endpoint.
+        for (key, path) in [
+            ("mac-health","/api/health/live"),
+            ("resource-current","/api/resource/current"),
+            ("graph-v2","/api/intelligence/graph/v2"),
+            ("timeline-grouped","/api/intelligence/timeline/grouped"),
+            ("launch-services","/api/launch-services"),
+            ("storage-graph","/api/storage/graph"),
+            ("action-journal","/api/actions/journal"),
+            ("action-vault","/api/actions/vault"),
+            ("change-events","/api/changes/events"),
+            ("trust-history","/api/trust/history"),
+            ("advanced-sensor","/api/advanced-sensor/status"),
+        ] {
+            assert_eq!(allowed_read_path(key),Some(path));
+        }
+        for key in ["../actions/execute","actions/preview","actions/execute","trust/restore",
+            "changes/start","changes/clear","storage/cancel","search/deep","api/status",
+            "http://evil.example", "resource-current?path=/etc/passwd"] {
+            assert_eq!(allowed_read_path(key),None,"unexpected unsafe path accepted: {key}");
+        }
+    }
+    #[test]
     fn malformed_bootstrap_refused() {
         assert!(parse_bootstrap("SENTINEL_DESKTOP_BOOTSTRAP {}").is_err());
     }
