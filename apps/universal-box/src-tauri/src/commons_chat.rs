@@ -59,6 +59,8 @@ pub struct ChatSnapshot {
     messages: Vec<ChatLine>,
     participants: Vec<String>,
     has_more: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    session_token: Option<String>,
 }
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -75,6 +77,15 @@ struct ChatRequest {
     text: Option<String>,
     message_id: Option<String>,
     since: u64,
+    #[serde(default)]
+    join: bool,
+    #[serde(default)]
+    leave: bool,
+    session_token: Option<String>,
+}
+struct ChatMember {
+    token: String,
+    last_seen: Instant,
 }
 struct ChatData {
     name: String,
@@ -82,7 +93,7 @@ struct ChatData {
     messages: VecDeque<ChatLine>,
     seen_ids: VecDeque<String>,
     seen_index: HashSet<String>,
-    presence: BTreeMap<String, Instant>,
+    presence: BTreeMap<String, ChatMember>,
 }
 fn good_label(value: &str, max: usize) -> bool {
     !value.trim().is_empty() && value.chars().count() <= max
@@ -150,12 +161,42 @@ fn write_sealed(socket: &mut TcpStream, key: &[u8; 32], payload: &[u8]) -> Resul
 fn apply_request(data: &mut ChatData, request: ChatRequest) -> Result<ChatSnapshot, String> {
     let nickname = request.nickname.trim();
     if !good_label(nickname, 24) { return Err("Nickname must be 1–24 visible characters".into()); }
-    data.presence.retain(|_,seen| seen.elapsed() < Duration::from_secs(20));
-    if !data.presence.contains_key(nickname) && data.presence.len() >= MAX_PARTICIPANTS {
-        return Err("LAN group is full (12 active nickname labels)".into());
+    data.presence.retain(|_,member| member.last_seen.elapsed() < Duration::from_secs(20));
+    let mut issued_token: Option<String> = None;
+    if request.join {
+        if request.leave || request.text.is_some() || request.session_token.is_some() {
+            return Err("Join request cannot send messages, leave, or reuse a session".into());
+        }
+        if data.presence.contains_key(nickname) {
+            return Err("Nickname is already active. Choose another or let its session expire.".into());
+        }
+        if data.presence.len() >= MAX_PARTICIPANTS {
+            return Err("LAN group is full (12 active member sessions)".into());
+        }
+        let mut bytes = [0_u8;32];
+        OsRng.fill_bytes(&mut bytes);
+        let token=URL_SAFE_NO_PAD.encode(bytes);
+        data.presence.insert(nickname.to_owned(), ChatMember{
+            token:token.clone(),last_seen:Instant::now(),
+        });
+        issued_token=Some(token);
+    } else {
+        let token=request.session_token.as_deref().ok_or("Join the room before polling or sending messages")?;
+        let member=data.presence.get_mut(nickname).ok_or("Member not connected; rejoin the room")?;
+        if member.token != token {
+            return Err("Session token does not match the selected member nickname".into());
+        }
+        if request.leave {
+            if request.text.is_some() {return Err("Leave and send cannot be combined".into());}
+            data.presence.remove(nickname);
+        } else {
+            member.last_seen=Instant::now();
+        }
     }
-    data.presence.insert(nickname.into(), Instant::now());
     if let Some(text) = request.text {
+        if request.join || request.leave {
+            return Err("Join/leave requests cannot contain chat messages".into());
+        }
         let text = text.trim();
         if text.is_empty() || text.chars().count() > 1000 || text.len() > 4000 ||
             text.chars().any(|c| c.is_control() && c != '\n' && c != '\t') {
@@ -166,7 +207,6 @@ fn apply_request(data: &mut ChatData, request: ChatRequest) -> Result<ChatSnapsh
             || !id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_') {
             return Err("Invalid message identifier".into());
         }
-        // Duplicate encrypted requests must not append the same message twice.
         if !data.seen_index.contains(&id) {
             data.seq += 1;
             let timestamp_ms = SystemTime::now().duration_since(UNIX_EPOCH)
@@ -186,8 +226,10 @@ fn apply_request(data: &mut ChatData, request: ChatRequest) -> Result<ChatSnapsh
         .take(MAX_REPLY_MESSAGES + 1).cloned().collect();
     let has_more = newer.len() > MAX_REPLY_MESSAGES;
     Ok(ChatSnapshot {room:data.name.clone(),messages:newer.into_iter()
-        .take(MAX_REPLY_MESSAGES).collect(),participants:data.presence.keys().cloned().collect(),has_more})
+        .take(MAX_REPLY_MESSAGES).collect(),participants:data.presence.keys().cloned().collect(),
+        has_more,session_token:issued_token})
 }
+
 fn serve_one(mut socket: TcpStream, secret: &[u8; 32],
     room: &Mutex<ChatData>, stopped: &AtomicBool) -> Result<(), String> {
     socket.set_read_timeout(Some(SOCKET_TIMEOUT)).map_err(|e| e.to_string())?;
@@ -203,12 +245,8 @@ fn serve_one(mut socket: TcpStream, secret: &[u8; 32],
     if stopped.load(Ordering::SeqCst) {return Err("Chat room closed".into());}
     write_sealed(&mut socket, secret, &encoded)
 }
-fn chat_exchange(invite:&str, nickname:&str, text:Option<&str>, message_id:Option<&str>,
-    since:u64) -> Result<ChatSnapshot,String> {
+fn chat_exchange(invite:&str, req:ChatRequest) -> Result<ChatSnapshot,String> {
     let (endpoint,key)=decode_chat_invite(invite)?;
-    if !good_label(nickname.trim(),24) {return Err("Enter a nickname with 1–24 characters".into());}
-    let req=ChatRequest {nickname:nickname.into(),text:text.map(str::to_owned),
-        message_id:message_id.map(str::to_owned),since};
     let payload=serde_json::to_vec(&req).map_err(|_|"Cannot encode chat request")?;
     if payload.len()>6000 {return Err("Chat message exceeds request limit".into());}
     let mut socket=TcpStream::connect_timeout(&endpoint.into(),SOCKET_TIMEOUT)
@@ -280,16 +318,26 @@ pub async fn commons_chat_stop(state:State<'_,CommonsChatState>)->Result<(),Stri
 }
 #[tauri::command]
 pub async fn commons_chat_exchange(invite:String,nickname:String,text:Option<String>,
-    message_id:Option<String>,since:u64)->Result<ChatSnapshot,String>{
-    tauri::async_runtime::spawn_blocking(move||
-        chat_exchange(&invite,&nickname,text.as_deref(),message_id.as_deref(),since)
-    ).await.map_err(|_|"Chat request task failed".to_string())?
+    message_id:Option<String>,since:u64,join:bool,leave:bool,
+    session_token:Option<String>)->Result<ChatSnapshot,String>{
+    let req=ChatRequest{nickname,text,message_id,since,join,leave,session_token};
+    tauri::async_runtime::spawn_blocking(move|| chat_exchange(&invite,req))
+        .await.map_err(|_|"Chat request task failed".to_string())?
 }
 #[cfg(test)]
 mod tests {
  use super::*;
+ fn new_room()->ChatData{
+    ChatData{name:"Study group".into(),seq:0,messages:VecDeque::new(),seen_ids:VecDeque::new(),
+        seen_index:HashSet::new(),presence:BTreeMap::new()}
+ }
+ fn request(nick:&str,token:Option<&str>,join:bool,leave:bool,
+    text:Option<&str>,id:Option<&str>,since:u64)->ChatRequest{
+    ChatRequest{nickname:nick.into(),session_token:token.map(str::to_owned),join,leave,
+        text:text.map(str::to_owned),message_id:id.map(str::to_owned),since}
+ }
  #[test]
- fn LAN_chat_invites_reject_public_and_malformed_addresses() {
+ fn invitations_reject_public_and_malformed_addresses() {
     let key=URL_SAFE_NO_PAD.encode([5_u8;32]);
     assert!(decode_chat_invite(&format!("uboxchat://127.0.0.1:5555/{key}")).is_ok());
     for host in ["8.8.8.8","172.32.1.2","256.0.0.1","example.com"] {
@@ -298,58 +346,91 @@ mod tests {
     assert!(decode_chat_invite(&format!("uboxchat://127.0.0.1:5555/short")).is_err());
  }
  #[test]
- fn three_clients_exchange_encrypted_group_messages_without_replay() {
+ fn three_clients_authenticate_sessions_exchange_messages_leave_and_rejoin() {
     let listener=TcpListener::bind(("127.0.0.1",0)).unwrap();
     let addr=listener.local_addr().unwrap();
     let secret=[13_u8;32];
-    let data=Arc::new(Mutex::new(ChatData{name:"Study group".into(),seq:0,
-        messages:VecDeque::new(),seen_ids:VecDeque::new(),seen_index:HashSet::new(),
-        presence:BTreeMap::new()}));
+    let shared=Arc::new(Mutex::new(new_room()));
     let stopped=Arc::new(AtomicBool::new(false));
-    let sender_data=data.clone();let flag=stopped.clone();
+    let shared_host=shared.clone();let flag=stopped.clone();
     let host=thread::spawn(move||{
-        for _ in 0..6 {
-            let (socket,_) = listener.accept().unwrap();
-            serve_one(socket,&secret,&sender_data,&flag).unwrap();
+        // Each request is a real encrypted TCP connection with independent nonce/frame.
+        for _ in 0..13 {
+            let (socket,_)=listener.accept().unwrap();
+            let _=serve_one(socket,&secret,&shared_host,&flag);
         }
     });
     let invite=format!("uboxchat://{addr}/{}",URL_SAFE_NO_PAD.encode(secret));
-    let a=chat_exchange(&invite,"Alex",Some("你好"),Some("a-1234567890123456"),0).unwrap();
-    assert_eq!(a.messages.len(),1);assert_eq!(a.messages[0].text,"你好");
-    let b=chat_exchange(&invite,"Blair",None,None,0).unwrap();
-    assert_eq!(b.messages.len(),1);assert_eq!(b.participants.len(),2);
-    let c=chat_exchange(&invite,"Casey",Some("会议准备好了吗？"),Some("b-1234567890123456"),1).unwrap();
-    assert_eq!(c.messages.len(),1);assert_eq!(c.messages[0].seq,2);
-    let a2=chat_exchange(&invite,"Alex",None,None,1).unwrap();
-    assert_eq!(a2.messages[0].nickname,"Casey");assert_eq!(a2.participants.len(),3);
-    let replay=chat_exchange(&invite,"Blair",Some("duplicate"),Some("a-1234567890123456"),0).unwrap();
-    assert_eq!(replay.messages.len(),2,"Replay must not create another message");
-    let last=chat_exchange(&invite,"Casey",None,None,0).unwrap();
-    assert_eq!(last.messages.len(),2);
+    let exchange=|req|chat_exchange(&invite,req);
+    let alex=exchange(request("Alex",None,true,false,None,None,0)).unwrap();
+    let at=alex.session_token.as_deref().unwrap();
+    let blair=exchange(request("Blair",None,true,false,None,None,0)).unwrap();
+    let bt=blair.session_token.as_deref().unwrap();
+    let casey=exchange(request("Casey",None,true,false,None,None,0)).unwrap();
+    let ct=casey.session_token.as_deref().unwrap();
+    assert_eq!(casey.participants.len(),3);
+    assert_ne!(at,bt);
+    let first=exchange(request("Alex",Some(at),false,false,Some("你好"),
+        Some("a-1234567890123456"),0)).unwrap();
+    assert_eq!(first.messages[0].text,"你好");
+    let b=exchange(request("Blair",Some(bt),false,false,None,None,0)).unwrap();
+    assert_eq!(b.messages.len(),1);
+    let second=exchange(request("Casey",Some(ct),false,false,Some("会议准备好了吗？"),
+        Some("b-1234567890123456"),1)).unwrap();
+    assert_eq!(second.messages[0].seq,2);
+    let a2=exchange(request("Alex",Some(at),false,false,None,None,1)).unwrap();
+    assert_eq!(a2.messages[0].nickname,"Casey");
+    assert!(exchange(request("Alex",Some(bt),false,false,None,None,1)).is_err());
+    assert!(exchange(request("Blair",None,true,false,None,None,0)).is_err());
+    let replay=exchange(request("Alex",Some(at),false,false,Some("duplicate"),
+        Some("a-1234567890123456"),0)).unwrap();
+    assert_eq!(replay.messages.len(),2);
+    let left=exchange(request("Blair",Some(bt),false,true,None,None,0)).unwrap();
+    assert!(!left.participants.contains(&"Blair".to_string()));
+    assert!(exchange(request("Blair",Some(bt),false,false,None,None,0)).is_err());
+    let rejoined=exchange(request("Blair",None,true,false,None,None,0)).unwrap();
+    assert_ne!(rejoined.session_token.as_deref(),Some(bt));
     host.join().unwrap();
  }
  #[test]
- fn history_is_bounded_and_rejects_invalid_names_or_messages() {
-    let mut d=ChatData{name:"Tiny".into(),seq:0,messages:VecDeque::new(),
-        seen_ids:VecDeque::new(),seen_index:HashSet::new(),presence:BTreeMap::new()};
-    assert!(apply_request(&mut d,ChatRequest{nickname:"\n".into(),
-        text:None,message_id:None,since:0}).is_err());
+ fn members_expire_and_can_rejoin_without_inheriting_previous_tokens() {
+    let mut room=new_room();
+    let first=apply_request(&mut room,request("Visitor",None,true,false,None,None,0)).unwrap();
+    let old_token=first.session_token.unwrap();
+    let member=room.presence.get_mut("Visitor").unwrap();
+    member.last_seen=Instant::now()-Duration::from_secs(21);
+    assert!(apply_request(&mut room,request("Visitor",Some(&old_token),false,false,None,None,0)).is_err());
+    let second=apply_request(&mut room,request("Visitor",None,true,false,None,None,0)).unwrap();
+    let token=second.session_token.unwrap();
+    assert_ne!(old_token,token);
+    assert!(apply_request(&mut room,request("Visitor",Some(&old_token),false,false,Some("spoof"),
+        Some("replay-0000000000000001"),0)).is_err());
+    let valid=apply_request(&mut room,request("Visitor",Some(&token),false,false,Some("返校"),
+        Some("fresh-0000000000000001"),0)).unwrap();
+    assert_eq!(valid.messages[0].text,"返校");
+ }
+ #[test]
+ fn bounded_history_and_member_limits_are_enforced() {
+    let mut data=new_room();
+    assert!(apply_request(&mut data,request("\n",None,true,false,None,None,0)).is_err());
+    let joined=apply_request(&mut data,request("N",None,true,false,None,None,0)).unwrap();
+    let token=joined.session_token.as_deref().unwrap();
     for n in 0..215 {
-        apply_request(&mut d,ChatRequest{nickname:"N".into(),text:Some("hello".into()),
-            message_id:Some(format!("unique-message-0000000000-{n}")),since:0}).unwrap();
+        apply_request(&mut data,request("N",Some(token),false,false,Some("hello"),
+            Some(&format!("unique-message-0000000000-{n}")),0)).unwrap();
     }
-    assert_eq!(d.messages.len(),MAX_HISTORY);
-    let p=apply_request(&mut d,ChatRequest{nickname:"N".into(),text:None,
-        message_id:None,since:0}).unwrap();
+    assert_eq!(data.messages.len(),MAX_HISTORY);
+    let p=apply_request(&mut data,request("N",Some(token),false,false,None,None,0)).unwrap();
     assert_eq!(p.messages.len(),MAX_REPLY_MESSAGES);
     assert!(p.has_more);
     assert_eq!(p.messages[0].seq,16);
-    assert!(apply_request(&mut d,ChatRequest{nickname:"N".into(),
-        text:Some("x".repeat(1001)),message_id:Some("manywords0000000000000".into()),
-        since:0}).is_err());
-    let multiline=apply_request(&mut d,ChatRequest{nickname:"N".into(),
-        text:Some("项目进度\n- 本周完成".into()),
-        message_id:Some("multiline-123456789012345".into()),since:0});
-    assert!(multiline.is_ok(),"Ordinary multiline notes should be accepted in chat");
+    assert!(apply_request(&mut data,request("N",Some(token),false,false,
+        Some(&"x".repeat(1001)),Some("manywords0000000000000"),0)).is_err());
+    assert!(apply_request(&mut data,request("N",Some(token),false,false,
+        Some("项目进度\n- 本周完成"),Some("multiline-123456789012345"),0)).is_ok());
+    for i in 0..11 {
+        apply_request(&mut data,request(&format!("Other {i}"),None,true,false,None,None,0)).unwrap();
+    }
+    assert!(apply_request(&mut data,request("One more",None,true,false,None,None,0)).is_err());
  }
 }

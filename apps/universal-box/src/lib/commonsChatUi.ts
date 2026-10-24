@@ -17,7 +17,7 @@ export function canJoinCommonsChat(text:string):boolean{
  try{parseCommonsChatInvite(text);return true;}catch{return false;}
 }
 export type LanChatLine={seq:number;nickname:string;text:string;timestampMs:number};
-export type LanChatSnapshot={room:string;messages:LanChatLine[];participants:string[];hasMore:boolean};
+export type LanChatSnapshot={room:string;messages:LanChatLine[];participants:string[];hasMore:boolean;sessionToken?:string};
 export function mergeLanChatLines(old:readonly LanChatLine[],incoming:readonly LanChatLine[]):LanChatLine[]{
  const bySeq=new Map(old.map(item=>[item.seq,item]));
  for(const line of incoming)if(Number.isSafeInteger(line.seq)&&line.seq>0)bySeq.set(line.seq,line);
