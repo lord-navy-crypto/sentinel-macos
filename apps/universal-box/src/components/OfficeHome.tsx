@@ -66,6 +66,7 @@ export default function OfficeHome({favorites,recents,totalTools,onOpen,onSearch
      ["media","▧","图片与媒体","图片转换、压缩与媒体处理"],
      ["data","▦","表格与数据","CSV/TSV、表格清理与图表"],
      ["files","⇪","文件与批处理","文件预检、重复检查与批量操作"],
+     ["terminal",">_","终端与软件管理","本机终端与图形化软件管理"],
     ] as const).map(([id,symbol,title,description])=><button key={id} type="button"
      className="home-category-card" data-testid={"home-category-"+id}
      onClick={()=>onOpen("all-tools","catalog-category:"+title)}>
