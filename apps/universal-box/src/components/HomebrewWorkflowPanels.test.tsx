@@ -71,8 +71,10 @@ describe("Homebrew connected workflow progress", () => {
   it("keeps the current search status visible in the workflow stepper", () => {
     const searching = markup(<HomebrewWorkflowProgress step="search" searchPhase="searching" />);
     const failed = markup(<HomebrewWorkflowProgress step="search" searchPhase="failed" />);
+    const changedQuery = markup(<HomebrewWorkflowProgress step="search" searchPhase="results" queryChanged={true} />);
     expect(searching).toContain("正在搜索已提交的查询词");
     expect(failed).toContain("搜索失败；先查看错误提示");
+    expect(changedQuery).toContain("正在准备新的查询；提交后更新搜索结果");
   });
 });
 

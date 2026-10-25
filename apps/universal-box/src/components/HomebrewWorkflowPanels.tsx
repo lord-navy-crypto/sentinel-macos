@@ -218,12 +218,15 @@ const WORKFLOW_STEPS: {id: HomebrewWorkflowStep; title: string}[] = [
   {id: "result", title: "结果与记录"},
 ];
 
-export function HomebrewWorkflowProgress({step, searchPhase}: {
+export function HomebrewWorkflowProgress({step, searchPhase, queryChanged = false}: {
   step: HomebrewWorkflowStep;
   searchPhase: HomebrewSearchPhase;
+  queryChanged?: boolean;
 }) {
   const currentIndex = WORKFLOW_STEPS.findIndex(item => item.id === step);
-  const searchDetail = searchPhase === "searching"
+  const searchDetail = queryChanged
+    ? "正在准备新的查询；提交后更新搜索结果"
+    : searchPhase === "searching"
     ? "正在搜索已提交的查询词"
     : searchPhase === "results"
       ? "已显示匹配项；可查看详情或选择操作"
