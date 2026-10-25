@@ -558,3 +558,95 @@
  .app-shell .home-section-title{gap:8px;flex-wrap:wrap;}
  .app-shell .home-section-title .home-inline-action{margin-left:auto;}
 }
+
+
+/* Homebrew software center: clearer hierarchy, compact status pills, and useful empty states. */
+.brew-software-center{
+ gap:16px;padding:18px;
+ background:linear-gradient(180deg,var(--ub-panel) 0%,var(--ub-subtle) 100%);
+}
+.brew-center-toolbar{padding-bottom:14px;border-bottom:1px solid var(--ub-border);}
+.brew-center-toolbar h3{font-size:16px;letter-spacing:-.2px;}
+.brew-center-toolbar p{line-height:1.6;}
+.brew-toolbar-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.brew-toolbar-actions button{min-height:36px;}
+.brew-update-count{display:inline-flex;align-items:center;min-height:28px;padding:4px 9px;border:1px solid var(--ub-border);
+ border-radius:999px;background:var(--ub-panel);color:var(--ub-primary);font-size:11px;font-weight:750;white-space:nowrap;}
+.brew-kind-switch{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;padding:4px;
+ border:1px solid var(--ub-border);border-radius:12px;background:var(--ub-subtle);}
+.brew-kind-switch button{display:flex;align-items:center;justify-content:center;min-width:0;min-height:40px;
+ padding:9px 12px;border-color:transparent;border-radius:8px;background:transparent;
+ transition:background .15s,border-color .15s,box-shadow .15s;}
+.brew-kind-switch button:hover:not(:disabled){background:var(--ub-panel);}
+.brew-kind-switch button[aria-pressed=true]{background:var(--ub-panel);border-color:var(--ub-border);
+ box-shadow:0 1px 2px rgba(0,0,0,.06);color:var(--ub-primary);}
+.brew-center-search{padding:13px;border:1px solid var(--ub-border);border-radius:12px;background:var(--ub-subtle);}
+.brew-center-search label{color:var(--ub-muted);}
+.brew-center-search input{min-height:38px;}
+.brew-center-search button{min-height:38px;white-space:nowrap;}
+.brew-manager-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;border-top:0;padding-top:0;}
+.brew-manager-summary>span{display:flex;align-items:baseline;gap:5px;min-width:0;padding:10px 12px;
+ border:1px solid var(--ub-border);border-radius:10px;background:var(--ub-panel);color:var(--ub-muted);font-size:11px;}
+.brew-manager-summary>span strong{font-size:18px;line-height:1.2;color:var(--ub-text);font-weight:800;font-variant-numeric:tabular-nums;}
+.brew-featured-card{background:var(--ub-panel);transition:border-color .15s,box-shadow .15s,transform .15s;}
+.brew-featured-card:hover{border-color:var(--ub-ring);box-shadow:var(--ub-shadow);transform:translateY(-1px);}
+.brew-featured-card:focus-within{outline:2px solid var(--ub-ring);outline-offset:2px;}
+.brew-featured-card .primary-button,.brew-featured-card .secondary-button{min-height:32px;}
+.brew-installed-badge{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--ub-border);
+ border-radius:999px;padding:5px 8px;background:var(--ub-tint);}
+.brew-installed-badge::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;}
+.brew-outdated-panel,.brew-task-history{background:var(--ub-panel);}
+.brew-software-results,.brew-info-panel,.brew-installed-panel{background:var(--ub-panel);}
+.brew-search-empty{display:grid;justify-items:center;align-content:center;gap:8px;min-height:145px;padding:22px;
+ border:1px dashed var(--ub-border);border-radius:10px;background:var(--ub-subtle);text-align:center;}
+.brew-search-empty-icon{display:grid;place-items:center;width:38px;height:38px;border:1px solid var(--ub-border);
+ border-radius:11px;background:var(--ub-panel);color:var(--ub-primary);font-size:25px;line-height:1;}
+.brew-search-empty strong{font-size:13px;color:var(--ub-text);}
+.brew-search-empty p{max-width:360px;margin:0;color:var(--ub-muted);font-size:12px;line-height:1.55;}
+.brew-operation-panel{gap:12px;background:var(--ub-subtle);transition:border-color .15s;}
+.brew-operation-panel.is-running{border-color:var(--ub-ring);}
+.brew-operation-panel.is-cancelling{border-color:#9a6700;}
+.brew-operation-panel.is-success{border-color:#237a4b;}
+.brew-operation-panel.is-failed{border-color:#b42318;}
+.brew-operation-panel.is-cancelled{border-color:var(--ub-border);}
+.brew-job-status{display:inline-flex;align-items:center;gap:7px;max-width:100%;min-height:27px;padding:4px 9px;
+ border:1px solid var(--ub-border);border-radius:999px;background:var(--ub-panel);color:var(--ub-muted);
+ font-size:11px;font-weight:750;line-height:1.35;overflow-wrap:anywhere;white-space:normal;}
+.brew-job-status::before{content:"";width:7px;height:7px;flex:0 0 7px;border-radius:50%;background:currentColor;}
+.brew-job-status.running{border-color:var(--ub-ring);color:var(--ub-primary);}
+.brew-job-status.running::before{animation:brew-status-pulse 1.5s ease-in-out infinite;}
+.brew-job-status.cancelling{border-color:#9a6700;color:#9a6700;}
+.brew-job-status.success{border-color:#237a4b;color:#237a4b;}
+.brew-job-status.failed{border-color:#b42318;color:#b42318;}
+.brew-job-status.cancelled{color:var(--ub-muted);}
+@keyframes brew-status-pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+.terminal-confirm.brew-action-confirmation{gap:12px;}
+.brew-confirmation-kicker{margin:0;color:var(--ub-muted);font-size:11px;font-weight:800;letter-spacing:.04em;}
+.terminal-confirm.brew-action-confirmation[data-operation="uninstall"]{border-color:#b42318;}
+.terminal-confirm.brew-action-confirmation[data-operation="upgrade_all"]{border-color:#9a6700;}
+@media(max-width:740px){
+ .brew-center-toolbar{align-items:stretch;}
+ .brew-toolbar-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));}
+ .brew-toolbar-actions button{width:100%;white-space:normal;}
+ .brew-update-count{grid-column:1/-1;justify-self:start;}
+ .brew-center-search{padding:10px;}
+ .brew-manager-summary{grid-template-columns:repeat(2,minmax(0,1fr));}
+ .brew-manager-summary>span{padding:9px;}
+ .brew-manager-summary>span strong{font-size:16px;}
+ .brew-results-heading{align-items:flex-start;}
+ .brew-job-status{max-width:100%;}
+}
+@media(max-width:520px){
+ .brew-software-center{padding:12px;gap:12px;}
+ .brew-kind-switch{grid-template-columns:1fr;}
+ .brew-center-toolbar h3{font-size:15px;}
+ .brew-manager-summary{grid-template-columns:1fr;}
+ .brew-outdated-actions p{min-width:0;flex-basis:100%;}
+ .brew-outdated-actions button{width:100%;}
+ .brew-task-history-row{grid-template-columns:1fr;}
+}
+@media(prefers-reduced-motion:reduce){
+ .brew-job-status.running::before{animation:none;}
+ .brew-featured-card{transition:none;}
+ .brew-featured-card:hover{transform:none;}
+}
