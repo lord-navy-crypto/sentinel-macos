@@ -27,6 +27,12 @@ test("Desktop redesign: office home, command search, categorized list, and expli
  const page=await openApp(browser);const errors=[];page.on("pageerror",e=>errors.push(e.message));
  try{
   await page.getByTestId("redesigned-home").waitFor();
+  await page.getByTestId("home-category-pdf").click();
+  const categoryButtons=page.getByRole("group",{name:"Filter tool category"});
+  assert.equal(await categoryButtons.getByRole("button",{name:/PDF 与文档/}).getAttribute("aria-pressed"),"true",
+    "Home category shortcuts should open the existing catalog with the selected category active.");
+  await page.locator(".sidebar-brand").click();
+  await page.getByTestId("redesigned-home").waitFor();
   assert.ok(await page.getByTestId("office-first-task-grid").locator("button").count()>=5);
   assert.ok(await page.getByTestId("home-recent-exports").isVisible());
   await page.getByTestId("home-file-input").setInputFiles({
