@@ -444,11 +444,11 @@ mod tests {
         }
     }
     #[test]fn brew_operation_args_are_fixed_and_validated(){
-        assert_eq!(brew_operation_args("update", None, None).unwrap(), vec!["update"]);
-        assert_eq!(brew_operation_args("upgrade_all", Some("cask"), None).unwrap(), vec!["upgrade", "--cask"]);
-        assert_eq!(brew_operation_args("upgrade_all", Some("formula"), None).unwrap(), vec!["upgrade", "--formula"]);
+        assert_eq!(brew_operation_args("update", None, None).unwrap(), vec!["update".to_string()]);
+        assert_eq!(brew_operation_args("upgrade_all", Some("cask"), None).unwrap(), vec!["upgrade".to_string(), "--cask".to_string()]);
+        assert_eq!(brew_operation_args("upgrade_all", Some("formula"), None).unwrap(), vec!["upgrade".to_string(), "--formula".to_string()]);
         assert_eq!(brew_operation_args("install", Some("cask"), Some("visual-studio-code")).unwrap(),
-            vec!["install", "--cask", "visual-studio-code"]);
+            vec!["install".to_string(), "--cask".to_string(), "visual-studio-code".to_string()]);
         assert!(brew_operation_args("upgrade_all", None, None).is_err());
         assert!(brew_operation_args("upgrade_all", Some("cask"), Some("firefox")).is_err());
         assert!(brew_operation_args("update", Some("cask"), None).is_err());
