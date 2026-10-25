@@ -77,9 +77,9 @@ test("Original Sentinel Go service is represented by six real modular workbenche
    await page.locator("nav.sidebar-nav").getByRole("button",{name:nav,exact:true}).click();
    await page.getByRole("region",{name:"Sentinel Mac System Center"}).waitFor();
    assert.match(await page.locator("#main-content").innerText(),new RegExp(heading));
-   assert.equal(await page.getByRole("button",{name:"打开完整 Sentinel 工作台"}).count(),1);
+   assert.equal(await page.getByRole("button",{name:"打开完整 Sentinel 工作台",exact:true}).count(),1);
    assert.equal(await page.getByRole("button",{name:"启动内置 Sentinel Go 服务"}).count(),1);
-   assert.equal(await page.getByRole("button",{name:"打开完整 Sentinel 工作台"}).isDisabled(),true,
+   assert.equal(await page.getByRole("button",{name:"打开完整 Sentinel 工作台",exact:true}).isDisabled(),true,
     "Original system functions must not pretend to work in browser-only preview without the bundled Go engine");
   }
   await page.locator("nav.sidebar-nav").getByRole("button",{name:/All tools/}).click();
