@@ -512,3 +512,45 @@
  .app-shell .catalog-suggestion{min-height:32px;padding:7px 9px;}
  .app-shell .home-category-count{min-width:25px;padding:0 5px;}
 }
+
+
+/* Mobile pass: reclaim workspace width and keep the two core modules comfortable to use. */
+@media(max-width:560px){
+ .app-shell{grid-template-columns:56px minmax(0,1fr);}
+ .app-shell .sidebar{min-width:0;padding:10px 6px;gap:8px;overflow-x:hidden;}
+ .app-shell .brand-mark{width:36px;height:36px;min-width:36px;}
+ .app-shell .sidebar-quick-search{min-height:36px;padding:5px;width:100%;}
+ .app-shell .nav-item{min-height:38px;padding:6px 4px;}
+ .app-shell .nav-item>.nav-symbol:first-child{width:30px;height:30px;flex-basis:30px;}
+ .app-shell .topbar{height:auto;min-height:54px;padding:7px 9px;gap:6px;align-items:center;}
+ .app-shell .topbar-title{min-width:0;flex:1 1 64px;}
+ .app-shell .topbar-location{display:none;}
+ .app-shell .topbar-title strong{display:block;max-width:74px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px;}
+ .app-shell .topbar-actions{gap:4px;flex:0 0 auto;}
+ .app-shell .topbar-control{min-height:32px;padding:6px 7px;}
+ .app-shell .topbar-search{min-width:34px;}
+ .app-shell .topbar-access span,.app-shell .version-pill{display:none;}
+ .app-shell .content{padding:12px 10px 22px;}
+ .app-shell .office-home{gap:14px;}
+ .app-shell .home-section{padding:14px;}
+ .app-shell .home-heading{gap:14px;}
+ .app-shell .home-heading h1{font-size:26px;letter-spacing:-.7px;}
+ .app-shell .home-heading .intro{font-size:12px;max-width:100%;}
+ .app-shell .home-head-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%;gap:7px;}
+ .app-shell .home-head-actions button{white-space:normal;min-width:0;padding:9px 8px;font-size:12px;}
+ .app-shell .home-dropzone{padding:13px;gap:10px;}
+ .app-shell .home-dropzone>div{flex-basis:calc(100% - 60px);}
+ .app-shell .home-dropzone p{line-height:1.45;}
+ .app-shell .home-file-choose{width:100%;text-align:center;}
+ .app-shell .home-facts{gap:8px 12px;padding:10px 12px;}
+ .app-shell .home-facts-privacy{flex-basis:100%;margin-left:0;}
+ .app-shell .box-module-card{padding:14px;}
+ .app-shell .box-module-actions{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;}
+ .app-shell .box-module-actions button{width:100%;white-space:normal;}
+ .app-shell .box-module-points{gap:6px;}
+ .app-shell .box-module-points span{font-size:10px;padding:5px 7px;}
+ .app-shell .home-category-grid{grid-template-columns:minmax(0,1fr);}
+ .app-shell .home-category-card{min-height:68px;padding:10px;}
+ .app-shell .home-section-title{gap:8px;flex-wrap:wrap;}
+ .app-shell .home-section-title .home-inline-action{margin-left:auto;}
+}
