@@ -235,7 +235,7 @@ export default function ToolLaunchpad({onLaunch,initialCategory="全部"}:{onLau
        data-testid={"catalog-suggest-"+item.id}
        onClick={()=>{setSearch(item.query);setCategory("全部");setShowFavorites(false);}}>{item.label}<span aria-hidden="true">↗</span></button>)}
    </div>}
-   <div className="category-scroll" role="group" aria-label="Filter tool category">
+   <div className="category-scroll" role="group" aria-label="工具分类筛选">
      {groups.map(group=><button type="button" key={group}
        className={category===group?"pill active-pill":"pill"} aria-pressed={category===group}
        onClick={()=>setCategory(group)}>{group}<span className="category-count">{categoryCounts.get(group)??0}</span></button>)}
