@@ -3,7 +3,9 @@
 ## Actual implemented functionality
 - New **Better Terminal** standalone Sentinel system tool, visible on Home, sidebar, All Tools and global command search. Three modes: Terminal, Homebrew GUI, Mac quick actions.
 - **Real macOS PTY**, not a mock screenshot. Rust uses wezterm's `portable-pty` to launch local `/bin/zsh -l -i` (fallback `/bin/bash`), allows typed commands, Ctrl+C, resize, a bounded 160,000-character transient output view, close/terminate. `cd` and shell state persist **within that one session**.
-- **Homebrew GUI** detects a Homebrew installation only at standard binary paths. Search/info/list/doctor/outdated/version and a literal validated formula install action are presented as on-screen operations; install and update require a distinct review/confirm step before sending a command into the existing PTY. Package names are validated against a safe ASCII token pattern; executable path only from fixed known locations. Sentinel never silently installs packages or keeps password logs.
+- **Homebrew software center** detects a Homebrew installation only at standard binary paths. Users can switch between macOS apps (**Casks**) and CLI tools (**Formulae**), search, inspect package details, browse installed items, and install/upgrade/uninstall individual packages from the GUI without opening the interactive terminal.
+- Package-changing operations use a separate confirmation dialog and a native Rust `std::process::Command` with fixed argument arrays—package names are never interpolated into a shell script. Names and search input are validated; executable path is only chosen from fixed known Homebrew prefixes. A single job is allowed at once; stdout/stderr stream to a bounded temporary UI log and the user can request cancellation of the dedicated process group. Homebrew index updates are explicit so package installs do not unexpectedly start a hidden index refresh.
+- Homebrew runs in the current app user's context. The GUI does not collect or cache administrator passwords, does not bypass macOS approval, and does not guarantee every third-party package is safe. Some installers may require a TTY or additional user interaction; these cases can fail and require manual completion.
 - **Official Homebrew installation**: Apple Silicon has a graphical `.pkg` available from Homebrew/brew's official GitHub release, and Homebrew publishes [authoritative install documentation](https://docs.brew.sh/Installation). The GUI opens those **official pages**. The user chooses the appropriate official installer, then macOS Installer handles approval and any administrative confirmation. We do not silently run a downloaded Bash script. On Intel, users should consult official supported installation methods.
 - Quick Mac actions: `sw_vers`, `xcode-select -p`, `df -h`, `pwd`, and Homebrew's read-only info operations. These only execute on user click when the terminal is active.
 
@@ -16,9 +18,9 @@
 - Users may invoke shell commands that modify their systems, therefore launch and modification confirmation are deliberately explicit. Homebrew third-party packages may run installer scripts; Sentinel does not audit or guarantee their safety.
 
 ## Actual verification gates
-1. TSC and Vitest for safe formula-name validation, no package injection, presets and bounded terminal output.
-2. Browser Chromium: tool visible in sidebar/Home/All Tools, working Homebrew UI, native-only run control disabled in web preview.
-3. Native macOS ARM64 + Intel: Rust PTY unit tests; successful Rust build; DMG packaging including pre-existing Go engine; no regression in office/Commons workflow.
+1. TSC and Vitest for safe package-name validation, no shell interpolation, preset actions and bounded temporary output.
+2. Browser Chromium: tool visible in sidebar/Home/All Tools, software-center UI discoverable, native Homebrew commands and package installation absent from browser-only preview.
+3. Native macOS ARM64 + Intel: Rust PTY and Homebrew input-validation tests; successful Rust build; DMG packaging including pre-existing Go engine; no regression in office/Commons workflow.
 4. **Physical acceptance still needed**: on actual user Mac, start shell, execute `pwd`, `sw_vers` and `cd`, confirm output; check brew status; inspect official `.pkg`; test package install only with user agreement. Verify shell shutdown, no transcript on restart, and correct macOS permission prompts.
 
 ## Source references
