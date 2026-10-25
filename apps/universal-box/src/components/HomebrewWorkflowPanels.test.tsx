@@ -198,9 +198,12 @@ describe("Homebrew status overview", () => {
   });
 
   it("distinguishes browser preview and missing Homebrew from a connected native environment", () => {
-    const preview = markup(<HomebrewStatusOverview {...baseProps} native={false} installed={false} />);
-    const missing = markup(<HomebrewStatusOverview {...baseProps} installed={false} eventsReady={false} />);
-    const connecting = markup(<HomebrewStatusOverview {...baseProps} eventsReady={false} />);
+    const previewProps = {...baseProps, native: false, installed: false};
+    const missingProps = {...baseProps, installed: false, eventsReady: false};
+    const connectingProps = {...baseProps, eventsReady: false};
+    const preview = markup(<HomebrewStatusOverview {...previewProps} />);
+    const missing = markup(<HomebrewStatusOverview {...missingProps} />);
+    const connecting = markup(<HomebrewStatusOverview {...connectingProps} />);
     expect(preview).toContain("网页预览模式");
     expect(preview).toContain('class="brew-status-card environment" data-state="preview"');
     expect(missing).toContain("未检测到 Homebrew");
@@ -210,9 +213,12 @@ describe("Homebrew status overview", () => {
   });
 
   it("does not show stale update counts for another category or while checking", () => {
-    const unchecked = markup(<HomebrewStatusOverview {...baseProps} kind="formula" />);
-    const checking = markup(<HomebrewStatusOverview {...baseProps} checkingUpdates={true} />);
-    const current = markup(<HomebrewStatusOverview {...baseProps} outdatedCount={0} />);
+    const uncheckedProps = {...baseProps, kind: "formula" as const};
+    const checkingProps = {...baseProps, checkingUpdates: true};
+    const currentProps = {...baseProps, outdatedCount: 0};
+    const unchecked = markup(<HomebrewStatusOverview {...uncheckedProps} />);
+    const checking = markup(<HomebrewStatusOverview {...checkingProps} />);
+    const current = markup(<HomebrewStatusOverview {...currentProps} />);
     expect(unchecked).toContain("尚未检查");
     expect(unchecked).not.toContain("3 项待更新");
     expect(checking).toContain("正在检查");
@@ -220,8 +226,10 @@ describe("Homebrew status overview", () => {
   });
 
   it("keeps loading and unavailable package counts explicit", () => {
-    const loading = markup(<HomebrewStatusOverview {...baseProps} loadingPackages={true} />);
-    const unavailable = markup(<HomebrewStatusOverview {...baseProps} native={false} installed={false} />);
+    const loadingProps = {...baseProps, loadingPackages: true};
+    const unavailableProps = {...baseProps, native: false, installed: false};
+    const loading = markup(<HomebrewStatusOverview {...loadingProps} />);
+    const unavailable = markup(<HomebrewStatusOverview {...unavailableProps} />);
     expect(loading).toContain("正在读取…");
     expect(unavailable).toContain("暂不可用");
   });
