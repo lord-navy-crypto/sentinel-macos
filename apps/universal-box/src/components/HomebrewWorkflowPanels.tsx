@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 export type HomebrewSearchPhase = "idle" | "searching" | "results" | "empty" | "failed";
 export type HomebrewJobPhase = "idle" | "starting" | "running" | "cancelling" | "success" | "failed" | "cancelled";
 export type HomebrewActionRequest = {
@@ -7,53 +9,47 @@ export type HomebrewActionRequest = {
   label: string;
   reason: string;
 };
-
 type ActiveJobPhase = Exclude<HomebrewJobPhase, "idle">;
 
-export function HomebrewSearchFeedback({
-  phase,
-  query,
-  resultCount,
-}: {
+export function HomebrewSearchFeedback({phase, query, resultCount}: {
   phase: HomebrewSearchPhase;
   query: string;
   resultCount: number;
 }) {
   if (phase === "idle") return null;
   const term = query.trim();
-  let title = "";
-  let detail = "";
-  if (phase === "searching") {
-    title = "正在搜索 Homebrew";
-    detail = "正在查询“" + term + "”的当前类别索引。旧结果已清除，避免误把上次结果当作本次结果。";
-  } else if (phase === "results") {
-    title = "搜索完成";
-    detail = "“" + term + "”共找到 " + resultCount + " 项匹配软件，结果对应当前类别。";
-  } else if (phase === "empty") {
-    title = "没有找到匹配项";
-    detail = "没有找到“" + term + "”。可以检查拼写、切换 Cask / Formula，或先更新 Homebrew 软件索引。";
-  } else {
-    title = "搜索未完成";
-    detail = "搜索未能完成，请查看页面下方的错误信息后重试。";
-  }
+  const copy: Record<Exclude<HomebrewSearchPhase, "idle">, {title:string;detail:string}> = {
+    searching: {
+      title: "正在搜索 Homebrew",
+      detail: "正在查询“" + term + "”的当前类别索引。旧结果已清除，避免误把上次结果当作本次结果。",
+    },
+    results: {
+      title: "搜索完成",
+      detail: "“" + term + "”共找到 " + resultCount + " 项匹配软件，结果对应当前类别。",
+    },
+    empty: {
+      title: "没有找到匹配项",
+      detail: "没有找到“" + term + "”。可以检查拼写、切换 Cask / Formula，或先更新 Homebrew 软件索引。",
+    },
+    failed: {
+      title: "搜索未完成",
+      detail: "搜索未能完成，请查看页面下方的错误信息后重试。",
+    },
+  };
+  const state = copy[phase];
   return (
-    <div
-      className={"brew-search-feedback is-" + phase}
-      data-testid="brew-search-feedback"
-      data-phase={phase}
-      role="status"
-      aria-live="polite"
-    >
+    <div className={"brew-search-feedback is-" + phase} data-testid="brew-search-feedback" data-phase={phase}
+      role="status" aria-live="polite">
       <span className="brew-state-dot" aria-hidden="true" />
       <div className="brew-search-feedback-copy">
-        <strong>{title}</strong>
-        <p>{detail}</p>
+        <strong>{state.title}</strong>
+        <p>{state.detail}</p>
       </div>
     </div>
   );
 }
 
-const JOB_PRESENTATION: Record<ActiveJobPhase, { label: string; detail: string; logPlaceholder: string }> = {
+const JOB_PRESENTATION: Record<ActiveJobPhase, {label:string;detail:string;logPlaceholder:string}> = {
   starting: {
     label: "正在启动",
     detail: "已提交本机操作，正在等待任务进程与任务编号返回。",
@@ -86,15 +82,7 @@ const JOB_PRESENTATION: Record<ActiveJobPhase, { label: string; detail: string; 
   },
 };
 
-export function HomebrewOperationPanel({
-  phase,
-  status,
-  actionLabel,
-  log,
-  canCancel,
-  cancelPending,
-  onCancel,
-}: {
+export function HomebrewOperationPanel({phase,status,actionLabel,log,canCancel,cancelPending,onCancel}: {
   phase: ActiveJobPhase;
   status: string;
   actionLabel: string;
@@ -123,23 +111,12 @@ export function HomebrewOperationPanel({
         </div>
       )}
       <pre aria-label="Homebrew 操作日志" data-testid="brew-operation-log">{log || state.logPlaceholder}</pre>
-      {phase === "starting" && (
-        <p className="brew-operation-note" role="status">正在建立本机任务会话；收到任务编号后才能发送取消请求。</p>
-      )}
-      {phase === "running" && (
-        <p className="brew-operation-note">Homebrew 未提供可依赖的通用百分比；请以状态和实时日志判断进度。</p>
-      )}
-      {phase === "cancelling" && (
-        <p className="brew-operation-note" role="status">取消请求已发送；任务会在实际进程退出后更新为最终状态。</p>
-      )}
+      {phase === "starting" && <p className="brew-operation-note" role="status">正在建立本机任务会话；收到任务编号后才能发送取消请求。</p>}
+      {phase === "running" && <p className="brew-operation-note">Homebrew 未提供可依赖的通用百分比；请以状态和实时日志判断进度。</p>}
+      {phase === "cancelling" && <p className="brew-operation-note" role="status">取消请求已发送；任务会在实际进程退出后更新为最终状态。</p>}
       {canCancel && (
-        <button
-          type="button"
-          className="secondary-button"
-          data-testid="brew-cancel-job"
-          disabled={cancelPending || phase === "cancelling"}
-          onClick={onCancel}
-        >
+        <button type="button" className="secondary-button" data-testid="brew-cancel-job"
+          disabled={cancelPending || phase === "cancelling"} onClick={onCancel}>
           {cancelPending || phase === "cancelling" ? "正在取消…" : "取消操作"}
         </button>
       )}
@@ -153,26 +130,15 @@ function previewCommand(action: HomebrewActionRequest): string {
   return "brew " + action.operation + " --" + (action.kind || "cask") + " " + (action.name || "");
 }
 
-export function HomebrewActionConfirmation({
-  action,
-  disabled,
-  onConfirm,
-  onCancel,
-}: {
+export function HomebrewActionConfirmation({action,disabled,onConfirm,onCancel}: {
   action: HomebrewActionRequest;
   disabled: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }) {
   return (
-    <div
-      className="terminal-confirm brew-confirmation"
-      role="dialog"
-      aria-modal="true"
-      aria-label="确认 Homebrew 操作"
-      data-testid="brew-action-confirmation"
-      data-phase="waiting-confirmation"
-    >
+    <div className="terminal-confirm brew-confirmation" role="dialog" aria-modal="true"
+      aria-label="确认 Homebrew 操作" data-testid="brew-action-confirmation" data-phase="waiting-confirmation">
       <div className="brew-confirmation-heading">
         <span className="brew-confirmation-status" data-phase="waiting-confirmation" role="status">等待确认</span>
         <h3>确认操作：{action.label}</h3>
@@ -188,18 +154,8 @@ export function HomebrewActionConfirmation({
         <p>软件名称会作为独立参数传递，不会拼接成可执行的 Shell 脚本；Sentinel 不会自动提权或收集管理员密码。</p>
       </div>
       <div className="actions">
-        <button
-          type="button"
-          className="primary-button"
-          data-testid="brew-confirm-run"
-          disabled={disabled}
-          onClick={onConfirm}
-        >
-          确认并执行
-        </button>
-        <button type="button" className="secondary-button" data-testid="brew-confirm-cancel" onClick={onCancel}>
-          取消
-        </button>
+        <button type="button" className="primary-button" data-testid="brew-confirm-run" disabled={disabled} onClick={onConfirm}>确认并执行</button>
+        <button type="button" className="secondary-button" data-testid="brew-confirm-cancel" onClick={onCancel}>取消</button>
       </div>
     </div>
   );

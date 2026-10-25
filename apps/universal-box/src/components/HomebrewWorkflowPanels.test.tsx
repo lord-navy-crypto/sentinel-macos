@@ -30,7 +30,7 @@ describe("Homebrew search workflow UI", () => {
     expect(html).toContain("更新 Homebrew 软件索引");
   });
 
-  it("keeps result count and query together so a later edit cannot mislabel old results", () => {
+  it("keeps the submitted query and result count together", () => {
     const html = markup(<HomebrewSearchFeedback phase="results" query="firefox" resultCount={3} />);
     expect(html).toContain('data-phase="results"');
     expect(html).toContain("firefox");
@@ -47,7 +47,7 @@ describe("Homebrew search workflow UI", () => {
 });
 
 describe("Homebrew operation progress UI", () => {
-  const phases: Exclude<HomebrewJobPhase, "idle">[] = ["starting", "running", "cancelling", "success", "failed", "cancelled"];
+  const phases: HomebrewJobPhase[] = ["starting", "running", "cancelling", "success", "failed", "cancelled"];
   const expected: Record<Exclude<HomebrewJobPhase, "idle">, string> = {
     starting: "正在启动",
     running: "安装 / 更新进行中",
@@ -60,15 +60,8 @@ describe("Homebrew operation progress UI", () => {
   it("renders every required operation state with the actual log panel", () => {
     for (const phase of phases) {
       const html = markup(
-        <HomebrewOperationPanel
-          phase={phase}
-          status=""
-          actionLabel="安装 Firefox"
-          log="Downloading package metadata"
-          canCancel={phase === "running" || phase === "cancelling"}
-          cancelPending={phase === "cancelling"}
-          onCancel={() => undefined}
-        />,
+        <HomebrewOperationPanel phase={phase} status="" actionLabel="安装 Firefox" log="Downloading package metadata"
+          canCancel={phase === "running" || phase === "cancelling"} cancelPending={phase === "cancelling"} onCancel={() => undefined} />,
       );
       expect(html).toContain('data-testid="brew-operation-panel"');
       expect(html).toContain('data-phase="' + phase + '"');
@@ -80,16 +73,13 @@ describe("Homebrew operation progress UI", () => {
     }
   });
 
-  it("exposes cancellation only when an operation has a cancellable task ID", () => {
-    const running = markup(
-      <HomebrewOperationPanel phase="running" status="" actionLabel="升级 Git" log="" canCancel={true} cancelPending={false} onCancel={() => undefined} />,
-    );
-    const starting = markup(
-      <HomebrewOperationPanel phase="starting" status="" actionLabel="升级 Git" log="" canCancel={false} cancelPending={false} onCancel={() => undefined} />,
-    );
-    const cancelling = markup(
-      <HomebrewOperationPanel phase="cancelling" status="" actionLabel="升级 Git" log="" canCancel={true} cancelPending={true} onCancel={() => undefined} />,
-    );
+  it("exposes cancellation only when a task ID is available and disables repeat cancellation", () => {
+    const running = markup(<HomebrewOperationPanel phase="running" status="" actionLabel="升级 Git" log=""
+      canCancel={true} cancelPending={false} onCancel={() => undefined} />);
+    const starting = markup(<HomebrewOperationPanel phase="starting" status="" actionLabel="升级 Git" log=""
+      canCancel={false} cancelPending={false} onCancel={() => undefined} />);
+    const cancelling = markup(<HomebrewOperationPanel phase="cancelling" status="" actionLabel="升级 Git" log=""
+      canCancel={true} cancelPending={true} onCancel={() => undefined} />);
     expect(running).toContain('data-testid="brew-cancel-job"');
     expect(starting).not.toContain('data-testid="brew-cancel-job"');
     expect(cancelling).toContain('disabled=""');
@@ -107,14 +97,7 @@ describe("Homebrew action confirmation UI", () => {
   };
 
   it("shows the pending-confirmation state, target, command preview, and explicit choices", () => {
-    const html = markup(
-      <HomebrewActionConfirmation
-        action={action}
-        disabled={false}
-        onConfirm={() => undefined}
-        onCancel={() => undefined}
-      />,
-    );
+    const html = markup(<HomebrewActionConfirmation action={action} disabled={false} onConfirm={() => undefined} onCancel={() => undefined} />);
     expect(html).toContain('role="dialog"');
     expect(html).toContain('data-phase="waiting-confirmation"');
     expect(html).toContain("等待确认");
@@ -125,15 +108,8 @@ describe("Homebrew action confirmation UI", () => {
     expect(html).toContain("不会自动提权");
   });
 
-  it("does not make the confirm action available when the workflow is busy", () => {
-    const html = markup(
-      <HomebrewActionConfirmation
-        action={action}
-        disabled={true}
-        onConfirm={() => undefined}
-        onCancel={() => undefined}
-      />,
-    );
+  it("does not enable confirmation when the workflow is busy", () => {
+    const html = markup(<HomebrewActionConfirmation action={action} disabled={true} onConfirm={() => undefined} onCancel={() => undefined} />);
     expect(html).toContain('data-testid="brew-confirm-run"');
     expect(html).toContain('disabled=""');
   });

@@ -69,7 +69,7 @@
 
 ## Search, confirmation, and operation-state UI pass (2026-10-25)
 
-- Search results now carry their own submitted query label. Starting a new search clears the prior result list before the request begins, so stale packages cannot appear under a new query. Searching, successful results, zero matches, and failed searches have distinct accessible feedback states.
+- Search results carry the submitted query label. Starting a new search clears the previous result list before the request begins, so stale packages cannot appear under a new query. Searching, successful results, zero matches, and failed searches have distinct accessible feedback states.
 - Package changes use a dedicated confirmation panel with a visible waiting-confirmation state, a target-specific command preview, explicit confirm/cancel controls, and the existing fixed-argument execution boundary.
 - The operation panel exposes distinct starting, running, cancelling, success, failed, and cancelled states. The live log remains visible, cancellation is only offered once a task ID is available, and the interface does not invent a percentage for Homebrew's non-uniform progress output.
-- HomebrewWorkflowPanels.test.tsx renders the actual UI panels and checks search feedback, all task phases, visible log output, cancellation availability, confirmation contents, and disabled confirmation behavior. These tests run through the existing Vitest suite; the standard browser workflow also runs TypeScript build and the complete test suite.
+- HomebrewWorkflowPanels.test.tsx renders the actual UI panels and checks search feedback, all task phases, visible log output, cancellation availability, confirmation contents, and disabled confirmation behavior. These tests run through the existing Vitest suite; the standard build still requires TypeScript and Vite validation.
