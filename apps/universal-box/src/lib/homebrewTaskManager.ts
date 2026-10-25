@@ -40,3 +40,16 @@ export function formatHomebrewDuration(durationMs: number | null): string {
   const remainder = seconds % 60;
   return remainder === 0 ? `${minutes} 分` : `${minutes} 分 ${remainder} 秒`;
 }
+
+
+/** Only accept events for this renderer's current job. Handles a very fast
+ * finish event arriving before the start IPC call has returned its job id. */
+export function homebrewEventBelongsToActiveJob(
+  eventId: number,
+  activeJobId: number | null,
+  starting: boolean,
+  finishedIds: ReadonlySet<number>,
+): boolean {
+  if (!Number.isSafeInteger(eventId) || eventId <= 0 || finishedIds.has(eventId)) return false;
+  return activeJobId === null ? starting : activeJobId === eventId;
+}
