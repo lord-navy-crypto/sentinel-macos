@@ -55,6 +55,26 @@ export default function OfficeHome({favorites,recents,totalTools,onOpen,onSearch
    <span><strong>{exports.length}</strong> 次本次启动导出</span>
    <span className="home-facts-privacy">● 本机优先 · 无需订阅</span>
   </div>
+  <section className="home-section home-category-shortcuts" data-testid="home-tool-categories" aria-label="Browse tools by task">
+   <header className="home-section-title"><div><p className="eyebrow">BROWSE BY TASK</p>
+    <h2>按任务浏览工具</h2><p className="subtle">直接打开完整工具目录并选中对应分类；不会创建重复工具或隐藏高级功能。</p>
+   </div><button type="button" className="home-inline-action" onClick={()=>onOpen("all-tools")}>查看全部工具 →</button></header>
+   <div className="home-category-grid">
+    {([
+     ["pdf","▤","PDF 与文档","PDF 编辑、文档转换与页面整理"],
+     ["text","¶","文本与写作","文本清理、比较、Markdown 与符号"],
+     ["media","▧","图片与媒体","图片转换、压缩与媒体处理"],
+     ["data","▦","表格与数据","CSV/TSV、表格清理与图表"],
+     ["files","⇪","文件与批处理","文件预检、重复检查与批量操作"],
+    ] as const).map(([id,symbol,title,description])=><button key={id} type="button"
+     className="home-category-card" data-testid={"home-category-"+id}
+     onClick={()=>onOpen("all-tools","catalog-category:"+title)}>
+     <span className="home-category-icon" aria-hidden="true">{symbol}</span>
+     <span className="home-category-copy"><strong>{title}</strong><small>{description}</small></span>
+     <span className="home-category-arrow" aria-hidden="true">↗</span>
+    </button>)}
+   </div>
+  </section>
   <section className="home-section home-box-modules" data-testid="home-sentinel-workspaces" aria-label="Sentinel Box built-in modules">
    <header className="home-section-title"><div><p className="eyebrow">SENTINEL BOX · BUILT-IN MODULES</p>
     <h2>系统与终端 · 内置模块</h2>
