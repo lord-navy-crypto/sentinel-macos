@@ -21,6 +21,8 @@ describe("Sentinel Box tool catalog discovery", () => {
     expect(matchesToolQuery(tools[3], "字数统计")).toBe(true);
     expect(matchesToolQuery(tools[4], "清理表格")).toBe(true);
     expect(matchesToolQuery(tools[5], "软件中心")).toBe(true);
+    expect(visualToolFamily(tools[5])).toBe("终端与软件管理");
+    expect(filterToolCatalog(tools, { category: "终端与软件管理" }).map(tool => tool.id)).toEqual(["better-terminal-homebrew"]);
     expect(matchesToolQuery(tools[7], "系统诊断")).toBe(true);
   });
 
