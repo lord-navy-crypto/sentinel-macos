@@ -2,9 +2,10 @@ import {useEffect,useRef,useState} from "react";
 import {invoke} from "@tauri-apps/api/core";
 import {listen,type UnlistenFn} from "@tauri-apps/api/event";
 import {boundedTerminalLog,validFormulaName} from "../lib/betterTerminal";
+import {homebrewTaskOutcome,prependHomebrewTaskHistory,formatHomebrewDuration,type HomebrewTaskRecord} from "../lib/homebrewTaskManager";
 
 type BrewKind="formula"|"cask";
-type BrewOperation="install"|"uninstall"|"upgrade"|"update";
+type BrewOperation="install"|"uninstall"|"upgrade"|"update"|"upgrade_all";
 type BrewEvent={job_id:number;stream:"stdout"|"stderr"|"finished";data:string;exit_code:number|null};
 type PendingAction={operation:BrewOperation;kind?:BrewKind;name?:string;label:string;reason:string};
 const FEATURED_CASKS=[
@@ -33,6 +34,10 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
  const [query,setQuery]=useState("");
  const [results,setResults]=useState<string[]>([]);
  const [packages,setPackages]=useState<string[]>([]);
+ const [outdated,setOutdated]=useState<string[]>([]);
+ const [updatesChecked,setUpdatesChecked]=useState(false);
+ const [outdatedKind,setOutdatedKind]=useState<BrewKind|null>(null);
+ const [checkingUpdates,setCheckingUpdates]=useState(false);
  const [searching,setSearching]=useState(false);
  const [loadingPackages,setLoadingPackages]=useState(false);
  const [info,setInfo]=useState("");
@@ -43,9 +48,13 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
  const [jobId,setJobId]=useState<number|null>(null);
  const [jobStatus,setJobStatus]=useState("");
  const [log,setLog]=useState("");
+ const [history,setHistory]=useState<HomebrewTaskRecord[]>([]);
  const jobRef=useRef<number|null>(null);
  const cancelRequestedRef=useRef(false);
  const finishedRef=useRef(new Set<number>());
+ const finishedIdsRef=useRef(new Set<number>());
+ const jobActionRef=useRef<PendingAction|null>(null);
+ const jobStartedAtRef=useRef<number|null>(null);
  const unlistenRef=useRef<UnlistenFn|null>(null);
  const kindRef=useRef<BrewKind>("cask");
 
@@ -62,13 +71,38 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
   void listen<BrewEvent>("better-terminal:brew-event",event=>{
    const item=event.payload;
    setLog(text=>boundedTerminalLog(text,item.data));
-   if(item.stream==="finished"){
-    if(jobRef.current===item.job_id){jobRef.current=null;}
-    else{finishedRef.current.add(item.job_id);}
-    setJobId(null);setRunning(false);
-    setJobStatus(cancelRequestedRef.current?"操作已取消":item.exit_code===0?"操作成功完成":"操作失败，请检查日志");
-    cancelRequestedRef.current=false;
-    if(item.exit_code===0)void invoke<string[]>("better_terminal_brew_list",{kind:kindRef.current}).then(setPackages).catch(()=>{});
+   if(item.stream!=="finished")return;
+   if(finishedIdsRef.current.has(item.job_id))return;
+   finishedIdsRef.current.add(item.job_id);
+   if(finishedIdsRef.current.size>50){
+    const oldest=finishedIdsRef.current.values().next().value;
+    if(oldest!==undefined)finishedIdsRef.current.delete(oldest);
+   }
+   if(jobRef.current===item.job_id){jobRef.current=null;}
+   else{finishedRef.current.add(item.job_id);}
+   const action=jobActionRef.current;
+   const outcome=homebrewTaskOutcome(item.exit_code,cancelRequestedRef.current);
+   const startedAt=jobStartedAtRef.current;
+   setHistory(current=>prependHomebrewTaskHistory(current,{
+    id:item.job_id,
+    label:action?.label??("Homebrew 操作 #"+item.job_id),
+    outcome,
+    finishedAt:new Date().toLocaleTimeString(),
+    durationMs:startedAt===null?null:Math.max(0,Date.now()-startedAt),
+    exitCode:item.exit_code
+   }));
+   setJobId(null);setRunning(false);
+   setJobStatus(outcome==="cancelled"?"操作已取消":outcome==="success"?"操作成功完成":"操作失败，请检查日志");
+   cancelRequestedRef.current=false;
+   jobActionRef.current=null;jobStartedAtRef.current=null;
+   if(item.exit_code===0){
+    const targetKind=action?.kind??kindRef.current;
+    void Promise.all([
+     invoke<string[]>("better_terminal_brew_list",{kind:targetKind}),
+     invoke<string[]>("better_terminal_brew_outdated",{kind:targetKind})
+    ]).then(([current,updates])=>{
+     setPackages(current);setOutdated(updates);setUpdatesChecked(true);setOutdatedKind(targetKind);
+    }).catch(e=>setError("刷新软件更新列表失败："+String(e)));
    }
   }).then(unlisten=>{if(alive)unlistenRef.current=unlisten;else unlisten();})
    .catch(e=>{if(alive)setError("无法监听 Homebrew 进度："+String(e));});
@@ -83,8 +117,25 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
  useEffect(()=>{kindRef.current=kind;},[kind]);
  useEffect(()=>{if(native&&installed)void refreshPackages(kind);},[native,installed,kind]);
 
- async function search(){
-  if(!native||!installed||!query.trim()||searching||running)return;
+ function selectKind(nextKind:BrewKind){
+  if(nextKind===kind)return;
+  setKind(nextKind);setResults([]);setInfo("");setError("");setNotice("");
+  setOutdated([]);setUpdatesChecked(false);setOutdatedKind(null);
+ }
+
+ async function checkUpdates(){
+   if(!native||!installed||checkingUpdates||running)return;
+   setCheckingUpdates(true);setError("");setNotice("");
+   setOutdated([]);setUpdatesChecked(false);setOutdatedKind(null);
+   try{
+    const found=await invoke<string[]>("better_terminal_brew_outdated",{kind});
+    setOutdated(found);setUpdatesChecked(true);setOutdatedKind(kind);
+    setNotice(found.length===0?"检查完成：当前类别没有发现可升级的软件。":"检查完成：发现 "+found.length+" 个可升级的软件。");
+   }catch(e){setError("检查软件更新失败："+String(e));}
+   finally{setCheckingUpdates(false);}
+  }
+  async function search(){
+  if(!native||!installed||!query.trim()||searching||running||checkingUpdates)return;
   setSearching(true);setError("");setNotice("");setInfo("");
   try{
    const [found,current]=await Promise.all([
@@ -102,10 +153,12 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
   catch(e){setError("读取软件详情失败："+String(e));}
  }
  function ask(operation:BrewOperation,name?:string){
-  if(!native||!installed||running)return;
+  if(!native||!installed||running||checkingUpdates)return;
   const label=operation==="update"?"更新 Homebrew 软件索引":
+   operation==="upgrade_all"?"批量升级全部过期的"+(kind==="cask"?"Mac 应用":"命令行工具"):
    operation==="install"?"安装 "+name:operation==="uninstall"?"卸载 "+name:"升级 "+name;
   const reason=operation==="update"?"连接 Homebrew 官方源更新本地软件索引。可能需要几分钟。":
+   operation==="upgrade_all"?"将升级当前类别中所有过期软件（"+outdated.length+" 项）。这可能改变多个软件的版本、依赖和配置；请先保存工作，并在确认前检查更新列表。":
    operation==="install"?"从 Homebrew 下载并安装该软件，会联网并修改本机软件环境。":
    operation==="uninstall"?"卸载该软件，可能移除应用文件或软件链接。":
    "下载并更新该软件包，可能改变当前版本或配置。";
@@ -113,6 +166,7 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
  }
  async function confirm(){
   const action=pending;if(!action)return;
+  jobActionRef.current=action;jobStartedAtRef.current=Date.now();
   setPending(null);setError("");setNotice("");setLog("");setRunning(true);cancelRequestedRef.current=false;setJobStatus("正在启动…");
   try{
    const id=await invoke<number>("better_terminal_brew_start_operation",{
@@ -120,7 +174,7 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
    });
    if(finishedRef.current.has(id)){finishedRef.current.delete(id);setJobId(null);jobRef.current=null;}
    else{jobRef.current=id;setJobId(id);setJobStatus("正在执行 · 任务 #"+id);}
-  }catch(e){setRunning(false);jobRef.current=null;setJobId(null);setJobStatus("启动失败");setError(String(e));}
+  }catch(e){setRunning(false);jobRef.current=null;setJobId(null);jobActionRef.current=null;jobStartedAtRef.current=null;setJobStatus("启动失败");setError(String(e));}
  }
  async function cancel(){
   if(jobId===null)return;
@@ -133,16 +187,23 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
     <h3>软件中心 · 用按钮安装，不用记命令</h3>
     <p className="subtle">直接调用本机 Homebrew；不需要先启动终端。安装、升级、卸载和更新索引均需二次确认。</p>
    </div>
-   <button type="button" className="secondary-button" disabled={!native||!installed||running||loadingPackages} onClick={()=>void refreshPackages()}>
-    {loadingPackages?"读取中…":"刷新已安装"}
-   </button>
+   {native&&installed&&<div className="brew-toolbar-actions">
+     {updatesChecked&&outdatedKind===kind&&<span className="brew-update-count">{outdated.length===0?"已是最新":outdated.length+" 项待更新"}</span>}
+     <button type="button" className="secondary-button" data-testid="brew-check-updates"
+      disabled={!native||!installed||running||checkingUpdates} onClick={()=>void checkUpdates()}>
+      {checkingUpdates?"检查中…":"检查更新"}
+     </button>
+     <button type="button" className="secondary-button" disabled={!native||!installed||running||loadingPackages} onClick={()=>void refreshPackages()}>
+      {loadingPackages?"读取中…":"刷新已安装"}
+     </button>
+    </div>}
   </div>
   {!native&&<p className="terminal-notice" role="note">网页预览不能操作本机软件。请在 Sentinel Box macOS 应用中使用。</p>}
   {native&&!installed&&<p className="terminal-notice" role="note">尚未检测到 Homebrew。先使用上方官方安装入口完成安装，再刷新状态。</p>}
   {installed&&<>
    <div className="brew-kind-switch" role="group" aria-label="软件类型">
-    <button type="button" aria-pressed={kind==="cask"} onClick={()=>{setKind("cask");setResults([]);setInfo("");setError("");}}>Mac 应用（Cask）</button>
-    <button type="button" aria-pressed={kind==="formula"} onClick={()=>{setKind("formula");setResults([]);setInfo("");setError("");}}>命令行工具（Formula）</button>
+    <button type="button" aria-pressed={kind==="cask"} disabled={running||checkingUpdates||loadingPackages} onClick={()=>selectKind("cask")}>Mac 应用（Cask）</button>
+    <button type="button" aria-pressed={kind==="formula"} disabled={running||checkingUpdates||loadingPackages} onClick={()=>selectKind("formula")}>命令行工具（Formula）</button>
    </div>
    <form className="brew-center-search" onSubmit={e=>{e.preventDefault();void search();}}>
     <label htmlFor="brew-software-query">软件名称</label>
@@ -155,9 +216,26 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
      onClick={()=>ask("update")}>更新软件索引</button>
    </form>
    <div className="brew-manager-summary">
-    <span>当前已安装：<strong>{packages.length}</strong> 项</span>
-    <span>{kind==="cask"?"Mac 应用":"命令行工具"}</span>
-   </div>
+     <span>当前已安装：<strong>{packages.length}</strong> 项</span>
+     <span>{kind==="cask"?"Mac 应用":"命令行工具"}</span>
+     {updatesChecked&&outdatedKind===kind&&<span>待更新：<strong>{outdated.length}</strong> 项</span>}
+    </div>
+    {updatesChecked&&outdatedKind===kind&&<div className="brew-outdated-panel" data-testid="brew-outdated-list">
+     <div className="brew-results-heading"><strong>可升级的软件</strong><span>{outdated.length===0?"当前已是最新":"共 "+outdated.length+" 项"}</span></div>
+     {outdated.length===0?<p className="subtle">此类别没有发现可升级的软件。你可以更新软件索引后再检查一次。</p>:
+      <>
+       <div className="brew-outdated-actions">
+        <p className="subtle">先检查列表；批量升级会更新此类别内所有过期软件。</p>
+        <button type="button" className="primary-button" data-testid="brew-upgrade-all"
+         disabled={!native||running||checkingUpdates||outdated.length===0}
+         onClick={()=>ask("upgrade_all")}>升级全部 {outdated.length} 项</button>
+       </div>
+       {outdated.map(name=><div className="brew-software-row" key={name}>
+        <div className="brew-software-name"><strong>{name}</strong><small>有可用更新</small></div>
+        <button type="button" className="secondary-button" disabled={running} onClick={()=>ask("upgrade",name)}>升级此项</button>
+       </div>)}
+      </>}
+    </div>
    <div className="brew-featured-section" data-testid="brew-featured-apps">
     <div className="brew-results-heading"><strong>{kind==="cask"?"常用 Mac 应用":"常用命令行工具"}</strong><span>无需搜索 · 确认后执行</span></div>
     <div className="brew-featured-grid">
@@ -196,12 +274,25 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
     {running&&jobId!==null&&<button type="button" className="secondary-button" onClick={()=>void cancel()}>取消操作</button>}
    </div>}
   </>}
+  {history.length>0&&<details className="brew-task-history" data-testid="brew-task-history">
+   <summary>最近任务（{history.length}）</summary>
+   <p className="subtle">仅保留本次软件中心会话的任务摘要；日志不会写入历史，也不会保存到磁盘。</p>
+   <div className="brew-task-history-list">
+    {history.map(task=><article className="brew-task-history-row" key={task.id}>
+     <span className={"brew-task-outcome "+task.outcome}>{task.outcome==="success"?"成功":task.outcome==="cancelled"?"已取消":"失败"}</span>
+     <div className="brew-task-history-content">
+      <strong>{task.label}</strong>
+      <small>任务 #{task.id} · {task.finishedAt} · {formatHomebrewDuration(task.durationMs)} · 退出码 {task.exitCode===null?"未知":task.exitCode}</small>
+     </div>
+    </article>)}
+   </div>
+  </details>}
   {notice&&<p role="status" className="subtle">{notice}</p>}
   {error&&<p role="alert" className="terminal-error">{error}</p>}
   {pending&&<div className="terminal-confirm" role="dialog" aria-modal="true" aria-label="确认 Homebrew 操作" data-testid="brew-action-confirmation">
    <h3>确认操作：{pending.label}</h3><p>{pending.reason}</p>
    <p>本操作通过固定的 Homebrew 参数直接启动，不会把软件名称拼接为 Shell 脚本。请检查软件名称和影响后再继续。</p>
-   <code>{pending.operation==="update"?"brew update":`brew ${pending.operation} --${pending.kind} ${pending.name}`}</code>
+   <code>{pending.operation==="update"?"brew update":pending.operation==="upgrade_all"?`brew upgrade --${pending.kind}`:`brew ${pending.operation} --${pending.kind} ${pending.name}`}</code>
    <div className="actions">
     <button type="button" className="primary-button" data-testid="brew-confirm-run" disabled={running} onClick={()=>void confirm()}>确认并执行</button>
     <button type="button" className="secondary-button" onClick={()=>setPending(null)}>取消</button>
