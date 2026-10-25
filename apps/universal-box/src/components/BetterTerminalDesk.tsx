@@ -15,9 +15,9 @@ const INSTALL_GUIDE="https://docs.brew.sh/Installation";
 const INSTALL_RELEASE="https://github.com/Homebrew/brew/releases/latest";
 
 /** Real PTY console on native macOS; browser preview cannot execute commands. */
-export default function BetterTerminalDesk(){
+export default function BetterTerminalDesk({initialTab="terminal"}:{initialTab?:"terminal"|"brew"}){
  const native=isTauri();
- const [tab,setTab]=useState<"terminal"|"brew"|"guide">("terminal");
+ const [tab,setTab]=useState<"terminal"|"brew"|"guide">(initialTab);
  const [session,setSession]=useState<TerminalInfo|null>(null);
  const sessionRef=useRef<TerminalInfo|null>(null);
  const listenerRef=useRef<UnlistenFn|null>(null);
