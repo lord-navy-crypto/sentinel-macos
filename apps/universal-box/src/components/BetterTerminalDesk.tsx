@@ -158,7 +158,7 @@ export default function BetterTerminalDesk({initialTab="terminal",active=true}:{
   {notice&&<p role="status" className="subtle">{notice}</p>}
   <div className="terminal-viewport" data-testid="terminal-output"
    style={{display:tab==="terminal"?"block":"none"}}>
-   <TerminalScreen ref={screenRef} visible={tab==="terminal"}
+   <TerminalScreen ref={screenRef} visible={active&&tab==="terminal"}
     onInput={data=>{if(sessionRef.current)void send(data);}}
     onResize={handleTerminalResize}/>
   </div>
