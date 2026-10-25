@@ -1,4 +1,5 @@
 mod sentinel_service;
+mod better_terminal;
 mod commons_chat;
 mod commons_p2p;
 mod commons_lan;
@@ -170,6 +171,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(sentinel_service::SentinelService::default())
+        .manage(better_terminal::BetterTerminalState::default())
         .manage(commons_lan::CommonsLanState::default())
         .manage(commons_chat::CommonsChatState::default())
         .on_window_event(|window, event| {
@@ -177,6 +179,7 @@ pub fn run() {
                 window.state::<commons_lan::CommonsLanState>().stop();
                 window.state::<commons_chat::CommonsChatState>().stop();
                 window.state::<sentinel_service::SentinelService>().stop();
+                window.state::<better_terminal::BetterTerminalState>().stop();
             }
         })
         .invoke_handler(tauri::generate_handler![
@@ -185,6 +188,11 @@ pub fn run() {
             export_backup,
             read_backup,
             write_output_file,
+            better_terminal::better_terminal_start,
+            better_terminal::better_terminal_write,
+            better_terminal::better_terminal_resize,
+            better_terminal::better_terminal_stop,
+            better_terminal::better_terminal_brew_status,
             sentinel_service::sentinel_service_status,
             sentinel_service::sentinel_service_start,
             sentinel_service::sentinel_service_stop,
