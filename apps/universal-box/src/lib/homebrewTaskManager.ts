@@ -1,5 +1,20 @@
 export type HomebrewTaskOutcome = "success" | "failed" | "cancelled";
 
+export type HomebrewTaskVisualState = "idle" | "running" | "cancelling" | "success" | "failed" | "cancelled";
+
+/** Map observed UI state to a visual tone; this never invents progress or a final outcome. */
+export function homebrewTaskVisualState(
+  running: boolean,
+  cancelPending: boolean,
+  status: string,
+): HomebrewTaskVisualState {
+  if (running) return cancelPending ? "cancelling" : "running";
+  if (/成功/.test(status)) return "success";
+  if (/失败/.test(status)) return "failed";
+  if (/取消/.test(status)) return "cancelled";
+  return "idle";
+}
+
 export interface HomebrewTaskRecord {
   id: number;
   label: string;
