@@ -64,6 +64,7 @@ export default function OfficeHome({favorites,recents,totalTools,onOpen,onSearch
    </header>
    <div className="home-task-grid sentinel-home-grid">
     {([
+      ["better-terminal",">_","Better Terminal","PTY · Homebrew · 本机诊断"],
       ["sentinel","◉","系统概览与扫描","Easy Scan · Review Queue"],
       ["sentinel-investigate","⌕","证据调查","Evidence Graph · Timeline"],
       ["sentinel-compare","⇄","历史与变化","Behavior · Trust"],
