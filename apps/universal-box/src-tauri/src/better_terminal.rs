@@ -279,6 +279,40 @@ pub async fn better_terminal_brew_info(window: WebviewWindow, kind: String, name
     tauri::async_runtime::spawn_blocking(move || read_brew_command(&["info", flag, name.trim()]))
         .await.map_err(|e| format!("Homebrew info task failed: {e}"))?
 }
+#[tauri::command]
+pub async fn better_terminal_brew_outdated(window: WebviewWindow, kind: String) -> Result<Vec<String>, String> {
+    require_main(&window)?;
+    let flag = validate_brew_kind(&kind)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let output = read_brew_command(&["outdated", flag, "--quiet"])?;
+        Ok(output.lines().map(str::trim).filter(|line| !line.is_empty()).take(500)
+            .map(|line| line.chars().take(120).collect()).collect())
+    }).await.map_err(|e| format!("Homebrew update check failed: {e}"))?
+}
+fn brew_operation_args(operation: &str, kind: Option<&str>, name: Option<&str>) -> Result<Vec<String>, String> {
+    match operation {
+        "update" => {
+            if kind.is_some() || name.is_some_and(|n| !n.trim().is_empty()) {
+                return Err("Homebrew index update does not accept a package name or category".into());
+            }
+            Ok(vec!["update".into()])
+        }
+        "upgrade_all" => {
+            let flag = validate_brew_kind(kind.ok_or("Choose formula or cask")?)?;
+            if name.is_some_and(|n| !n.trim().is_empty()) {
+                return Err("Upgrade-all does not accept a package name".into());
+            }
+            Ok(vec!["upgrade".into(), flag.into()])
+        }
+        "install" | "uninstall" | "upgrade" => {
+            let flag = validate_brew_kind(kind.ok_or("Choose formula or cask")?)?;
+            let name = name.ok_or("Package name is required")?;
+            validate_brew_name(name)?;
+            Ok(vec![operation.into(), flag.into(), name.trim().into()])
+        }
+        _ => Err("Unsupported Homebrew operation".into()),
+    }
+}
 fn emit_homebrew_event(app: &AppHandle, event: HomebrewEvent) {
     if let Some(main) = app.get_webview_window("main") {
         let _ = main.emit(HOMEBREW_EVENT, event);
@@ -318,25 +352,7 @@ pub fn better_terminal_brew_start_operation(
 ) -> Result<u64, String> {
     require_main(&window)?;
     let brew = active_brew().ok_or("Homebrew is not installed in a supported standard location")?;
-    let mut args: Vec<String> = Vec::new();
-    match operation.as_str() {
-        "update" => {
-            if kind.is_some() || name.as_ref().is_some_and(|n| !n.trim().is_empty()) {
-                return Err("Homebrew index update does not accept a package name".into());
-            }
-            args.push("update".into());
-        }
-        "install" | "uninstall" | "upgrade" => {
-            let kind = kind.as_deref().ok_or("Choose formula or cask")?;
-            let flag = validate_brew_kind(kind)?;
-            let name = name.as_deref().ok_or("Package name is required")?;
-            validate_brew_name(name)?;
-            args.push(operation.clone());
-            args.push(flag.into());
-            args.push(name.trim().into());
-        }
-        _ => return Err("Unsupported Homebrew operation".into()),
-    }
+    let args = brew_operation_args(&operation, kind.as_deref(), name.as_deref())?;
     let mut guard = state.active.lock().map_err(|_| "Homebrew manager is unavailable")?;
     if guard.is_some() {
         return Err("A Homebrew operation is already running. Wait for it to finish or cancel it first.".into());
@@ -426,6 +442,18 @@ mod tests {
         for name in ["", "-rf", "foo;rm", "pkg$(id)", "../tmp", "two words", "x\ny"] {
             assert!(validate_brew_name(name).is_err(), "accepted {name}");
         }
+    }
+    #[test]fn brew_operation_args_are_fixed_and_validated(){
+        assert_eq!(brew_operation_args("update", None, None).unwrap(), vec!["update"]);
+        assert_eq!(brew_operation_args("upgrade_all", Some("cask"), None).unwrap(), vec!["upgrade", "--cask"]);
+        assert_eq!(brew_operation_args("upgrade_all", Some("formula"), None).unwrap(), vec!["upgrade", "--formula"]);
+        assert_eq!(brew_operation_args("install", Some("cask"), Some("visual-studio-code")).unwrap(),
+            vec!["install", "--cask", "visual-studio-code"]);
+        assert!(brew_operation_args("upgrade_all", None, None).is_err());
+        assert!(brew_operation_args("upgrade_all", Some("cask"), Some("firefox")).is_err());
+        assert!(brew_operation_args("update", Some("cask"), None).is_err());
+        assert!(brew_operation_args("install", Some("formula"), Some("foo;id")).is_err());
+        assert!(brew_operation_args("rm -rf", None, None).is_err());
     }
     #[test]fn brew_search_is_bounded_and_cannot_become_an_option(){
         assert_eq!(brew_search_pattern("visual studio code"), "/visual.*studio.*code/");
