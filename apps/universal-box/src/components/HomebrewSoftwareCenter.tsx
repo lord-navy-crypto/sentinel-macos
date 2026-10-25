@@ -154,7 +154,7 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
     <h3>软件中心 · 用按钮安装，不用记命令</h3>
     <p className="subtle">直接调用本机 Homebrew；不需要先启动终端。安装、升级、卸载和更新索引均需二次确认。</p>
    </div>
-   <div className="brew-toolbar-actions">
+   {native&&installed&&<div className="brew-toolbar-actions">
      {updatesChecked&&<span className="brew-update-count">{outdated.length===0?"已是最新":outdated.length+" 项待更新"}</span>}
      <button type="button" className="secondary-button" data-testid="brew-check-updates"
       disabled={!native||!installed||running||checkingUpdates} onClick={()=>void checkUpdates()}>
@@ -163,14 +163,14 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
      <button type="button" className="secondary-button" disabled={!native||!installed||running||loadingPackages} onClick={()=>void refreshPackages()}>
       {loadingPackages?"读取中…":"刷新已安装"}
      </button>
-    </div>
+    </div>}
   </div>
   {!native&&<p className="terminal-notice" role="note">网页预览不能操作本机软件。请在 Sentinel Box macOS 应用中使用。</p>}
   {native&&!installed&&<p className="terminal-notice" role="note">尚未检测到 Homebrew。先使用上方官方安装入口完成安装，再刷新状态。</p>}
   {installed&&<>
    <div className="brew-kind-switch" role="group" aria-label="软件类型">
-    <button type="button" aria-pressed={kind==="cask"} onClick={()=>{setKind("cask");setResults([]);setInfo("");setError("");}}>Mac 应用（Cask）</button>
-    <button type="button" aria-pressed={kind==="formula"} onClick={()=>{setKind("formula");setResults([]);setInfo("");setError("");}}>命令行工具（Formula）</button>
+    <button type="button" aria-pressed={kind==="cask"} onClick={()=>{setKind("cask");setResults([]);setInfo("");setError("");setOutdated([]);setUpdatesChecked(false);}}>Mac 应用（Cask）</button>
+    <button type="button" aria-pressed={kind==="formula"} onClick={()=>{setKind("formula");setResults([]);setInfo("");setError("");setOutdated([]);setUpdatesChecked(false);}}>命令行工具（Formula）</button>
    </div>
    <form className="brew-center-search" onSubmit={e=>{e.preventDefault();void search();}}>
     <label htmlFor="brew-software-query">软件名称</label>
