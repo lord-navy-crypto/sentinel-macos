@@ -295,12 +295,7 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
     <HomebrewStatusOverview native={native} installed={installed} eventsReady={eventsReady} kind={kind}
      packagesCount={packages.length} loadingPackages={loadingPackages} checkingUpdates={checkingUpdates}
      updatesChecked={updatesChecked} outdatedKind={outdatedKind} outdatedCount={outdated.length} />
-    {installed&&<div className="brew-manager-summary">
-     <div><span>已安装</span><strong>{packages.length}</strong><small>{kind==="cask"?"Mac 应用":"命令行工具"}</small></div>
-     {updatesChecked&&outdatedKind===kind
-      ?<div><span>待更新</span><strong>{outdated.length}</strong><small>{outdated.length===0?"本次检查已完成":"等待你确认升级"}</small></div>
-      :<div><span>更新状态</span><strong>未检查</strong><small>检查后显示待更新数量</small></div>}
-    </div>}
+remove redundant package and update summary
    </aside>
   </div>
   {installed&&<>

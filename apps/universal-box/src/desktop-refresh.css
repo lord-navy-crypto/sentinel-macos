@@ -576,13 +576,8 @@
 .app-shell .brew-manager-sidebar .brew-status-overview{grid-template-columns:minmax(0,1fr);gap:8px;}
 .app-shell .brew-manager-sidebar .brew-status-card{grid-template-columns:minmax(0,1fr) auto;gap:4px 8px;padding:11px 12px 11px 25px;border-radius:11px;background:var(--ub-subtle);}
 .app-shell .brew-manager-sidebar .brew-status-card-label{grid-column:1;}
-.app-shell .brew-manager-sidebar .brew-status-card strong{grid-column:1/-1;font-size:14px;}
+.app-shell .brew-manager-sidebar .brew-status-card strong{grid-column:1/-1;font-size:15px;font-variant-numeric:tabular-nums;}
 .app-shell .brew-manager-sidebar .brew-status-card small{grid-column:1/-1;font-size:10px;}
-.app-shell .brew-manager-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:0;border:0;}
-.app-shell .brew-manager-summary>div{display:grid;gap:3px;min-width:0;padding:12px;border:1px solid var(--ub-border);border-radius:11px;background:var(--ub-panel);}
-.app-shell .brew-manager-summary>div>span{color:var(--ub-muted);font-size:10px;font-weight:700;}
-.app-shell .brew-manager-summary>div>strong{font-size:22px;line-height:1.2;color:var(--ub-text);font-variant-numeric:tabular-nums;}
-.app-shell .brew-manager-summary>div>small{font-size:10px;line-height:1.4;color:var(--ub-muted);}
 .app-shell .brew-workflow-progress{gap:0;margin:0;padding:0 0 12px;border-bottom:1px solid var(--ub-border);}
 .app-shell .brew-workflow-step{position:relative;border:0;border-radius:0;padding:5px 12px 5px 0;background:transparent;box-shadow:none;}
 .app-shell .brew-workflow-step.is-current{border:0;background:transparent;box-shadow:none;}
@@ -627,7 +622,6 @@
  .app-shell .brew-manager-layout{grid-template-columns:minmax(0,1fr);}
  .app-shell .brew-manager-sidebar .brew-status-overview{grid-template-columns:repeat(3,minmax(0,1fr));}
  .app-shell .brew-manager-sidebar .brew-status-card{padding:12px 12px 12px 25px;}
- .app-shell .brew-manager-summary{grid-template-columns:repeat(2,minmax(0,1fr));}
  .app-shell .brew-featured-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
  .app-shell .brew-workflow-step::after{display:none;}
 }
