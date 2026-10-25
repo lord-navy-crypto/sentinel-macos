@@ -42,8 +42,9 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
    const item=event.payload;
    setLog(text=>boundedTerminalLog(text,item.data));
    if(item.stream==="finished"){
-    finishedRef.current.add(item.job_id);
-    jobRef.current=null;setJobId(null);setRunning(false);
+    if(jobRef.current===item.job_id){jobRef.current=null;}
+    else{finishedRef.current.add(item.job_id);}
+    setJobId(null);setRunning(false);
     setJobStatus(item.exit_code===0?"操作成功完成":"操作失败，请检查日志");
     if(item.exit_code===0)void invoke<string[]>("better_terminal_brew_list",{kind:kindRef.current}).then(setPackages).catch(()=>{});
    }
@@ -95,7 +96,7 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
    const id=await invoke<number>("better_terminal_brew_start_operation",{
     operation:action.operation,kind:action.kind??null,name:action.name??null
    });
-   if(finishedRef.current.has(id)){setJobId(null);jobRef.current=null;}
+   if(finishedRef.current.has(id)){finishedRef.current.delete(id);setJobId(null);jobRef.current=null;}
    else{jobRef.current=id;setJobId(id);setJobStatus("正在执行 · 任务 #"+id);}
   }catch(e){setRunning(false);jobRef.current=null;setJobId(null);setJobStatus("启动失败");setError(String(e));}
  }
