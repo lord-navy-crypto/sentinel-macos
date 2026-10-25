@@ -16,7 +16,7 @@ describe("Homebrew software center presentation", () => {
     expect(markup).toContain('data-testid="brew-check-updates"');
     expect(markup).toContain('data-testid="brew-featured-apps"');
     expect(markup).toContain('data-testid="brew-featured-install-firefox"');
-    expect(markup).toContain('data-testid="brew-featured-install-git"');
+    expect(markup).toContain('data-testid="brew-featured-install-google-chrome"');
     expect(markup).toContain("常用 Mac 应用");
     expect(markup).toContain("安装、升级、卸载和更新索引均需二次确认");
   });
