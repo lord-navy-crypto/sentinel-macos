@@ -4,6 +4,9 @@ import {SENTINEL_EXTRA_READS,SENTINEL_BASE_EXTRA_CARDS} from "../lib/sentinelSur
 
 export type LocalTool = {id:string;name:string;area:string;view:string;module?:string};
 export const LOCAL_TOOLS:LocalTool[] = [
+ {id:"better-terminal-console",name:"Better Terminal · macOS 原生交互式终端",area:"Sentinel",view:"better-terminal",module:"terminal"},
+ {id:"better-terminal-homebrew",name:"Better Terminal · Homebrew 图形安装与包管理",area:"Sentinel",view:"better-terminal",module:"brew"},
+ {id:"better-terminal-syscheck",name:"Better Terminal · 一键系统状态和开发工具检查",area:"Sentinel",view:"better-terminal",module:"terminal"},
  {id:"sentinel-system-overview",name:"Sentinel · 系统总览 / Easy Scan",area:"Sentinel",view:"sentinel",module:"overview"},
  {id:"sentinel-review-queue",name:"Sentinel · Review Queue 证据待办",area:"Sentinel",view:"sentinel",module:"review"},
  {id:"sentinel-evidence-search",name:"Sentinel · 本机证据搜索",area:"Sentinel",view:"sentinel-investigate"},

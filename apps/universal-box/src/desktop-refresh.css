@@ -227,3 +227,62 @@
 .sentinel-advanced-entry code{font-size:11px;overflow-wrap:anywhere;color:var(--ub-primary);}
 @media(max-width:900px){.sentinel-advanced-entry{grid-template-columns:1fr 1fr;}
  .sentinel-advanced-entry code{grid-column:1/-1;}}
+
+/* Sentinel Better Terminal: one native PTY and an intentional command-palette workflow. */
+.better-terminal{display:grid;gap:16px;}
+.better-terminal-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;}
+.better-terminal-heading h2{margin:4px 0 8px;}
+.better-terminal-heading p.subtle{max-width:800px;margin:0;}
+.terminal-status{white-space:nowrap;display:inline-flex;align-items:center;padding:8px 12px;
+ border:1px solid var(--ub-border);background:var(--ub-subtle);border-radius:10px;color:var(--ub-muted);font-size:12px;font-weight:750;}
+.terminal-status.connected{background:var(--ub-tint);color:var(--ub-primary);}
+.better-terminal-tabs{display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid var(--ub-border);padding-bottom:13px;}
+.better-terminal-tabs button{padding:10px 13px;border:1px solid var(--ub-border);border-radius:9px;
+ color:var(--ub-text);background:var(--ub-subtle);cursor:pointer;font-weight:650;}
+.better-terminal-tabs button[aria-pressed=true]{color:var(--ub-primary);background:var(--ub-tint);border-color:var(--ub-ring);}
+.terminal-toolbar{display:flex;gap:8px;flex-wrap:wrap;}
+.terminal-toolbar button{min-height:37px;}
+.terminal-viewport{border-radius:12px;background:#101922;border:1px solid #334654;overflow:hidden;}
+.terminal-viewport pre{display:block;height:min(58vh,460px);min-height:220px;overflow:auto;white-space:pre-wrap;
+ word-break:break-word;padding:16px 20px;margin:0;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+ font-size:12px;line-height:1.65;color:#e1f1e5;tab-size:4;}
+.terminal-viewport pre:focus-visible{outline:2px solid #9ed3ff;outline-offset:-3px;}
+.terminal-input-row{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;}
+.terminal-input-row label{font-size:12px;font-weight:750;white-space:nowrap;}
+.terminal-input-row input{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;min-width:0;}
+.terminal-resize{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--ub-muted);}
+.terminal-resize input{width:75px;max-width:75px;border:1px solid var(--ub-border);border-radius:7px;
+ background:var(--ub-subtle);color:var(--ub-text);padding:8px;}
+.terminal-error,.terminal-notice{border-radius:9px;padding:12px 14px;margin:0;background:var(--ub-tint);
+ border-left:3px solid var(--ub-primary);color:var(--ub-text);}
+.terminal-error{border-left-color:#b85844;}
+.terminal-brew,.terminal-brew-status{display:grid;gap:14px;}
+.terminal-brew-status{grid-template-columns:1fr auto;align-items:start;}
+.terminal-brew-status h3,.terminal-brew h3{margin:2px 0 6px;}
+.terminal-brew-status p{margin:4px 0;}
+.terminal-install-guide{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;
+ border:1px solid var(--ub-border);border-radius:12px;background:var(--ub-subtle);padding:16px;}
+.terminal-install-guide strong{width:100%;font-size:15px;}
+.terminal-install-guide p{width:100%;margin:0;line-height:1.6;color:var(--ub-muted);}
+.terminal-brew-search{display:grid;grid-template-columns:auto minmax(120px,1fr) auto auto auto;align-items:center;gap:9px;}
+.terminal-brew-search label{font-size:12px;font-weight:750;}
+.terminal-recipe-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;}
+.terminal-recipe-grid button{display:grid;grid-template-columns:1fr auto;align-items:start;text-align:left;gap:4px;
+ min-height:87px;border:1px solid var(--ub-border);border-radius:10px;padding:13px;
+ background:var(--ub-subtle);color:var(--ub-text);cursor:pointer;}
+.terminal-recipe-grid button:hover:not(:disabled){background:var(--ub-tint);border-color:var(--ub-ring);}
+.terminal-recipe-grid strong{font-size:13px;}
+.terminal-recipe-grid small{color:var(--ub-muted);grid-column:1/2;font-size:11px;line-height:1.45;}
+.terminal-recipe-grid span{grid-column:2;grid-row:1;color:var(--ub-primary);}
+.terminal-confirm{position:relative;display:grid;gap:10px;background:var(--ub-panel);border:2px solid var(--ub-ring);
+ border-radius:12px;padding:20px;box-shadow:var(--ub-shadow);}
+.terminal-confirm h3,.terminal-confirm p{margin:0;}
+.terminal-confirm code{font-family:ui-monospace,SFMono-Regular,monospace;background:var(--ub-subtle);
+ padding:12px;border-radius:7px;overflow-wrap:anywhere;}
+@media(max-width:1020px){.terminal-recipe-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
+ .terminal-brew-search{grid-template-columns:auto minmax(120px,1fr) auto auto;}
+ .terminal-brew-search .primary-button{grid-column:2/-1;}}
+@media(max-width:740px){.better-terminal-heading{flex-direction:column;}.terminal-input-row{grid-template-columns:1fr auto;}
+ .terminal-input-row label{grid-column:1/-1;}.terminal-brew-search{grid-template-columns:1fr 1fr;}
+ .terminal-brew-search label,.terminal-brew-search input{grid-column:1/-1;}
+ .terminal-recipe-grid{grid-template-columns:1fr;}}
