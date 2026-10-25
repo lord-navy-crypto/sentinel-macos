@@ -83,7 +83,7 @@ test("Original Sentinel Go service is represented by six real modular workbenche
  try{
   await page.goto(root,{waitUntil:"domcontentloaded"});await page.locator(".app-shell").waitFor();
   const views=[
-   ["Sentinel · 系统概览与扫描","系统概览"],
+   ["Sentinel · 系统安全中心","系统概览"],
    ["Sentinel · 证据调查","证据调查"],
    ["Sentinel · 历史与变化比较","变化和信任"],
    ["Sentinel · 进程与网络","Mac 系统与网络"],
