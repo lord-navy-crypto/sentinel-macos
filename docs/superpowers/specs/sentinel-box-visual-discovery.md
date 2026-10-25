@@ -38,6 +38,10 @@ The interface should help users discover existing capabilities through task lang
 - Integrate the helper into the existing ToolLaunchpad without changing launch routes or favorites.
 - Refine catalog UI hierarchy, result counts, empty state, category filters, and responsive behavior through the existing CSS system.
 - Refine the home-screen visual hierarchy without removing any current sections or shortcuts.
+- Show live category counts on home shortcuts and provide common task-search chips in the catalog.
+- Prioritize everyday productivity categories in the unfiltered catalog while keeping favorites first and preserving all Sentinel/Better Terminal routes.
+- Reuse concise descriptions already present in tool titles rather than repeating generic card copy.
+- Keep catalog controls, empty states, and external-service notes consistently localized.
 - Add/adjust regression tests and verify via repository CI before packaging.
 
 ## Acceptance criteria
@@ -46,7 +50,10 @@ The interface should help users discover existing capabilities through task lang
 - Search finds selected high-frequency tools using common Chinese and English intents.
 - Category filtering classifies common file, media, data, text, sharing, and Sentinel tools sensibly.
 - All tools remain discoverable in the complete catalog.
-- Favorites and grid/list layout continue to work.
+- Favorites and grid/list layout continue to work; removing the last visible favorite does not strand the catalog in an empty favorites-only filter.
+- The unfiltered catalog surfaces everyday productivity tools before the large Sentinel subsystem collection; favorites remain prioritized.
+- Home category counts reflect the same source catalog used by the full catalog.
+- Common search chips populate the existing local search field and preserve the existing launch targets.
 - No functional control is removed or replaced by a decorative element.
 - Light/dark themes and narrow windows remain usable.
 - The relevant tests and build checks pass; failures are reported honestly.
