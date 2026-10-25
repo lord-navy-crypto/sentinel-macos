@@ -31,7 +31,7 @@ test("Desktop redesign: office home, command search, categorized list, and expli
   assert.ok(Number(await pdfShortcut.locator(".home-category-count").innerText())>0,
     "Home category shortcuts should show live counts from the tool catalog.");
   await pdfShortcut.click();
-  const categoryButtons=page.getByRole("group",{name:"Filter tool category"});
+  const categoryButtons=page.getByRole("group",{name:"工具分类筛选"});
   assert.equal(await categoryButtons.getByRole("button",{name:/PDF 与文档/}).getAttribute("aria-pressed"),"true",
     "Home category shortcuts should open the existing catalog with the selected category active.");
   await page.locator(".sidebar-brand").click();
@@ -67,7 +67,7 @@ test("Desktop redesign: office home, command search, categorized list, and expli
   await page.locator("#all-tools-search").fill("");
   await page.getByTestId("catalog-list-mode").click();
   assert.equal(await page.getByTestId("catalog-results").evaluate(e=>e.classList.contains("catalog-list")),true);
-  await page.getByRole("group",{name:"Filter tool category"}).getByRole("button",{name:"PDF 与文档"}).click();
+  await page.getByRole("group",{name:"工具分类筛选"}).getByRole("button",{name:"PDF 与文档"}).click();
   assert.ok(await page.locator(".catalog-open").count()>0);
   await page.getByTestId("catalog-grid-mode").click();
   assert.equal(await page.getByTestId("catalog-results").evaluate(e=>e.classList.contains("catalog-list")),false);
