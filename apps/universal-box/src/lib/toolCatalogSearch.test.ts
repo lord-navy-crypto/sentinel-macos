@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { filterToolCatalog, matchesToolQuery, type CatalogSearchableTool } from "./toolCatalogSearch";
+import { visualToolFamily } from "./toolVisualCategories";
 
 const tools: CatalogSearchableTool[] = [
   { id: "scan-pdf-compress", name: "Scanned PDF Image Compressor · DPI / JPEG 扫描件压缩", area: "Files", view: "pdf-mini", module: "scan-compress" },
@@ -46,6 +47,20 @@ describe("Sentinel Box tool catalog discovery", () => {
       favoritesOnly: false,
       favorites: [],
     }).map(tool => tool.id)).toContain("file-intake");
+  });
+
+  it("keeps text utilities in the text family even when their output format mentions DOCX", () => {
+    const typography: CatalogSearchableTool = {
+      id: "typography-symbols",
+      name: "Font & Symbol Converter · 字体字号／特殊符号／TXT→DOCX/HTML",
+      area: "Text",
+      view: "free-formats",
+      module: "typography",
+    };
+    expect(visualToolFamily(typography)).toBe("文本与写作");
+    expect(filterToolCatalog([typography], {
+      category: "文本与写作",
+    })).toHaveLength(1);
   });
 
   it("shows all tools for an empty query and filters favorites only when requested", () => {
