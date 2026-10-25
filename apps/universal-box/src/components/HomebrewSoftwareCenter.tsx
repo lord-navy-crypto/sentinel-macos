@@ -2,7 +2,7 @@ import {useEffect,useRef,useState} from "react";
 import {invoke} from "@tauri-apps/api/core";
 import {listen,type UnlistenFn} from "@tauri-apps/api/event";
 import {boundedTerminalLog,validFormulaName} from "../lib/betterTerminal";
-import {homebrewTaskOutcome,prependHomebrewTaskHistory,formatHomebrewDuration,type HomebrewTaskRecord} from "../lib/homebrewTaskManager";
+import {homebrewTaskOutcome,prependHomebrewTaskHistory,formatHomebrewDuration,homebrewEventBelongsToActiveJob,type HomebrewTaskRecord} from "../lib/homebrewTaskManager";
 
 type BrewKind="formula"|"cask";
 type BrewOperation="install"|"uninstall"|"upgrade"|"update"|"upgrade_all";
@@ -74,9 +74,7 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
    const item=event.payload;
    // Ignore late messages from a previous job or another window. Before invoke
    // resolves, jobActionRef tracks the pending operation even without its id.
-   if(finishedIdsRef.current.has(item.job_id))return;
-   if(jobRef.current!==null&&jobRef.current!==item.job_id)return;
-   if(jobRef.current===null&&jobActionRef.current===null)return;
+   if(!homebrewEventBelongsToActiveJob(item.job_id,jobRef.current,jobActionRef.current!==null,finishedIdsRef.current))return;
    setLog(text=>boundedTerminalLog(text,item.data));
    if(item.stream!=="finished")return;
    finishedIdsRef.current.add(item.job_id);
