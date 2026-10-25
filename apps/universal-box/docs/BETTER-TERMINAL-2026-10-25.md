@@ -65,3 +65,54 @@
 - The Better Terminal component is first mounted only after explicit entry. After that, the Box keeps it mounted while the user navigates to Dashboard, Sentinel, or other workspaces. In-flight Homebrew operations and PTY state are therefore not destroyed on ordinary workspace switches.
 - Reopening the module through the Dashboard Homebrew shortcut selects the software-center tab without replacing or restarting the existing manager. A newly opened Box instance still requires explicit user action to start a terminal or any package mutation.
 - The native app's main-window destruction handler terminates managed Homebrew and PTY processes. The user can still manually cancel Homebrew or stop the PTY from within the module. Background tasks are not persisted after closing the app.
+
+
+## Search, confirmation, and operation-state UI pass (2026-10-25)
+
+- Search results now carry their own submitted query label. Starting a new search clears the prior result list before the request begins, so stale packages cannot appear under a new query. Searching, successful results, zero matches, and failed searches have distinct accessible feedback states.
+- Package changes use a dedicated confirmation panel with a visible waiting-confirmation state, a target-specific command preview, explicit confirm/cancel controls, and the existing fixed-argument execution boundary.
+- The operation panel exposes distinct starting, running, cancelling, success, failed, and cancelled states. The live log remains visible, cancellation is only offered once a task ID is available, and the interface does not invent a percentage for Homebrew's non-uniform progress output.
+- HomebrewWorkflowPanels.test.tsx renders the actual UI panels and checks search feedback, all task phases, visible log output, cancellation availability, confirmation contents, and disabled confirmation behavior. These tests run through the existing Vitest suite; the standard browser workflow also runs TypeScript build and the complete test suite.
+
+
+## Connected search-to-result workflow pass (2026-10-25)
+
+- Added a four-step workflow indicator: Find software → Confirm operation → Execute and inspect logs → Review outcome and task history. It follows the user's current action rather than guessing progress from an older task state.
+- Search feedback now names the active Homebrew category (Mac apps / Cask or command-line tools / Formula), so the submitted query and category are visible together in empty, success, and failure states.
+- Added render regression coverage for each workflow step and category-aware search feedback. Existing confirmation safety, cancellation controls, logs, and task history remain in place.
+
+
+## Visual status overview and result-action grouping (2026-10-25)
+
+- Added a three-card Homebrew status overview for native connection readiness, installed-package count, and update-check state. It distinguishes browser preview, missing Homebrew, connection setup, loading, unchecked updates, current software, and stale-category update counts without presenting guesses as live state.
+- Search result actions now share a responsive action group. Installed/available/outdated labels use explicit state styling, while details, install, upgrade and uninstall controls remain visible and individually actionable.
+- Added component regression tests for connected, preview, missing, connecting, loading, unchecked, checking, current and outdated states.
+
+
+## Search freshness and package-detail loading states (2026-10-25)
+
+- When the search field changes after a completed search—including when the field is cleared—the UI explicitly marks the visible result list as belonging to the previous submitted query. It never implies that editing text has already refreshed the results.
+- Package detail requests now show a loading state, an explicit empty response, or a contextual error instead of a blank area. Closing a panel invalidates its pending UI response so a late request cannot unexpectedly reopen it.
+- Added regression tests for stale-query messaging and package-detail loading, success, empty and failed states.
+
+
+## Task log export and bounded-output disclosure (2026-10-25)
+
+- Added a visible copy-log control with disabled state when no real output has arrived, plus accessible success/failure feedback for clipboard access.
+- The log viewport now has a bounded height and wraps long output, keeping the task status and cancellation controls reachable on smaller screens.
+- When the in-memory log exceeds its 160,000-character cap, the UI explicitly discloses that older output was discarded and that copying exports only the retained text. This avoids presenting a truncated diagnostic log as complete.
+- Added regression coverage for copy controls, empty-log disabling, clipboard feedback and truncation disclosure.
+
+
+## Visual refresh plan and implementation (2026-10-25)
+
+### Design direction
+- Make Better Terminal feel like a native desktop workspace: a clear product header, a compact segmented navigation, a grouped session-control strip and a framed shell viewport.
+- Make Homebrew discovery the primary action: the four-step workflow is a slim progress rail; search/category controls receive the strongest visual emphasis; environment and package counts move into a compact status sidebar.
+- Put matching search results directly after search feedback, before update details and the featured catalogue, so the interface follows the user's intent rather than forcing a scroll past recommendations.
+- Use restrained accent surfaces, readable type, consistent corner radii, clear installed/update states, and responsive layouts that also work in dark mode.
+- Keep every existing action and warning available; visual hierarchy must not be achieved by hiding controls or reducing safety copy.
+
+### Validation
+- Preserve the existing data-testid hooks and native command pathways.
+- Run TypeScript, component, Chromium workflow, product-contract, and both macOS architecture build checks after the visual changes.

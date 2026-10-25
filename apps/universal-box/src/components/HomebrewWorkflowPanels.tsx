@@ -1,0 +1,388 @@
+export type HomebrewSearchPhase = "idle" | "searching" | "results" | "empty" | "failed";
+export type HomebrewJobPhase = "idle" | "starting" | "running" | "cancelling" | "success" | "failed" | "cancelled";
+export type HomebrewActionRequest = {
+  operation: "install" | "uninstall" | "upgrade" | "update" | "upgrade_all";
+  kind?: "formula" | "cask";
+  name?: string;
+  label: string;
+  reason: string;
+};
+
+type ActiveJobPhase = Exclude<HomebrewJobPhase, "idle">;
+
+export function HomebrewSearchFeedback({
+  phase,
+  query,
+  kind,
+  resultCount,
+  queryChanged = false,
+}: {
+  phase: HomebrewSearchPhase;
+  query: string;
+  kind: "formula" | "cask";
+  resultCount: number;
+  queryChanged?: boolean;
+}) {
+  if (phase === "idle") return null;
+  const term = query.trim();
+  const category = kind === "cask" ? "Mac 应用（Cask）" : "命令行工具（Formula）";
+  let title = "";
+  let detail = "";
+  if (queryChanged) {
+    title = "输入已更改，尚未重新搜索";
+    detail = (phase === "results" ? "当前显示的" + category + "结果" : "当前显示的搜索状态") + "仍对应上次提交的查询“" + term + "”（" + resultCount + " 项）。点击“搜索软件”后才会更新结果。";
+  } else if (phase === "searching") {
+    title = "正在搜索 Homebrew";
+    detail = "正在查询" + category + "中的“" + term + "”。旧结果已清除，避免误把上次结果当作本次结果。";
+  } else if (phase === "results") {
+    title = "搜索完成";
+    detail = category + "中的“" + term + "”共找到 " + resultCount + " 项匹配软件。";
+  } else if (phase === "empty") {
+    title = "没有找到匹配项";
+    detail = category + "中没有找到“" + term + "”。可以检查拼写、切换类别，或先更新 Homebrew 软件索引。";
+  } else {
+    title = "搜索未完成";
+    detail = "搜索未能完成，请查看页面下方的错误信息后重试。";
+  }
+  return (
+    <div
+      className={"brew-search-feedback is-" + (queryChanged ? "stale" : phase)}
+      data-testid="brew-search-feedback"
+      data-phase={queryChanged ? "stale" : phase}
+      role="status"
+      aria-live="polite"
+    >
+      <span className="brew-state-dot" aria-hidden="true" />
+      <div className="brew-search-feedback-copy">
+        <strong>{title}</strong>
+        <p>{detail}</p>
+      </div>
+    </div>
+  );
+}
+
+const JOB_PRESENTATION: Record<ActiveJobPhase, { label: string; detail: string; logPlaceholder: string }> = {
+  starting: {
+    label: "正在启动",
+    detail: "已提交本机操作，正在等待任务进程与任务编号返回。",
+    logPlaceholder: "正在等待本机任务进程启动…",
+  },
+  running: {
+    label: "安装 / 更新进行中",
+    detail: "Homebrew 正在执行本次操作；下方显示收到的实时输出。",
+    logPlaceholder: "正在等待 Homebrew 输出…",
+  },
+  cancelling: {
+    label: "正在取消",
+    detail: "取消请求已发送，正在等待实际进程退出后返回最终状态。",
+    logPlaceholder: "正在等待进程退出事件…",
+  },
+  success: {
+    label: "成功",
+    detail: "任务已正常结束。请核对日志，并查看最近任务中的退出码。",
+    logPlaceholder: "任务已结束，但没有收到可显示的输出文本。",
+  },
+  failed: {
+    label: "失败",
+    detail: "任务未正常完成。先查看标准错误输出，再结合最近任务中的退出码排查。",
+    logPlaceholder: "任务已结束，但没有收到可显示的输出文本；请查看错误提示与最近任务退出码。",
+  },
+  cancelled: {
+    label: "已取消",
+    detail: "本次任务已结束，并根据取消请求记录为已取消。",
+    logPlaceholder: "任务已取消，但没有收到可显示的输出文本。",
+  },
+};
+
+export function HomebrewOperationPanel({
+  phase,
+  status,
+  actionLabel,
+  log,
+  canCancel,
+  cancelPending,
+  onCancel,
+  logTruncated = false,
+  copyStatus = "",
+  onCopyLog = () => undefined,
+}: {
+  phase: ActiveJobPhase;
+  status: string;
+  actionLabel: string;
+  log: string;
+  canCancel: boolean;
+  cancelPending: boolean;
+  onCancel: () => void;
+  logTruncated?: boolean;
+  copyStatus?: string;
+  onCopyLog?: () => void;
+}) {
+  const state = JOB_PRESENTATION[phase];
+  const active = phase === "starting" || phase === "running" || phase === "cancelling";
+  return (
+    <div className={"brew-operation-panel is-" + phase} data-testid="brew-operation-panel" data-phase={phase}>
+      <div className="brew-operation-header">
+        <div className="brew-operation-title-line">
+          <strong>操作进度与日志</strong>
+          <span className={"brew-operation-status " + phase} data-phase={phase} role="status" aria-live="polite">
+            {status || state.label}
+          </span>
+        </div>
+        <p className="brew-operation-action">{actionLabel || "Homebrew 操作"}</p>
+        <p className="brew-operation-guidance">{state.detail}</p>
+      </div>
+      {active && (
+        <div className="brew-operation-progress" role="img" aria-label="任务仍在处理；没有可依赖的百分比进度">
+          <span />
+        </div>
+      )}
+      <div className="brew-operation-log-toolbar">
+        <div className="brew-operation-log-heading">
+          <strong>任务输出</strong>
+          <span>{log ? log.length + " 字符" : "暂无输出"}</span>
+        </div>
+        <button type="button" className="secondary-button" data-testid="brew-copy-log" disabled={!log.trim()} onClick={onCopyLog}>
+          复制日志
+        </button>
+      </div>
+      {copyStatus && <p className="brew-operation-copy-status" role="status" aria-live="polite">{copyStatus}</p>}
+      {logTruncated && (
+        <p className="brew-operation-truncation-note" role="note" data-testid="brew-log-truncated">
+          日志超过保留上限：为避免占用过多内存，仅保留最近 160,000 个字符。复制操作也只会复制当前保留的内容，较早的输出已被丢弃。
+        </p>
+      )}
+      <pre className="brew-operation-log" aria-label="Homebrew 操作日志" data-testid="brew-operation-log">{log || state.logPlaceholder}</pre>
+      {phase === "starting" && (
+        <p className="brew-operation-note" role="status">正在建立本机任务会话；收到任务编号后才能发送取消请求。</p>
+      )}
+      {phase === "running" && (
+        <p className="brew-operation-note">Homebrew 未提供可依赖的通用百分比；请以状态和实时日志判断进度。</p>
+      )}
+      {phase === "cancelling" && (
+        <p className="brew-operation-note" role="status">取消请求已发送；任务会在实际进程退出后更新为最终状态。</p>
+      )}
+      {canCancel && (
+        <button
+          type="button"
+          className="secondary-button"
+          data-testid="brew-cancel-job"
+          disabled={cancelPending || phase === "cancelling"}
+          onClick={onCancel}
+        >
+          {cancelPending || phase === "cancelling" ? "正在取消…" : "取消操作"}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function previewCommand(action: HomebrewActionRequest): string {
+  if (action.operation === "update") return "brew update";
+  if (action.operation === "upgrade_all") return "brew upgrade --" + (action.kind || "cask");
+  return "brew " + action.operation + " --" + (action.kind || "cask") + " " + (action.name || "");
+}
+
+export function HomebrewActionConfirmation({
+  action,
+  disabled,
+  onConfirm,
+  onCancel,
+}: {
+  action: HomebrewActionRequest;
+  disabled: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div
+      className="terminal-confirm brew-confirmation"
+      role="dialog"
+      aria-modal="true"
+      aria-label="确认 Homebrew 操作"
+      data-testid="brew-action-confirmation"
+      data-phase="waiting-confirmation"
+    >
+      <div className="brew-confirmation-heading">
+        <span className="brew-confirmation-status" data-phase="waiting-confirmation" role="status">等待确认</span>
+        <h3>确认操作：{action.label}</h3>
+      </div>
+      <p>{action.reason}</p>
+      <div className="brew-confirmation-command">
+        <strong>命令预览</strong>
+        <code>{previewCommand(action)}</code>
+      </div>
+      <div className="brew-confirmation-safety">
+        <strong>执行前检查</strong>
+        <p>软件变更会影响本机环境。请核对目标、类别和命令；只有点击“确认并执行”后才会启动任务。</p>
+        <p>软件名称会作为独立参数传递，不会拼接成可执行的 Shell 脚本；Sentinel 不会自动提权或收集管理员密码。</p>
+      </div>
+      <div className="actions">
+        <button
+          type="button"
+          className="primary-button"
+          data-testid="brew-confirm-run"
+          disabled={disabled}
+          onClick={onConfirm}
+        >
+          确认并执行
+        </button>
+        <button type="button" className="secondary-button" data-testid="brew-confirm-cancel" onClick={onCancel}>
+          取消
+        </button>
+      </div>
+    </div>
+  );
+}
+
+
+export type HomebrewWorkflowStep = "search" | "confirm" | "execute" | "result";
+
+const WORKFLOW_STEPS: {id: HomebrewWorkflowStep; title: string}[] = [
+  {id: "search", title: "查找软件"},
+  {id: "confirm", title: "确认操作"},
+  {id: "execute", title: "执行与日志"},
+  {id: "result", title: "结果与记录"},
+];
+
+export function HomebrewWorkflowProgress({step, searchPhase, queryChanged = false}: {
+  step: HomebrewWorkflowStep;
+  searchPhase: HomebrewSearchPhase;
+  queryChanged?: boolean;
+}) {
+  const currentIndex = WORKFLOW_STEPS.findIndex(item => item.id === step);
+  const searchDetail = queryChanged
+    ? "正在准备新的查询；提交后更新搜索结果"
+    : searchPhase === "searching"
+    ? "正在搜索已提交的查询词"
+    : searchPhase === "results"
+      ? "已显示匹配项；可查看详情或选择操作"
+      : searchPhase === "empty"
+        ? "没有匹配项；检查类别或软件索引"
+        : searchPhase === "failed"
+          ? "搜索失败；先查看错误提示"
+          : "搜索 Mac 应用或命令行工具";
+  const detailByStep: Record<HomebrewWorkflowStep, string> = {
+    search: searchDetail,
+    confirm: "核对软件目标、类别、影响和命令，再决定执行或取消",
+    execute: "查看实时日志；任务可取消时保留取消入口",
+    result: "核对最终状态、退出码和最近任务记录",
+  };
+  return (
+    <ol className="brew-workflow-progress" aria-label="Homebrew 操作流程"
+      data-testid="brew-workflow-progress" data-current-step={step}>
+      {WORKFLOW_STEPS.map((item, index) => {
+        const state = index < currentIndex ? "complete" : index === currentIndex ? "current" : "upcoming";
+        return (
+          <li key={item.id} className={"brew-workflow-step is-" + state}
+            data-testid={"brew-workflow-step-" + item.id} data-state={state}
+            aria-current={state === "current" ? "step" : undefined}>
+            <span className="brew-workflow-step-number" aria-hidden="true">
+              {state === "complete" ? "✓" : index + 1}
+            </span>
+            <div className="brew-workflow-step-copy">
+              <strong>{item.title}</strong>
+              <small>{detailByStep[item.id]}</small>
+            </div>
+            <span className="brew-workflow-step-state">
+              {state === "complete" ? "已完成" : state === "current" ? "当前步骤" : "待处理"}
+            </span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+
+export function HomebrewStatusOverview({
+  native, installed, eventsReady, kind, packagesCount, loadingPackages,
+  checkingUpdates, updatesChecked, outdatedKind, outdatedCount,
+}: {
+  native: boolean;
+  installed: boolean;
+  eventsReady: boolean;
+  kind: "formula" | "cask";
+  packagesCount: number;
+  loadingPackages: boolean;
+  checkingUpdates: boolean;
+  updatesChecked: boolean;
+  outdatedKind: "formula" | "cask" | null;
+  outdatedCount: number;
+}) {
+  const environment = !native
+    ? {state: "preview", value: "网页预览模式", detail: "请在 Sentinel Box macOS 应用中管理本机软件。"}
+    : !installed
+      ? {state: "missing", value: "未检测到 Homebrew", detail: "安装 Homebrew 后即可启用图形化软件管理。"}
+      : !eventsReady
+        ? {state: "connecting", value: "正在连接任务管理器", detail: "连接完成前，软件变更操作保持禁用。"}
+        : {state: "ready", value: "本机已连接", detail: "搜索、查看详情及确认后执行均已就绪。"};
+  const packages = !native || !installed
+    ? {state: "unavailable", value: "暂不可用", detail: "需要在本机 macOS 应用中使用。"}
+    : loadingPackages
+      ? {state: "loading", value: "正在读取…", detail: "正在读取当前类别的已安装软件。"}
+      : {state: "available", value: packagesCount + " 项", detail: kind === "cask" ? "当前类别：Mac 应用（Cask）" : "当前类别：命令行工具（Formula）"};
+  const updates = !native || !installed
+    ? {state: "unavailable", value: "暂不可用", detail: "连接本机 Homebrew 后可检查更新。"}
+    : checkingUpdates
+      ? {state: "checking", value: "正在检查", detail: "正在查询当前类别的可升级软件。"}
+      : updatesChecked && outdatedKind === kind
+        ? outdatedCount > 0
+          ? {state: "outdated", value: outdatedCount + " 项待更新", detail: "检查结果仅适用于当前选中的类别。"}
+          : {state: "current", value: "已是最新", detail: "本次检查没有发现可升级的软件。"}
+        : {state: "unchecked", value: "尚未检查", detail: "点击“检查更新”获取当前类别的结果。"};
+  return (
+    <div className="brew-status-overview" role="group" aria-label="软件中心状态总览" data-testid="brew-status-overview">
+      <article className="brew-status-card environment" data-state={environment.state}>
+        <span className="brew-status-card-label">本机环境</span>
+        <strong>{environment.value}</strong>
+        <small>{environment.detail}</small>
+      </article>
+      <article className="brew-status-card packages" data-state={packages.state}>
+        <span className="brew-status-card-label">已安装软件</span>
+        <strong>{packages.value}</strong>
+        <small>{packages.detail}</small>
+      </article>
+      <article className="brew-status-card updates" data-state={updates.state}>
+        <span className="brew-status-card-label">更新状态</span>
+        <strong>{updates.value}</strong>
+        <small>{updates.detail}</small>
+      </article>
+    </div>
+  );
+}
+
+
+export function HomebrewInfoPanel({
+  name,
+  loading,
+  info,
+  error,
+  onClose,
+}: {
+  name: string;
+  loading: boolean;
+  info: string;
+  error: string;
+  onClose: () => void;
+}) {
+  const state = loading ? "loading" : error ? "failed" : info.trim() ? "success" : "empty";
+  return (
+    <div className={"brew-info-panel is-" + state} data-testid="brew-info-panel" data-state={state}>
+      <div className="brew-results-heading">
+        <strong>软件详情{name ? " · " + name : ""}</strong>
+        <button type="button" className="secondary-button" data-testid="brew-info-close" onClick={onClose}>关闭</button>
+      </div>
+      {loading ? (
+        <p className="brew-info-status" role="status" aria-live="polite">
+          <span className="brew-info-spinner" aria-hidden="true" />正在读取 {name} 的 Homebrew 详情…
+        </p>
+      ) : error ? (
+        <p className="brew-info-error" role="alert">读取软件详情失败：{error}</p>
+      ) : info.trim() ? (
+        <pre aria-label="软件详情内容" data-testid="brew-info-content">{info}</pre>
+      ) : (
+        <p className="brew-info-status" role="status">Homebrew 没有返回详情内容。可以关闭此面板后重试。</p>
+      )}
+    </div>
+  );
+}
