@@ -223,6 +223,19 @@ fn validate_brew_search(query: &str) -> Result<(), String> {
     }
     Ok(())
 }
+fn brew_search_pattern(query: &str) -> String {
+    let mut pattern = String::from("/");
+    for ch in query.trim().chars() {
+        if ch.is_whitespace() {
+            pattern.push_str(".*");
+        } else {
+            if ch == '.' || ch == '+' { pattern.push('\\'); }
+            pattern.push(ch);
+        }
+    }
+    pattern.push('/');
+    pattern
+}
 fn read_brew_command(args: &[&str]) -> Result<String, String> {
     let path = active_brew().ok_or("Homebrew is not installed in a supported standard location")?;
     let output = Command::new(path).args(args).env("HOMEBREW_NO_ENV_HINTS", "1")
@@ -241,8 +254,8 @@ pub fn better_terminal_brew_search(window: WebviewWindow, kind: String, query: S
     require_main(&window)?;
     let flag = validate_brew_kind(&kind)?;
     validate_brew_search(&query)?;
-    let value = query.trim();
-    let output = read_brew_command(&["search", flag, value])?;
+    let pattern = brew_search_pattern(&query);
+    let output = read_brew_command(&["search", flag, &pattern])?;
     Ok(output.lines().map(str::trim).filter(|line| !line.is_empty()).take(100)
         .map(|line| line.chars().take(120).collect()).collect())
 }
@@ -410,6 +423,8 @@ mod tests {
         }
     }
     #[test]fn brew_search_is_bounded_and_cannot_become_an_option(){
+        assert_eq!(brew_search_pattern("visual studio code"), "/visual.*studio.*code/");
+        assert_eq!(brew_search_pattern("foo.bar+baz"), "/foo\\.bar\\+baz/");
         assert!(validate_brew_search("visual studio code").is_ok());
         assert!(validate_brew_search("jq").is_ok());
         let too_long = "x".repeat(81);
