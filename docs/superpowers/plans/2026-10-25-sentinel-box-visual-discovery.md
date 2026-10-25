@@ -122,3 +122,15 @@
 - [x] Step 2: Make module headings Chinese-first while retaining English identifiers, and give both cards a restrained visual accent without changing their actions.
 - [x] Step 3: Add browser regression assertions for module visibility, order, and primary actions.
 - [ ] Step 4: Re-run browser, Sentinel, and both architecture-specific desktop CI checks against the updated source.
+
+
+### Task 8: Improve mobile and dark-mode dashboard presentation
+
+**Files:**
+- Modify: `apps/universal-box/src/desktop-refresh.css`
+- Test: `apps/universal-box/test/browser-ui-smoke.cjs`
+
+- [x] Step 1: Reclaim horizontal space at phone widths by compacting the icon rail, topbar controls, and home content padding.
+- [x] Step 2: Keep the home header actions, file intake, module cards, category shortcuts, and status facts readable and touch-friendly on narrow screens.
+- [x] Step 3: Add browser assertions for 390px horizontal overflow, single-column module/category grids, and dark-theme activation; capture mobile and dark-mode dashboard screenshots.
+- [ ] Step 4: Run the new browser checks and the complete Sentinel and architecture-specific DMG validation on the final source revision.
