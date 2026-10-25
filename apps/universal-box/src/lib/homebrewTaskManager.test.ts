@@ -3,6 +3,7 @@ import {
   formatHomebrewDuration,
   homebrewEventBelongsToActiveJob,
   homebrewTaskOutcome,
+  homebrewTaskVisualState,
   prependHomebrewTaskHistory,
   type HomebrewTaskRecord,
 } from "./homebrewTaskManager";
@@ -44,6 +45,19 @@ describe("Homebrew task history helpers", () => {
   });
 });
 
+
+
+describe("Homebrew task visual states", () => {
+  it("distinguishes running, cancellation, and observed final outcomes", () => {
+    expect(homebrewTaskVisualState(true, false, "正在执行 · 任务 #12")).toBe("running");
+    expect(homebrewTaskVisualState(true, true, "已请求取消，正在等待进程结束…")).toBe("cancelling");
+    expect(homebrewTaskVisualState(false, false, "操作成功完成")).toBe("success");
+    expect(homebrewTaskVisualState(false, false, "操作失败，请检查日志")).toBe("failed");
+    expect(homebrewTaskVisualState(false, false, "操作已取消")).toBe("cancelled");
+    expect(homebrewTaskVisualState(false, false, " ")).toBe("idle");
+    expect(homebrewTaskVisualState(false, false, "取消请求失败")).toBe("failed");
+  });
+});
 
 describe("Homebrew event identity and task lifetime", () => {
   it("accepts a current job and ignores a stale or duplicate job", () => {
