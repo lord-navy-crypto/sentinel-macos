@@ -101,7 +101,9 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
      invoke<string[]>("better_terminal_brew_list",{kind:targetKind}),
      invoke<string[]>("better_terminal_brew_outdated",{kind:targetKind})
     ]).then(([current,updates])=>{
-     setPackages(current);setOutdated(updates);setUpdatesChecked(true);setOutdatedKind(targetKind);
+     if(kindRef.current===targetKind){
+      setPackages(current);setOutdated(updates);setUpdatesChecked(true);setOutdatedKind(targetKind);
+     }
     }).catch(e=>setError("刷新软件更新列表失败："+String(e)));
    }
   }).then(unlisten=>{if(alive)unlistenRef.current=unlisten;else unlisten();})
@@ -118,7 +120,8 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
  useEffect(()=>{if(native&&installed)void refreshPackages(kind);},[native,installed,kind]);
 
  function selectKind(nextKind:BrewKind){
-  if(nextKind===kind)return;
+  if(nextKind===kind||running||checkingUpdates||loadingPackages||searching)return;
+  kindRef.current=nextKind;
   setKind(nextKind);setResults([]);setInfo("");setError("");setNotice("");
   setOutdated([]);setUpdatesChecked(false);setOutdatedKind(null);
  }
@@ -178,8 +181,13 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
  }
  async function cancel(){
   if(jobId===null)return;
-  try{cancelRequestedRef.current=true;await invoke("better_terminal_brew_cancel_operation",{jobId});setJobStatus("已请求取消…");}
-  catch(e){cancelRequestedRef.current=false;setError("取消失败："+String(e));}
+  cancelRequestedRef.current=true;setJobStatus("已请求取消…");
+  try{await invoke("better_terminal_brew_cancel_operation",{jobId});}
+  catch(e){
+   cancelRequestedRef.current=false;
+   if(jobRef.current===jobId)setJobStatus("取消请求失败");
+   setError("取消失败："+String(e));
+  }
  }
  return <section className="brew-software-center" data-testid="brew-software-center">
   <div className="brew-center-toolbar">
@@ -190,10 +198,10 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
    {native&&installed&&<div className="brew-toolbar-actions">
      {updatesChecked&&outdatedKind===kind&&<span className="brew-update-count">{outdated.length===0?"已是最新":outdated.length+" 项待更新"}</span>}
      <button type="button" className="secondary-button" data-testid="brew-check-updates"
-      disabled={!native||!installed||running||checkingUpdates} onClick={()=>void checkUpdates()}>
+      disabled={!native||!installed||running||checkingUpdates||searching||loadingPackages} onClick={()=>void checkUpdates()}>
       {checkingUpdates?"检查中…":"检查更新"}
      </button>
-     <button type="button" className="secondary-button" disabled={!native||!installed||running||loadingPackages} onClick={()=>void refreshPackages()}>
+     <button type="button" className="secondary-button" disabled={!native||!installed||running||checkingUpdates||searching||loadingPackages} onClick={()=>void refreshPackages()}>
       {loadingPackages?"读取中…":"刷新已安装"}
      </button>
     </div>}
@@ -202,8 +210,8 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
   {native&&!installed&&<p className="terminal-notice" role="note">尚未检测到 Homebrew。先使用上方官方安装入口完成安装，再刷新状态。</p>}
   {installed&&<>
    <div className="brew-kind-switch" role="group" aria-label="软件类型">
-    <button type="button" aria-pressed={kind==="cask"} disabled={running||checkingUpdates||loadingPackages} onClick={()=>selectKind("cask")}>Mac 应用（Cask）</button>
-    <button type="button" aria-pressed={kind==="formula"} disabled={running||checkingUpdates||loadingPackages} onClick={()=>selectKind("formula")}>命令行工具（Formula）</button>
+    <button type="button" aria-pressed={kind==="cask"} disabled={running||checkingUpdates||searching||loadingPackages} onClick={()=>selectKind("cask")}>Mac 应用（Cask）</button>
+    <button type="button" aria-pressed={kind==="formula"} disabled={running||checkingUpdates||searching||loadingPackages} onClick={()=>selectKind("formula")}>命令行工具（Formula）</button>
    </div>
    <form className="brew-center-search" onSubmit={e=>{e.preventDefault();void search();}}>
     <label htmlFor="brew-software-query">软件名称</label>
@@ -211,8 +219,8 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
      placeholder={kind==="cask"?"例如 Firefox、VLC、Visual Studio Code":"例如 wget、jq、python"}
      value={query} onChange={e=>setQuery(e.target.value)} maxLength={80} autoComplete="off"/>
     <button type="submit" className="primary-button" data-testid="brew-search"
-     disabled={!native||!query.trim()||searching||running}>{searching?"搜索中…":"搜索软件"}</button>
-    <button type="button" className="secondary-button" disabled={!native||running}
+     disabled={!native||!query.trim()||searching||running||checkingUpdates||loadingPackages}>{searching?"搜索中…":"搜索软件"}</button>
+    <button type="button" className="secondary-button" disabled={!native||running||checkingUpdates||searching||loadingPackages}
      onClick={()=>ask("update")}>更新软件索引</button>
    </form>
    <div className="brew-manager-summary">
@@ -232,7 +240,7 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
        </div>
        {outdated.map(name=><div className="brew-software-row" key={name}>
         <div className="brew-software-name"><strong>{name}</strong><small>有可用更新</small></div>
-        <button type="button" className="secondary-button" disabled={running} onClick={()=>ask("upgrade",name)}>升级此项</button>
+        <button type="button" className="secondary-button" disabled={running||checkingUpdates||searching||loadingPackages} onClick={()=>ask("upgrade",name)}>升级此项</button>
        </div>)}
       </>}
     </div>
@@ -245,8 +253,8 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
        <div className="brew-featured-card-heading"><strong>{item.title}</strong><span>{item.category}</span></div>
        <p>{item.description}</p>
        {isInstalled?<div className="brew-featured-actions"><span className="brew-installed-badge">已安装</span>
-        <button type="button" className="secondary-button" disabled={running} onClick={()=>ask("upgrade",item.name)}>升级</button></div>:
-        <button type="button" className="primary-button" data-testid={"brew-featured-install-"+item.name} disabled={running} onClick={()=>ask("install",item.name)}>安装</button>}
+        <button type="button" className="secondary-button" disabled={running||checkingUpdates||searching||loadingPackages} onClick={()=>ask("upgrade",item.name)}>升级</button></div>:
+        <button type="button" className="primary-button" data-testid={"brew-featured-install-"+item.name} disabled={running||checkingUpdates||searching||loadingPackages} onClick={()=>ask("install",item.name)}>安装</button>}
       </article>;
      })}
     </div>
@@ -257,16 +265,16 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
      const isInstalled=packages.includes(name);
      return <div className="brew-software-row" key={name}>
       <div className="brew-software-name"><strong>{name}</strong><small>{isInstalled?"已安装":"可安装"}</small></div>
-      <button type="button" className="secondary-button" disabled={running} onClick={()=>void showInfo(name)}>详情</button>
-      {isInstalled?<><button type="button" className="secondary-button" disabled={running} onClick={()=>ask("upgrade",name)}>升级</button>
-       <button type="button" className="secondary-button" disabled={running} onClick={()=>ask("uninstall",name)}>卸载</button></>:
-       <button type="button" className="primary-button" data-testid="brew-install-package" disabled={running} onClick={()=>ask("install",name)}>安装</button>}
+      <button type="button" className="secondary-button" disabled={running||checkingUpdates||searching||loadingPackages} onClick={()=>void showInfo(name)}>详情</button>
+      {isInstalled?<><button type="button" className="secondary-button" disabled={running||checkingUpdates||searching||loadingPackages} onClick={()=>ask("upgrade",name)}>升级</button>
+       <button type="button" className="secondary-button" disabled={running||checkingUpdates||searching||loadingPackages} onClick={()=>ask("uninstall",name)}>卸载</button></>:
+       <button type="button" className="primary-button" data-testid="brew-install-package" disabled={running||checkingUpdates||searching||loadingPackages} onClick={()=>ask("install",name)}>安装</button>}
      </div>;
     })}
    </div>}
    {info&&<div className="brew-info-panel"><div className="brew-results-heading"><strong>软件详情</strong><button type="button" className="secondary-button" onClick={()=>setInfo("")}>关闭</button></div><pre>{info}</pre></div>}
    {packages.length>0&&<details className="brew-installed-panel"><summary>浏览已安装软件（前 100 项）</summary>
-    <div className="brew-installed-chips">{packages.slice(0,100).map(name=><button type="button" key={name} disabled={running} onClick={()=>{setQuery(name);void showInfo(name);}}>{name}</button>)}</div>
+    <div className="brew-installed-chips">{packages.slice(0,100).map(name=><button type="button" key={name} disabled={running||checkingUpdates||searching||loadingPackages} onClick={()=>{setQuery(name);void showInfo(name);}}>{name}</button>)}</div>
    </details>}
    {(running||jobStatus)&&<div className="brew-operation-panel" data-testid="brew-operation-panel">
     <div className="brew-results-heading"><strong>操作进度与日志</strong><span role="status">{jobStatus}</span></div>
@@ -294,7 +302,7 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
    <p>本操作通过固定的 Homebrew 参数直接启动，不会把软件名称拼接为 Shell 脚本。请检查软件名称和影响后再继续。</p>
    <code>{pending.operation==="update"?"brew update":pending.operation==="upgrade_all"?`brew upgrade --${pending.kind}`:`brew ${pending.operation} --${pending.kind} ${pending.name}`}</code>
    <div className="actions">
-    <button type="button" className="primary-button" data-testid="brew-confirm-run" disabled={running} onClick={()=>void confirm()}>确认并执行</button>
+    <button type="button" className="primary-button" data-testid="brew-confirm-run" disabled={running||checkingUpdates||searching||loadingPackages} onClick={()=>void confirm()}>确认并执行</button>
     <button type="button" className="secondary-button" onClick={()=>setPending(null)}>取消</button>
    </div>
   </div>}
