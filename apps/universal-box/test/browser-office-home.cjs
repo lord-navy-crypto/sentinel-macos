@@ -20,6 +20,15 @@ test("Office-first homepage links ten existing working office tasks and keeps th
   const sidebarNames=await page.locator("nav.sidebar-nav button.nav-item").evaluateAll(items=>items.map(el=>el.getAttribute("aria-label")));
   assert.equal(sidebarNames.length,47,"All 40 original workspaces plus six Sentinel modules and Better Terminal remain accessible exactly once");
   assert.equal(new Set(sidebarNames).size,sidebarNames.length,"No duplicate workspace labels");
+  assert.equal(await page.getByTestId("home-core-modules").locator(".box-module-card").count(),2,
+   "Dashboard presents Sentinel and Better Terminal as two peer modules inside Sentinel Box");
+  assert.equal(await page.getByTestId("home-module-better-terminal").isVisible(),true);
+  assert.equal(await page.getByTestId("home-module-sentinel").isVisible(),true);
+  assert.equal(await page.getByTestId("home-better-terminal-brew").isVisible(),true,
+   "Dashboard exposes a direct route to the built-in Homebrew software center");
+  assert.equal(await page.getByTestId("home-sentinel-investigate").isVisible(),true,
+   "Sentinel specialist workbenches remain inside the same dashboard module section");
+  assert.match(await page.getByTestId("home-sentinel-workspaces").innerText(),/SENTINEL BOX · BUILT-IN MODULES/);
   assert.equal(await page.getByTestId("home-file-dropzone").isVisible(),true,
    "Users can select or drop files directly into the existing, user-approved preflight");
   assert.equal(await page.getByTestId("home-favorites").isVisible(),true);
@@ -50,6 +59,14 @@ test("Office-first homepage links ten existing working office tasks and keeps th
    await page.locator(task.marker).waitFor();
    if(task.id==="home-fast-pdf-size")assert.match(await page.locator('[aria-label="PDF mini editor modes"] .active-pill').innerText(),/Compress PDF/);
   }
+  await home();
+  await page.getByTestId("home-better-terminal-brew").click();
+  await page.getByTestId("better-terminal-tab-brew").waitFor();
+  assert.equal(await page.getByTestId("better-terminal-tab-brew").getAttribute("aria-pressed"),"true",
+   "Dashboard opens the software center as a Better Terminal mode inside the Box");
+  await home();
+  await page.getByTestId("home-sentinel").click();
+  await page.getByRole("region",{name:"Sentinel Mac System Center"}).waitFor();
   await home();
   assert.equal(await page.getByTestId("home-recent-exports").isVisible(),true);
   assert.equal(await page.locator(".hero-card").count(),0,
