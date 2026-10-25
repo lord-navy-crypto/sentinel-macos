@@ -14,12 +14,12 @@
 - All terminal Tauri commands verify they are invoked **from the main Sentinel Box window**. PTY output events are sent **only to that window**, not broadcast to the original Sentinel's separate WebView.
 - Arbitrary shell text can of course be used **only in the user-entered Terminal tab**; programmatic presets are static and action buttons require direct interaction. No shell auto-executes on workspace mount, no remote execution mode, no escalation, no sudo automation, no background commands when closing the terminal page.
 - The transcript remains session-only (not saved, uploaded or put in the existing workspace backup); closing the tab terminates the shell, and closing main application kills the managed child.
-- The first UI uses a **plain-text PTY transcript**, not a fully standards-compliant terminal emulator. Shell state, prompts, basic ANSI-colors stripping and interactive line input work; full-screen programs with cursor control (e.g. vim/tmux/curses apps), advanced terminal keybindings, split panes and multiplexer persistence are not yet supported correctly. Do not market as feature-parity with Terminal.app/iTerm2.
+- The native PTY now renders through the official **xterm.js 6.0.0 ANSI/VT emulator**, bundled locally rather than fetched from a CDN. The display preserves escape sequences, color, cursor positioning, alternate-screen terminal programs, keyboard events and scrollback; FitAddon resizes the Rust PTY to the visible terminal geometry. Interactive CLI tools can be exercised on the actual Mac, but physical compatibility with every full-screen or mouse-driven program is not guaranteed. Split panes, saved sessions, native shell autocomplete beyond what the user's shell supports and iTerm2-style advanced integrations remain future work.
 - Users may invoke shell commands that modify their systems, therefore launch and modification confirmation are deliberately explicit. Homebrew third-party packages may run installer scripts; Sentinel does not audit or guarantee their safety.
 
 ## Actual verification gates
-1. TSC and Vitest for safe package-name validation, no shell interpolation, preset actions and bounded temporary output.
-2. Browser Chromium: tool visible in sidebar/Home/All Tools, software-center UI discoverable, native Homebrew commands and package installation absent from browser-only preview.
+1. TSC and Vitest for safe package-name validation, no shell interpolation, preset actions and bounded temporary output; lockfile/pinned packages support reproducible native xterm.js builds.
+2. Browser Chromium: tool visible in sidebar/Home/All Tools, real xterm DOM mounted and resizable, software-center UI discoverable, native Homebrew commands and package installation absent from browser-only preview.
 3. Native macOS ARM64 + Intel: Rust PTY and Homebrew input-validation tests; successful Rust build; DMG packaging including pre-existing Go engine; no regression in office/Commons workflow.
 4. **Physical acceptance still needed**: on actual user Mac, start shell, execute `pwd`, `sw_vers` and `cd`, confirm output; check brew status; inspect official `.pkg`; test package install only with user agreement. Verify shell shutdown, no transcript on restart, and correct macOS permission prompts.
 
@@ -28,3 +28,9 @@
 - [Homebrew installation](https://docs.brew.sh/Installation)
 - [Homebrew's maintained installer README](https://github.com/Homebrew/install/blob/main/README.md)
 - [Tauri shell permission model](https://v2.tauri.app/reference/javascript/shell/)
+
+## ANSI/VT renderer upgrade
+- Browser-side xterm.js handles terminal **presentation and user keystrokes only**. Rust's main-window-protected native PTY continues to own shell process lifecycle, permissions and byte streams. No new remote shell, privilege escalation or terminal permissions were introduced.
+- The terminal screen remains mounted while switching between the software center and console so its scrollback and alternate-screen state survive tabs. Closing the Better Terminal workspace still stops the managed local shell.
+- A bounded plain-text mirror is retained in memory for the existing explicit 'Copy output' action. ANSI styling is not preserved in the copied text. Neither this mirror nor xterm scrollback is persisted to storage.
+- Official documentation: https://xtermjs.org/docs/guides/using-addons/ and https://github.com/xtermjs/xterm.js
