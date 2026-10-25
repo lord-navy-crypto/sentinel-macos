@@ -14,7 +14,7 @@ export function homebrewTaskOutcome(
   exitCode: number | null,
   cancelRequested: boolean,
 ): HomebrewTaskOutcome {
-  if (cancelRequested) return "cancelled";
+  if (cancelRequested && exitCode !== 0) return "cancelled";
   return exitCode === 0 ? "success" : "failed";
 }
 
