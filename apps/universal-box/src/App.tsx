@@ -131,6 +131,8 @@ function taskSort(a: DeskTask, b: DeskTask): number {
 export default function App() {
   const [view, setView] = useState<View>("overview");
   const [toolMode,setToolMode] = useState("");
+  // Mount on first user entry, then retain the module and its active tasks across Box navigation.
+  const [terminalVisited,setTerminalVisited] = useState(false);
   const [theme,setTheme] = useState<"light"|"dark">(()=>{
     try{return localStorage.getItem("universal-box-theme")==="dark"?"dark":"light";}
     catch{return "light";}
@@ -169,6 +171,7 @@ export default function App() {
   const commandDialogRef=useRef<HTMLDivElement>(null);
   function openTool(target: string, module?: string) {
     if (!menu.some(item => item.id === target)) return;
+    if(target==="better-terminal")setTerminalVisited(true);
     const id=target as View;
     setToolMode(module ?? "");setView(id);setCommandOpen(false);setCommandQuery("");
     setRecentViews(previous=>[id,...previous.filter(v=>v!==id)].slice(0,8));
@@ -486,7 +489,9 @@ export default function App() {
           {view === "cards" && <Flashcards cards={workspace.cards} onChange={(cards) => setWorkspace((current) => ({ ...current, cards }))} />}
           <div hidden={view !== "focus"}><FocusTimer /></div>
           {view === "notes" && <section className="panel"><p className="eyebrow">LOCAL NOTES</p><h2>Keep ideas close at hand.</h2><p className="subtle">Your notes are automatically saved in this application. Export backups in Backup & privacy.</p><label className="field-label" htmlFor="my-notes">My notebook</label><textarea id="my-notes" className="field text-editor" rows={20} maxLength={50000} placeholder="Capture a thought, write a draft or summarise a concept…" value={workspace.notes} onChange={(event) => setWorkspace((current) => ({ ...current, notes: event.target.value }))}/><p className="subtle">{workspace.notes.length.toLocaleString()} characters</p></section>}
-          {view === "better-terminal" && <BetterTerminalDesk key={toolMode} initialTab={toolMode==="brew"?"brew":"terminal"}/>}
+          {terminalVisited&&<div hidden={view!=="better-terminal"} aria-hidden={view!=="better-terminal"} data-testid="better-terminal-persistent">
+            <BetterTerminalDesk active={view==="better-terminal"} initialTab={toolMode==="brew"?"brew":"terminal"}/>
+          </div>}
           {view.startsWith("sentinel")&&<SentinelCenter key={view+"-"+toolMode}
             initialLens={view==="sentinel"?"overview":view.slice("sentinel-".length)} initialRead={toolMode}
             onSendToTables={csv=>{
