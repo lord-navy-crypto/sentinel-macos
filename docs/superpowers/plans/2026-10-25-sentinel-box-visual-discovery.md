@@ -88,3 +88,24 @@
 - [x] Step 1: Run the complete Sentinel Box test suite and TypeScript/build checks through CI.
 - [x] Step 2: Review the final diff against this plan and the design specification.
 - [x] Step 3: Create a pull request for review; do not merge or claim a DMG is ready without successful build and artifact verification.
+
+---
+
+### Task 6: Second-round discovery polish
+
+**Files:**
+- Modify: `apps/universal-box/src/App.tsx`
+- Modify: `apps/universal-box/src/components/OfficeHome.tsx`
+- Modify: `apps/universal-box/src/components/ToolLaunchpad.tsx`
+- Modify: `apps/universal-box/src/lib/toolCatalogSearch.ts`
+- Test: `apps/universal-box/src/lib/toolCatalogSearch.test.ts`
+- Test: `apps/universal-box/test/browser-ui-smoke.cjs`
+- Modify: `apps/universal-box/src/desktop-refresh.css`
+
+- [x] Step 1: Add live counts to the home-screen category shortcuts using the same tool inventory as the catalog.
+- [x] Step 2: Add common local search chips, a clearer empty state, and localized catalog controls.
+- [x] Step 3: Sort the unfiltered catalog by everyday task family while keeping favorites prioritized.
+- [x] Step 4: Prefer concise human-authored details already present in tool names over identical generic card descriptions.
+- [x] Step 5: Add regression coverage for task chips, dynamic category counts, default category order, favorite priority, and unique card summaries.
+- [ ] Step 6: Re-run browser, unit, Sentinel validation, and both architecture-specific desktop CI checks on the final source revision.
+
