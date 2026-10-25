@@ -2,8 +2,9 @@ import {useEffect,useRef,useState} from "react";
 import {invoke,isTauri} from "@tauri-apps/api/core";
 import {listen,type UnlistenFn} from "@tauri-apps/api/event";
 import {openUrl} from "@tauri-apps/plugin-opener";
+import HomebrewSoftwareCenter from "./HomebrewSoftwareCenter";
 import {
- TERMINAL_PRESETS,boundedTerminalLog,brewCommand,validFormulaName,
+ TERMINAL_PRESETS,boundedTerminalLog,
  type TerminalRecipe
 } from "../lib/betterTerminal";
 
@@ -25,7 +26,6 @@ export default function BetterTerminalDesk({initialTab="terminal"}:{initialTab?:
  const [running,setRunning]=useState(false);
  const [output,setOutput]=useState("Better Terminal · Sentinel\n命令不会自动运行。点击“启动本机终端”打开真正的 macOS 登录 Shell。\n");
  const [command,setCommand]=useState("");
- const [pkg,setPkg]=useState("");
  const [brew,setBrew]=useState<BrewStatus|null>(null);
  const [pending,setPending]=useState<PendingAction|null>(null);
  const [error,setError]=useState("");
@@ -91,12 +91,6 @@ export default function BetterTerminalDesk({initialTab="terminal"}:{initialTab?:
  function requestRecipe(recipe:TerminalRecipe){
   if(recipe.modifies){setPending({label:recipe.title,command:recipe.command,reason:recipe.description});return;}
   setTab("terminal");void send(recipe.command+"\n");
- }
- function requestPackage(mode:"search"|"info"|"install"){
-  const cmd=brewCommand(brew?.executable??undefined,mode,pkg);
-  if(!cmd){setError("请输入有效的软件包名称：允许字母、数字以及 @ . _ + -，不支持空格或命令片段。");return;}
-  if(mode==="install"){setPending({command:cmd,label:"安装 "+pkg.trim(),reason:"将从 Homebrew 下载并安装第三方软件；可能联网、更改文件和触发系统权限提示。"});}
-  else {setTab("terminal");void send(cmd+"\n");}
  }
  async function confirmAction(){
   if(!pending)return;
@@ -174,16 +168,7 @@ export default function BetterTerminalDesk({initialTab="terminal"}:{initialTab?:
     <button type="button" className="primary-button" onClick={()=>void openOfficial(INSTALL_RELEASE)}>前往 Homebrew 官方 .pkg 发布页 ↗</button>
     <button type="button" className="secondary-button" onClick={()=>void openOfficial(INSTALL_GUIDE)}>官方安装说明 ↗</button>
    </div>}
-   <h3>搜索、了解和安装软件包</h3>
-   <div className="terminal-brew-search">
-    <label htmlFor="brew-formula">Formula 名称</label>
-    <input id="brew-formula" className="field" placeholder="例如：wget、jq、python"
-      value={pkg} onChange={e=>setPkg(e.target.value)} maxLength={80} autoComplete="off"/>
-    <button type="button" className="secondary-button" disabled={!session||!validFormulaName(pkg)} onClick={()=>requestPackage("search")}>搜索</button>
-    <button type="button" className="secondary-button" disabled={!session||!validFormulaName(pkg)} onClick={()=>requestPackage("info")}>查看信息</button>
-    <button type="button" className="primary-button" data-testid="brew-install-preview" disabled={!session||!brew?.installed||!validFormulaName(pkg)}
-      onClick={()=>requestPackage("install")}>预览安装</button>
-   </div>
+   <HomebrewSoftwareCenter native={native} installed={!!brew?.installed} />
    <div className="terminal-recipe-grid">
     {TERMINAL_PRESETS.filter(x=>x.id.startsWith("brew-")).map(recipe=><button type="button" key={recipe.id}
       disabled={!session||!brew?.installed} onClick={()=>requestRecipe(recipe)}>

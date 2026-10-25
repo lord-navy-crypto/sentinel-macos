@@ -286,3 +286,46 @@
  .terminal-input-row label{grid-column:1/-1;}.terminal-brew-search{grid-template-columns:1fr 1fr;}
  .terminal-brew-search label,.terminal-brew-search input{grid-column:1/-1;}
  .terminal-recipe-grid{grid-template-columns:1fr;}}
+
+/* Better Terminal: native Homebrew software center */
+.brew-software-center{display:grid;gap:14px;padding:15px;border:1px solid var(--ub-border);border-radius:12px;background:var(--ub-panel);}
+.brew-center-toolbar{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+.brew-center-toolbar h3{margin:0 0 5px;}
+.brew-center-toolbar p{margin:0;max-width:760px;}
+.brew-kind-switch{display:flex;gap:7px;flex-wrap:wrap;}
+.brew-kind-switch button{border:1px solid var(--ub-border);border-radius:9px;padding:9px 12px;background:var(--ub-subtle);color:var(--ub-text);font-weight:700;cursor:pointer;}
+.brew-kind-switch button[aria-pressed=true]{background:var(--ub-tint);color:var(--ub-primary);border-color:var(--ub-ring);}
+.brew-center-search{display:grid;grid-template-columns:auto minmax(150px,1fr) auto auto;align-items:center;gap:9px;}
+.brew-center-search label{font-size:12px;font-weight:750;}
+.brew-center-search input{min-width:0;}
+.brew-manager-summary,.brew-results-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;color:var(--ub-muted);font-size:12px;}
+.brew-manager-summary{border-top:1px solid var(--ub-border);padding-top:10px;}
+.brew-software-results,.brew-info-panel,.brew-installed-panel,.brew-operation-panel{display:grid;gap:8px;border:1px solid var(--ub-border);border-radius:10px;padding:12px;min-width:0;}
+.brew-results-heading strong{font-size:13px;color:var(--ub-text);}
+.brew-software-row{display:grid;grid-template-columns:minmax(120px,1fr) auto auto auto;align-items:center;gap:8px;padding:9px 0;border-top:1px solid var(--ub-border);}
+.brew-software-name{display:grid;gap:3px;min-width:0;}
+.brew-software-name strong{overflow-wrap:anywhere;font-size:13px;}
+.brew-software-name small{font-size:11px;color:var(--ub-muted);}
+.brew-info-panel pre,.brew-operation-panel pre{max-height:280px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;border-radius:8px;padding:12px;background:#101922;color:#e1f1e5;font:12px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;margin:0;}
+.brew-installed-panel summary{cursor:pointer;font-size:13px;font-weight:700;}
+.brew-installed-chips{display:flex;flex-wrap:wrap;gap:7px;padding-top:8px;}
+.brew-installed-chips button{border:1px solid var(--ub-border);border-radius:7px;padding:6px 9px;background:var(--ub-subtle);color:var(--ub-text);cursor:pointer;font-size:11px;}
+.brew-operation-panel{border-color:var(--ub-ring);}
+@media(max-width:740px){.brew-center-search{grid-template-columns:1fr 1fr;}
+ .brew-center-search label,.brew-center-search input{grid-column:1/-1;}
+ .brew-software-row{grid-template-columns:minmax(0,1fr) auto;align-items:start;}
+ .brew-software-name{grid-column:1/-1;}
+ .brew-center-toolbar{align-items:stretch;}}
+
+.brew-featured-section{display:grid;gap:10px;}
+.brew-featured-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;}
+.brew-featured-card{display:grid;align-content:start;gap:8px;min-width:0;border:1px solid var(--ub-border);border-radius:10px;padding:12px;background:var(--ub-subtle);}
+.brew-featured-card-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:7px;}
+.brew-featured-card-heading strong{font-size:13px;overflow-wrap:anywhere;}
+.brew-featured-card-heading span{font-size:10px;color:var(--ub-muted);white-space:nowrap;}
+.brew-featured-card p{margin:0;min-height:30px;color:var(--ub-muted);font-size:11px;line-height:1.45;}
+.brew-featured-card .primary-button,.brew-featured-card .secondary-button{justify-self:start;padding:6px 10px;font-size:11px;}
+.brew-featured-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.brew-installed-badge{font-size:11px;font-weight:750;color:var(--ub-primary);}
+@media(max-width:1000px){.brew-featured-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media(max-width:520px){.brew-featured-grid{grid-template-columns:1fr;}}

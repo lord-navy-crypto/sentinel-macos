@@ -130,10 +130,10 @@ test("Better Terminal is navigable and Homebrew UI cannot run in browser-only pr
   assert.equal(await page.getByTestId("terminal-send").isDisabled(),true);
   await page.getByTestId("better-terminal-tab-brew").click();
   assert.equal(await page.getByTestId("terminal-brew-manager").isVisible(),true);
-  await page.locator("#brew-formula").fill("jq; uname");
-  assert.equal(await page.getByTestId("brew-install-preview").isDisabled(),true);
-  await page.locator("#brew-formula").fill("jq");
-  assert.equal(await page.getByTestId("brew-install-preview").isDisabled(),true,"Browser must not pretend to install software");
+  await page.getByTestId("brew-software-center").waitFor();
+  assert.equal(await page.getByTestId("brew-search").count(),0,"Browser preview must not expose native Homebrew execution");
+  assert.equal(await page.getByTestId("brew-install-package").count(),0,"Browser preview must not pretend to install software");
+  assert.equal(await page.getByText(/网页预览不能操作本机软件/).isVisible(),true);
   await page.locator("nav.sidebar-nav").getByRole("button",{name:/All tools/}).click();
   await page.locator("#all-tools-search").fill("Better Terminal");
   assert.ok(await page.locator(".catalog-open").count()>=2);

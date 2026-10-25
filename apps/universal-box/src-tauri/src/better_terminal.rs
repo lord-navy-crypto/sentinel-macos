@@ -3,6 +3,11 @@
 use portable_pty::{native_pty_system, CommandBuilder, MasterPty, PtySize, PtySystem};
 use serde::Serialize;
 use std::io::{Read, Write};
+use std::process::{Child, Command, Stdio};
+use std::sync::Arc;
+use std::time::Duration;
+use std::thread;
+use std::os::unix::process::CommandExt;
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
@@ -11,6 +16,9 @@ use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
 const MAX_WRITE_BYTES: usize = 4096;
 const MAX_CHUNK_BYTES: usize = 8192;
 pub const TERMINAL_OUTPUT_EVENT: &str = "better-terminal:output";
+pub const HOMEBREW_EVENT: &str = "better-terminal:brew-event";
+const MAX_BREW_QUERY_BYTES: usize = 80;
+const MAX_BREW_READ_OUTPUT_BYTES: usize = 24_000;
 
 struct TerminalSession {
     id: u64,
@@ -163,6 +171,239 @@ pub fn better_terminal_stop(window:WebviewWindow,state:State<'_,BetterTerminalSt
     if let Some(mut terminal)=guard.take() {let _=terminal.child.kill();}
     Ok(())
 }
+
+#[derive(Serialize, Clone)]
+pub struct HomebrewEvent {
+    pub job_id: u64,
+    pub stream: String,
+    pub data: String,
+    pub exit_code: Option<i32>,
+}
+struct ActiveHomebrewJob {
+    id: u64,
+    pid: u32,
+    child: Arc<Mutex<Child>>,
+}
+#[derive(Default)]
+pub struct HomebrewManagerState {
+    active: Mutex<Option<ActiveHomebrewJob>>,
+    counter: AtomicU64,
+}
+impl HomebrewManagerState {
+    pub fn stop(&self) {
+        if let Ok(guard) = self.active.lock() {
+            if let Some(job) = guard.as_ref() {
+                terminate_homebrew_job(job);
+            }
+        }
+    }
+}
+fn validate_brew_kind(kind: &str) -> Result<&'static str, String> {
+    match kind {
+        "formula" => Ok("--formula"),
+        "cask" => Ok("--cask"),
+        _ => Err("Choose either formula or cask".into()),
+    }
+}
+fn validate_brew_name(name: &str) -> Result<(), String> {
+    let value = name.trim();
+    if value.is_empty() || value.len() > MAX_BREW_QUERY_BYTES ||
+        !value.as_bytes()[0].is_ascii_alphanumeric() ||
+        !value.bytes().all(|b| b.is_ascii_alphanumeric() || b"@._+-".contains(&b)) {
+        return Err("Invalid Homebrew package name".into());
+    }
+    Ok(())
+}
+fn validate_brew_search(query: &str) -> Result<(), String> {
+    let value = query.trim();
+    if value.is_empty() || value.len() > MAX_BREW_QUERY_BYTES ||
+        !value.as_bytes()[0].is_ascii_alphanumeric() ||
+        !value.bytes().all(|b| b.is_ascii_alphanumeric() || b"@._+- ".contains(&b)) {
+        return Err("Search must be 1–80 characters and start with a letter or number".into());
+    }
+    Ok(())
+}
+fn brew_search_pattern(query: &str) -> String {
+    let mut pattern = String::from("/");
+    for ch in query.trim().chars() {
+        if ch.is_whitespace() {
+            pattern.push_str(".*");
+        } else {
+            if ch == '.' || ch == '+' { pattern.push('\\'); }
+            pattern.push(ch);
+        }
+    }
+    pattern.push('/');
+    pattern
+}
+fn read_brew_command(args: &[&str]) -> Result<String, String> {
+    let path = active_brew().ok_or("Homebrew is not installed in a supported standard location")?;
+    let output = Command::new(path).args(args).env("HOMEBREW_NO_ENV_HINTS", "1")
+        .env("HOMEBREW_NO_AUTO_UPDATE", "1")
+        .output().map_err(|e| format!("Could not run Homebrew: {e}"))?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    if !output.status.success() {
+        let detail = if stderr.trim().is_empty() { stdout.trim() } else { stderr.trim() };
+        return Err(format!("Homebrew exited with {}: {}", output.status, detail.chars().take(2000).collect::<String>()));
+    }
+    Ok(stdout.chars().take(MAX_BREW_READ_OUTPUT_BYTES).collect())
+}
+#[tauri::command]
+pub async fn better_terminal_brew_search(window: WebviewWindow, kind: String, query: String) -> Result<Vec<String>, String> {
+    require_main(&window)?;
+    let flag = validate_brew_kind(&kind)?;
+    validate_brew_search(&query)?;
+    let pattern = brew_search_pattern(&query);
+    tauri::async_runtime::spawn_blocking(move || {
+        let output = read_brew_command(&["search", flag, &pattern])?;
+        Ok(output.lines().map(str::trim).filter(|line| !line.is_empty()).take(100)
+            .map(|line| line.chars().take(120).collect()).collect())
+    }).await.map_err(|e| format!("Homebrew search task failed: {e}"))?
+}
+#[tauri::command]
+pub async fn better_terminal_brew_list(window: WebviewWindow, kind: String) -> Result<Vec<String>, String> {
+    require_main(&window)?;
+    let flag = validate_brew_kind(&kind)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let output = read_brew_command(&["list", flag])?;
+        Ok(output.lines().map(str::trim).filter(|line| !line.is_empty()).take(500)
+            .map(|line| line.chars().take(120).collect()).collect())
+    }).await.map_err(|e| format!("Homebrew list task failed: {e}"))?
+}
+#[tauri::command]
+pub async fn better_terminal_brew_info(window: WebviewWindow, kind: String, name: String) -> Result<String, String> {
+    require_main(&window)?;
+    let flag = validate_brew_kind(&kind)?;
+    validate_brew_name(&name)?;
+    tauri::async_runtime::spawn_blocking(move || read_brew_command(&["info", flag, name.trim()]))
+        .await.map_err(|e| format!("Homebrew info task failed: {e}"))?
+}
+fn emit_homebrew_event(app: &AppHandle, event: HomebrewEvent) {
+    if let Some(main) = app.get_webview_window("main") {
+        let _ = main.emit(HOMEBREW_EVENT, event);
+    }
+}
+fn stream_homebrew_pipe<R: Read>(mut pipe: R, app: AppHandle, job_id: u64, stream: &'static str) {
+    let mut buffer = [0u8; 4096];
+    loop {
+        match pipe.read(&mut buffer) {
+            Ok(0) | Err(_) => break,
+            Ok(n) => emit_homebrew_event(&app, HomebrewEvent {
+                job_id, stream: stream.to_string(),
+                data: String::from_utf8_lossy(&buffer[..n]).into_owned(),
+                exit_code: None,
+            }),
+        }
+    }
+}
+fn terminate_homebrew_job(job: &ActiveHomebrewJob) {
+    // The Homebrew process is started in its own process group so cancellation
+    // can stop its child processes without signalling unrelated application processes.
+    let result = unsafe { libc::kill(-(job.pid as i32), libc::SIGTERM) };
+    if result != 0 {
+        if let Ok(mut child) = job.child.lock() {
+            let _ = child.kill();
+        }
+    }
+}
+#[tauri::command]
+pub fn better_terminal_brew_start_operation(
+    app: AppHandle,
+    window: WebviewWindow,
+    state: State<'_, HomebrewManagerState>,
+    operation: String,
+    kind: Option<String>,
+    name: Option<String>,
+) -> Result<u64, String> {
+    require_main(&window)?;
+    let brew = active_brew().ok_or("Homebrew is not installed in a supported standard location")?;
+    let mut args: Vec<String> = Vec::new();
+    match operation.as_str() {
+        "update" => {
+            if kind.is_some() || name.as_ref().is_some_and(|n| !n.trim().is_empty()) {
+                return Err("Homebrew index update does not accept a package name".into());
+            }
+            args.push("update".into());
+        }
+        "install" | "uninstall" | "upgrade" => {
+            let kind = kind.as_deref().ok_or("Choose formula or cask")?;
+            let flag = validate_brew_kind(kind)?;
+            let name = name.as_deref().ok_or("Package name is required")?;
+            validate_brew_name(name)?;
+            args.push(operation.clone());
+            args.push(flag.into());
+            args.push(name.trim().into());
+        }
+        _ => return Err("Unsupported Homebrew operation".into()),
+    }
+    let mut guard = state.active.lock().map_err(|_| "Homebrew manager is unavailable")?;
+    if guard.is_some() {
+        return Err("A Homebrew operation is already running. Wait for it to finish or cancel it first.".into());
+    }
+    let id = state.counter.fetch_add(1, Ordering::Relaxed) + 1;
+    let mut command = Command::new(brew);
+    command.args(&args).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped())
+        .env("HOMEBREW_NO_ENV_HINTS", "1");
+    // Keep package operations from unexpectedly running a lengthy implicit
+    // index update. Updating the index is a separate, visible user-confirmed action.
+    if operation != "update" {
+        command.env("HOMEBREW_NO_AUTO_UPDATE", "1");
+    }
+    command.process_group(0);
+    let mut child = command.spawn().map_err(|e| format!("Could not start Homebrew: {e}"))?;
+    let stdout = child.stdout.take().ok_or("Could not capture Homebrew output")?;
+    let stderr = child.stderr.take().ok_or("Could not capture Homebrew errors")?;
+    let pid = child.id();
+    let child = Arc::new(Mutex::new(child));
+    *guard = Some(ActiveHomebrewJob { id, pid, child: Arc::clone(&child) });
+    drop(guard);
+    let out_app = app.clone();
+    let err_app = app.clone();
+    let stdout_reader = thread::spawn(move || stream_homebrew_pipe(stdout, out_app, id, "stdout"));
+    let stderr_reader = thread::spawn(move || stream_homebrew_pipe(stderr, err_app, id, "stderr"));
+    let wait_app = app.clone();
+    thread::spawn(move || {
+        let status = loop {
+            let result = child.lock().map_err(|_| "Homebrew process state poisoned".to_string())
+                .and_then(|mut process| process.try_wait().map_err(|e| e.to_string()));
+            match result {
+                Ok(Some(status)) => break Some(status),
+                Ok(None) => thread::sleep(Duration::from_millis(200)),
+                Err(_) => break None,
+            }
+        };
+        let _ = stdout_reader.join();
+        let _ = stderr_reader.join();
+        if let Ok(mut active) = wait_app.state::<HomebrewManagerState>().active.lock() {
+            if active.as_ref().is_some_and(|job| job.id == id) {
+                *active = None;
+            }
+        }
+        let code = status.map(|s| s.code().unwrap_or(-1)).unwrap_or(-1);
+        emit_homebrew_event(&wait_app, HomebrewEvent {
+            job_id: id, stream: "finished".into(),
+            data: if code == 0 { "Operation completed successfully.\n".into() }
+                else { format!("Operation ended with exit code {code}.\n") },
+            exit_code: Some(code),
+        });
+    });
+    Ok(id)
+}
+#[tauri::command]
+pub fn better_terminal_brew_cancel_operation(
+    window: WebviewWindow,
+    state: State<'_, HomebrewManagerState>,
+    job_id: u64,
+) -> Result<(), String> {
+    require_main(&window)?;
+    let guard = state.active.lock().map_err(|_| "Homebrew manager is unavailable")?;
+    let job = guard.as_ref().ok_or("No Homebrew operation is running")?;
+    if job.id != job_id { return Err("Stale Homebrew operation id".into()); }
+    terminate_homebrew_job(job);
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -178,5 +419,22 @@ mod tests {
     }
     #[test]fn brew_is_only_detected_in_fixed_standard_prefixes(){
         assert!(detect_brew_status().install_guide.starts_with("https://docs.brew.sh/"));
+    }
+    #[test]fn brew_names_reject_flags_and_command_injection(){
+        assert!(validate_brew_name("python@3.13").is_ok());
+        assert!(validate_brew_name("visual-studio-code").is_ok());
+        for name in ["", "-rf", "foo;rm", "pkg$(id)", "../tmp", "two words", "x\ny"] {
+            assert!(validate_brew_name(name).is_err(), "accepted {name}");
+        }
+    }
+    #[test]fn brew_search_is_bounded_and_cannot_become_an_option(){
+        assert_eq!(brew_search_pattern("visual studio code"), "/visual.*studio.*code/");
+        assert_eq!(brew_search_pattern("foo.bar+baz"), "/foo\\.bar\\+baz/");
+        assert!(validate_brew_search("visual studio code").is_ok());
+        assert!(validate_brew_search("jq").is_ok());
+        let too_long = "x".repeat(81);
+        for query in ["", "--cask", "-rf", "foo;id", "x\ny", too_long.as_str()] {
+            assert!(validate_brew_search(query).is_err(), "accepted {query}");
+        }
     }
 }
