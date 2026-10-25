@@ -341,8 +341,8 @@ pub fn better_terminal_brew_start_operation(
     drop(guard);
     let out_app = app.clone();
     let err_app = app.clone();
-    thread::spawn(move || stream_homebrew_pipe(stdout, out_app, id, "stdout"));
-    thread::spawn(move || stream_homebrew_pipe(stderr, err_app, id, "stderr"));
+    let stdout_reader = thread::spawn(move || stream_homebrew_pipe(stdout, out_app, id, "stdout"));
+    let stderr_reader = thread::spawn(move || stream_homebrew_pipe(stderr, err_app, id, "stderr"));
     let wait_app = app.clone();
     thread::spawn(move || {
         let status = loop {
@@ -354,6 +354,8 @@ pub fn better_terminal_brew_start_operation(
                 Err(_) => break None,
             }
         };
+        let _ = stdout_reader.join();
+        let _ = stderr_reader.join();
         if let Ok(mut active) = wait_app.state::<HomebrewManagerState>().active.lock() {
             if active.as_ref().is_some_and(|job| job.id == id) {
                 *active = None;
@@ -409,7 +411,8 @@ mod tests {
     #[test]fn brew_search_is_bounded_and_cannot_become_an_option(){
         assert!(validate_brew_search("visual studio code").is_ok());
         assert!(validate_brew_search("jq").is_ok());
-        for query in ["", "--cask", "-rf", "foo;id", "x\ny", "x".repeat(81).as_str()] {
+        let too_long = "x".repeat(81);
+        for query in ["", "--cask", "-rf", "foo;id", "x\ny", too_long.as_str()] {
             assert!(validate_brew_search(query).is_err(), "accepted {query}");
         }
     }
