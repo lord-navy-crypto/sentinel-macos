@@ -47,11 +47,14 @@ test("Desktop redesign: office home, command search, categorized list, and expli
     return {
       viewport:window.innerWidth,
       document:document.documentElement.scrollWidth,
+      bodyMinWidth:getComputedStyle(document.body).minWidth,
       shellColumns:getComputedStyle(shell).gridTemplateColumns,
       moduleColumns:getComputedStyle(moduleGrid).gridTemplateColumns.split(" ").filter(Boolean).length,
       categoryColumns:getComputedStyle(categoryGrid).gridTemplateColumns.split(" ").filter(Boolean).length
     };
   });
+  assert.equal(mobileLayout.bodyMinWidth,"0px",
+    "Legacy desktop minimum width must be overridden on phone viewports.");
   assert.ok(mobileLayout.document<=mobileLayout.viewport+1,
     "Mobile home should not create horizontal page overflow: "+JSON.stringify(mobileLayout));
   assert.equal(mobileLayout.moduleColumns,1,"Core module cards should stack on mobile.");
