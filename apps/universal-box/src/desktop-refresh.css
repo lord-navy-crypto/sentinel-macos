@@ -397,8 +397,13 @@
 .app-shell .home-section{padding:clamp(16px,2vw,24px);border-radius:16px;}
 .app-shell .home-section-title{align-items:flex-start;}
 .app-shell .home-task{min-height:70px;border-radius:12px;}
-.app-shell .box-module-card{border-radius:16px;}
+.app-shell .box-module-card{border-radius:16px;transition:border-color .15s,box-shadow .15s;min-height:100%;background:var(--ub-panel);}
+.app-shell .box-module-terminal{border-top:3px solid var(--ub-primary);}
+.app-shell .box-module-sentinel{border-top:3px solid var(--ub-ring);}
+.app-shell .box-module-icon{background:var(--ub-tint);}
 .app-shell .box-module-card:focus-within{border-color:var(--ub-ring);box-shadow:0 0 0 3px var(--ub-tint);}
+.app-shell .home-box-modules .home-section-title h2{letter-spacing:-.015em;}
+.app-shell .home-box-modules .home-section-title .subtle{max-width:76ch;line-height:1.6;}
 .app-shell .home-empty{border-radius:10px;line-height:1.6;}
 
 .app-shell .catalog-heading{align-items:flex-start;}
