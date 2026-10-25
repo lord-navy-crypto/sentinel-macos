@@ -226,6 +226,7 @@ fn validate_brew_search(query: &str) -> Result<(), String> {
 fn read_brew_command(args: &[&str]) -> Result<String, String> {
     let path = active_brew().ok_or("Homebrew is not installed in a supported standard location")?;
     let output = Command::new(path).args(args).env("HOMEBREW_NO_ENV_HINTS", "1")
+        .env("HOMEBREW_NO_AUTO_UPDATE", "1")
         .output().map_err(|e| format!("Could not run Homebrew: {e}"))?;
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
