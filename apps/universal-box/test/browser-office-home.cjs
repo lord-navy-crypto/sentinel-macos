@@ -20,6 +20,10 @@ test("Office-first homepage links ten existing working office tasks and keeps th
   const sidebarNames=await page.locator("nav.sidebar-nav button.nav-item").evaluateAll(items=>items.map(el=>el.getAttribute("aria-label")));
   assert.equal(sidebarNames.length,47,"All 40 original workspaces plus six Sentinel modules and Better Terminal remain accessible exactly once");
   assert.equal(new Set(sidebarNames).size,sidebarNames.length,"No duplicate workspace labels");
+  const sidebarIds=await page.locator("nav.sidebar-nav button.nav-item").evaluateAll(items=>items.map(el=>el.getAttribute("data-testid")));
+  assert.equal(new Set(sidebarIds).size,sidebarIds.length,"Each sidebar route has a unique stable test identifier");
+  assert.ok(sidebarIds.includes("sidebar-view-better-terminal"));
+  assert.ok(sidebarIds.includes("sidebar-view-sentinel"));
   assert.equal(await page.getByTestId("home-core-modules").locator(".box-module-card").count(),2,
    "Dashboard presents Sentinel and Better Terminal as two peer modules inside Sentinel Box");
   assert.equal(await page.getByTestId("home-module-better-terminal").isVisible(),true);
@@ -83,15 +87,15 @@ test("Original Sentinel Go service is represented by six real modular workbenche
  try{
   await page.goto(root,{waitUntil:"domcontentloaded"});await page.locator(".app-shell").waitFor();
   const views=[
-   ["Sentinel · 系统安全中心","系统概览"],
-   ["Sentinel · 证据调查","证据调查"],
-   ["Sentinel · 历史与变化比较","变化和信任"],
-   ["Sentinel · 进程与网络","Mac 系统与网络"],
-   ["Sentinel · 诊断与安全操作","安全操作与恢复"],
-   ["Sentinel · 权限与运行状态","权限、运行状态与 AI"],
+   ["sentinel","系统概览"],
+   ["sentinel-investigate","证据调查"],
+   ["sentinel-compare","变化和信任"],
+   ["sentinel-system","Mac 系统与网络"],
+   ["sentinel-actions","安全操作与恢复"],
+   ["sentinel-limits","权限、运行状态与 AI"],
   ];
-  for(const [nav,heading] of views){
-   await page.locator("nav.sidebar-nav").getByRole("button",{name:nav,exact:true}).click();
+  for(const [route,heading] of views){
+   await page.getByTestId("sidebar-view-"+route).click();
    await page.getByRole("region",{name:"Sentinel Mac System Center"}).waitFor();
    assert.match(await page.locator("#main-content").innerText(),new RegExp(heading));
    assert.equal(await page.getByRole("button",{name:"打开完整 Sentinel 工作台",exact:true}).count(),1);
