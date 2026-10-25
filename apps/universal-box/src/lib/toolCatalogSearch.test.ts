@@ -51,6 +51,15 @@ describe("Sentinel Box tool catalog discovery", () => {
     }).map(tool => tool.id)).toContain("file-intake");
   });
 
+  it("prefers an exact tool title over broader token matches", () => {
+    const mergeTools: CatalogSearchableTool[] = [
+      { id: "csv-docx-mail-merge", name: "CSV Mail Merge → Word · 批量制作个性化 DOCX", area: "Office", view: "workflows" },
+      { id: "text-mail-merge", name: "Free Mail Merge · CSV Template → TXT ZIP", area: "Office", view: "workflows" },
+    ];
+    expect(filterToolCatalog(mergeTools, { query: "CSV Mail Merge" }).map(tool => tool.id))
+      .toEqual(["csv-docx-mail-merge"]);
+  });
+
   it("keeps text utilities in the text family even when their output format mentions DOCX", () => {
     const typography: CatalogSearchableTool = {
       id: "typography-symbols",
