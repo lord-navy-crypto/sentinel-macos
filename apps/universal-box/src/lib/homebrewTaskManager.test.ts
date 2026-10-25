@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   formatHomebrewDuration,
+  homebrewEventBelongsToActiveJob,
   homebrewTaskOutcome,
   prependHomebrewTaskHistory,
   type HomebrewTaskRecord,
@@ -40,5 +41,21 @@ describe("Homebrew task history helpers", () => {
     expect(formatHomebrewDuration(123_000)).toBe("2 分 3 秒");
     expect(formatHomebrewDuration(null)).toBe("未知");
     expect(formatHomebrewDuration(-1)).toBe("未知");
+  });
+});
+
+
+describe("Homebrew event identity and task lifetime", () => {
+  it("accepts a current job and ignores a stale or duplicate job", () => {
+    expect(homebrewEventBelongsToActiveJob(12, 12, true, new Set())).toBe(true);
+    expect(homebrewEventBelongsToActiveJob(11, 12, true, new Set())).toBe(false);
+    expect(homebrewEventBelongsToActiveJob(12, 12, true, new Set([12]))).toBe(false);
+  });
+
+  it("allows an immediate completion before start IPC returns, but not after idle", () => {
+    expect(homebrewEventBelongsToActiveJob(1, null, true, new Set())).toBe(true);
+    expect(homebrewEventBelongsToActiveJob(1, null, false, new Set())).toBe(false);
+    expect(homebrewEventBelongsToActiveJob(0, null, true, new Set())).toBe(false);
+    expect(homebrewEventBelongsToActiveJob(Number.MAX_SAFE_INTEGER + 1, null, true, new Set())).toBe(false);
   });
 });
