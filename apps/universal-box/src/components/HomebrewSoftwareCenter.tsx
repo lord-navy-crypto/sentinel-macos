@@ -127,7 +127,7 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
  }
 
  async function checkUpdates(){
-   if(!native||!installed||checkingUpdates||running)return;
+   if(!native||!installed||checkingUpdates||running||searching||loadingPackages)return;
    setCheckingUpdates(true);setError("");setNotice("");
    setOutdated([]);setUpdatesChecked(false);setOutdatedKind(null);
    try{
@@ -156,7 +156,7 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
   catch(e){setError("读取软件详情失败："+String(e));}
  }
  function ask(operation:BrewOperation,name?:string){
-  if(!native||!installed||running||checkingUpdates)return;
+  if(!native||!installed||running||checkingUpdates||searching||loadingPackages)return;
   const label=operation==="update"?"更新 Homebrew 软件索引":
    operation==="upgrade_all"?"批量升级全部过期的"+(kind==="cask"?"Mac 应用":"命令行工具"):
    operation==="install"?"安装 "+name:operation==="uninstall"?"卸载 "+name:"升级 "+name;
@@ -235,7 +235,7 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
        <div className="brew-outdated-actions">
         <p className="subtle">先检查列表；批量升级会更新此类别内所有过期软件。</p>
         <button type="button" className="primary-button" data-testid="brew-upgrade-all"
-         disabled={!native||running||checkingUpdates||outdated.length===0}
+         disabled={!native||running||checkingUpdates||searching||loadingPackages||outdated.length===0}
          onClick={()=>ask("upgrade_all")}>升级全部 {outdated.length} 项</button>
        </div>
        {outdated.map(name=><div className="brew-software-row" key={name}>
@@ -243,7 +243,7 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
         <button type="button" className="secondary-button" disabled={running||checkingUpdates||searching||loadingPackages} onClick={()=>ask("upgrade",name)}>升级此项</button>
        </div>)}
       </>}
-    </div>
+    </div>}
    <div className="brew-featured-section" data-testid="brew-featured-apps">
     <div className="brew-results-heading"><strong>{kind==="cask"?"常用 Mac 应用":"常用命令行工具"}</strong><span>无需搜索 · 确认后执行</span></div>
     <div className="brew-featured-grid">
