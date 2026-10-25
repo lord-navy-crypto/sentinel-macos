@@ -110,6 +110,7 @@ export function catalogToolSymbol(tool: CatalogSearchableTool): string {
     case "网页与捕获": return "↗";
     case "文件与批处理": return "⇪";
     case "局域网与共享": return "⇄";
+    case "终端与软件管理": return ">_";
     case "系统监控与安全": return "◉";
     case "学习与其他": return "✦";
     default: return "◇";
