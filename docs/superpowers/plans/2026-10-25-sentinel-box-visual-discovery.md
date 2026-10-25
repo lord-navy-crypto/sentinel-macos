@@ -109,3 +109,16 @@
 - [x] Step 5: Add regression coverage for task chips, dynamic category counts, default category order, favorite priority, category accuracy, and unique card summaries.
 - [ ] Step 6: Re-run browser, unit, Sentinel validation, and both architecture-specific desktop CI checks on the final source revision.
 
+
+
+### Task 7: Promote the built-in modules in the dashboard hierarchy
+
+**Files:**
+- Modify: `apps/universal-box/src/components/OfficeHome.tsx`
+- Modify: `apps/universal-box/src/desktop-refresh.css`
+- Test: `apps/universal-box/test/browser-ui-smoke.cjs`
+
+- [x] Step 1: Place Sentinel and Better Terminal peer cards before secondary category browsing so the two defining Box modules are visible earlier.
+- [x] Step 2: Make module headings Chinese-first while retaining English identifiers, and give both cards a restrained visual accent without changing their actions.
+- [x] Step 3: Add browser regression assertions for module visibility, order, and primary actions.
+- [ ] Step 4: Re-run browser, Sentinel, and both architecture-specific desktop CI checks against the updated source.
