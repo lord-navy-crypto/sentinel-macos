@@ -502,3 +502,168 @@
 .brew-operation-truncation-note{margin:0;padding:9px 11px;border:1px solid #e8cb94;border-radius:8px;background:#fff8e8;color:#8a5a0a;font-size:11px;line-height:1.55;overflow-wrap:anywhere;}
 .brew-operation-log{max-height:340px;overflow:auto;overscroll-behavior:contain;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;tab-size:2;}
 @media(max-width:520px){.brew-operation-log-toolbar .secondary-button{width:100%;}}
+
+
+/* Visual refresh: stronger hierarchy, calmer density, and a connected discovery-to-action flow. */
+.app-shell .better-terminal{gap:18px;}
+.app-shell .better-terminal-heading{
+ position:relative;display:flex;align-items:center;justify-content:space-between;gap:22px;
+ margin:-24px -24px 0;padding:24px 26px;border:1px solid #24485e;border-radius:14px 14px 12px 12px;
+ background:linear-gradient(120deg,#142b3a 0%,#1c4258 62%,#25546b 100%);color:#f4f8fb;
+}
+.app-shell .better-terminal-title-block{display:flex;align-items:center;gap:16px;min-width:0;}
+.better-terminal-app-mark{display:grid;place-items:center;flex:0 0 48px;width:48px;height:48px;border:1px solid rgba(211,235,248,.25);border-radius:13px;background:rgba(255,255,255,.08);color:#e5f5ff;font-size:25px;font-weight:700;}
+.app-shell .better-terminal-title-copy{min-width:0;}
+.app-shell .better-terminal-title-copy .eyebrow{margin:0 0 5px;color:#b9d5e5;font-size:10px;letter-spacing:1.05px;}
+.app-shell .better-terminal-title-copy h2{margin:0 0 7px;color:#fff;font-size:24px;line-height:1.2;letter-spacing:-.65px;}
+.app-shell .better-terminal-title-copy h2 span{font-size:16px;font-weight:550;color:#d5e7f0;letter-spacing:0;}
+.app-shell .better-terminal-title-copy p.subtle{max-width:760px;color:#d0e0e8;font-size:12px;line-height:1.6;}
+.app-shell .terminal-status{flex-shrink:0;gap:8px;border-color:rgba(225,242,250,.22);background:rgba(255,255,255,.08);color:#e3edf3;padding:9px 12px;}
+.app-shell .terminal-status.connected{border-color:rgba(152,228,192,.45);background:rgba(47,132,95,.2);color:#e2fff0;}
+.terminal-status-dot{width:7px;height:7px;border-radius:50%;background:#91a5b3;}
+.terminal-status.connected .terminal-status-dot{background:#5fdda0;box-shadow:0 0 0 3px rgba(95,221,160,.16);}
+.app-shell .better-terminal-tabs{gap:4px;align-items:center;padding:5px;border:1px solid var(--ub-border);border-radius:12px;background:var(--ub-subtle);}
+.app-shell .better-terminal-tabs button{flex:0 0 auto;min-height:38px;padding:9px 14px;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--ub-muted);font-size:12px;font-weight:680;}
+.app-shell .better-terminal-tabs button[aria-pressed=true]{border-color:var(--ub-border);background:var(--ub-panel);color:var(--ub-primary);box-shadow:0 1px 3px rgba(20,44,70,.07);}
+.app-shell .terminal-toolbar{align-items:center;gap:7px;padding:11px 12px;border:1px solid var(--ub-border);border-radius:12px;background:var(--ub-subtle);}
+.app-shell .terminal-toolbar::before{content:"会话控制";display:inline-flex;align-items:center;align-self:stretch;margin-right:3px;padding:0 12px 0 2px;border-right:1px solid var(--ub-border);color:var(--ub-muted);font-size:11px;font-weight:750;white-space:nowrap;}
+.app-shell .terminal-toolbar button{min-height:34px;padding:8px 11px;font-size:11px;}
+.terminal-console-chrome{display:flex;align-items:center;gap:12px;min-height:39px;padding:0 14px;border:1px solid #334654;border-bottom:0;border-radius:12px 12px 0 0;background:#172631;color:#d5e2e9;}
+.terminal-window-controls{display:flex;align-items:center;gap:5px;margin-right:4px;}
+.terminal-window-controls i{display:block;width:8px;height:8px;border-radius:50%;background:#71818a;}
+.terminal-window-controls i:first-child{background:#e77d75;}
+.terminal-window-controls i:nth-child(2){background:#e9bd61;}
+.terminal-window-controls i:nth-child(3){background:#68c58a;}
+.terminal-console-chrome strong{font-size:11px;font-weight:650;}
+.terminal-console-session{margin-left:auto;color:#9bb0bd;font-size:9px;letter-spacing:.8px;font-weight:750;}
+.app-shell .terminal-viewport{border-radius:0 0 12px 12px;border-top:0;box-shadow:0 8px 24px rgba(12,25,38,.08);}
+.app-shell .terminal-viewport .terminal-screen-shell{border-radius:0 0 11px 11px;}
+.app-shell .terminal-input-row{padding:12px;border:1px solid var(--ub-border);border-radius:11px;background:var(--ub-subtle);}
+.app-shell .terminal-input-row label{font-size:11px;color:var(--ub-muted);}
+.app-shell .terminal-input-row input{background:var(--ub-panel);}
+.terminal-recipe-section{display:grid;gap:12px;padding:16px;border:1px solid var(--ub-border);border-radius:13px;background:var(--ub-subtle);}
+.terminal-recipe-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
+.terminal-recipe-heading h3{margin:0 0 4px;font-size:14px;color:var(--ub-text);}
+.terminal-recipe-heading p{margin:0;max-width:700px;}
+.terminal-recipe-heading>span{flex-shrink:0;padding:5px 8px;border:1px solid var(--ub-border);border-radius:999px;background:var(--ub-panel);color:var(--ub-muted);font-size:10px;font-weight:700;}
+.terminal-recipe-section>.subtle{margin:0;}
+.app-shell .terminal-recipe-section .terminal-recipe-grid button{min-height:90px;background:var(--ub-panel);border-radius:10px;transition:border-color .15s,background .15s;}
+.app-shell .terminal-recipe-section .terminal-recipe-grid button:hover:not(:disabled){background:var(--ub-tint);border-color:var(--ub-ring);}
+.app-shell .brew-software-center{gap:17px;padding:18px;border-radius:15px;box-shadow:0 3px 16px rgba(17,42,63,.035);}
+.app-shell .brew-center-toolbar{align-items:center;gap:16px;padding:0 0 14px;border-bottom:1px solid var(--ub-border);}
+.app-shell .brew-center-toolbar h3{font-size:18px;letter-spacing:-.35px;margin:0 0 6px;}
+.app-shell .brew-center-toolbar p{font-size:12px;max-width:680px;}
+.app-shell .brew-toolbar-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap;}
+.app-shell .brew-toolbar-actions button{font-size:11px;padding:8px 10px;min-height:34px;}
+.brew-manager-layout{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(235px,.8fr);gap:14px;align-items:start;min-width:0;}
+.brew-manager-layout.is-unavailable{grid-template-columns:minmax(0,1fr);}
+.brew-manager-layout.is-unavailable .brew-manager-primary:empty{display:none;}
+.brew-manager-primary,.brew-manager-sidebar{display:grid;gap:12px;min-width:0;}
+.brew-discovery-panel{display:grid;gap:16px;min-width:0;padding:18px;border:1px solid var(--ub-ring);border-radius:14px;background:linear-gradient(145deg,var(--ub-panel),var(--ub-subtle));box-shadow:inset 3px 0 0 var(--ub-primary);}
+.brew-discovery-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap;}
+.brew-discovery-copy{display:grid;gap:5px;min-width:0;}
+.brew-section-kicker{color:var(--ub-primary);font-size:9px;font-weight:850;letter-spacing:1.15px;}
+.brew-discovery-copy h4{margin:0;color:var(--ub-text);font-size:17px;line-height:1.3;letter-spacing:-.3px;}
+.brew-discovery-copy p{margin:0;max-width:530px;color:var(--ub-muted);font-size:11px;line-height:1.55;}
+.app-shell .brew-kind-switch{display:inline-flex;gap:3px;padding:3px;border:1px solid var(--ub-border);border-radius:10px;background:var(--ub-subtle);}
+.app-shell .brew-kind-switch button{min-height:32px;padding:7px 10px;border-color:transparent;border-radius:7px;background:transparent;color:var(--ub-muted);font-size:11px;white-space:nowrap;}
+.app-shell .brew-kind-switch button[aria-pressed=true]{background:var(--ub-panel);border-color:var(--ub-border);color:var(--ub-primary);box-shadow:0 1px 3px rgba(16,41,71,.08);}
+.app-shell .brew-center-search{grid-template-columns:minmax(0,1fr) auto auto;gap:8px;}
+.app-shell .brew-center-search label{grid-column:1/-1;color:var(--ub-muted);font-size:11px;font-weight:750;}
+.app-shell .brew-center-search input{min-height:44px;border-radius:10px;padding:12px 14px;font-size:13px;}
+.app-shell .brew-center-search .primary-button,.app-shell .brew-center-search .secondary-button{min-height:44px;padding:10px 13px;font-size:11px;white-space:nowrap;}
+.app-shell .brew-search-feedback{border-radius:10px;padding:12px 14px;}
+.app-shell .brew-manager-sidebar .brew-status-overview{grid-template-columns:minmax(0,1fr);gap:8px;}
+.app-shell .brew-manager-sidebar .brew-status-card{grid-template-columns:minmax(0,1fr) auto;gap:4px 8px;padding:11px 12px 11px 25px;border-radius:11px;background:var(--ub-subtle);}
+.app-shell .brew-manager-sidebar .brew-status-card-label{grid-column:1;}
+.app-shell .brew-manager-sidebar .brew-status-card strong{grid-column:1/-1;font-size:14px;}
+.app-shell .brew-manager-sidebar .brew-status-card small{grid-column:1/-1;font-size:10px;}
+.app-shell .brew-manager-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:0;border:0;}
+.app-shell .brew-manager-summary>div{display:grid;gap:3px;min-width:0;padding:12px;border:1px solid var(--ub-border);border-radius:11px;background:var(--ub-panel);}
+.app-shell .brew-manager-summary>div>span{color:var(--ub-muted);font-size:10px;font-weight:700;}
+.app-shell .brew-manager-summary>div>strong{font-size:22px;line-height:1.2;color:var(--ub-text);font-variant-numeric:tabular-nums;}
+.app-shell .brew-manager-summary>div>small{font-size:10px;line-height:1.4;color:var(--ub-muted);}
+.app-shell .brew-workflow-progress{gap:0;margin:0;padding:0 0 12px;border-bottom:1px solid var(--ub-border);}
+.app-shell .brew-workflow-step{position:relative;border:0;border-radius:0;padding:5px 12px 5px 0;background:transparent;box-shadow:none;}
+.app-shell .brew-workflow-step.is-current{border:0;background:transparent;box-shadow:none;}
+.app-shell .brew-workflow-step::after{content:"";position:absolute;top:18px;left:31px;right:9px;height:1px;background:var(--ub-border);}
+.app-shell .brew-workflow-step:last-child::after{display:none;}
+.app-shell .brew-workflow-step-number{position:relative;z-index:1;width:27px;height:27px;background:var(--ub-panel);}
+.app-shell .brew-workflow-step.is-current .brew-workflow-step-number{box-shadow:0 0 0 4px var(--ub-tint);}
+.app-shell .brew-workflow-step-copy strong{font-size:12px;}
+.app-shell .brew-workflow-step-copy small{font-size:10px;line-height:1.45;}
+.app-shell .brew-workflow-step-state{font-size:9px;text-transform:none;}
+.app-shell .brew-featured-section{gap:12px;}
+.app-shell .brew-featured-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;}
+.app-shell .brew-featured-card{gap:11px;min-height:154px;padding:13px;border-radius:12px;background:var(--ub-panel);box-shadow:0 1px 4px rgba(17,42,63,.025);transition:border-color .15s,box-shadow .15s,transform .15s;}
+.app-shell .brew-featured-card:hover{border-color:var(--ub-ring);box-shadow:0 5px 16px rgba(17,42,63,.07);transform:translateY(-1px);}
+.app-shell .brew-featured-card-heading{display:flex;align-items:center;justify-content:flex-start;gap:10px;min-width:0;}
+.brew-featured-mark{display:grid;place-items:center;flex:0 0 36px;width:36px;height:36px;border:1px solid var(--ub-border);border-radius:10px;background:var(--ub-tint);color:var(--ub-primary);font-size:17px;font-weight:750;}
+.brew-featured-card-copy{display:grid;gap:3px;min-width:0;}
+.brew-featured-card-copy strong{font-size:12px;line-height:1.35;overflow-wrap:anywhere;color:var(--ub-text);}
+.brew-featured-card-copy span{font-size:10px;color:var(--ub-muted);}
+.app-shell .brew-featured-card p{min-height:31px;font-size:11px;line-height:1.5;}
+.app-shell .brew-featured-card .primary-button,.app-shell .brew-featured-card .secondary-button{margin-top:auto;min-height:32px;padding:7px 10px;font-size:11px;}
+.app-shell .brew-software-results,.app-shell .brew-outdated-panel,.app-shell .brew-info-panel,.app-shell .brew-task-history{padding:14px;border-radius:13px;background:var(--ub-panel);box-shadow:0 2px 10px rgba(17,42,63,.025);}
+.app-shell .brew-results-heading{margin-bottom:2px;}
+.app-shell .brew-results-heading strong{font-size:14px;letter-spacing:-.15px;}
+.app-shell .brew-software-row{grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:11px 2px;border-top:1px solid var(--ub-border);}
+.app-shell .brew-software-name{display:flex;align-items:center;gap:11px;min-width:0;}
+.brew-package-mark{display:grid;place-items:center;flex:0 0 34px;width:34px;height:34px;border:1px solid var(--ub-border);border-radius:9px;background:var(--ub-subtle);color:var(--ub-primary);font-size:13px;font-weight:800;text-transform:uppercase;}
+.brew-software-copy{display:grid;gap:4px;min-width:0;}
+.brew-software-copy strong{font-size:12px;overflow-wrap:anywhere;color:var(--ub-text);}
+.brew-software-copy .brew-software-state{width:max-content;}
+.app-shell .brew-software-row-actions{gap:6px;}
+.app-shell .brew-software-row-actions button,.app-shell .brew-software-row>.secondary-button{min-height:32px;padding:7px 10px;font-size:11px;}
+.app-shell .brew-installed-panel{padding:12px 14px;border:1px solid var(--ub-border);border-radius:12px;background:var(--ub-subtle);}
+.app-shell .brew-operation-panel{padding:16px;border-radius:13px;box-shadow:0 3px 14px rgba(17,42,63,.04);}
+.app-shell .brew-confirmation{padding:18px;border-radius:14px;border-color:var(--ub-ring);box-shadow:0 8px 28px rgba(17,42,63,.08);}
+.app-shell .brew-confirmation h3{font-size:17px;letter-spacing:-.25px;}
+.app-shell .brew-confirmation-command code{padding:12px 14px;border:1px solid var(--ub-border);border-radius:9px;background:var(--ub-subtle);font-size:12px;}
+.app-shell .brew-confirmation-safety{padding:13px;border-radius:10px;}
+.app-shell .brew-info-panel pre,.app-shell .brew-operation-panel pre{font-size:11px;line-height:1.65;}
+@media(max-width:1050px){
+ .app-shell .better-terminal-heading{align-items:flex-start;}
+ .app-shell .brew-manager-layout{grid-template-columns:minmax(0,1fr);}
+ .app-shell .brew-manager-sidebar .brew-status-overview{grid-template-columns:repeat(3,minmax(0,1fr));}
+ .app-shell .brew-manager-sidebar .brew-status-card{padding:12px 12px 12px 25px;}
+ .app-shell .brew-manager-summary{grid-template-columns:repeat(2,minmax(0,1fr));}
+ .app-shell .brew-featured-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
+ .app-shell .brew-workflow-step::after{display:none;}
+}
+@media(max-width:740px){
+ .app-shell .better-terminal-heading{margin:-24px -24px 0;padding:20px 18px;flex-direction:column;}
+ .app-shell .better-terminal-title-block{align-items:flex-start;}
+ .app-shell .better-terminal-title-copy h2{font-size:21px;}
+ .app-shell .better-terminal-tabs{display:grid;grid-template-columns:1fr;}
+ .app-shell .better-terminal-tabs button{text-align:left;}
+ .app-shell .terminal-toolbar::before{flex-basis:100%;border-right:0;border-bottom:1px solid var(--ub-border);padding:0 0 8px;}
+ .terminal-recipe-heading{flex-direction:column;}
+ .app-shell .brew-center-search{grid-template-columns:minmax(0,1fr) minmax(0,1fr);}
+ .app-shell .brew-center-search label,.app-shell .brew-center-search input{grid-column:1/-1;}
+ .app-shell .brew-center-search .primary-button,.app-shell .brew-center-search .secondary-button{white-space:normal;}
+ .app-shell .brew-manager-sidebar .brew-status-overview{grid-template-columns:1fr;}
+ .app-shell .brew-software-row{grid-template-columns:minmax(0,1fr);}
+ .app-shell .brew-software-row-actions{justify-content:flex-start;}
+}
+@media(max-width:520px){
+ .app-shell .better-terminal{gap:13px;}
+ .app-shell .better-terminal-heading{margin:-24px -24px 0;padding:18px 15px;}
+ .better-terminal-app-mark{flex-basis:38px;width:38px;height:38px;font-size:20px;}
+ .app-shell .terminal-status{align-self:flex-start;}
+ .app-shell .terminal-toolbar{padding:9px;}
+ .app-shell .terminal-toolbar button{flex:1 1 auto;}
+ .terminal-console-chrome{padding:0 10px;}
+ .terminal-console-session{font-size:8px;}
+ .app-shell .brew-software-center{padding:12px;}
+ .app-shell .brew-discovery-panel{padding:13px;}
+ .app-shell .brew-discovery-heading{align-items:stretch;}
+ .app-shell .brew-kind-switch{display:grid;grid-template-columns:1fr 1fr;}
+ .app-shell .brew-kind-switch button{white-space:normal;}
+ .app-shell .brew-featured-grid{grid-template-columns:1fr;}
+ .app-shell .brew-manager-summary{grid-template-columns:1fr 1fr;}
+ .app-shell .brew-featured-card{min-height:135px;}
+}
+@media(prefers-reduced-motion:reduce){
+ .app-shell .brew-featured-card,.app-shell .better-terminal-tabs button{transition:none;}
+}

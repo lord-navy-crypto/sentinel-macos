@@ -102,3 +102,17 @@
 - The log viewport now has a bounded height and wraps long output, keeping the task status and cancellation controls reachable on smaller screens.
 - When the in-memory log exceeds its 160,000-character cap, the UI explicitly discloses that older output was discarded and that copying exports only the retained text. This avoids presenting a truncated diagnostic log as complete.
 - Added regression coverage for copy controls, empty-log disabling, clipboard feedback and truncation disclosure.
+
+
+## Visual refresh plan and implementation (2026-10-25)
+
+### Design direction
+- Make Better Terminal feel like a native desktop workspace: a clear product header, a compact segmented navigation, a grouped session-control strip and a framed shell viewport.
+- Make Homebrew discovery the primary action: the four-step workflow is a slim progress rail; search/category controls receive the strongest visual emphasis; environment and package counts move into a compact status sidebar.
+- Put matching search results directly after search feedback, before update details and the featured catalogue, so the interface follows the user's intent rather than forcing a scroll past recommendations.
+- Use restrained accent surfaces, readable type, consistent corner radii, clear installed/update states, and responsive layouts that also work in dark mode.
+- Keep every existing action and warning available; visual hierarchy must not be achieved by hiding controls or reducing safety copy.
+
+### Validation
+- Preserve the existing data-testid hooks and native command pathways.
+- Run TypeScript, component, Chromium workflow, product-contract, and both macOS architecture build checks after the visual changes.

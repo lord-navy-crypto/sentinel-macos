@@ -125,14 +125,17 @@ export default function BetterTerminalDesk({initialTab="terminal",active=true}:{
   try{await navigator.clipboard.writeText(output);setNotice("已复制当前输出（检查是否包含隐私信息后再分享）。");}
   catch(e){setError("复制失败："+String(e));}
  }
- return <section className="panel better-terminal" data-testid="better-terminal-desk" aria-label="Better Terminal">
-  <div className="better-terminal-heading">
-   <div>
-    <p className="eyebrow">SENTINEL BOX / BETTER TERMINAL</p>
-    <h2>Better Terminal · 更好的终端</h2>
-    <p className="subtle">真正的 macOS PTY 登录 Shell + 免记命令的 Homebrew / 系统快捷操作。所有命令只在你明确点击后执行；已启动的任务在 Box 内切换工具时继续运行，直到结束、手动取消或关闭 Sentinel Box。</p>
+ return <section className="panel better-terminal" data-testid="better-terminal-desk" aria-label="Better Terminal" data-active-tab={tab}>
+  <div className="better-terminal-heading" data-session-state={session?"connected":"disconnected"}>
+   <div className="better-terminal-title-block">
+    <span className="better-terminal-app-mark" aria-hidden="true">⌘</span>
+    <div className="better-terminal-title-copy">
+     <p className="eyebrow">SENTINEL BOX / BETTER TERMINAL</p>
+     <h2>Better Terminal <span>· 更好的终端</span></h2>
+     <p className="subtle">真实的 macOS 登录 Shell、Homebrew 图形管理与常用系统操作。命令只在你明确操作后执行；已启动的任务可在 Box 内切换工具时继续运行。</p>
+    </div>
    </div>
-   <span className={"terminal-status"+(session?" connected":"")}>{session?"● 本机终端已连接":"○ 未连接"}</span>
+   <span className={"terminal-status"+(session?" connected":"")}><span className="terminal-status-dot" aria-hidden="true"/>{session?"本机终端已连接":"终端未连接"}</span>
   </div>
   {!native&&<p className="terminal-notice" role="note">这是网页预览，不能访问电脑终端。安装 macOS 版本后才会启用 PTY 命令。</p>}
   <div className="better-terminal-tabs" role="group" aria-label="Better Terminal pages">
@@ -156,6 +159,11 @@ export default function BetterTerminalDesk({initialTab="terminal",active=true}:{
   </div>
   {error&&<p role="alert" className="terminal-error">{error}</p>}
   {notice&&<p role="status" className="subtle">{notice}</p>}
+  <div className="terminal-console-chrome" style={{display:tab==="terminal"?"flex":"none"}} aria-hidden={tab!=="terminal"}>
+   <span className="terminal-window-controls" aria-hidden="true"><i/><i/><i/></span>
+   <strong>本机 Shell</strong>
+   <span className="terminal-console-session">{session?"SESSION ACTIVE":!native?"WEB PREVIEW":eventsReady?"READY TO CONNECT":"CONNECTING…"}</span>
+  </div>
   <div className="terminal-viewport" data-testid="terminal-output"
    style={{display:tab==="terminal"?"block":"none"}}>
    <TerminalScreen ref={screenRef} visible={active&&tab==="terminal"}
@@ -190,22 +198,28 @@ export default function BetterTerminalDesk({initialTab="terminal",active=true}:{
     <button type="button" className="secondary-button" onClick={()=>void openOfficial(INSTALL_GUIDE)}>官方安装说明 ↗</button>
    </div>}
    <HomebrewSoftwareCenter native={native} installed={!!brew?.installed} />
-   <div className="terminal-recipe-grid">
-    {TERMINAL_PRESETS.filter(x=>x.id.startsWith("brew-")).map(recipe=><button type="button" key={recipe.id}
-      disabled={!session||!brew?.installed} onClick={()=>requestRecipe(recipe)}>
-      <strong>{recipe.title}</strong><small>{recipe.description}</small><span>↗</span>
-    </button>)}
+   <div className="terminal-recipe-section">
+    <div className="terminal-recipe-heading"><div><h3>终端快捷命令</h3><p className="subtle">这些预设会在真实终端会话中执行；与上方图形化安装流程相互独立。</p></div><span>需要先启动终端</span></div>
+    <div className="terminal-recipe-grid">
+     {TERMINAL_PRESETS.filter(x=>x.id.startsWith("brew-")).map(recipe=><button type="button" key={recipe.id}
+       disabled={!session||!brew?.installed} onClick={()=>requestRecipe(recipe)}>
+       <strong>{recipe.title}</strong><small>{recipe.description}</small><span>↗</span>
+     </button>)}
+    </div>
+    <p className="subtle">Homebrew 的安装/更新可能联网，并可能改变本机软件。不执行网络下载脚本，不保存管理员凭据。</p>
    </div>
-   <p className="subtle">Homebrew 的安装/更新可能联网，并可能改变本机软件。不执行网络下载脚本，不保存管理员凭据。</p>
   </div>
   {tab==="guide"&&<div data-testid="terminal-recipes">
    <h3>macOS 常用操作</h3>
    <p className="subtle">每个按钮都是可查看、可验证的本机操作，不需要记忆对应命令。</p>
+   <div className="terminal-recipe-section">
+   <div className="terminal-recipe-heading"><div><h3>macOS 常用操作</h3><p className="subtle">只读检查与常见系统命令；每个操作都可查看说明。</p></div><span>快捷预设</span></div>
    <div className="terminal-recipe-grid">
     {TERMINAL_PRESETS.filter(x=>!x.id.startsWith("brew-")).map(recipe=><button type="button" key={recipe.id}
       disabled={!session} onClick={()=>requestRecipe(recipe)}>
       <strong>{recipe.title}</strong><small>{recipe.description}</small><span>↗</span>
     </button>)}
+   </div>
    </div>
    <div className="terminal-install-guide">
     <strong>权限说明</strong>

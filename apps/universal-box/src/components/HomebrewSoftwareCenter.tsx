@@ -262,69 +262,54 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
   {!native&&<p className="terminal-notice" role="note">网页预览不能操作本机软件。请在 Sentinel Box macOS 应用中使用。</p>}
   {native&&installed&&!eventsReady&&<p className="terminal-notice" role="status">正在连接 Homebrew 任务管理器，连接就绪后才能执行安装或更新。</p>}
   {native&&!installed&&<p className="terminal-notice" role="note">尚未检测到 Homebrew。先使用上方官方安装入口完成安装，再刷新状态。</p>}
-  <HomebrewStatusOverview native={native} installed={installed} eventsReady={eventsReady} kind={kind}
-   packagesCount={packages.length} loadingPackages={loadingPackages} checkingUpdates={checkingUpdates}
-   updatesChecked={updatesChecked} outdatedKind={outdatedKind} outdatedCount={outdated.length} />
-  {installed&&<>
-   <HomebrewWorkflowProgress step={workflowStep} searchPhase={searchPhase} queryChanged={Boolean(searchedQuery.trim())&&query.trim()!==searchedQuery} />
-   <div className="brew-kind-switch" role="group" aria-label="软件类型">
-    <button type="button" aria-pressed={kind==="cask"} disabled={running||!eventsReady||checkingUpdates||searching||loadingPackages} onClick={()=>selectKind("cask")}>Mac 应用（Cask）</button>
-    <button type="button" aria-pressed={kind==="formula"} disabled={running||!eventsReady||checkingUpdates||searching||loadingPackages} onClick={()=>selectKind("formula")}>命令行工具（Formula）</button>
-   </div>
-   <form className="brew-center-search" onSubmit={e=>{e.preventDefault();void search();}}>
-    <label htmlFor="brew-software-query">软件名称</label>
-    <input id="brew-software-query" className="field" data-testid="brew-software-query"
-     placeholder={kind==="cask"?"例如 Firefox、VLC、Visual Studio Code":"例如 wget、jq、python"}
-     value={query} onChange={e=>{setQuery(e.target.value);if(!pending)setWorkflowStep("search");}} maxLength={80} autoComplete="off"/>
-    <button type="submit" className="primary-button" data-testid="brew-search"
-     disabled={!native||!query.trim()||searching||running||checkingUpdates||loadingPackages}>{searching?"搜索中…":"搜索软件"}</button>
-    <button type="button" className="secondary-button" disabled={!native||running||!eventsReady||checkingUpdates||searching||loadingPackages}
-     onClick={()=>ask("update")}>更新软件索引</button>
-   </form>
-    <HomebrewSearchFeedback phase={searchPhase} query={searchedQuery} kind={kind} resultCount={results.length}
-     queryChanged={Boolean(searchedQuery.trim())&&query.trim()!==searchedQuery} />
-   <div className="brew-manager-summary">
-     <span>当前已安装：<strong>{packages.length}</strong> 项</span>
-     <span>{kind==="cask"?"Mac 应用":"命令行工具"}</span>
-     {updatesChecked&&outdatedKind===kind&&<span>待更新：<strong>{outdated.length}</strong> 项</span>}
-    </div>
-    {updatesChecked&&outdatedKind===kind&&<div className="brew-outdated-panel" data-testid="brew-outdated-list">
-     <div className="brew-results-heading"><strong>可升级的软件</strong><span>{outdated.length===0?"当前已是最新":"共 "+outdated.length+" 项"}</span></div>
-     {outdated.length===0?<p className="subtle">此类别没有发现可升级的软件。你可以更新软件索引后再检查一次。</p>:
-      <>
-       <div className="brew-outdated-actions">
-        <p className="subtle">先检查列表；批量升级会更新此类别内所有过期软件。</p>
-        <button type="button" className="primary-button" data-testid="brew-upgrade-all"
-         disabled={!native||running||!eventsReady||checkingUpdates||searching||loadingPackages||outdated.length===0}
-         onClick={()=>ask("upgrade_all")}>升级全部 {outdated.length} 项</button>
-       </div>
-       {outdated.map(name=><div className="brew-software-row" key={name}>
-        <div className="brew-software-name"><strong>{name}</strong><small className="brew-software-state is-outdated">有可用更新</small></div>
-        <button type="button" className="secondary-button" disabled={running||!eventsReady||checkingUpdates||searching||loadingPackages} onClick={()=>ask("upgrade",name)}>升级此项</button>
-       </div>)}
-      </>}
+  {installed&&<HomebrewWorkflowProgress step={workflowStep} searchPhase={searchPhase} queryChanged={Boolean(searchedQuery.trim())&&query.trim()!==searchedQuery} />}
+  <div className={"brew-manager-layout"+(installed?"":" is-unavailable")}>
+   <div className="brew-manager-primary">
+    {installed&&<div className="brew-discovery-panel">
+     <div className="brew-discovery-heading">
+      <div className="brew-discovery-copy">
+       <span className="brew-section-kicker">SOFTWARE DISCOVERY</span>
+       <h4>查找与管理软件</h4>
+       <p>搜索软件包、查看详情，再决定是否安装或升级。所有软件变更仍需明确确认。</p>
+      </div>
+      <div className="brew-kind-switch" role="group" aria-label="软件类型">
+       <button type="button" aria-pressed={kind==="cask"} disabled={running||!eventsReady||checkingUpdates||searching||loadingPackages} onClick={()=>selectKind("cask")}>Mac 应用 · Cask</button>
+       <button type="button" aria-pressed={kind==="formula"} disabled={running||!eventsReady||checkingUpdates||searching||loadingPackages} onClick={()=>selectKind("formula")}>命令行工具 · Formula</button>
+      </div>
+     </div>
+     <form className="brew-center-search" onSubmit={e=>{e.preventDefault();void search();}}>
+      <label htmlFor="brew-software-query">搜索 Homebrew 软件包</label>
+      <input id="brew-software-query" className="field" data-testid="brew-software-query"
+       placeholder={kind==="cask"?"例如 Firefox、VLC、Visual Studio Code":"例如 wget、jq、python"}
+       value={query} onChange={e=>{setQuery(e.target.value);if(!pending)setWorkflowStep("search");}} maxLength={80} autoComplete="off"/>
+      <button type="submit" className="primary-button" data-testid="brew-search"
+       disabled={!native||!query.trim()||searching||running||checkingUpdates||loadingPackages}>{searching?"搜索中…":"搜索软件"}</button>
+      <button type="button" className="secondary-button" disabled={!native||running||!eventsReady||checkingUpdates||searching||loadingPackages}
+       onClick={()=>ask("update")}>更新软件索引</button>
+     </form>
+     <HomebrewSearchFeedback phase={searchPhase} query={searchedQuery} kind={kind} resultCount={results.length}
+      queryChanged={Boolean(searchedQuery.trim())&&query.trim()!==searchedQuery} />
     </div>}
-   <div className="brew-featured-section" data-testid="brew-featured-apps">
-    <div className="brew-results-heading"><strong>{kind==="cask"?"常用 Mac 应用":"常用命令行工具"}</strong><span>无需搜索 · 确认后执行</span></div>
-    <div className="brew-featured-grid">
-     {(kind==="cask"?FEATURED_CASKS:FEATURED_FORMULAE).map(item=>{
-      const isInstalled=packages.includes(item.name);
-      return <article className="brew-featured-card" key={item.name}>
-       <div className="brew-featured-card-heading"><strong>{item.title}</strong><span>{item.category}</span></div>
-       <p>{item.description}</p>
-       {isInstalled?<div className="brew-featured-actions"><span className="brew-installed-badge">已安装</span>
-        <button type="button" className="secondary-button" disabled={running||!eventsReady||checkingUpdates||searching||loadingPackages} onClick={()=>ask("upgrade",item.name)}>升级</button></div>:
-        <button type="button" className="primary-button" data-testid={"brew-featured-install-"+item.name} disabled={running||!eventsReady||checkingUpdates||searching||loadingPackages} onClick={()=>ask("install",item.name)}>安装</button>}
-      </article>;
-     })}
-    </div>
    </div>
+   <aside className="brew-manager-sidebar">
+    <HomebrewStatusOverview native={native} installed={installed} eventsReady={eventsReady} kind={kind}
+     packagesCount={packages.length} loadingPackages={loadingPackages} checkingUpdates={checkingUpdates}
+     updatesChecked={updatesChecked} outdatedKind={outdatedKind} outdatedCount={outdated.length} />
+    {installed&&<div className="brew-manager-summary">
+     <div><span>已安装</span><strong>{packages.length}</strong><small>{kind==="cask"?"Mac 应用":"命令行工具"}</small></div>
+     {updatesChecked&&outdatedKind===kind
+      ?<div><span>待更新</span><strong>{outdated.length}</strong><small>{outdated.length===0?"本次检查已完成":"等待你确认升级"}</small></div>
+      :<div><span>更新状态</span><strong>未检查</strong><small>检查后显示待更新数量</small></div>}
+    </div>}
+   </aside>
+  </div>
+  {installed&&<>
    {searchPhase==="results"&&results.length>0&&<div className="brew-software-results" data-testid="brew-search-results">
     <div className="brew-results-heading"><strong>搜索结果</strong><span>“{searchedQuery}” · {results.length} 项</span></div>
     {results.map(name=>{
      const isInstalled=packages.includes(name);
      return <div className="brew-software-row" key={name}>
-      <div className="brew-software-name"><strong>{name}</strong><small className={"brew-software-state "+(isInstalled?"is-installed":"is-available")}>{isInstalled?"已安装":"可安装"}</small></div>
+      <div className="brew-software-name"><span className="brew-package-mark" aria-hidden="true">{name.slice(0,1).toUpperCase()}</span><div className="brew-software-copy"><strong>{name}</strong><small className={"brew-software-state "+(isInstalled?"is-installed":"is-available")}>{isInstalled?"已安装":"可安装"}</small></div></div>
       <div className="brew-software-row-actions">
        <button type="button" className="secondary-button" disabled={running||infoLoading||!eventsReady||checkingUpdates||searching||loadingPackages} onClick={()=>void showInfo(name)}>详情</button>
        {isInstalled?<><button type="button" className="secondary-button" disabled={running||!eventsReady||checkingUpdates||searching||loadingPackages} onClick={()=>ask("upgrade",name)}>升级</button>
@@ -336,6 +321,40 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
    </div>}
    {infoName&&<HomebrewInfoPanel name={infoName} loading={infoLoading} info={info} error={infoError} onClose={closeInfo} />}
 
+    {updatesChecked&&outdatedKind===kind&&<div className="brew-outdated-panel" data-testid="brew-outdated-list">
+     <div className="brew-results-heading"><strong>可升级的软件</strong><span>{outdated.length===0?"当前已是最新":"共 "+outdated.length+" 项"}</span></div>
+     {outdated.length===0?<p className="subtle">此类别没有发现可升级的软件。你可以更新软件索引后再检查一次。</p>:
+      <>
+       <div className="brew-outdated-actions">
+        <p className="subtle">先检查列表；批量升级会更新此类别内所有过期软件。</p>
+        <button type="button" className="primary-button" data-testid="brew-upgrade-all"
+         disabled={!native||running||!eventsReady||checkingUpdates||searching||loadingPackages||outdated.length===0}
+         onClick={()=>ask("upgrade_all")}>升级全部 {outdated.length} 项</button>
+       </div>
+       {outdated.map(name=><div className="brew-software-row" key={name}>
+        <div className="brew-software-name"><span className="brew-package-mark" aria-hidden="true">{name.slice(0,1).toUpperCase()}</span><div className="brew-software-copy"><strong>{name}</strong><small className="brew-software-state is-outdated">有可用更新</small></div></div>
+        <button type="button" className="secondary-button" disabled={running||!eventsReady||checkingUpdates||searching||loadingPackages} onClick={()=>ask("upgrade",name)}>升级此项</button>
+       </div>)}
+      </>}
+    </div>}
+   <div className="brew-featured-section" data-testid="brew-featured-apps">
+    <div className="brew-results-heading"><strong>{kind==="cask"?"常用 Mac 应用":"常用命令行工具"}</strong><span>无需搜索 · 确认后执行</span></div>
+    <div className="brew-featured-grid">
+     {(kind==="cask"?FEATURED_CASKS:FEATURED_FORMULAE).map(item=>{
+      const isInstalled=packages.includes(item.name);
+      return <article className="brew-featured-card" key={item.name}>
+       <div className="brew-featured-card-heading">
+        <span className="brew-featured-mark" aria-hidden="true">{item.category==="浏览器"?"◎":item.category==="开发"?"⌘":item.category==="媒体"?"▶":item.category==="办公"?"▤":item.category==="效率"?"▦":item.category==="网络"?"↗":item.category==="数据"?"{}":item.category==="图像"?"▧":"◇"}</span>
+        <div className="brew-featured-card-copy"><strong>{item.title}</strong><span>{item.category}</span></div>
+       </div>
+       <p>{item.description}</p>
+       {isInstalled?<div className="brew-featured-actions"><span className="brew-installed-badge">已安装</span>
+        <button type="button" className="secondary-button" disabled={running||!eventsReady||checkingUpdates||searching||loadingPackages} onClick={()=>ask("upgrade",item.name)}>升级</button></div>:
+        <button type="button" className="primary-button" data-testid={"brew-featured-install-"+item.name} disabled={running||!eventsReady||checkingUpdates||searching||loadingPackages} onClick={()=>ask("install",item.name)}>安装</button>}
+      </article>;
+     })}
+    </div>
+   </div>
    {packages.length>0&&<details className="brew-installed-panel"><summary>浏览已安装软件（前 100 项）</summary>
     <div className="brew-installed-chips">{packages.slice(0,100).map(name=><button type="button" key={name} disabled={running||!eventsReady||checkingUpdates||searching||loadingPackages} onClick={()=>{setQuery(name);void showInfo(name);}}>{name}</button>)}</div>
    </details>}
