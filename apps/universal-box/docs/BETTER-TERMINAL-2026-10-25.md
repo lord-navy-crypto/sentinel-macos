@@ -34,3 +34,34 @@
 - The terminal screen remains mounted while switching between the software center and console so its scrollback and alternate-screen state survive tabs. Closing the Better Terminal workspace still stops the managed local shell.
 - A bounded plain-text mirror is retained in memory for the existing explicit 'Copy output' action. ANSI styling is not preserved in the copied text. Neither this mirror nor xterm scrollback is persisted to storage.
 - Official documentation: https://xtermjs.org/docs/guides/using-addons/ and https://github.com/xtermjs/xterm.js
+
+
+## Software updates and background task history (2026-10-25)
+
+- The Homebrew software center can check outdated Casks or Formulae separately, list the exact returned package names, upgrade one selected item, or request a confirmed upgrade of the current category. Switching categories clears the previous category's update results so an old list cannot be mistaken for the active category.
+- The index update, single-package changes and category-wide upgrade remain explicit, confirmed actions. A single Homebrew mutation runs at a time; live stdout/stderr stays in the current operation panel, with cancellation targeting that operation's process group. The software-center view remains mounted while switching between Better Terminal tabs, so an active job and its in-memory history are not discarded just by opening the terminal or guide tab. Leaving the entire Better Terminal workspace still cancels the active job.
+- Added a compact recent-task history (last eight completed tasks) for success, failure or requested cancellation, completion time, duration and exit code. It is memory-only for the current UI session; raw logs and package output are not persisted. The UI deliberately does not invent a percentage for Homebrew operations because Homebrew does not provide a stable, general progress percentage.
+- New pure helper tests cover task outcome classification, duplicate-resistant bounded history, duration formatting and operation results. Browser preview checks that update checks remain disabled outside the native macOS app.
+
+### Additional acceptance checks
+
+1. Switch repeatedly between Casks and Formulae; confirm outdated results never carry over from the previous category.
+2. Check updates, inspect the exact outdated list, and verify both per-item and bulk-upgrade confirmations before execution.
+3. Cancel a long-running operation and verify the task status reflects the requested cancellation and the process exits; inspect the bounded task history.
+4. Confirm that reopening the app does not restore task history or previous command output.
+5. Confirm that no update or install runs automatically when the software center opens.
+
+
+## Sentinel Box product shell and built-in modules (2026-10-25)
+
+- Sentinel Box remains the single application, dashboard, navigation shell and tool catalog. Sentinel and Better Terminal are peer built-in modules, not separate products or separately launched applications.
+- The dashboard presents two clear primary module cards: Sentinel system observability/security, and Better Terminal's native PTY plus Homebrew software center. A direct dashboard action can open the Homebrew tab without making the terminal a separate app.
+- Sentinel specialist workbenches (investigation, comparison, processes/network, diagnostics/actions, and permissions/runtime) remain subordinate links within the same module section. They also remain discoverable through the sidebar, global command search and All Tools catalog.
+- Acceptance checks must confirm the dashboard shows both primary modules, that the Homebrew action opens the correct Better Terminal mode, and that Sentinel opens inside the same Box shell without adding duplicate navigation entries.
+
+
+## Background task lifetime across Sentinel Box workspaces
+
+- The Better Terminal component is first mounted only after explicit entry. After that, the Box keeps it mounted while the user navigates to Dashboard, Sentinel, or other workspaces. In-flight Homebrew operations and PTY state are therefore not destroyed on ordinary workspace switches.
+- Reopening the module through the Dashboard Homebrew shortcut selects the software-center tab without replacing or restarting the existing manager. A newly opened Box instance still requires explicit user action to start a terminal or any package mutation.
+- The native app's main-window destruction handler terminates managed Homebrew and PTY processes. The user can still manually cancel Homebrew or stop the PTY from within the module. Background tasks are not persisted after closing the app.

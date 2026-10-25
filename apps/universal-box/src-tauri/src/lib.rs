@@ -198,6 +198,7 @@ pub fn run() {
             better_terminal::better_terminal_brew_search,
             better_terminal::better_terminal_brew_list,
             better_terminal::better_terminal_brew_info,
+            better_terminal::better_terminal_brew_outdated,
             better_terminal::better_terminal_brew_start_operation,
             better_terminal::better_terminal_brew_cancel_operation,
             sentinel_service::sentinel_service_status,

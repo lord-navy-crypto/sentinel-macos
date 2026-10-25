@@ -5,7 +5,7 @@ import {openUrl} from "@tauri-apps/plugin-opener";
 import HomebrewSoftwareCenter from "./HomebrewSoftwareCenter";
 import TerminalScreen,{type TerminalScreenHandle} from "./TerminalScreen";
 import {
- TERMINAL_PRESETS,boundedTerminalLog,
+ TERMINAL_PRESETS,boundedTerminalLog,validTerminalInput,
  type TerminalRecipe
 } from "../lib/betterTerminal";
 
@@ -17,15 +17,16 @@ const INSTALL_GUIDE="https://docs.brew.sh/Installation";
 const INSTALL_RELEASE="https://github.com/Homebrew/brew/releases/latest";
 
 /** Real PTY console on native macOS; browser preview cannot execute commands. */
-export default function BetterTerminalDesk({initialTab="terminal"}:{initialTab?:"terminal"|"brew"}){
+export default function BetterTerminalDesk({initialTab="terminal",active=true}:{initialTab?:"terminal"|"brew";active?:boolean}){
  const native=isTauri();
  const [tab,setTab]=useState<"terminal"|"brew"|"guide">(initialTab);
+ useEffect(()=>{if(active)setTab(initialTab);},[active,initialTab]);
  const [session,setSession]=useState<TerminalInfo|null>(null);
  const sessionRef=useRef<TerminalInfo|null>(null);
  const listenerRef=useRef<UnlistenFn|null>(null);
  const [eventsReady,setEventsReady]=useState(false);
  const [running,setRunning]=useState(false);
- const [output,setOutput]=useState("Better Terminal · Sentinel\n命令不会自动运行。点击“启动本机终端”打开真正的 macOS 登录 Shell。\n");
+ const [output,setOutput]=useState("Better Terminal · Sentinel Box\n命令不会自动运行。点击“启动本机终端”打开真正的 macOS 登录 Shell。\n");
  const [command,setCommand]=useState("");
  const [brew,setBrew]=useState<BrewStatus|null>(null);
  const [pending,setPending]=useState<PendingAction|null>(null);
@@ -93,18 +94,19 @@ export default function BetterTerminalDesk({initialTab="terminal"}:{initialTab?:
   }
   catch(e){setError(String(e));}
  }
- async function send(data:string){
-  const active=sessionRef.current;if(!active){setError("请先启动终端会话。");return;}
-  if(!data||data.length>4096){setError("单次输入需要在 1–4096 字节内。");return;}
-  try{await invoke("better_terminal_write",{sessionId:active.session_id,data});setError("");}
-  catch(e){setError("命令发送失败："+String(e));}
+ async function send(data:string):Promise<boolean>{
+  const active=sessionRef.current;if(!active){setError("请先启动终端会话。");return false;}
+  if(!validTerminalInput(data)){setError("单次输入需要在 1–4096 UTF-8 字节内，不能包含 NUL 字符。");return false;}
+  try{await invoke("better_terminal_write",{sessionId:active.session_id,data});setError("");return true;}
+  catch(e){setError("命令发送失败："+String(e));return false;}
  }
  function submitInput(){
   const text=command;
   if(!text.trim())return;
   if(/\r|\n/.test(text)){setError("一条命令只能占一行；需要多行脚本时请使用外部 Terminal。");return;}
-  setCommand("");
-  void send(text+"\n");
+  void send(text+"\n").then(ok=>{
+   if(ok)setCommand(current=>current===text?"":current);
+  });
  }
  function requestRecipe(recipe:TerminalRecipe){
   if(recipe.modifies){setPending({label:recipe.title,command:recipe.command,reason:recipe.description});return;}
@@ -126,9 +128,9 @@ export default function BetterTerminalDesk({initialTab="terminal"}:{initialTab?:
  return <section className="panel better-terminal" data-testid="better-terminal-desk" aria-label="Better Terminal">
   <div className="better-terminal-heading">
    <div>
-    <p className="eyebrow">SENTINEL / BETTER TERMINAL</p>
+    <p className="eyebrow">SENTINEL BOX / BETTER TERMINAL</p>
     <h2>Better Terminal · 更好的终端</h2>
-    <p className="subtle">真正的 macOS PTY 登录 Shell + 免记命令的 Homebrew / 系统快捷操作。所有命令只在你明确点击后执行。</p>
+    <p className="subtle">真正的 macOS PTY 登录 Shell + 免记命令的 Homebrew / 系统快捷操作。所有命令只在你明确点击后执行；已启动的任务在 Box 内切换工具时继续运行，直到结束、手动取消或关闭 Sentinel Box。</p>
    </div>
    <span className={"terminal-status"+(session?" connected":"")}>{session?"● 本机终端已连接":"○ 未连接"}</span>
   </div>
@@ -156,7 +158,7 @@ export default function BetterTerminalDesk({initialTab="terminal"}:{initialTab?:
   {notice&&<p role="status" className="subtle">{notice}</p>}
   <div className="terminal-viewport" data-testid="terminal-output"
    style={{display:tab==="terminal"?"block":"none"}}>
-   <TerminalScreen ref={screenRef} visible={tab==="terminal"}
+   <TerminalScreen ref={screenRef} visible={active&&tab==="terminal"}
     onInput={data=>{if(sessionRef.current)void send(data);}}
     onResize={handleTerminalResize}/>
   </div>
@@ -172,7 +174,7 @@ export default function BetterTerminalDesk({initialTab="terminal"}:{initialTab?:
    <p className="subtle">Shell 使用当前登录用户权限，不是沙箱，也不是自动提权。输入的命令会真实影响本机；仅在信任来源时执行。此页面不持久化命令记录、终端内容或密码。</p>
    <p className="subtle">ANSI/VT 交互式终端：支持彩色输出、方向键和原生键盘交互；窗口尺寸自动适配。当前 {cols} 列 × {rows} 行。</p>
   </>}
-  {tab==="brew"&&<div className="terminal-brew" data-testid="terminal-brew-manager">
+  <div className="terminal-brew" data-testid="terminal-brew-manager" style={{display:tab==="brew"?"block":"none"}} aria-hidden={tab!=="brew"}>
    <div className="terminal-brew-status">
     <div><h3>Homebrew · 不用背命令</h3>
      <p className="subtle">状态：{brew?brew.installed?"已检测到本机 Homebrew":"尚未找到 Homebrew":"尚未检查"} · {brew?.executable??"未发现默认安装路径"}</p>
@@ -194,8 +196,8 @@ export default function BetterTerminalDesk({initialTab="terminal"}:{initialTab?:
       <strong>{recipe.title}</strong><small>{recipe.description}</small><span>↗</span>
     </button>)}
    </div>
-   <p className="subtle">Homebrew 的安装/更新可能联网，并可能改变本机软件。当前版本不提供自动批量安装、不执行网络下载脚本、不保存管理员凭据。</p>
-  </div>}
+   <p className="subtle">Homebrew 的安装/更新可能联网，并可能改变本机软件。不执行网络下载脚本，不保存管理员凭据。</p>
+  </div>
   {tab==="guide"&&<div data-testid="terminal-recipes">
    <h3>macOS 常用操作</h3>
    <p className="subtle">每个按钮都是可查看、可验证的本机操作，不需要记忆对应命令。</p>

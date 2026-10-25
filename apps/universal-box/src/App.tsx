@@ -58,8 +58,8 @@ type View = "better-terminal" | "sentinel" | "sentinel-investigate" | "sentinel-
 
 const menu: { id: View; name: string; symbol: string; description: string }[] = [
   { id: "overview", name: "Overview", symbol: "◫", description: "Your workspace at a glance" },
-  { id: "better-terminal", name: "Better Terminal / 更好的终端", symbol: ">_", description: "真实 macOS PTY 终端与 Homebrew 图形化安装管理" },
-  { id: "sentinel", name: "Sentinel · 系统概览与扫描", symbol: "◉", description: "原 Go 引擎、系统概览、Easy Scan、Review Queue 与完整 WebView" },
+  { id: "better-terminal", name: "Better Terminal · 终端与软件中心", symbol: ">_", description: "Sentinel Box 内置模块：原生 PTY 终端、Homebrew 图形化软件中心与任务管理" },
+  { id: "sentinel", name: "Sentinel · 系统安全中心", symbol: "◉", description: "Sentinel Box 内置模块：原 Go 引擎、系统概览、Easy Scan、Review Queue 与完整 WebView" },
   { id: "sentinel-investigate", name: "Sentinel · 证据调查", symbol: "⌕", description: "Go 证据搜索、关联图谱、事件时间线" },
   { id: "sentinel-compare", name: "Sentinel · 历史与变化比较", symbol: "⇄", description: "原 Sentinel 行为、参考基线与证据差异" },
   { id: "sentinel-system", name: "Sentinel · 进程与网络", symbol: "⌘", description: "系统进程、启动项、后台、网络历史和存储" },
@@ -108,7 +108,7 @@ const menu: { id: View; name: string; symbol: string; description: string }[] = 
 
 const navigationGroups:{title:string;items:View[]}[]=[
   {title:"常用工具 · FAVORITES",items:["overview","all-tools","files","quick-tools","vision-workflows","commons"]},
-  {title:"系统监控与安全 · SENTINEL",items:["better-terminal","sentinel","sentinel-investigate","sentinel-compare","sentinel-system","sentinel-actions","sentinel-limits"]},
+  {title:"Sentinel Box · 内置系统模块",items:["better-terminal","sentinel","sentinel-investigate","sentinel-compare","sentinel-system","sentinel-actions","sentinel-limits"]},
   {title:"文档与 PDF",items:["pdf-mini","creative-studio","writing","free-formats","workflows","extra-studio"]},
   {title:"图片、网页与媒体",items:["file-intake","web-capture","life-media","media-files","daily-studio","binary-compare"]},
   {title:"数据与办公",items:["tables","utilities","charts","office-privacy","universal","universal-box"]},
@@ -131,6 +131,8 @@ function taskSort(a: DeskTask, b: DeskTask): number {
 export default function App() {
   const [view, setView] = useState<View>("overview");
   const [toolMode,setToolMode] = useState("");
+  // Mount on first user entry, then retain the module and its active tasks across Box navigation.
+  const [terminalVisited,setTerminalVisited] = useState(false);
   const [theme,setTheme] = useState<"light"|"dark">(()=>{
     try{return localStorage.getItem("universal-box-theme")==="dark"?"dark":"light";}
     catch{return "light";}
@@ -169,6 +171,7 @@ export default function App() {
   const commandDialogRef=useRef<HTMLDivElement>(null);
   function openTool(target: string, module?: string) {
     if (!menu.some(item => item.id === target)) return;
+    if(target==="better-terminal")setTerminalVisited(true);
     const id=target as View;
     setToolMode(module ?? "");setView(id);setCommandOpen(false);setCommandQuery("");
     setRecentViews(previous=>[id,...previous.filter(v=>v!==id)].slice(0,8));
@@ -414,7 +417,7 @@ export default function App() {
             <summary className="nav-label">{group.title}</summary>
             {group.items.map(id=>{
               const item=menu.find(value=>value.id===id)!;
-              return <button type="button" key={id} aria-label={item.name} title={item.name} className={view===id?"nav-item active":"nav-item"}
+              return <button type="button" key={id} data-testid={"sidebar-view-"+id} aria-label={item.name} title={item.name} className={view===id?"nav-item active":"nav-item"}
                 aria-current={view===id?"page":undefined} onClick={()=>openTool(id)}>
                 <span className="nav-symbol" aria-hidden="true">{item.symbol}</span>
                 <span className="nav-name">{item.name}</span>
@@ -486,7 +489,9 @@ export default function App() {
           {view === "cards" && <Flashcards cards={workspace.cards} onChange={(cards) => setWorkspace((current) => ({ ...current, cards }))} />}
           <div hidden={view !== "focus"}><FocusTimer /></div>
           {view === "notes" && <section className="panel"><p className="eyebrow">LOCAL NOTES</p><h2>Keep ideas close at hand.</h2><p className="subtle">Your notes are automatically saved in this application. Export backups in Backup & privacy.</p><label className="field-label" htmlFor="my-notes">My notebook</label><textarea id="my-notes" className="field text-editor" rows={20} maxLength={50000} placeholder="Capture a thought, write a draft or summarise a concept…" value={workspace.notes} onChange={(event) => setWorkspace((current) => ({ ...current, notes: event.target.value }))}/><p className="subtle">{workspace.notes.length.toLocaleString()} characters</p></section>}
-          {view === "better-terminal" && <BetterTerminalDesk key={toolMode} initialTab={toolMode==="brew"?"brew":"terminal"}/>}
+          {terminalVisited&&<div hidden={view!=="better-terminal"} aria-hidden={view!=="better-terminal"} data-testid="better-terminal-persistent">
+            <BetterTerminalDesk active={view==="better-terminal"} initialTab={toolMode==="brew"?"brew":"terminal"}/>
+          </div>}
           {view.startsWith("sentinel")&&<SentinelCenter key={view+"-"+toolMode}
             initialLens={view==="sentinel"?"overview":view.slice("sentinel-".length)} initialRead={toolMode}
             onSendToTables={csv=>{

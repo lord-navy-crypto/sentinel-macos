@@ -20,6 +20,19 @@ test("Office-first homepage links ten existing working office tasks and keeps th
   const sidebarNames=await page.locator("nav.sidebar-nav button.nav-item").evaluateAll(items=>items.map(el=>el.getAttribute("aria-label")));
   assert.equal(sidebarNames.length,47,"All 40 original workspaces plus six Sentinel modules and Better Terminal remain accessible exactly once");
   assert.equal(new Set(sidebarNames).size,sidebarNames.length,"No duplicate workspace labels");
+  const sidebarIds=await page.locator("nav.sidebar-nav button.nav-item").evaluateAll(items=>items.map(el=>el.getAttribute("data-testid")));
+  assert.equal(new Set(sidebarIds).size,sidebarIds.length,"Each sidebar route has a unique stable test identifier");
+  assert.ok(sidebarIds.includes("sidebar-view-better-terminal"));
+  assert.ok(sidebarIds.includes("sidebar-view-sentinel"));
+  assert.equal(await page.getByTestId("home-core-modules").locator(".box-module-card").count(),2,
+   "Dashboard presents Sentinel and Better Terminal as two peer modules inside Sentinel Box");
+  assert.equal(await page.getByTestId("home-module-better-terminal").isVisible(),true);
+  assert.equal(await page.getByTestId("home-module-sentinel").isVisible(),true);
+  assert.equal(await page.getByTestId("home-better-terminal-brew").isVisible(),true,
+   "Dashboard exposes a direct route to the built-in Homebrew software center");
+  assert.equal(await page.getByTestId("home-sentinel-investigate").isVisible(),true,
+   "Sentinel specialist workbenches remain inside the same dashboard module section");
+  assert.match(await page.getByTestId("home-sentinel-workspaces").innerText(),/SENTINEL BOX · BUILT-IN MODULES/);
   assert.equal(await page.getByTestId("home-file-dropzone").isVisible(),true,
    "Users can select or drop files directly into the existing, user-approved preflight");
   assert.equal(await page.getByTestId("home-favorites").isVisible(),true);
@@ -51,6 +64,14 @@ test("Office-first homepage links ten existing working office tasks and keeps th
    if(task.id==="home-fast-pdf-size")assert.match(await page.locator('[aria-label="PDF mini editor modes"] .active-pill').innerText(),/Compress PDF/);
   }
   await home();
+  await page.getByTestId("home-better-terminal-brew").click();
+  await page.getByTestId("better-terminal-tab-brew").waitFor();
+  assert.equal(await page.getByTestId("better-terminal-tab-brew").getAttribute("aria-pressed"),"true",
+   "Dashboard opens the software center as a Better Terminal mode inside the Box");
+  await home();
+  await page.getByTestId("home-sentinel").click();
+  await page.getByRole("region",{name:"Sentinel Mac System Center"}).waitFor();
+  await home();
   assert.equal(await page.getByTestId("home-recent-exports").isVisible(),true);
   assert.equal(await page.locator(".hero-card").count(),0,
    "Old decorative hero no longer distracts from frequent office workflows");
@@ -66,15 +87,15 @@ test("Original Sentinel Go service is represented by six real modular workbenche
  try{
   await page.goto(root,{waitUntil:"domcontentloaded"});await page.locator(".app-shell").waitFor();
   const views=[
-   ["Sentinel · 系统概览与扫描","系统概览"],
-   ["Sentinel · 证据调查","证据调查"],
-   ["Sentinel · 历史与变化比较","变化和信任"],
-   ["Sentinel · 进程与网络","Mac 系统与网络"],
-   ["Sentinel · 诊断与安全操作","安全操作与恢复"],
-   ["Sentinel · 权限与运行状态","权限、运行状态与 AI"],
+   ["sentinel","系统概览"],
+   ["sentinel-investigate","证据调查"],
+   ["sentinel-compare","变化和信任"],
+   ["sentinel-system","Mac 系统与网络"],
+   ["sentinel-actions","安全操作与恢复"],
+   ["sentinel-limits","权限、运行状态与 AI"],
   ];
-  for(const [nav,heading] of views){
-   await page.locator("nav.sidebar-nav").getByRole("button",{name:nav,exact:true}).click();
+  for(const [route,heading] of views){
+   await page.getByTestId("sidebar-view-"+route).click();
    await page.getByRole("region",{name:"Sentinel Mac System Center"}).waitFor();
    assert.match(await page.locator("#main-content").innerText(),new RegExp(heading));
    assert.equal(await page.getByRole("button",{name:"打开完整 Sentinel 工作台",exact:true}).count(),1);
@@ -137,6 +158,17 @@ test("Better Terminal is navigable and Homebrew UI cannot run in browser-only pr
   await page.getByTestId("better-terminal-tab-brew").click();
   assert.equal(await page.getByTestId("terminal-brew-manager").isVisible(),true);
   await page.getByTestId("brew-software-center").waitFor();
+  await page.getByTestId("better-terminal-tab-terminal").click();
+  assert.equal(await page.getByTestId("brew-software-center").count(),1,"Switching tabs should keep the software task manager mounted");
+  assert.equal(await page.getByTestId("brew-software-center").isVisible(),false,"The software center should be hidden but remain alive in the background");
+  await page.getByTestId("better-terminal-tab-brew").click();
+  await page.getByRole("button",{name:"Sentinel Box Home"}).click();
+  assert.equal(await page.getByTestId("better-terminal-desk").count(),1,"Better Terminal stays mounted when switching Box workspaces");
+  assert.equal(await page.getByTestId("better-terminal-desk").isVisible(),false,"Hidden module does not cover the active Box workspace");
+  await page.getByTestId("home-better-terminal-brew").click();
+  assert.equal(await page.getByTestId("better-terminal-tab-brew").getAttribute("aria-pressed"),"true","Dashboard shortcut reselects Homebrew after Box navigation");
+  assert.equal(await page.getByTestId("brew-check-updates").count(),0,"Browser preview must not expose native Homebrew update controls");
+  assert.equal(await page.getByTestId("brew-upgrade-all").count(),0,"Bulk upgrades appear only after native update results are available");
   assert.equal(await page.getByTestId("brew-search").count(),0,"Browser preview must not expose native Homebrew execution");
   assert.equal(await page.getByTestId("brew-install-package").count(),0,"Browser preview must not pretend to install software");
   assert.equal(await page.getByText(/网页预览不能操作本机软件/).isVisible(),true);

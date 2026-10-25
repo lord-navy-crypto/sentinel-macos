@@ -340,3 +340,48 @@
 .terminal-screen-mount .xterm-viewport{scrollbar-width:thin;}
 .terminal-screen-mount .xterm-screen{max-width:100%;}
 @media(max-width:740px){.terminal-screen-shell{height:350px;min-height:220px;padding:8px;}}
+
+
+/* Better Terminal: explicit update review and bounded session-only task history. */
+.brew-outdated-panel,.brew-task-history{display:grid;gap:10px;border:1px solid var(--ub-border);border-radius:12px;padding:12px;background:var(--ub-subtle);}
+.brew-outdated-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+.brew-outdated-actions p{margin:0;flex:1;min-width:180px;}
+.brew-task-history>summary{cursor:pointer;font-weight:650;}
+.brew-task-history-list{display:grid;gap:8px;}
+.brew-task-history-row{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:start;gap:10px;border-top:1px solid var(--ub-border);padding-top:9px;}
+.brew-task-history-content{display:grid;gap:4px;min-width:0;}
+.brew-task-history-content strong{overflow-wrap:anywhere;font-size:12px;}
+.brew-task-history-content small{color:var(--ub-muted);font-size:11px;line-height:1.45;}
+.brew-task-outcome{align-self:start;border:1px solid var(--ub-border);border-radius:999px;padding:3px 8px;font-size:10px;font-weight:650;white-space:nowrap;}
+.brew-task-outcome.success{color:#237a4b;}
+.brew-task-outcome.failed{color:#b42318;}
+.brew-task-outcome.cancelled{color:var(--ub-muted);}
+
+
+/* Sentinel Box dashboard: present Sentinel and Better Terminal as peer modules
+   inside one toolbox, with Sentinel's specialist views nested beneath its card. */
+.home-box-modules .home-section-title{align-items:flex-start;}
+.box-module-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;}
+.box-module-card{display:flex;flex-direction:column;gap:14px;min-width:0;padding:18px;
+ border:1px solid var(--ub-border);border-radius:15px;background:var(--ub-subtle);}
+.box-module-card:hover{border-color:var(--ub-ring);}
+.box-module-heading{display:flex;align-items:center;gap:12px;}
+.box-module-icon{display:grid;place-items:center;width:48px;height:48px;flex-shrink:0;
+ border:1px solid var(--ub-border);border-radius:13px;background:var(--ub-panel);
+ color:var(--ub-primary);font-size:23px;font-weight:800;}
+.box-module-heading .eyebrow{margin:0 0 4px;font-size:10px;letter-spacing:.07em;}
+.box-module-heading h3{margin:0;font-size:19px;line-height:1.25;}
+.box-module-description{margin:0;color:var(--ub-muted);font-size:13px;line-height:1.65;max-width:65ch;}
+.box-module-points{display:flex;gap:7px;flex-wrap:wrap;}
+.box-module-points span{border:1px solid var(--ub-border);border-radius:999px;padding:5px 9px;
+ color:var(--ub-muted);font-size:11px;background:var(--ub-panel);}
+.box-module-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:auto;padding-top:2px;}
+.box-module-actions button{min-height:38px;}
+.box-module-actions button span{margin-left:5px;}
+.box-submodule-section{margin-top:20px;padding-top:18px;border-top:1px solid var(--ub-border);}
+.box-submodule-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px;}
+.box-submodule-heading h3{font-size:15px;margin:0;}
+.box-submodule-heading p{font-size:12px;margin:4px 0 0;}
+.box-submodule-grid{grid-template-columns:repeat(3,minmax(0,1fr));}
+@media(max-width:900px){.box-module-grid{grid-template-columns:1fr;}.box-submodule-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media(max-width:520px){.box-module-card{padding:14px;}.box-module-actions{flex-direction:column;align-items:stretch;}.box-submodule-grid{grid-template-columns:1fr;}}

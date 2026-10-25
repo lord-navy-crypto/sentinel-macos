@@ -55,28 +55,58 @@ export default function OfficeHome({favorites,recents,totalTools,onOpen,onSearch
    <span><strong>{exports.length}</strong> 次本次启动导出</span>
    <span className="home-facts-privacy">● 本机优先 · 无需订阅</span>
   </div>
-  <section className="home-section" data-testid="home-sentinel-workspaces" aria-label="Original Sentinel Mac system tools">
-   <header className="home-section-title"><div><p className="eyebrow">ORIGINAL SENTINEL · MAC SYSTEM</p>
-    <h2>哨兵系统工作台</h2>
-    <p className="subtle">原 Go 系统监控与调查引擎已作为内置服务接入。需要你主动启动服务；不会打开页面就扫描系统。</p>
+  <section className="home-section home-box-modules" data-testid="home-sentinel-workspaces" aria-label="Sentinel Box built-in modules">
+   <header className="home-section-title"><div><p className="eyebrow">SENTINEL BOX · BUILT-IN MODULES</p>
+    <h2>系统与终端 · 内置模块</h2>
+    <p className="subtle">Sentinel Box 是统一工具箱。Sentinel 负责系统观测与安全诊断，Better Terminal 负责本机终端和软件管理；两者共享同一套导航与工作区。</p>
    </div>
-   <button type="button" className="home-inline-action" onClick={()=>onOpen("sentinel")}>完整入口 →</button>
+   <button type="button" className="home-inline-action" onClick={()=>onOpen("all-tools")}>全部工具 →</button>
    </header>
-   <div className="home-task-grid sentinel-home-grid">
-    {([
-      ["better-terminal",">_","Better Terminal","PTY · Homebrew · 本机诊断"],
-      ["sentinel","◉","系统概览与扫描","Easy Scan · Review Queue"],
+   <div className="box-module-grid" data-testid="home-core-modules">
+    <article className="box-module-card box-module-terminal" data-testid="home-module-better-terminal">
+     <div className="box-module-heading">
+      <span className="box-module-icon" aria-hidden="true">&gt;_</span>
+      <div><p className="eyebrow">TERMINAL · SOFTWARE CENTER</p><h3>Better Terminal</h3></div>
+     </div>
+     <p className="box-module-description">在 Sentinel Box 内打开原生 macOS 终端；用图形化软件中心安装、查看和升级常用软件，不必记住一长串 Homebrew 命令。</p>
+     <div className="box-module-points" aria-label="Better Terminal features">
+      <span>原生 PTY 终端</span><span>Homebrew 软件中心</span><span>后台任务与日志</span>
+     </div>
+     <div className="box-module-actions">
+      <button type="button" className="primary-button" data-testid="home-better-terminal" onClick={()=>onOpen("better-terminal")}>打开 Better Terminal <span aria-hidden="true">→</span></button>
+      <button type="button" className="secondary-button" data-testid="home-better-terminal-brew" onClick={()=>onOpen("better-terminal","brew")}>直接打开软件中心</button>
+     </div>
+    </article>
+    <article className="box-module-card box-module-sentinel" data-testid="home-module-sentinel">
+     <div className="box-module-heading">
+      <span className="box-module-icon" aria-hidden="true">◉</span>
+      <div><p className="eyebrow">SYSTEM OBSERVABILITY · SAFETY</p><h3>Sentinel 系统中心</h3></div>
+     </div>
+     <p className="box-module-description">沿用原 Sentinel 引擎与已有安全边界，集中查看系统状态、执行只读检查、调查本机证据，并审查诊断和恢复操作。</p>
+     <div className="box-module-points" aria-label="Sentinel features">
+      <span>系统概览与 Easy Scan</span><span>证据与时间线</span><span>进程、网络与权限</span>
+     </div>
+     <div className="box-module-actions">
+      <button type="button" className="primary-button" data-testid="home-sentinel" onClick={()=>onOpen("sentinel")}>打开 Sentinel <span aria-hidden="true">→</span></button>
+     </div>
+    </article>
+   </div>
+   <div className="box-submodule-section">
+    <div className="box-submodule-heading"><div><h3>Sentinel 功能分区</h3><p className="subtle">这是 Sentinel 系统中心内部的工作区，不是额外安装的独立应用。</p></div></div>
+    <div className="home-task-grid box-submodule-grid">
+     {([
       ["sentinel-investigate","⌕","证据调查","Evidence Graph · Timeline"],
       ["sentinel-compare","⇄","历史与变化","Behavior · Trust"],
       ["sentinel-system","⌘","进程与网络","启动项 · 存储历史"],
       ["sentinel-actions","✚","系统诊断与安全操作","Doctor · 原 WebView 恢复中心"],
-      ["sentinel-limits","◈","权限与状态","Visibility · Runtime Logs"]
-    ] as const).map(([id,icon,title,description])=><button key={id} type="button" className="home-task"
+      ["sentinel-limits","◈","权限与运行状态","Visibility · Runtime Logs"]
+     ] as const).map(([id,icon,title,description])=><button key={id} type="button" className="home-task"
       data-testid={"home-"+id} onClick={()=>onOpen(id)}>
       <span className="home-task-icon" aria-hidden="true">{icon}</span>
       <span className="home-task-copy"><strong>{title}</strong><small>{description}</small></span>
       <span className="home-task-arrow" aria-hidden="true">↗</span>
-    </button>)}
+     </button>)}
+    </div>
    </div>
   </section>
   <section className="home-section" data-testid="office-home-shortcuts" aria-label="Everyday office shortcuts">
