@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { filterToolCatalog, matchesToolQuery, type CatalogSearchableTool } from "./toolCatalogSearch";
+import { catalogToolDescription, filterToolCatalog, matchesToolQuery, type CatalogSearchableTool } from "./toolCatalogSearch";
 import { visualToolFamily } from "./toolVisualCategories";
 
 const tools: CatalogSearchableTool[] = [
@@ -72,6 +72,30 @@ describe("Sentinel Box tool catalog discovery", () => {
     expect(filterToolCatalog([typography], {
       category: "文本与写作",
     })).toHaveLength(1);
+  });
+
+  it("puts everyday tools before the large Sentinel collection in the default catalog", () => {
+    const mixed: CatalogSearchableTool[] = [
+      { id: "sentinel-system-overview", name: "Sentinel · 系统总览 / Easy Scan", area: "Sentinel", view: "sentinel" },
+      { id: "word-count", name: "Word Counter", area: "Text", view: "utilities" },
+      { id: "pdf", name: "PDF Preview & Tools", area: "Files", view: "files" },
+      { id: "better-terminal-console", name: "Better Terminal · macOS 原生交互式终端", area: "Sentinel", view: "better-terminal" },
+    ];
+    expect(filterToolCatalog(mixed).map(tool => tool.id)).toEqual([
+      "pdf", "word-count", "better-terminal-console", "sentinel-system-overview",
+    ]);
+    expect(filterToolCatalog(mixed, { favorites: ["sentinel-system-overview"] }).map(tool => tool.id)[0])
+      .toBe("sentinel-system-overview");
+  });
+
+  it("uses an existing tool-title summary instead of repeating generic card text", () => {
+    const tool: CatalogSearchableTool = {
+      id: "pdf-batch-page-inventory",
+      name: "PDF Batch Page Audit · 多文档尺寸方向与页数清单",
+      area: "Files",
+      view: "workflows",
+    };
+    expect(catalogToolDescription(tool)).toContain("多文档尺寸方向与页数清单");
   });
 
   it("shows all tools for an empty query and filters favorites only when requested", () => {
