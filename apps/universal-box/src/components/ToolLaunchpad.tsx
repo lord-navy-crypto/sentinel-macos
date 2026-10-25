@@ -179,7 +179,7 @@ const CATALOG_SEARCH_SUGGESTIONS = [
  {id:"word-count",label:"字数统计",query:"字数统计"},
 ] as const;
 
-const NOT_LOCAL = ["Website AI / cloud models (needs configured AI connection)", "Speech-to-text transcription (microphone and speech engine integration)", "Public short-link hosting and shared workspaces"];
+const NOT_LOCAL = ["网站 AI / 云端模型（需要配置 AI 连接）", "公共短链接托管（需要外部服务）", "跨设备同步的共享工作区（需要外部托管服务）"];
 
 export default function ToolLaunchpad({onLaunch,initialCategory="全部"}:{onLaunch:(view:string,module?:string)=>void;initialCategory?:string}) {
  const [search,setSearch]=useState("");
@@ -223,7 +223,7 @@ export default function ToolLaunchpad({onLaunch,initialCategory="全部"}:{onLau
      <button type="button" className={showFavorites?"secondary-button favorites-only enabled":"secondary-button favorites-only"}
        onClick={()=>setShowFavorites(old=>!old)} aria-pressed={showFavorites} disabled={favorites.length===0&&!showFavorites}
        title={favorites.length===0?"先点击工具卡片上的 ☆ 收藏工具":"只显示已收藏的工具"}>★ 收藏 ({favorites.length})</button>
-     <div className="catalog-layout" role="group" aria-label="Catalog layout">
+     <div className="catalog-layout" role="group" aria-label="工具目录视图">
       <button type="button" data-testid="catalog-grid-mode" aria-label="卡片视图" className={layout==="grid"?"catalog-layout-active":""} aria-pressed={layout==="grid"} onClick={()=>setLayout("grid")}>▦</button>
       <button type="button" data-testid="catalog-list-mode" aria-label="列表视图" className={layout==="list"?"catalog-layout-active":""} aria-pressed={layout==="list"} onClick={()=>setLayout("list")}>☷</button>
      </div>
@@ -243,7 +243,7 @@ export default function ToolLaunchpad({onLaunch,initialCategory="全部"}:{onLau
    <div className="catalog-results-header" aria-live="polite"><span>找到 {filtered.length} 个工具入口</span><span>{search.trim()?"搜索："+search.trim():showFavorites?"仅显示已收藏的工具":category!=="全部"?"当前分类："+category:"支持中文任务、英文名称和文件格式搜索"}</span></div>
    {filtered.length?<div className={"tool-grid catalog-grid"+(layout==="list"?" catalog-list":"")} data-testid="catalog-results">
      {filtered.map(item=><div key={item.id} className="catalog-card">
-       <button className="catalog-favorite" type="button" aria-label={favorites.includes(item.id)?"Remove "+item.name+" from favorites":"Add "+item.name+" to favorites"}
+       <button className="catalog-favorite" type="button" aria-label={favorites.includes(item.id)?"取消收藏："+item.name:"收藏："+item.name}
          aria-pressed={favorites.includes(item.id)} onClick={()=>toggleFavorite(item.id)}>{favorites.includes(item.id)?"★":"☆"}</button>
        <button className="catalog-open" type="button" onClick={()=>onLaunch(item.view,item.module)}>
          <span className="catalog-icon" aria-hidden="true">{catalogToolSymbol(item)}</span>
@@ -255,10 +255,10 @@ export default function ToolLaunchpad({onLaunch,initialCategory="全部"}:{onLau
      <button className="secondary-button" type="button" onClick={()=>{setCategory("全部");setSearch("");setShowFavorites(false);}}>清除全部筛选</button>
    </div>}
    <div className="catalog-external">
-     <div><h3>Need something more advanced?</h3>
-       <p className="subtle">Optional third-party sites open in your default browser. They are clearly separate from your private local toolbox.</p></div>
-     <button className="secondary-button" type="button" onClick={()=>onLaunch("external")}>Browse external services ↗</button>
+     <div><h3>还需要更高级的服务？</h3>
+       <p className="subtle">可选的第三方网站会在默认浏览器中打开，并与本机工具箱明确区分。</p></div>
+     <button className="secondary-button" type="button" onClick={()=>onLaunch("external")}>浏览外部服务 ↗</button>
    </div>
-   <p className="subtle">Not available as offline equivalents: {NOT_LOCAL.join(" · ")}.</p>
+   <p className="subtle">需要外部服务或账号的功能：{NOT_LOCAL.join(" · ")}。</p>
  </section>;
 }
