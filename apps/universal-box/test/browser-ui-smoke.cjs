@@ -50,12 +50,20 @@ test("Desktop redesign: office home, command search, categorized list, and expli
   assert.ok(await page.getByTestId("palette-result").count()>0);
   await page.keyboard.press("Escape");
   await allTools(page);
+  const initialCards=await page.locator(".catalog-copy strong").allInnerTexts();
+  assert.ok(initialCards.slice(0,6).some(name=>/PDF|Word|文档/i.test(name)),
+    "The default catalog should surface everyday document tools near the top.");
+  assert.equal(initialCards.slice(0,6).some(name=>/^Sentinel\s*[·/]/i.test(name)),false,
+    "The large Sentinel subsystem collection should not dominate the default catalog's first screen.");
   await page.getByTestId("catalog-suggest-homebrew").click();
   assert.equal(await page.locator(".catalog-open").count(),1,"The Homebrew quick-search chip should find the existing software-center tool.");
   assert.match(await page.locator(".catalog-copy strong").first().innerText(),/Homebrew/i);
   assert.ok((await page.locator(".catalog-description").first().innerText()).length>0,"Catalog cards should explain the existing tool.");
   await page.locator("#all-tools-search").fill("软件中心");
   assert.equal(await page.locator(".catalog-open").count(),1,"Chinese task aliases should find the existing Homebrew tool.");
+  await page.locator("#all-tools-search").fill("");
+  await page.getByTestId("catalog-suggest-heic-jpg").click();
+  assert.equal(await page.locator(".catalog-open").count(),1,"HEIC to JPG search should find the existing photo compressor.");
   await page.locator("#all-tools-search").fill("");
   await page.getByTestId("catalog-suggest-pdf-compress").click();
   assert.ok(await page.locator(".catalog-open").count()>=2,"The PDF quick-search chip should find relevant tools.");
