@@ -234,7 +234,7 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
   {native&&installed&&!eventsReady&&<p className="terminal-notice" role="status">正在连接 Homebrew 任务管理器，连接就绪后才能执行安装或更新。</p>}
   {native&&!installed&&<p className="terminal-notice" role="note">尚未检测到 Homebrew。先使用上方官方安装入口完成安装，再刷新状态。</p>}
   {installed&&<>
-   <HomebrewWorkflowProgress step={workflowStep} searchPhase={searchPhase} queryChanged={query.trim()!==searchedQuery} />
+   <HomebrewWorkflowProgress step={workflowStep} searchPhase={searchPhase} queryChanged={Boolean(query.trim())&&query.trim()!==searchedQuery} />
    <div className="brew-kind-switch" role="group" aria-label="软件类型">
     <button type="button" aria-pressed={kind==="cask"} disabled={running||!eventsReady||checkingUpdates||searching||loadingPackages} onClick={()=>selectKind("cask")}>Mac 应用（Cask）</button>
     <button type="button" aria-pressed={kind==="formula"} disabled={running||!eventsReady||checkingUpdates||searching||loadingPackages} onClick={()=>selectKind("formula")}>命令行工具（Formula）</button>
