@@ -51,6 +51,33 @@ describe("Sentinel Box tool catalog discovery", () => {
     }).map(tool => tool.id)).toContain("file-intake");
   });
 
+  it("classifies office workflows and creative outputs before their document formats", () => {
+    expect(visualToolFamily({
+      id: "meeting-minutes",
+      name: "Meeting Minutes & Assigned Tasks · 会议纪要 Word＋行动 CSV",
+      area: "Office",
+      view: "workflows",
+    })).toBe("办公工作流");
+    expect(visualToolFamily({
+      id: "csv-docx-mail-merge",
+      name: "CSV Mail Merge → Word · 批量制作个性化 DOCX",
+      area: "Office",
+      view: "workflows",
+    })).toBe("办公工作流");
+    expect(visualToolFamily({
+      id: "one-click-project-kit",
+      name: "One-Click Project Kit · Word+PPTX+SVG 项目成果 ZIP",
+      area: "Creative",
+      view: "vision-workflows",
+    })).toBe("创作与设计");
+    expect(visualToolFamily({
+      id: "selected-xlsx-sheets",
+      name: "XLSX Multi-Sheet Export · Excel 工作表选择导出 CSV",
+      area: "Data",
+      view: "workflows",
+    })).toBe("表格与数据");
+  });
+
   it("prefers an exact tool title over broader token matches", () => {
     const mergeTools: CatalogSearchableTool[] = [
       { id: "csv-docx-mail-merge", name: "CSV Mail Merge → Word · 批量制作个性化 DOCX", area: "Office", view: "workflows" },
