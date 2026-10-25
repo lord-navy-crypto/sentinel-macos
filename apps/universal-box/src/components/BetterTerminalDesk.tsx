@@ -3,6 +3,7 @@ import {invoke,isTauri} from "@tauri-apps/api/core";
 import {listen,type UnlistenFn} from "@tauri-apps/api/event";
 import {openUrl} from "@tauri-apps/plugin-opener";
 import HomebrewSoftwareCenter from "./HomebrewSoftwareCenter";
+import TerminalScreen,{type TerminalScreenHandle} from "./TerminalScreen";
 import {
  TERMINAL_PRESETS,boundedTerminalLog,
  type TerminalRecipe
@@ -32,13 +33,14 @@ export default function BetterTerminalDesk({initialTab="terminal"}:{initialTab?:
  const [notice,setNotice]=useState("");
  const [cols,setCols]=useState(100);
  const [rows,setRows]=useState(28);
- const consoleRef=useRef<HTMLPreElement>(null);
+ const screenRef=useRef<TerminalScreenHandle|null>(null);
  useEffect(()=>{
   let alive=true;
   if(native){
    void listen<OutputChunk>("better-terminal:output",event=>{
     const active=sessionRef.current;
     if(active&&active.session_id===event.payload.session_id){
+     screenRef.current?.write(event.payload.data);
      setOutput(text=>boundedTerminalLog(text,event.payload.data));
     }
    }).then(unlisten=>{
@@ -57,14 +59,26 @@ export default function BetterTerminalDesk({initialTab="terminal"}:{initialTab?:
    }
   };
  },[native]);
- useEffect(()=>{if(consoleRef.current)consoleRef.current.scrollTop=consoleRef.current.scrollHeight;},[output]);
+ function handleTerminalResize(nextCols:number,nextRows:number){
+  const clampedCols=Math.min(220,Math.max(40,nextCols));
+  const clampedRows=Math.min(80,Math.max(12,nextRows));
+  setCols(clampedCols);setRows(clampedRows);
+  const active=sessionRef.current;
+  if(active){
+   void invoke("better_terminal_resize",{sessionId:active.session_id,cols:clampedCols,rows:clampedRows})
+    .catch(e=>setError("终端尺寸更新失败："+String(e)));
+  }
+ }
  async function startTerminal(){
   if(!native||!eventsReady||running||sessionRef.current)return;
   setRunning(true);setError("");setNotice("");
   try{
    const info=await invoke<TerminalInfo>("better_terminal_start",{cols,rows});
    sessionRef.current=info;setSession(info);
-   setOutput(text=>boundedTerminalLog(text,"\n已连接 "+info.shell+" · 当前用户权限 · 不会自动提升权限\n"));
+   const message="\r\n已连接 "+info.shell+" · 当前用户权限 · 不会自动提升权限\r\n";
+   screenRef.current?.write(message);
+   setOutput(text=>boundedTerminalLog(text,message));
+   screenRef.current?.focus();
   }catch(e){setError(String(e));}
   finally{setRunning(false);}
  }
@@ -72,7 +86,11 @@ export default function BetterTerminalDesk({initialTab="terminal"}:{initialTab?:
   const active=sessionRef.current;
   if(!active)return;
   sessionRef.current=null;setSession(null);setPending(null);
-  try{await invoke("better_terminal_stop",{sessionId:active.session_id});setNotice("终端会话已结束。");}
+  try{
+   await invoke("better_terminal_stop",{sessionId:active.session_id});
+   screenRef.current?.write("\r\n[终端会话已结束]\r\n");
+   setNotice("终端会话已结束。");
+  }
   catch(e){setError(String(e));}
  }
  async function send(data:string){
@@ -126,15 +144,23 @@ export default function BetterTerminalDesk({initialTab="terminal"}:{initialTab?:
    <button type="button" className="secondary-button" data-testid="terminal-stop" disabled={!session}
     onClick={()=>void stopTerminal()}>结束会话</button>
    <button type="button" className="secondary-button" disabled={!session} onClick={()=>void send("\u0003")}>中断当前命令 Ctrl+C</button>
-   <button type="button" className="secondary-button" onClick={()=>{setOutput("");setNotice("已清除屏幕显示，未删除任何文件。");}}>清屏</button>
+   <button type="button" className="secondary-button" onClick={()=>{
+     screenRef.current?.clear();setOutput("");
+     setNotice("已清除屏幕显示，未删除任何文件。");
+    }}>清屏</button>
+   <button type="button" className="secondary-button" data-testid="terminal-fit"
+     onClick={()=>{setTab("terminal");screenRef.current?.fit();screenRef.current?.focus();}}>适配窗口</button>
    <button type="button" className="secondary-button" onClick={()=>void copyOutput()}>复制输出</button>
   </div>
   {error&&<p role="alert" className="terminal-error">{error}</p>}
   {notice&&<p role="status" className="subtle">{notice}</p>}
+  <div className="terminal-viewport" data-testid="terminal-output"
+   style={{display:tab==="terminal"?"block":"none"}}>
+   <TerminalScreen ref={screenRef} visible={tab==="terminal"}
+    onInput={data=>{if(sessionRef.current)void send(data);}}
+    onResize={handleTerminalResize}/>
+  </div>
   {tab==="terminal"&&<>
-   <div className="terminal-viewport" data-testid="terminal-output">
-    <pre ref={consoleRef} tabIndex={0} aria-label="终端输出，按需复制">{output}</pre>
-   </div>
    <form className="terminal-input-row" onSubmit={e=>{e.preventDefault();submitInput();}}>
     <label htmlFor="terminal-input">命令输入</label>
     <input id="terminal-input" className="field" data-testid="terminal-command-input"
@@ -144,14 +170,7 @@ export default function BetterTerminalDesk({initialTab="terminal"}:{initialTab?:
     <button type="submit" className="primary-button" data-testid="terminal-send" disabled={!session||!command.trim()}>执行</button>
    </form>
    <p className="subtle">Shell 使用当前登录用户权限，不是沙箱，也不是自动提权。输入的命令会真实影响本机；仅在信任来源时执行。此页面不持久化命令记录、终端内容或密码。</p>
-   <div className="terminal-resize">窗口列数 <input type="number" min={40} max={220} value={cols}
-     onChange={e=>setCols(Math.min(220,Math.max(40,Number(e.target.value)||100)))} aria-label="终端列数"/>
-    行数 <input type="number" min={12} max={80} value={rows}
-     onChange={e=>setRows(Math.min(80,Math.max(12,Number(e.target.value)||28)))} aria-label="终端行数"/>
-    <button className="secondary-button" type="button" disabled={!session}
-     onClick={()=>void invoke("better_terminal_resize",{sessionId:session?.session_id,cols,rows})
-       .catch(e=>setError(String(e)))}>应用窗口尺寸</button>
-   </div>
+   <p className="subtle">ANSI/VT 交互式终端：支持彩色输出、方向键和原生键盘交互；窗口尺寸自动适配。当前 {cols} 列 × {rows} 行。</p>
   </>}
   {tab==="brew"&&<div className="terminal-brew" data-testid="terminal-brew-manager">
    <div className="terminal-brew-status">
