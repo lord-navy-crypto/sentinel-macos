@@ -34,3 +34,19 @@
 - The terminal screen remains mounted while switching between the software center and console so its scrollback and alternate-screen state survive tabs. Closing the Better Terminal workspace still stops the managed local shell.
 - A bounded plain-text mirror is retained in memory for the existing explicit 'Copy output' action. ANSI styling is not preserved in the copied text. Neither this mirror nor xterm scrollback is persisted to storage.
 - Official documentation: https://xtermjs.org/docs/guides/using-addons/ and https://github.com/xtermjs/xterm.js
+
+
+## Software updates and background task history (2026-10-25)
+
+- The Homebrew software center can check outdated Casks or Formulae separately, list the exact returned package names, upgrade one selected item, or request a confirmed upgrade of the current category. Switching categories clears the previous category's update results so an old list cannot be mistaken for the active category.
+- The index update, single-package changes and category-wide upgrade remain explicit, confirmed actions. A single Homebrew mutation runs at a time; live stdout/stderr stays in the current operation panel, with cancellation targeting that operation's process group.
+- Added a compact recent-task history (last eight completed tasks) for success, failure or requested cancellation, completion time, duration and exit code. It is memory-only for the current UI session; raw logs and package output are not persisted. The UI deliberately does not invent a percentage for Homebrew operations because Homebrew does not provide a stable, general progress percentage.
+- New pure helper tests cover task outcome classification, duplicate-resistant bounded history, duration formatting and operation results. Browser preview checks that update checks remain disabled outside the native macOS app.
+
+### Additional acceptance checks
+
+1. Switch repeatedly between Casks and Formulae; confirm outdated results never carry over from the previous category.
+2. Check updates, inspect the exact outdated list, and verify both per-item and bulk-upgrade confirmations before execution.
+3. Cancel a long-running operation and verify the task status reflects the requested cancellation and the process exits; inspect the bounded task history.
+4. Confirm that reopening the app does not restore task history or previous command output.
+5. Confirm that no update or install runs automatically when the software center opens.
