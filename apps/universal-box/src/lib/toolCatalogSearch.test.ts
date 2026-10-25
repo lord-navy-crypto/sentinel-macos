@@ -51,6 +51,14 @@ describe("Sentinel Box tool catalog discovery", () => {
     }).map(tool => tool.id)).toContain("file-intake");
   });
 
+  it("does not classify password tools as Word documents", () => {
+    expect(visualToolFamily({
+      name: "Local Password Generator",
+      area: "Privacy",
+      view: "universal",
+    })).toBe("办公小工具");
+  });
+
   it("classifies office workflows and creative outputs before their document formats", () => {
     expect(visualToolFamily({
       name: "Meeting Minutes & Assigned Tasks · 会议纪要 Word＋行动 CSV",
