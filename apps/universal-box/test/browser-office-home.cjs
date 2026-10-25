@@ -158,6 +158,11 @@ test("Better Terminal is navigable and Homebrew UI cannot run in browser-only pr
   assert.equal(await page.getByTestId("brew-software-center").count(),1,"Switching tabs should keep the software task manager mounted");
   assert.equal(await page.getByTestId("brew-software-center").isVisible(),false,"The software center should be hidden but remain alive in the background");
   await page.getByTestId("better-terminal-tab-brew").click();
+  await page.getByRole("button",{name:"Sentinel Box Home"}).click();
+  assert.equal(await page.getByTestId("better-terminal-desk").count(),1,"Better Terminal stays mounted when switching Box workspaces");
+  assert.equal(await page.getByTestId("better-terminal-desk").isVisible(),false,"Hidden module does not cover the active Box workspace");
+  await page.getByTestId("home-better-terminal-brew").click();
+  assert.equal(await page.getByTestId("better-terminal-tab-brew").getAttribute("aria-pressed"),"true","Dashboard shortcut reselects Homebrew after Box navigation");
   assert.equal(await page.getByTestId("brew-check-updates").count(),0,"Browser preview must not expose native Homebrew update controls");
   assert.equal(await page.getByTestId("brew-upgrade-all").count(),0,"Bulk upgrades appear only after native update results are available");
   assert.equal(await page.getByTestId("brew-search").count(),0,"Browser preview must not expose native Homebrew execution");
