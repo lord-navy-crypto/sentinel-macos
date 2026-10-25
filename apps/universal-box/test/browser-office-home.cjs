@@ -128,6 +128,12 @@ test("Better Terminal is navigable and Homebrew UI cannot run in browser-only pr
   await page.getByTestId("better-terminal-desk").waitFor();
   assert.equal(await page.getByTestId("terminal-start").isDisabled(),true);
   assert.equal(await page.getByTestId("terminal-send").isDisabled(),true);
+  assert.equal(await page.getByTestId("terminal-screen").isVisible(),true,
+    "real xterm renderer should be mounted even in browser preview");
+  assert.equal(await page.getByTestId("terminal-fit").isVisible(),true);
+  await page.getByTestId("terminal-fit").click();
+  assert.ok(await page.locator(".terminal-screen-mount .xterm").count()>=1,
+    "xterm should render an interactive ANSI/VT viewport");
   await page.getByTestId("better-terminal-tab-brew").click();
   assert.equal(await page.getByTestId("terminal-brew-manager").isVisible(),true);
   await page.getByTestId("brew-software-center").waitFor();
