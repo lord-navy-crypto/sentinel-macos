@@ -50,3 +50,11 @@
 3. Cancel a long-running operation and verify the task status reflects the requested cancellation and the process exits; inspect the bounded task history.
 4. Confirm that reopening the app does not restore task history or previous command output.
 5. Confirm that no update or install runs automatically when the software center opens.
+
+
+## Sentinel Box product shell and built-in modules (2026-10-25)
+
+- Sentinel Box remains the single application, dashboard, navigation shell and tool catalog. Sentinel and Better Terminal are peer built-in modules, not separate products or separately launched applications.
+- The dashboard presents two clear primary module cards: Sentinel system observability/security, and Better Terminal's native PTY plus Homebrew software center. A direct dashboard action can open the Homebrew tab without making the terminal a separate app.
+- Sentinel specialist workbenches (investigation, comparison, processes/network, diagnostics/actions, and permissions/runtime) remain subordinate links within the same module section. They also remain discoverable through the sidebar, global command search and All Tools catalog.
+- Acceptance checks must confirm the dashboard shows both primary modules, that the Homebrew action opens the correct Better Terminal mode, and that Sentinel opens inside the same Box shell without adding duplicate navigation entries.
