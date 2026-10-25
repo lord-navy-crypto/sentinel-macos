@@ -417,7 +417,7 @@ export default function App() {
             <summary className="nav-label">{group.title}</summary>
             {group.items.map(id=>{
               const item=menu.find(value=>value.id===id)!;
-              return <button type="button" key={id} aria-label={item.name} title={item.name} className={view===id?"nav-item active":"nav-item"}
+              return <button type="button" key={id} data-testid={"sidebar-view-"+id} aria-label={item.name} title={item.name} className={view===id?"nav-item active":"nav-item"}
                 aria-current={view===id?"page":undefined} onClick={()=>openTool(id)}>
                 <span className="nav-symbol" aria-hidden="true">{item.symbol}</span>
                 <span className="nav-name">{item.name}</span>
