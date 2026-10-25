@@ -3,7 +3,7 @@ import {invoke} from "@tauri-apps/api/core";
 import {listen,type UnlistenFn} from "@tauri-apps/api/event";
 import {boundedTerminalLog,validFormulaName} from "../lib/betterTerminal";
 import {homebrewTaskOutcome,prependHomebrewTaskHistory,formatHomebrewDuration,homebrewEventBelongsToActiveJob,type HomebrewTaskRecord} from "../lib/homebrewTaskManager";
-import {HomebrewActionConfirmation,HomebrewOperationPanel,HomebrewSearchFeedback,HomebrewWorkflowProgress,type HomebrewActionRequest,type HomebrewJobPhase,type HomebrewSearchPhase,type HomebrewWorkflowStep} from "./HomebrewWorkflowPanels";
+import {HomebrewActionConfirmation,HomebrewOperationPanel,HomebrewSearchFeedback,HomebrewStatusOverview,HomebrewWorkflowProgress,type HomebrewActionRequest,type HomebrewJobPhase,type HomebrewSearchPhase,type HomebrewWorkflowStep} from "./HomebrewWorkflowPanels";
 
 type BrewKind="formula"|"cask";
 type BrewOperation="install"|"uninstall"|"upgrade"|"update"|"upgrade_all";
@@ -233,6 +233,9 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
   {!native&&<p className="terminal-notice" role="note">网页预览不能操作本机软件。请在 Sentinel Box macOS 应用中使用。</p>}
   {native&&installed&&!eventsReady&&<p className="terminal-notice" role="status">正在连接 Homebrew 任务管理器，连接就绪后才能执行安装或更新。</p>}
   {native&&!installed&&<p className="terminal-notice" role="note">尚未检测到 Homebrew。先使用上方官方安装入口完成安装，再刷新状态。</p>}
+  <HomebrewStatusOverview native={native} installed={installed} eventsReady={eventsReady} kind={kind}
+   packagesCount={packages.length} loadingPackages={loadingPackages} checkingUpdates={checkingUpdates}
+   updatesChecked={updatesChecked} outdatedKind={outdatedKind} outdatedCount={outdated.length} />
   {installed&&<>
    <HomebrewWorkflowProgress step={workflowStep} searchPhase={searchPhase} queryChanged={Boolean(query.trim())&&query.trim()!==searchedQuery} />
    <div className="brew-kind-switch" role="group" aria-label="软件类型">
@@ -266,7 +269,7 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
          onClick={()=>ask("upgrade_all")}>升级全部 {outdated.length} 项</button>
        </div>
        {outdated.map(name=><div className="brew-software-row" key={name}>
-        <div className="brew-software-name"><strong>{name}</strong><small>有可用更新</small></div>
+        <div className="brew-software-name"><strong>{name}</strong><small className="brew-software-state is-outdated">有可用更新</small></div>
         <button type="button" className="secondary-button" disabled={running||!eventsReady||checkingUpdates||searching||loadingPackages} onClick={()=>ask("upgrade",name)}>升级此项</button>
        </div>)}
       </>}
@@ -291,11 +294,13 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
     {results.map(name=>{
      const isInstalled=packages.includes(name);
      return <div className="brew-software-row" key={name}>
-      <div className="brew-software-name"><strong>{name}</strong><small>{isInstalled?"已安装":"可安装"}</small></div>
-      <button type="button" className="secondary-button" disabled={running||!eventsReady||checkingUpdates||searching||loadingPackages} onClick={()=>void showInfo(name)}>详情</button>
-      {isInstalled?<><button type="button" className="secondary-button" disabled={running||!eventsReady||checkingUpdates||searching||loadingPackages} onClick={()=>ask("upgrade",name)}>升级</button>
-       <button type="button" className="secondary-button" disabled={running||!eventsReady||checkingUpdates||searching||loadingPackages} onClick={()=>ask("uninstall",name)}>卸载</button></>:
+      <div className="brew-software-name"><strong>{name}</strong><small className={"brew-software-state "+(isInstalled?"is-installed":"is-available")}>{isInstalled?"已安装":"可安装"}</small></div>
+      <div className="brew-software-row-actions">
+       <button type="button" className="secondary-button" disabled={running||!eventsReady||checkingUpdates||searching||loadingPackages} onClick={()=>void showInfo(name)}>详情</button>
+       {isInstalled?<><button type="button" className="secondary-button" disabled={running||!eventsReady||checkingUpdates||searching||loadingPackages} onClick={()=>ask("upgrade",name)}>升级</button>
+        <button type="button" className="secondary-button" disabled={running||!eventsReady||checkingUpdates||searching||loadingPackages} onClick={()=>ask("uninstall",name)}>卸载</button></>:
        <button type="button" className="primary-button" data-testid="brew-install-package" disabled={running||!eventsReady||checkingUpdates||searching||loadingPackages} onClick={()=>ask("install",name)}>安装</button>}
+      </div>
      </div>;
     })}
    </div>}

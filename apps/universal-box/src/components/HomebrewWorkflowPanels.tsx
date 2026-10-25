@@ -266,3 +266,61 @@ export function HomebrewWorkflowProgress({step, searchPhase, queryChanged = fals
     </ol>
   );
 }
+
+
+export function HomebrewStatusOverview({
+  native, installed, eventsReady, kind, packagesCount, loadingPackages,
+  checkingUpdates, updatesChecked, outdatedKind, outdatedCount,
+}: {
+  native: boolean;
+  installed: boolean;
+  eventsReady: boolean;
+  kind: "formula" | "cask";
+  packagesCount: number;
+  loadingPackages: boolean;
+  checkingUpdates: boolean;
+  updatesChecked: boolean;
+  outdatedKind: "formula" | "cask" | null;
+  outdatedCount: number;
+}) {
+  const environment = !native
+    ? {state: "preview", value: "网页预览模式", detail: "请在 Sentinel Box macOS 应用中管理本机软件。"}
+    : !installed
+      ? {state: "missing", value: "未检测到 Homebrew", detail: "安装 Homebrew 后即可启用图形化软件管理。"}
+      : !eventsReady
+        ? {state: "connecting", value: "正在连接任务管理器", detail: "连接完成前，软件变更操作保持禁用。"}
+        : {state: "ready", value: "本机已连接", detail: "搜索、查看详情及确认后执行均已就绪。"};
+  const packages = !native || !installed
+    ? {state: "unavailable", value: "暂不可用", detail: "需要在本机 macOS 应用中使用。"}
+    : loadingPackages
+      ? {state: "loading", value: "正在读取…", detail: "正在读取当前类别的已安装软件。"}
+      : {state: "available", value: packagesCount + " 项", detail: kind === "cask" ? "当前类别：Mac 应用（Cask）" : "当前类别：命令行工具（Formula）"};
+  const updates = !native || !installed
+    ? {state: "unavailable", value: "暂不可用", detail: "连接本机 Homebrew 后可检查更新。"}
+    : checkingUpdates
+      ? {state: "checking", value: "正在检查", detail: "正在查询当前类别的可升级软件。"}
+      : updatesChecked && outdatedKind === kind
+        ? outdatedCount > 0
+          ? {state: "outdated", value: outdatedCount + " 项待更新", detail: "检查结果仅适用于当前选中的类别。"}
+          : {state: "current", value: "已是最新", detail: "本次检查没有发现可升级的软件。"}
+        : {state: "unchecked", value: "尚未检查", detail: "点击“检查更新”获取当前类别的结果。"};
+  return (
+    <div className="brew-status-overview" role="group" aria-label="软件中心状态总览" data-testid="brew-status-overview">
+      <article className="brew-status-card environment" data-state={environment.state}>
+        <span className="brew-status-card-label">本机环境</span>
+        <strong>{environment.value}</strong>
+        <small>{environment.detail}</small>
+      </article>
+      <article className="brew-status-card packages" data-state={packages.state}>
+        <span className="brew-status-card-label">已安装软件</span>
+        <strong>{packages.value}</strong>
+        <small>{packages.detail}</small>
+      </article>
+      <article className="brew-status-card updates" data-state={updates.state}>
+        <span className="brew-status-card-label">更新状态</span>
+        <strong>{updates.value}</strong>
+        <small>{updates.detail}</small>
+      </article>
+    </div>
+  );
+}

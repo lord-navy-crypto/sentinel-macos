@@ -80,3 +80,10 @@
 - Added a four-step workflow indicator: Find software → Confirm operation → Execute and inspect logs → Review outcome and task history. It follows the user's current action rather than guessing progress from an older task state.
 - Search feedback now names the active Homebrew category (Mac apps / Cask or command-line tools / Formula), so the submitted query and category are visible together in empty, success, and failure states.
 - Added render regression coverage for each workflow step and category-aware search feedback. Existing confirmation safety, cancellation controls, logs, and task history remain in place.
+
+
+## Visual status overview and result-action grouping (2026-10-25)
+
+- Added a three-card Homebrew status overview for native connection readiness, installed-package count, and update-check state. It distinguishes browser preview, missing Homebrew, connection setup, loading, unchecked updates, current software, and stale-category update counts without presenting guesses as live state.
+- Search result actions now share a responsive action group. Installed/available/outdated labels use explicit state styling, while details, install, upgrade and uninstall controls remain visible and individually actionable.
+- Added component regression tests for connected, preview, missing, connecting, loading, unchecked, checking, current and outdated states.

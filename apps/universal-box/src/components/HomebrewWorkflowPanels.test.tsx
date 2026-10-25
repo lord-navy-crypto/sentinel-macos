@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import {
   HomebrewActionConfirmation,
   HomebrewOperationPanel,
+  HomebrewStatusOverview,
   HomebrewSearchFeedback,
   HomebrewWorkflowProgress,
   type HomebrewActionRequest,
@@ -168,5 +169,60 @@ describe("Homebrew action confirmation UI", () => {
     );
     expect(html).toContain('data-testid="brew-confirm-run"');
     expect(html).toContain('disabled=""');
+  });
+});
+
+
+describe("Homebrew status overview", () => {
+  const baseProps = {
+    native: true,
+    installed: true,
+    eventsReady: true,
+    kind: "cask" as const,
+    packagesCount: 12,
+    loadingPackages: false,
+    checkingUpdates: false,
+    updatesChecked: true,
+    outdatedKind: "cask" as const,
+    outdatedCount: 3,
+  };
+
+  it("shows the native connection, installed count, and update count together", () => {
+    const html = markup(<HomebrewStatusOverview {...baseProps} />);
+    expect(html).toContain('data-testid="brew-status-overview"');
+    expect(html).toContain('data-state="ready"');
+    expect(html).toContain("本机已连接");
+    expect(html).toContain("12 项");
+    expect(html).toContain("3 项待更新");
+    expect(html).toContain("Mac 应用（Cask）");
+  });
+
+  it("distinguishes browser preview and missing Homebrew from a connected native environment", () => {
+    const preview = markup(<HomebrewStatusOverview {...baseProps} native={false} installed={false} />);
+    const missing = markup(<HomebrewStatusOverview {...baseProps} installed={false} eventsReady={false} />);
+    const connecting = markup(<HomebrewStatusOverview {...baseProps} eventsReady={false} />);
+    expect(preview).toContain("网页预览模式");
+    expect(preview).toContain('class="brew-status-card environment" data-state="preview"');
+    expect(missing).toContain("未检测到 Homebrew");
+    expect(missing).toContain('class="brew-status-card environment" data-state="missing"');
+    expect(connecting).toContain("正在连接任务管理器");
+    expect(connecting).toContain('class="brew-status-card environment" data-state="connecting"');
+  });
+
+  it("does not show stale update counts for another category or while checking", () => {
+    const unchecked = markup(<HomebrewStatusOverview {...baseProps} kind="formula" />);
+    const checking = markup(<HomebrewStatusOverview {...baseProps} checkingUpdates={true} />);
+    const current = markup(<HomebrewStatusOverview {...baseProps} outdatedCount={0} />);
+    expect(unchecked).toContain("尚未检查");
+    expect(unchecked).not.toContain("3 项待更新");
+    expect(checking).toContain("正在检查");
+    expect(current).toContain("已是最新");
+  });
+
+  it("keeps loading and unavailable package counts explicit", () => {
+    const loading = markup(<HomebrewStatusOverview {...baseProps} loadingPackages={true} />);
+    const unavailable = markup(<HomebrewStatusOverview {...baseProps} native={false} installed={false} />);
+    expect(loading).toContain("正在读取…");
+    expect(unavailable).toContain("暂不可用");
   });
 });
