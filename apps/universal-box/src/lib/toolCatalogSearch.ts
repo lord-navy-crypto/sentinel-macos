@@ -1,4 +1,4 @@
-import { visualToolFamily } from "./toolVisualCategories";
+import { visualToolFamily, VISUAL_TOOL_FAMILIES } from "./toolVisualCategories";
 
 export type CatalogSearchableTool = {
   id: string;
@@ -108,7 +108,30 @@ const TOOL_DESCRIPTIONS: Record<string, string> = {
 };
 
 export function catalogToolDescription(tool: CatalogSearchableTool): string {
-  return TOOL_DESCRIPTIONS[tool.id] ?? "打开现有工作台，查看该工具当前支持的操作。";
+  const known = TOOL_DESCRIPTIONS[tool.id];
+  if (known) return known;
+
+  // Many catalog entries already carry a concise human-authored description after "·".
+  // Reuse that existing text instead of repeating the same generic card description.
+  const separator = tool.name.lastIndexOf("·");
+  if (separator >= 0) {
+    const detail = tool.name.slice(separator + 1).split("/").pop()?.trim();
+    if (detail) return `功能摘要：${detail}。打开工作台查看具体选项。`;
+  }
+
+  switch (visualToolFamily(tool)) {
+    case "PDF 与文档": return "打开文档工作台，查看页面整理、预览和导出选项。";
+    case "文本与写作": return "打开文本工作台，查看格式转换、清理和比较选项。";
+    case "图片与媒体": return "打开媒体工作台，查看图片、音频或视频处理选项。";
+    case "表格与数据": return "打开数据工作台，查看表格整理、分析和导出选项。";
+    case "网页与捕获": return "打开网页或屏幕捕获工作台，查看可用的采集选项。";
+    case "文件与批处理": return "打开文件工作台，查看检查、批处理和导出选项。";
+    case "局域网与共享": return "打开共享工作区，查看连接、传输或团队协作选项。";
+    case "终端与软件管理": return "打开 Better Terminal，查看终端、软件管理或系统检查选项。";
+    case "系统监控与安全": return "打开 Sentinel 工作区，查看对应的本机系统信息与诊断功能。";
+    case "学习与其他": return "打开学习工具，查看当前功能和可用选项。";
+    default: return "打开现有工作台，查看该工具当前支持的操作。";
+  }
 }
 
 export function catalogToolSymbol(tool: CatalogSearchableTool): string {
@@ -140,7 +163,18 @@ export function filterToolCatalog<T extends CatalogSearchableTool>(
   const query = options.query ?? "";
   const exactMatches = normalize(query) ? scoped.filter(item => hasExactToolMatch(item, query)) : [];
   const matched = exactMatches.length ? exactMatches : scoped.filter(item => matchesToolQuery(item, query));
+  const categoryOrder = new Map(VISUAL_TOOL_FAMILIES.map((family, index) => [family, index]));
   return matched
     .slice()
-    .sort((a, b) => Number(favorites.has(b.id)) - Number(favorites.has(a.id)));
+    .sort((a, b) => {
+      const favoriteDelta = Number(favorites.has(b.id)) - Number(favorites.has(a.id));
+      if (favoriteDelta) return favoriteDelta;
+      // The unfiltered catalog should lead with everyday productivity tools rather than
+      // letting a large subsystem collection dominate the first screen.
+      if (!normalize(query) && category === "全部") {
+        return (categoryOrder.get(visualToolFamily(a)) ?? Number.MAX_SAFE_INTEGER)
+          - (categoryOrder.get(visualToolFamily(b)) ?? Number.MAX_SAFE_INTEGER);
+      }
+      return 0;
+    });
 }
