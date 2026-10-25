@@ -23,6 +23,7 @@ describe("Homebrew task history helpers", () => {
     expect(homebrewTaskOutcome(1, false)).toBe("failed");
     expect(homebrewTaskOutcome(null, false)).toBe("failed");
     expect(homebrewTaskOutcome(-15, true)).toBe("cancelled");
+    expect(homebrewTaskOutcome(0, true)).toBe("success");
   });
 
   it("prepends newest tasks, deduplicates IDs, and enforces the history bound", () => {
