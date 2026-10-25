@@ -15,18 +15,23 @@ export function HomebrewSearchFeedback({
   query,
   kind,
   resultCount,
+  queryChanged = false,
 }: {
   phase: HomebrewSearchPhase;
   query: string;
   kind: "formula" | "cask";
   resultCount: number;
+  queryChanged?: boolean;
 }) {
   if (phase === "idle") return null;
   const term = query.trim();
   const category = kind === "cask" ? "Mac 应用（Cask）" : "命令行工具（Formula）";
   let title = "";
   let detail = "";
-  if (phase === "searching") {
+  if (queryChanged) {
+    title = "输入已更改，尚未重新搜索";
+    detail = (phase === "results" ? "当前显示的" + category + "结果" : "当前显示的搜索状态") + "仍对应上次提交的查询“" + term + "”（" + resultCount + " 项）。点击“搜索软件”后才会更新结果。";
+  } else if (phase === "searching") {
     title = "正在搜索 Homebrew";
     detail = "正在查询" + category + "中的“" + term + "”。旧结果已清除，避免误把上次结果当作本次结果。";
   } else if (phase === "results") {
@@ -41,9 +46,9 @@ export function HomebrewSearchFeedback({
   }
   return (
     <div
-      className={"brew-search-feedback is-" + phase}
+      className={"brew-search-feedback is-" + (queryChanged ? "stale" : phase)}
       data-testid="brew-search-feedback"
-      data-phase={phase}
+      data-phase={queryChanged ? "stale" : phase}
       role="status"
       aria-live="polite"
     >
@@ -321,6 +326,42 @@ export function HomebrewStatusOverview({
         <strong>{updates.value}</strong>
         <small>{updates.detail}</small>
       </article>
+    </div>
+  );
+}
+
+
+export function HomebrewInfoPanel({
+  name,
+  loading,
+  info,
+  error,
+  onClose,
+}: {
+  name: string;
+  loading: boolean;
+  info: string;
+  error: string;
+  onClose: () => void;
+}) {
+  const state = loading ? "loading" : error ? "failed" : info.trim() ? "success" : "empty";
+  return (
+    <div className={"brew-info-panel is-" + state} data-testid="brew-info-panel" data-state={state}>
+      <div className="brew-results-heading">
+        <strong>软件详情{name ? " · " + name : ""}</strong>
+        <button type="button" className="secondary-button" data-testid="brew-info-close" onClick={onClose}>关闭</button>
+      </div>
+      {loading ? (
+        <p className="brew-info-status" role="status" aria-live="polite">
+          <span className="brew-info-spinner" aria-hidden="true" />正在读取 {name} 的 Homebrew 详情…
+        </p>
+      ) : error ? (
+        <p className="brew-info-error" role="alert">读取软件详情失败：{error}</p>
+      ) : info.trim() ? (
+        <pre aria-label="软件详情内容" data-testid="brew-info-content">{info}</pre>
+      ) : (
+        <p className="brew-info-status" role="status">Homebrew 没有返回详情内容。可以关闭此面板后重试。</p>
+      )}
     </div>
   );
 }

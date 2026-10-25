@@ -87,3 +87,10 @@
 - Added a three-card Homebrew status overview for native connection readiness, installed-package count, and update-check state. It distinguishes browser preview, missing Homebrew, connection setup, loading, unchecked updates, current software, and stale-category update counts without presenting guesses as live state.
 - Search result actions now share a responsive action group. Installed/available/outdated labels use explicit state styling, while details, install, upgrade and uninstall controls remain visible and individually actionable.
 - Added component regression tests for connected, preview, missing, connecting, loading, unchecked, checking, current and outdated states.
+
+
+## Search freshness and package-detail loading states (2026-10-25)
+
+- When the search field changes after a completed search—including when the field is cleared—the UI explicitly marks the visible result list as belonging to the previous submitted query. It never implies that editing text has already refreshed the results.
+- Package detail requests now show a loading state, an explicit empty response, or a contextual error instead of a blank area. Closing a panel invalidates its pending UI response so a late request cannot unexpectedly reopen it.
+- Added regression tests for stale-query messaging and package-detail loading, success, empty and failed states.

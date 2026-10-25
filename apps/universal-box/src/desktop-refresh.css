@@ -477,3 +477,17 @@
 .brew-software-state.is-outdated{border-color:#e8cb94;color:#8a5a0a;background:#fff8e8;}
 .brew-installed-badge{display:inline-flex;align-items:center;border:1px solid #a8d5b8;border-radius:999px;padding:4px 8px;background:#edf8f0;color:#237a4b;font-size:10px;font-weight:750;}
 @media(max-width:740px){.brew-status-overview{grid-template-columns:1fr;}.brew-status-card{grid-template-columns:minmax(0,1fr);}.brew-software-row-actions{grid-column:1/-1;justify-content:flex-start;}}
+
+
+/* Search-input divergence and package-detail loading states need explicit feedback. */
+.brew-search-feedback.is-stale{border-color:#e8cb94;background:var(--ub-subtle);}
+.brew-search-feedback.is-stale .brew-state-dot{background:#b7791f;box-shadow:0 0 0 4px #fff1cf;}
+.brew-info-panel{gap:10px;}
+.brew-info-panel.is-loading{border-color:var(--ub-ring);}
+.brew-info-panel.is-failed{border-color:#efb7b2;}
+.brew-info-status,.brew-info-error{display:flex;align-items:center;gap:9px;margin:0;padding:10px 11px;border-radius:8px;font-size:12px;line-height:1.55;overflow-wrap:anywhere;}
+.brew-info-status{color:var(--ub-muted);background:var(--ub-subtle);}
+.brew-info-error{color:#b42318;background:#fff1f0;}
+.brew-info-spinner{width:13px;height:13px;flex:0 0 13px;border:2px solid var(--ub-border);border-top-color:var(--ub-primary);border-radius:50%;animation:brew-info-spin .8s linear infinite;}
+@keyframes brew-info-spin{to{transform:rotate(360deg);}}
+@media(prefers-reduced-motion:reduce){.brew-info-spinner{animation:none;border-top-color:var(--ub-border);}}

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
   HomebrewActionConfirmation,
+  HomebrewInfoPanel,
   HomebrewOperationPanel,
   HomebrewStatusOverview,
   HomebrewSearchFeedback,
@@ -46,6 +47,15 @@ describe("Homebrew search workflow UI", () => {
     expect(html).toContain('data-phase="failed"');
     expect(html).toContain("搜索未完成");
     expect(html).toContain("错误信息");
+  });
+
+  it("clearly labels old results when the input changes before another search", () => {
+    const html = markup(<HomebrewSearchFeedback phase="results" kind="cask" query="firefox" resultCount={3} queryChanged={true} />);
+    expect(html).toContain('data-phase="stale"');
+    expect(html).toContain("输入已更改，尚未重新搜索");
+    expect(html).toContain("firefox");
+    expect(html).toContain("3 项");
+    expect(html).toContain("点击“搜索软件”后才会更新结果");
   });
 });
 
@@ -232,5 +242,29 @@ describe("Homebrew status overview", () => {
     const unavailable = markup(<HomebrewStatusOverview {...unavailableProps} />);
     expect(loading).toContain("正在读取…");
     expect(unavailable).toContain("暂不可用");
+  });
+});
+
+
+describe("Homebrew package detail panel", () => {
+  it("shows a visible loading state instead of a blank panel", () => {
+    const html = markup(<HomebrewInfoPanel name="firefox" loading={true} info="" error="" onClose={() => undefined} />);
+    expect(html).toContain('data-testid="brew-info-panel"');
+    expect(html).toContain('data-state="loading"');
+    expect(html).toContain("正在读取 firefox 的 Homebrew 详情");
+    expect(html).toContain('role="status"');
+  });
+
+  it("shows details, explicit empty content, and recoverable errors", () => {
+    const success = markup(<HomebrewInfoPanel name="firefox" loading={false} info="Name: firefox" error="" onClose={() => undefined} />);
+    const empty = markup(<HomebrewInfoPanel name="firefox" loading={false} info="" error="" onClose={() => undefined} />);
+    const failed = markup(<HomebrewInfoPanel name="firefox" loading={false} info="" error="network unavailable" onClose={() => undefined} />);
+    expect(success).toContain('data-state="success"');
+    expect(success).toContain("Name: firefox");
+    expect(empty).toContain('data-state="empty"');
+    expect(empty).toContain("没有返回详情内容");
+    expect(failed).toContain('data-state="failed"');
+    expect(failed).toContain("network unavailable");
+    expect(failed).toContain('data-testid="brew-info-close"');
   });
 });
