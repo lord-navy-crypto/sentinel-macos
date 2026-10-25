@@ -1,7 +1,7 @@
 import {useEffect,useRef,useState} from "react";
 import {invoke} from "@tauri-apps/api/core";
 import {listen,type UnlistenFn} from "@tauri-apps/api/event";
-import {boundedTerminalLog,validFormulaName} from "../lib/betterTerminal";
+import {boundedTerminalLog,TERMINAL_LOG_LIMIT,terminalPlainText,validFormulaName} from "../lib/betterTerminal";
 import {homebrewTaskOutcome,prependHomebrewTaskHistory,formatHomebrewDuration,homebrewEventBelongsToActiveJob,type HomebrewTaskRecord} from "../lib/homebrewTaskManager";
 import {HomebrewActionConfirmation,HomebrewInfoPanel,HomebrewOperationPanel,HomebrewSearchFeedback,HomebrewStatusOverview,HomebrewWorkflowProgress,type HomebrewActionRequest,type HomebrewJobPhase,type HomebrewSearchPhase,type HomebrewWorkflowStep} from "./HomebrewWorkflowPanels";
 
@@ -59,6 +59,8 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
  const [jobPhase,setJobPhase]=useState<HomebrewJobPhase>("idle");
  const [activeActionLabel,setActiveActionLabel]=useState("");
  const [log,setLog]=useState("");
+ const [logTruncated,setLogTruncated]=useState(false);
+ const [logCopyStatus,setLogCopyStatus]=useState("");
  const [history,setHistory]=useState<HomebrewTaskRecord[]>([]);
  const jobRef=useRef<number|null>(null);
  const cancelRequestedRef=useRef(false);
@@ -69,6 +71,7 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
  const unlistenRef=useRef<UnlistenFn|null>(null);
  const kindRef=useRef<BrewKind>("cask");
  const infoRequestRef=useRef(0);
+ const logRef=useRef("");
 
  async function refreshPackages(target: BrewKind=kind){
   if(!native||!installed)return;
@@ -85,7 +88,12 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
    // Ignore late messages from a previous job or another window. Before invoke
    // resolves, jobActionRef tracks the pending operation even without its id.
    if(!homebrewEventBelongsToActiveJob(item.job_id,jobRef.current,jobActionRef.current!==null,finishedIdsRef.current))return;
-   setLog(text=>boundedTerminalLog(text,item.data));
+   setLogCopyStatus("");
+   const cleanChunk=terminalPlainText(item.data);
+   if(logRef.current.length+cleanChunk.length>TERMINAL_LOG_LIMIT)setLogTruncated(true);
+   const nextLog=boundedTerminalLog(logRef.current,item.data);
+   logRef.current=nextLog;
+   setLog(nextLog);
    if(item.stream!=="finished")return;
    finishedIdsRef.current.add(item.job_id);
    if(finishedIdsRef.current.size>50){
@@ -201,7 +209,7 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
   const action=pending;if(!action||!eventsReady||running)return;
   jobActionRef.current=action;jobStartedAtRef.current=Date.now();
   setActiveActionLabel(action.label);setJobPhase("starting");setWorkflowStep("execute");
-  setPending(null);setError("");setNotice("");setLog("");setRunning(true);setCancelPending(false);cancelRequestedRef.current=false;setJobStatus("正在启动…");
+  setPending(null);setError("");setNotice("");logRef.current="";setLog("");setLogTruncated(false);setLogCopyStatus("");setRunning(true);setCancelPending(false);cancelRequestedRef.current=false;setJobStatus("正在启动…");
   try{
    const id=await invoke<number>("better_terminal_brew_start_operation",{
     operation:action.operation,kind:action.kind??null,name:action.name??null
@@ -209,6 +217,16 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
    if(finishedRef.current.has(id)){finishedRef.current.delete(id);setJobId(null);jobRef.current=null;}
    else{jobRef.current=id;setJobId(id);setJobPhase("running");setJobStatus("正在执行 · 任务 #"+id);}
   }catch(e){setRunning(false);jobRef.current=null;setJobId(null);jobActionRef.current=null;jobStartedAtRef.current=null;setJobPhase("failed");setWorkflowStep("result");setJobStatus("启动失败");setError(String(e));}
+ }
+ async function copyOperationLog(){
+  if(!log.trim())return;
+  try{
+   if(!navigator.clipboard?.writeText)throw new Error("当前环境不支持剪贴板写入");
+   await navigator.clipboard.writeText(log);
+   setLogCopyStatus("日志已复制到剪贴板。");
+  }catch{
+   setLogCopyStatus("复制失败。请检查剪贴板权限，或选择日志文本后手动复制。");
+  }
  }
  async function cancel(){
   if(jobId===null||cancelRequestedRef.current||cancelPending)return;
@@ -322,7 +340,8 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
     <div className="brew-installed-chips">{packages.slice(0,100).map(name=><button type="button" key={name} disabled={running||!eventsReady||checkingUpdates||searching||loadingPackages} onClick={()=>{setQuery(name);void showInfo(name);}}>{name}</button>)}</div>
    </details>}
    {jobPhase!=="idle"&&<HomebrewOperationPanel phase={jobPhase} status={jobStatus} actionLabel={activeActionLabel}
-    log={log} canCancel={running&&jobId!==null} cancelPending={cancelPending} onCancel={()=>void cancel()} />}
+    log={log} logTruncated={logTruncated} copyStatus={logCopyStatus} onCopyLog={()=>void copyOperationLog()}
+    canCancel={running&&jobId!==null} cancelPending={cancelPending} onCancel={()=>void cancel()} />}
   </>}
   {history.length>0&&<details className="brew-task-history" data-testid="brew-task-history">
    <summary>最近任务（{history.length}）</summary>

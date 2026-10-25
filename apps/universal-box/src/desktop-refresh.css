@@ -491,3 +491,14 @@
 .brew-info-spinner{width:13px;height:13px;flex:0 0 13px;border:2px solid var(--ub-border);border-top-color:var(--ub-primary);border-radius:50%;animation:brew-info-spin .8s linear infinite;}
 @keyframes brew-info-spin{to{transform:rotate(360deg);}}
 @media(prefers-reduced-motion:reduce){.brew-info-spinner{animation:none;border-top-color:var(--ub-border);}}
+
+
+/* Make task output inspectable and exportable without hiding operation controls. */
+.brew-operation-log-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+.brew-operation-log-heading{display:flex;align-items:baseline;gap:9px;min-width:0;}
+.brew-operation-log-heading strong{font-size:12px;color:var(--ub-text);}
+.brew-operation-log-heading span{font-size:10px;color:var(--ub-muted);font-variant-numeric:tabular-nums;}
+.brew-operation-copy-status{margin:0;color:var(--ub-muted);font-size:11px;line-height:1.5;overflow-wrap:anywhere;}
+.brew-operation-truncation-note{margin:0;padding:9px 11px;border:1px solid #e8cb94;border-radius:8px;background:#fff8e8;color:#8a5a0a;font-size:11px;line-height:1.55;overflow-wrap:anywhere;}
+.brew-operation-log{max-height:340px;overflow:auto;overscroll-behavior:contain;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;tab-size:2;}
+@media(max-width:520px){.brew-operation-log-toolbar .secondary-button{width:100%;}}

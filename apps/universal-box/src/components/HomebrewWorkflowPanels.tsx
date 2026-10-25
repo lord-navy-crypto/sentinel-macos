@@ -102,6 +102,9 @@ export function HomebrewOperationPanel({
   canCancel,
   cancelPending,
   onCancel,
+  logTruncated = false,
+  copyStatus = "",
+  onCopyLog = () => undefined,
 }: {
   phase: ActiveJobPhase;
   status: string;
@@ -110,6 +113,9 @@ export function HomebrewOperationPanel({
   canCancel: boolean;
   cancelPending: boolean;
   onCancel: () => void;
+  logTruncated?: boolean;
+  copyStatus?: string;
+  onCopyLog?: () => void;
 }) {
   const state = JOB_PRESENTATION[phase];
   const active = phase === "starting" || phase === "running" || phase === "cancelling";
@@ -130,7 +136,22 @@ export function HomebrewOperationPanel({
           <span />
         </div>
       )}
-      <pre aria-label="Homebrew 操作日志" data-testid="brew-operation-log">{log || state.logPlaceholder}</pre>
+      <div className="brew-operation-log-toolbar">
+        <div className="brew-operation-log-heading">
+          <strong>任务输出</strong>
+          <span>{log ? log.length + " 字符" : "暂无输出"}</span>
+        </div>
+        <button type="button" className="secondary-button" data-testid="brew-copy-log" disabled={!log.trim()} onClick={onCopyLog}>
+          复制日志
+        </button>
+      </div>
+      {copyStatus && <p className="brew-operation-copy-status" role="status" aria-live="polite">{copyStatus}</p>}
+      {logTruncated && (
+        <p className="brew-operation-truncation-note" role="note" data-testid="brew-log-truncated">
+          日志超过保留上限：为避免占用过多内存，仅保留最近 160,000 个字符。复制操作也只会复制当前保留的内容，较早的输出已被丢弃。
+        </p>
+      )}
+      <pre className="brew-operation-log" aria-label="Homebrew 操作日志" data-testid="brew-operation-log">{log || state.logPlaceholder}</pre>
       {phase === "starting" && (
         <p className="brew-operation-note" role="status">正在建立本机任务会话；收到任务编号后才能发送取消请求。</p>
       )}

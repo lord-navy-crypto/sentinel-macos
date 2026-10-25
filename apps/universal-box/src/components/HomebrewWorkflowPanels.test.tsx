@@ -123,6 +123,40 @@ describe("Homebrew operation progress UI", () => {
     }
   });
 
+  it("shows copy-log controls and explains when earlier output has been truncated", () => {
+    const html = markup(
+      <HomebrewOperationPanel
+        phase="failed"
+        status="操作失败，请检查日志"
+        actionLabel="安装 Firefox"
+        log="stderr: download failed"
+        logTruncated={true}
+        copyStatus="日志已复制到剪贴板。"
+        onCopyLog={() => undefined}
+        canCancel={false}
+        cancelPending={false}
+        onCancel={() => undefined}
+      />,
+    );
+    expect(html).toContain('data-testid="brew-copy-log"');
+    expect(html).toContain("复制日志");
+    expect(html).toContain("stderr: download failed");
+    expect(html).toContain('data-testid="brew-log-truncated"');
+    expect(html).toContain("较早的输出已被丢弃");
+    expect(html).toContain("日志已复制到剪贴板");
+  });
+
+  it("disables copying when the task has not emitted log output", () => {
+    const html = markup(
+      <HomebrewOperationPanel
+        phase="starting" status="" actionLabel="安装 Firefox" log="" canCancel={false} cancelPending={false} onCancel={() => undefined}
+      />,
+    );
+    expect(html).toContain('data-testid="brew-copy-log"');
+    expect(html).toContain("disabled=\"\"");
+    expect(html).toContain("正在等待本机任务进程启动");
+  });
+
   it("exposes cancellation only when an operation has a cancellable task ID", () => {
     const running = markup(
       <HomebrewOperationPanel phase="running" status="" actionLabel="升级 Git" log="" canCancel={true} cancelPending={false} onCancel={() => undefined} />,

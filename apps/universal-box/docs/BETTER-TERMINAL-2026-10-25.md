@@ -94,3 +94,11 @@
 - When the search field changes after a completed search—including when the field is cleared—the UI explicitly marks the visible result list as belonging to the previous submitted query. It never implies that editing text has already refreshed the results.
 - Package detail requests now show a loading state, an explicit empty response, or a contextual error instead of a blank area. Closing a panel invalidates its pending UI response so a late request cannot unexpectedly reopen it.
 - Added regression tests for stale-query messaging and package-detail loading, success, empty and failed states.
+
+
+## Task log export and bounded-output disclosure (2026-10-25)
+
+- Added a visible copy-log control with disabled state when no real output has arrived, plus accessible success/failure feedback for clipboard access.
+- The log viewport now has a bounded height and wraps long output, keeping the task status and cancellation controls reachable on smaller screens.
+- When the in-memory log exceeds its 160,000-character cap, the UI explicitly discloses that older output was discarded and that copying exports only the retained text. This avoids presenting a truncated diagnostic log as complete.
+- Added regression coverage for copy controls, empty-log disabling, clipboard feedback and truncation disclosure.
