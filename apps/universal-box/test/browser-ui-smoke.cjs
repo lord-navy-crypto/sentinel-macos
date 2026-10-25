@@ -41,6 +41,13 @@ test("Desktop redesign: office home, command search, categorized list, and expli
   assert.ok(await page.getByTestId("palette-result").count()>0);
   await page.keyboard.press("Escape");
   await allTools(page);
+  await page.locator("#all-tools-search").fill("软件中心");
+  assert.equal(await page.locator(".catalog-open").count(),1,"Chinese task aliases should find the existing Homebrew tool.");
+  assert.match(await page.locator(".catalog-copy strong").first().innerText(),/Homebrew/i);
+  assert.ok((await page.locator(".catalog-description").first().innerText()).length>0,"Catalog cards should explain the existing tool.");
+  await page.locator("#all-tools-search").fill("压缩 PDF");
+  assert.ok(await page.locator(".catalog-open").count()>=2,"PDF compression intent should find the relevant existing tools.");
+  await page.locator("#all-tools-search").fill("");
   await page.getByTestId("catalog-list-mode").click();
   assert.equal(await page.getByTestId("catalog-results").evaluate(e=>e.classList.contains("catalog-list")),true);
   await page.getByRole("group",{name:"Filter tool category"}).getByRole("button",{name:"PDF 与文档"}).click();
@@ -69,7 +76,7 @@ test("Universal Box loads and every catalog entry routes to a mounted workspace"
   assert.ok(count>=85,"unexpectedly short tool catalog: "+count);
   const checked=[];
   for(let i=0;i<count;i++){
-   const name=(await page.locator(".catalog-open").nth(i).innerText()).split("\n")[0];
+   const name=(await page.locator(".catalog-copy strong").nth(i).innerText()).trim();
    await page.locator(".catalog-open").nth(i).click();
    await page.locator("#main-content").waitFor({state:"visible"});
    const text=(await page.locator("#main-content").innerText()).trim();
