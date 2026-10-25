@@ -47,7 +47,7 @@ describe("Homebrew search workflow UI", () => {
 });
 
 describe("Homebrew operation progress UI", () => {
-  const phases: HomebrewJobPhase[] = ["starting", "running", "cancelling", "success", "failed", "cancelled"];
+  const phases: Exclude<HomebrewJobPhase, "idle">[] = ["starting", "running", "cancelling", "success", "failed", "cancelled"];
   const expected: Record<Exclude<HomebrewJobPhase, "idle">, string> = {
     starting: "正在启动",
     running: "安装 / 更新进行中",
