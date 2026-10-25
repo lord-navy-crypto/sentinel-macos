@@ -132,7 +132,7 @@ export default function BetterTerminalDesk({initialTab="terminal",active=true}:{
     <div className="better-terminal-title-copy">
      <p className="eyebrow">SENTINEL BOX / BETTER TERMINAL</p>
      <h2>Better Terminal <span>· 更好的终端</span></h2>
-     <p className="subtle">真实的 macOS 登录 Shell、Homebrew 图形管理与常用系统操作。命令只在你明确操作后执行；已启动的任务可在 Box 内切换工具时继续运行。</p>
+     <p className="subtle">真实的 macOS 登录 Shell、Homebrew 图形管理与常用系统操作。命令只在你明确操作后执行；已启动的任务可在 Box 内切换工具时继续运行，直到任务结束、手动取消或关闭 Sentinel Box。</p>
     </div>
    </div>
    <span className={"terminal-status"+(session?" connected":"")}><span className="terminal-status-dot" aria-hidden="true"/>{session?"本机终端已连接":"终端未连接"}</span>
@@ -210,8 +210,6 @@ export default function BetterTerminalDesk({initialTab="terminal",active=true}:{
    </div>
   </div>
   {tab==="guide"&&<div data-testid="terminal-recipes">
-   <h3>macOS 常用操作</h3>
-   <p className="subtle">每个按钮都是可查看、可验证的本机操作，不需要记忆对应命令。</p>
    <div className="terminal-recipe-section">
    <div className="terminal-recipe-heading"><div><h3>macOS 常用操作</h3><p className="subtle">只读检查与常见系统命令；每个操作都可查看说明。</p></div><span>快捷预设</span></div>
    <div className="terminal-recipe-grid">
