@@ -134,3 +134,19 @@
 - [x] Step 2: Keep the home header actions, file intake, module cards, category shortcuts, and status facts readable and touch-friendly on narrow screens.
 - [x] Step 3: Add browser assertions for the 390px viewport width, single-column module/category grids, and dark-theme activation; capture desktop and dark-mode mobile dashboard screenshots.
 - [x] Step 4: Browser UI/workflow tests and Sentinel validation passed; Intel x86_64 and Apple Silicon ARM64 DMGs built, opened, and passed architecture/provenance checks on the latest app-code revision.
+
+
+### Task 9: Refine Homebrew software-center visual hierarchy
+
+**Files:**
+- Modify: `apps/universal-box/src/components/HomebrewSoftwareCenter.tsx`
+- Modify: `apps/universal-box/src/lib/homebrewTaskManager.ts`
+- Modify: `apps/universal-box/src/desktop-refresh.css`
+- Test: `apps/universal-box/src/components/HomebrewSoftwareCenter.test.ts`
+- Test: `apps/universal-box/src/lib/homebrewTaskManager.test.ts`
+
+- [x] Step 1: Make installed-package totals, Cask/Formula selection, featured package cards, and search controls easier to scan without changing the native Homebrew invocation path.
+- [x] Step 2: Add an explicit no-results state for valid searches with zero matches, and distinguish running, cancelling, successful, failed, and cancelled task status visually.
+- [x] Step 3: Give uninstall and bulk-upgrade confirmation dialogs stronger operation-specific visual cues while retaining the existing explicit confirmation and fixed-argument execution.
+- [x] Step 4: Add presentation tests for visible software-center controls and unit coverage for task status tones.
+- [ ] Step 5: Run TypeScript, unit tests, browser navigation/workflow tests, Sentinel validation, and both architecture-specific DMG checks against the final revision.
