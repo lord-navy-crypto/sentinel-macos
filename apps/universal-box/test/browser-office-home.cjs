@@ -137,6 +137,8 @@ test("Better Terminal is navigable and Homebrew UI cannot run in browser-only pr
   await page.getByTestId("better-terminal-tab-brew").click();
   assert.equal(await page.getByTestId("terminal-brew-manager").isVisible(),true);
   await page.getByTestId("brew-software-center").waitFor();
+  assert.equal(await page.getByTestId("brew-check-updates").isDisabled(),true,"Browser preview must not query the local Homebrew installation");
+  assert.equal(await page.getByTestId("brew-upgrade-all").count(),0,"Bulk upgrades appear only after native update results are available");
   assert.equal(await page.getByTestId("brew-search").count(),0,"Browser preview must not expose native Homebrew execution");
   assert.equal(await page.getByTestId("brew-install-package").count(),0,"Browser preview must not pretend to install software");
   assert.equal(await page.getByText(/网页预览不能操作本机软件/).isVisible(),true);
