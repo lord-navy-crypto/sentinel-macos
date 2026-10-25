@@ -52,9 +52,19 @@ const TOOL_ALIASES: Record<string, readonly string[]> = {
 const normalize = (value: string) =>
   value.normalize("NFKC").toLocaleLowerCase().trim().replace(/\s+/gu, " ");
 
+function hasExactToolMatch(tool: CatalogSearchableTool, query: string): boolean {
+  const term = normalize(query);
+  if (!term) return false;
+  return [
+    tool.name, tool.id, tool.area, tool.view, tool.module ?? "",
+    ...(TOOL_ALIASES[tool.id] ?? []),
+  ].some(field => normalize(field).includes(term));
+}
+
 export function matchesToolQuery(tool: CatalogSearchableTool, query: string): boolean {
   const term = normalize(query);
   if (!term) return true;
+  if (hasExactToolMatch(tool, term)) return true;
   const text = normalize([
     tool.id, tool.name, tool.area, tool.view, tool.module ?? "",
     visualToolFamily(tool), ...(TOOL_ALIASES[tool.id] ?? []),
@@ -123,12 +133,14 @@ export function filterToolCatalog<T extends CatalogSearchableTool>(
 ): T[] {
   const favorites = new Set(options.favorites ?? []);
   const category = options.category ?? "全部";
-  return items
-    .filter(item =>
-      (category === "全部" || visualToolFamily(item) === category)
-      && (!options.favoritesOnly || favorites.has(item.id))
-      && matchesToolQuery(item, options.query ?? ""),
-    )
+  const scoped = items.filter(item =>
+    (category === "全部" || visualToolFamily(item) === category)
+    && (!options.favoritesOnly || favorites.has(item.id)),
+  );
+  const query = options.query ?? "";
+  const exactMatches = normalize(query) ? scoped.filter(item => hasExactToolMatch(item, query)) : [];
+  const matched = exactMatches.length ? exactMatches : scoped.filter(item => matchesToolQuery(item, query));
+  return matched
     .slice()
     .sort((a, b) => Number(favorites.has(b.id)) - Number(favorites.has(a.id)));
 }
