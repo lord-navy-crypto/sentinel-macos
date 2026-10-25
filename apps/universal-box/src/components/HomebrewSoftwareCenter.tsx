@@ -26,6 +26,7 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
  const jobRef=useRef<number|null>(null);
  const finishedRef=useRef(new Set<number>());
  const unlistenRef=useRef<UnlistenFn|null>(null);
+ const kindRef=useRef<BrewKind>("cask");
 
  async function refreshPackages(target: BrewKind=kind){
   if(!native||!installed)return;
@@ -44,7 +45,7 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
     finishedRef.current.add(item.job_id);
     jobRef.current=null;setJobId(null);setRunning(false);
     setJobStatus(item.exit_code===0?"操作成功完成":"操作失败，请检查日志");
-    if(item.exit_code===0)void refreshPackages();
+    if(item.exit_code===0)void invoke<string[]>("better_terminal_brew_list",{kind:kindRef.current}).then(setPackages).catch(()=>{});
    }
   }).then(unlisten=>{if(alive)unlistenRef.current=unlisten;else unlisten();})
    .catch(e=>{if(alive)setError("无法监听 Homebrew 进度："+String(e));});
@@ -55,7 +56,8 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
     jobRef.current=null;
    }
   };
- },[native,installed,kind]);
+ },[native]);
+ useEffect(()=>{kindRef.current=kind;},[kind]);
  useEffect(()=>{if(native&&installed)void refreshPackages(kind);},[native,installed,kind]);
 
  async function search(){
