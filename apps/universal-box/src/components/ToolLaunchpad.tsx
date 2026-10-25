@@ -1,5 +1,6 @@
 import {useEffect,useMemo,useState} from "react";
 import {visualToolFamily,VISUAL_TOOL_FAMILIES} from "../lib/toolVisualCategories";
+import {catalogToolDescription,catalogToolSymbol,filterToolCatalog} from "../lib/toolCatalogSearch";
 import {SENTINEL_EXTRA_READS,SENTINEL_BASE_EXTRA_CARDS} from "../lib/sentinelSurfaceCatalog";
 
 export type LocalTool = {id:string;name:string;area:string;view:string;module?:string};
@@ -187,14 +188,12 @@ export default function ToolLaunchpad({onLaunch}:{onLaunch:(view:string,module?:
    catch{/* saved preferences are optional */}
  },[favorites]);
  const groups=VISUAL_TOOL_FAMILIES;
- const filtered=useMemo(()=>{
-   const term=search.trim().toLocaleLowerCase();
-   const matches=LOCAL_TOOLS.filter(item=>
-     (category==="全部"||visualToolFamily(item)===category)
-     &&(!showFavorites||favorites.includes(item.id))
-     &&(!term||(item.name+" "+item.id+" "+item.area).toLocaleLowerCase().includes(term)));
-   return matches.sort((a,b)=>Number(favorites.includes(b.id))-Number(favorites.includes(a.id)));
- },[category,search,favorites,showFavorites]);
+ const categoryCounts=useMemo(()=>new Map(groups.map(group=>[
+   group,group==="全部"?LOCAL_TOOLS.length:LOCAL_TOOLS.filter(item=>visualToolFamily(item)===group).length
+ ] as const)),[groups]);
+ const filtered=useMemo(()=>filterToolCatalog(LOCAL_TOOLS,{
+   query:search,category,favoritesOnly:showFavorites,favorites
+ }),[category,search,favorites,showFavorites]);
  function toggleFavorite(id:string){
    setFavorites(old=>old.includes(id)?old.filter(x=>x!==id):[...old,id].slice(0,40));
  }
@@ -202,14 +201,14 @@ export default function ToolLaunchpad({onLaunch}:{onLaunch:(view:string,module?:
    <div className="catalog-heading">
      <div><p className="eyebrow">SEARCH · FAVORITES · CATEGORIES</p>
        <h2>全部工具 · 找到就能用</h2>
-       <p className="subtle">按日常办公任务查找工具，也可以搜索名称；均跳转到已有功能，收藏仅保存在本机。</p>
+       <p className="subtle">按任务、名称、文件格式或中英文别名查找。每个入口都会打开现有功能，收藏只保存在本机。</p>
      </div>
-     <div className="catalog-count"><strong>{LOCAL_TOOLS.length}</strong><span>tool entries</span></div>
+     <div className="catalog-count"><strong>{LOCAL_TOOLS.length}</strong><span>个工具入口</span><small>全部可搜索 · 不隐藏高级功能</small></div>
    </div>
    <div className="catalog-filter-bar">
-     <label className="field-label" htmlFor="all-tools-search">Search the tool library
+     <label className="field-label" htmlFor="all-tools-search">搜索名称、任务、格式和中英文别名
        <input autoComplete="off" className="field" id="all-tools-search" type="search" value={search}
-         onChange={e=>setSearch(e.target.value)} placeholder="Try PDF, CSV, QR, image, audio, graph…" />
+         onChange={e=>setSearch(e.target.value)} placeholder="试试：压缩 PDF、HEIC 转 JPG、批量替换、Homebrew…" />
      </label>
      <button type="button" className={showFavorites?"secondary-button favorites-only enabled":"secondary-button favorites-only"}
        onClick={()=>setShowFavorites(old=>!old)} aria-pressed={showFavorites}>★ Favorites ({favorites.length})</button>
@@ -222,17 +221,17 @@ export default function ToolLaunchpad({onLaunch}:{onLaunch:(view:string,module?:
    <div className="category-scroll" role="group" aria-label="Filter tool category">
      {groups.map(group=><button type="button" key={group}
        className={category===group?"pill active-pill":"pill"} aria-pressed={category===group}
-       onClick={()=>setCategory(group)}>{group}</button>)}
+       onClick={()=>setCategory(group)}>{group}<span className="category-count">{categoryCounts.get(group)??0}</span></button>)}
    </div>
-   <div className="catalog-results-header" aria-live="polite"><span>找到 {filtered.length} 个工具</span><span>{favorites.length?"★ 收藏工具优先显示":"点击 ☆ 收藏常用工具"}</span></div>
+   <div className="catalog-results-header" aria-live="polite"><span>找到 {filtered.length} 个工具入口</span><span>{search?"匹配名称、任务别名与文件格式":favorites.length?"★ 收藏工具优先显示，可切换列表视图":"可按任务或格式搜索，也可收藏常用工具"}</span></div>
    {filtered.length?<div className={"tool-grid catalog-grid"+(layout==="list"?" catalog-list":"")} data-testid="catalog-results">
      {filtered.map(item=><div key={item.id} className="catalog-card">
        <button className="catalog-favorite" type="button" aria-label={favorites.includes(item.id)?"Remove "+item.name+" from favorites":"Add "+item.name+" to favorites"}
          aria-pressed={favorites.includes(item.id)} onClick={()=>toggleFavorite(item.id)}>{favorites.includes(item.id)?"★":"☆"}</button>
        <button className="catalog-open" type="button" onClick={()=>onLaunch(item.view,item.module)}>
-         <span className="catalog-icon" aria-hidden="true">{item.area==="Images"?"▧":item.area==="Math"?"∑":item.area==="Files"?"▤":item.area==="Office"?"▦":item.area==="Code"?"⌘":"◇"}</span>
-         <strong>{item.name}</strong><span className="catalog-area">{visualToolFamily(item)}</span>
-         <span className="tool-state">OPEN TOOL →</span>
+         <span className="catalog-icon" aria-hidden="true">{catalogToolSymbol(item)}</span>
+         <span className="catalog-copy"><strong>{item.name}</strong><span className="catalog-description">{catalogToolDescription(item)}</span><span className="catalog-area">{visualToolFamily(item)}</span></span>
+         <span className="tool-state">打开工具 →</span>
        </button>
      </div>)}
    </div>:<div className="catalog-empty"><strong>没有匹配的工具</strong><p className="subtle">Try a different keyword or clear the category and favorites filters.</p>
