@@ -172,9 +172,9 @@ export const LOCAL_TOOLS:LocalTool[] = [
 ];
 const NOT_LOCAL = ["Website AI / cloud models (needs configured AI connection)", "Speech-to-text transcription (microphone and speech engine integration)", "Public short-link hosting and shared workspaces"];
 
-export default function ToolLaunchpad({onLaunch}:{onLaunch:(view:string,module?:string)=>void}) {
+export default function ToolLaunchpad({onLaunch,initialCategory="全部"}:{onLaunch:(view:string,module?:string)=>void;initialCategory?:string}) {
  const [search,setSearch]=useState("");
- const [category,setCategory]=useState("全部");
+ const [category,setCategory]=useState(initialCategory);
  const [layout,setLayout]=useState<"grid"|"list">("grid");
  const [showFavorites,setShowFavorites]=useState(false);
  const [favorites,setFavorites]=useState<string[]>(()=>{
