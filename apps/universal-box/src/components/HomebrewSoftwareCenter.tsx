@@ -44,6 +44,7 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
  const [jobStatus,setJobStatus]=useState("");
  const [log,setLog]=useState("");
  const jobRef=useRef<number|null>(null);
+ const cancelRequestedRef=useRef(false);
  const finishedRef=useRef(new Set<number>());
  const unlistenRef=useRef<UnlistenFn|null>(null);
  const kindRef=useRef<BrewKind>("cask");
@@ -65,7 +66,8 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
     if(jobRef.current===item.job_id){jobRef.current=null;}
     else{finishedRef.current.add(item.job_id);}
     setJobId(null);setRunning(false);
-    setJobStatus(item.exit_code===0?"操作成功完成":"操作失败，请检查日志");
+    setJobStatus(cancelRequestedRef.current?"操作已取消":item.exit_code===0?"操作成功完成":"操作失败，请检查日志");
+    cancelRequestedRef.current=false;
     if(item.exit_code===0)void invoke<string[]>("better_terminal_brew_list",{kind:kindRef.current}).then(setPackages).catch(()=>{});
    }
   }).then(unlisten=>{if(alive)unlistenRef.current=unlisten;else unlisten();})
@@ -111,7 +113,7 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
  }
  async function confirm(){
   const action=pending;if(!action)return;
-  setPending(null);setError("");setNotice("");setLog("");setRunning(true);setJobStatus("正在启动…");
+  setPending(null);setError("");setNotice("");setLog("");setRunning(true);cancelRequestedRef.current=false;setJobStatus("正在启动…");
   try{
    const id=await invoke<number>("better_terminal_brew_start_operation",{
     operation:action.operation,kind:action.kind??null,name:action.name??null
@@ -122,8 +124,8 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
  }
  async function cancel(){
   if(jobId===null)return;
-  try{await invoke("better_terminal_brew_cancel_operation",{jobId});setJobStatus("已请求取消…");}
-  catch(e){setError("取消失败："+String(e));}
+  try{cancelRequestedRef.current=true;await invoke("better_terminal_brew_cancel_operation",{jobId});setJobStatus("已请求取消…");}
+  catch(e){cancelRequestedRef.current=false;setError("取消失败："+String(e));}
  }
  return <section className="brew-software-center" data-testid="brew-software-center">
   <div className="brew-center-toolbar">
