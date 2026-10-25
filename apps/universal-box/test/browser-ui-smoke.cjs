@@ -27,7 +27,10 @@ test("Desktop redesign: office home, command search, categorized list, and expli
  const page=await openApp(browser);const errors=[];page.on("pageerror",e=>errors.push(e.message));
  try{
   await page.getByTestId("redesigned-home").waitFor();
-  await page.getByTestId("home-category-pdf").click();
+  const pdfShortcut=page.getByTestId("home-category-pdf");
+  assert.ok(Number(await pdfShortcut.locator(".home-category-count").innerText())>0,
+    "Home category shortcuts should show live counts from the tool catalog.");
+  await pdfShortcut.click();
   const categoryButtons=page.getByRole("group",{name:"Filter tool category"});
   assert.equal(await categoryButtons.getByRole("button",{name:/PDF 与文档/}).getAttribute("aria-pressed"),"true",
     "Home category shortcuts should open the existing catalog with the selected category active.");
@@ -47,12 +50,20 @@ test("Desktop redesign: office home, command search, categorized list, and expli
   assert.ok(await page.getByTestId("palette-result").count()>0);
   await page.keyboard.press("Escape");
   await allTools(page);
-  await page.locator("#all-tools-search").fill("软件中心");
-  assert.equal(await page.locator(".catalog-open").count(),1,"Chinese task aliases should find the existing Homebrew tool.");
+  await page.getByTestId("catalog-suggest-homebrew").click();
+  assert.equal(await page.locator(".catalog-open").count(),1,"The Homebrew quick-search chip should find the existing software-center tool.");
   assert.match(await page.locator(".catalog-copy strong").first().innerText(),/Homebrew/i);
   assert.ok((await page.locator(".catalog-description").first().innerText()).length>0,"Catalog cards should explain the existing tool.");
+  await page.locator("#all-tools-search").fill("软件中心");
+  assert.equal(await page.locator(".catalog-open").count(),1,"Chinese task aliases should find the existing Homebrew tool.");
+  await page.locator("#all-tools-search").fill("");
+  await page.getByTestId("catalog-suggest-pdf-compress").click();
+  assert.ok(await page.locator(".catalog-open").count()>=2,"The PDF quick-search chip should find relevant tools.");
   await page.locator("#all-tools-search").fill("压缩 PDF");
   assert.ok(await page.locator(".catalog-open").count()>=2,"PDF compression intent should find the relevant existing tools.");
+  await page.locator("#all-tools-search").fill("no-such-sentinel-tool-xyz");
+  await page.getByTestId("catalog-empty").waitFor();
+  await page.getByRole("button",{name:"清除全部筛选"}).click();
   await page.locator("#all-tools-search").fill("");
   await page.getByTestId("catalog-list-mode").click();
   assert.equal(await page.getByTestId("catalog-results").evaluate(e=>e.classList.contains("catalog-list")),true);
