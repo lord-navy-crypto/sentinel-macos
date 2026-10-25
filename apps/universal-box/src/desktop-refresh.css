@@ -516,6 +516,10 @@
 
 /* Mobile pass: reclaim workspace width and keep the two core modules comfortable to use. */
 @media(max-width:560px){
+ /* The legacy desktop min-width otherwise forces a 760px page on phones. */
+ html,body,#root{min-width:0;width:100%;max-width:100%;}
+}
+@media(max-width:560px){
  .app-shell{grid-template-columns:56px minmax(0,1fr);}
  .app-shell .sidebar{min-width:0;padding:10px 6px;gap:8px;overflow-x:hidden;}
  .app-shell .brand-mark{width:36px;height:36px;min-width:36px;}
