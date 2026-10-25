@@ -39,6 +39,30 @@ test("Desktop redesign: office home, command search, categorized list, and expli
   assert.ok(await coreModules.getByTestId("home-better-terminal").isVisible());
   assert.ok(await coreModules.getByTestId("home-sentinel").isVisible());
   await page.screenshot({path:path.join(reportPath,"home-dashboard.png"),fullPage:true});
+  await page.setViewportSize({width:390,height:844});
+  const mobileLayout=await page.evaluate(()=>{
+    const shell=document.querySelector(".app-shell");
+    const moduleGrid=document.querySelector(".box-module-grid");
+    const categoryGrid=document.querySelector(".home-category-grid");
+    return {
+      viewport:window.innerWidth,
+      document:document.documentElement.scrollWidth,
+      shellColumns:getComputedStyle(shell).gridTemplateColumns,
+      moduleColumns:getComputedStyle(moduleGrid).gridTemplateColumns.split(" ").filter(Boolean).length,
+      categoryColumns:getComputedStyle(categoryGrid).gridTemplateColumns.split(" ").filter(Boolean).length
+    };
+  });
+  assert.ok(mobileLayout.document<=mobileLayout.viewport+1,
+    "Mobile home should not create horizontal page overflow: "+JSON.stringify(mobileLayout));
+  assert.equal(mobileLayout.moduleColumns,1,"Core module cards should stack on mobile.");
+  assert.equal(mobileLayout.categoryColumns,1,"Task categories should stack on mobile.");
+  assert.ok(await coreModules.getByTestId("home-better-terminal").isVisible());
+  await page.getByRole("button",{name:"Switch to dark mode"}).click();
+  assert.equal(await page.locator(".app-shell").getAttribute("data-theme"),"dark",
+    "The dashboard theme control should apply dark mode.");
+  await page.screenshot({path:path.join(reportPath,"home-dashboard-dark-mobile.png"),fullPage:true});
+  await page.getByRole("button",{name:"Switch to light mode"}).click();
+  await page.setViewportSize({width:1440,height:900});
   const pdfShortcut=page.getByTestId("home-category-pdf");
   assert.ok(Number(await pdfShortcut.locator(".home-category-count").innerText())>0,
     "Home category shortcuts should show live counts from the tool catalog.");
