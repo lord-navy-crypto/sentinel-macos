@@ -1,5 +1,5 @@
 import {describe,it,expect} from "vitest";
-import {validFormulaName,brewCommand,boundedTerminalLog,terminalPlainText,TERMINAL_PRESETS,TERMINAL_LOG_LIMIT} from "./betterTerminal";
+import {validFormulaName,brewCommand,boundedTerminalLog,terminalPlainText,TERMINAL_PRESETS,TERMINAL_LOG_LIMIT,validTerminalInput,TERMINAL_INPUT_LIMIT_BYTES} from "./betterTerminal";
 describe("Better Terminal user-approved Homebrew operations",()=>{
  it("accepts literal formula tokens, blocks injected commands, whitespace and flags",()=>{
   for(const name of ["jq","python@3.13","wget","git-lfs","libxml2","rust"]){
@@ -21,6 +21,16 @@ describe("Better Terminal user-approved Homebrew operations",()=>{
   expect(ids.has("brew-doctor")).toBe(true);
   expect(TERMINAL_PRESETS.find(x=>x.id==="brew-update")?.modifies).toBe(true);
   expect(TERMINAL_PRESETS.every(x=>!x.command.includes("sudo "))).toBe(true);
+ });
+ it("validates terminal writes using UTF-8 bytes rather than JavaScript string length",()=>{
+  expect(TERMINAL_INPUT_LIMIT_BYTES).toBe(4096);
+  expect(validTerminalInput("ls -la\n")).toBe(true);
+  expect(validTerminalInput("中".repeat(1365))).toBe(true);
+  expect(validTerminalInput("中".repeat(1366))).toBe(false);
+  expect(validTerminalInput("😀".repeat(1024))).toBe(true);
+  expect(validTerminalInput("😀".repeat(1025))).toBe(false);
+  expect(validTerminalInput("")).toBe(false);
+  expect(validTerminalInput("a\\0b")).toBe(false);
  });
  it("bounds temporary transcript and strips basic ANSI codes",()=>{
   expect(terminalPlainText("\x1b[32mHello\x1b[0m")).toBe("Hello");
