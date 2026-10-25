@@ -132,5 +132,5 @@
 
 - [x] Step 1: Reclaim horizontal space at phone widths by compacting the icon rail, topbar controls, and home content padding.
 - [x] Step 2: Keep the home header actions, file intake, module cards, category shortcuts, and status facts readable and touch-friendly on narrow screens.
-- [x] Step 3: Add browser assertions for 390px horizontal overflow, single-column module/category grids, and dark-theme activation; capture mobile and dark-mode dashboard screenshots.
-- [ ] Step 4: Run the new browser checks and the complete Sentinel and architecture-specific DMG validation on the final source revision.
+- [x] Step 3: Add browser assertions for the 390px viewport width, single-column module/category grids, and dark-theme activation; capture desktop and dark-mode mobile dashboard screenshots.
+- [x] Step 4: Browser UI/workflow tests and Sentinel validation passed; Intel x86_64 and Apple Silicon ARM64 DMGs built, opened, and passed architecture/provenance checks on the latest app-code revision.
