@@ -27,6 +27,17 @@ test("Desktop redesign: office home, command search, categorized list, and expli
  const page=await openApp(browser);const errors=[];page.on("pageerror",e=>errors.push(e.message));
  try{
   await page.getByTestId("redesigned-home").waitFor();
+  const coreModules=page.getByTestId("home-sentinel-workspaces");
+  assert.ok(await coreModules.getByTestId("home-module-better-terminal").isVisible(),
+    "Better Terminal should be visible as a first-class built-in module on the home dashboard.");
+  assert.ok(await coreModules.getByTestId("home-module-sentinel").isVisible(),
+    "Sentinel should be visible as a first-class built-in module on the home dashboard.");
+  assert.ok(await coreModules.evaluate(node=>{
+    const categories=document.querySelector('[data-testid="home-tool-categories"]');
+    return Boolean(categories&&(node.compareDocumentPosition(categories)&Node.DOCUMENT_POSITION_FOLLOWING));
+  }),"Built-in modules should appear before task-category browsing on the dashboard.");
+  assert.ok(await coreModules.getByTestId("home-better-terminal").isVisible());
+  assert.ok(await coreModules.getByTestId("home-sentinel").isVisible());
   const pdfShortcut=page.getByTestId("home-category-pdf");
   assert.ok(Number(await pdfShortcut.locator(".home-category-count").innerText())>0,
     "Home category shortcuts should show live counts from the tool catalog.");
