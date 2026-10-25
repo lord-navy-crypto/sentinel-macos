@@ -7,6 +7,26 @@ type BrewKind="formula"|"cask";
 type BrewOperation="install"|"uninstall"|"upgrade"|"update";
 type BrewEvent={job_id:number;stream:"stdout"|"stderr"|"finished";data:string;exit_code:number|null};
 type PendingAction={operation:BrewOperation;kind?:BrewKind;name?:string;label:string;reason:string};
+const FEATURED_CASKS=[
+ {name:"firefox",title:"Firefox",category:"浏览器",description:"开源网页浏览器"},
+ {name:"google-chrome",title:"Google Chrome",category:"浏览器",description:"常用网页浏览器"},
+ {name:"visual-studio-code",title:"Visual Studio Code",category:"开发",description:"代码编辑器"},
+ {name:"vlc",title:"VLC",category:"媒体",description:"多格式音视频播放器"},
+ {name:"libreoffice",title:"LibreOffice",category:"办公",description:"文档、表格和演示文稿"},
+ {name:"rectangle",title:"Rectangle",category:"效率",description:"窗口布局快捷管理"},
+ {name:"iterm2",title:"iTerm2",category:"开发",description:"高级终端应用"},
+ {name:"obs",title:"OBS Studio",category:"媒体",description:"录屏与直播工具"},
+] as const;
+const FEATURED_FORMULAE=[
+ {name:"git",title:"Git",category:"开发",description:"版本控制工具"},
+ {name:"node",title:"Node.js",category:"开发",description:"JavaScript 运行环境"},
+ {name:"python",title:"Python",category:"开发",description:"Python 语言环境"},
+ {name:"wget",title:"Wget",category:"网络",description:"命令行下载工具"},
+ {name:"jq",title:"jq",category:"数据",description:"JSON 数据处理"},
+ {name:"ffmpeg",title:"FFmpeg",category:"媒体",description:"音视频处理工具"},
+ {name:"ripgrep",title:"ripgrep",category:"开发",description:"快速搜索文件内容"},
+ {name:"imagemagick",title:"ImageMagick",category:"图像",description:"批量图像处理"},
+] as const;
 
 export default function HomebrewSoftwareCenter({native,installed}:{native:boolean;installed:boolean}){
  const [kind,setKind]=useState<BrewKind>("cask");
@@ -135,6 +155,21 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
    <div className="brew-manager-summary">
     <span>当前已安装：<strong>{packages.length}</strong> 项</span>
     <span>{kind==="cask"?"Mac 应用":"命令行工具"}</span>
+   </div>
+   <div className="brew-featured-section" data-testid="brew-featured-apps">
+    <div className="brew-results-heading"><strong>{kind==="cask"?"常用 Mac 应用":"常用命令行工具"}</strong><span>无需搜索 · 确认后执行</span></div>
+    <div className="brew-featured-grid">
+     {(kind==="cask"?FEATURED_CASKS:FEATURED_FORMULAE).map(item=>{
+      const isInstalled=packages.includes(item.name);
+      return <article className="brew-featured-card" key={item.name}>
+       <div className="brew-featured-card-heading"><strong>{item.title}</strong><span>{item.category}</span></div>
+       <p>{item.description}</p>
+       {isInstalled?<div className="brew-featured-actions"><span className="brew-installed-badge">已安装</span>
+        <button type="button" className="secondary-button" disabled={running} onClick={()=>ask("upgrade",item.name)}>升级</button></div>:
+        <button type="button" className="primary-button" data-testid={"brew-featured-install-"+item.name} disabled={running} onClick={()=>ask("install",item.name)}>安装</button>}
+      </article>;
+     })}
+    </div>
    </div>
    {results.length>0&&<div className="brew-software-results" data-testid="brew-search-results">
     <div className="brew-results-heading"><strong>搜索结果</strong><span>{results.length} 项</span></div>
