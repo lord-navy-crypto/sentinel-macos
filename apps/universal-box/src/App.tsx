@@ -513,7 +513,8 @@ export default function App() {
           {view === "file-intake" && <FileIntakeDesk onOpenTool={openTool}/> }
           {view === "binary-compare" && <BinaryCompareDesk onOpenTool={openTool}/> }
           {view === "system-health" && <SystemHealthDesk onOpenTool={openTool}/> }
-          {view === "all-tools" && <ToolLaunchpad onLaunch={openTool} />}
+          {view === "all-tools" && <ToolLaunchpad onLaunch={openTool}
+            initialCategory={toolMode.startsWith("catalog-category:")?toolMode.slice("catalog-category:".length):"全部"} />}
           {view === "quick-tools" && <QuickKitDesk key={toolMode+"-"+(sentinelHandoff?.kind==="log"?sentinelHandoff.id:"base")} initialMode={(toolMode||"text") as QuickKitMode} initialLogText={sentinelHandoff?.kind==="log"?sentinelHandoff.text:""} />}
           {view === "universal" && <UniversalDesk key={toolMode} initialMode={(toolMode||"json-csv") as UniversalMode} onOpenCsv={()=>openTool("tables")}/> }
           {view === "universal-box" && <UniversalBoxDesk key={toolMode} initialMode={(toolMode||"qr") as UniversalBoxMode}/> }
