@@ -316,3 +316,16 @@
  .brew-software-row{grid-template-columns:minmax(0,1fr) auto;align-items:start;}
  .brew-software-name{grid-column:1/-1;}
  .brew-center-toolbar{align-items:stretch;}}
+
+.brew-featured-section{display:grid;gap:10px;}
+.brew-featured-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;}
+.brew-featured-card{display:grid;align-content:start;gap:8px;min-width:0;border:1px solid var(--ub-border);border-radius:10px;padding:12px;background:var(--ub-subtle);}
+.brew-featured-card-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:7px;}
+.brew-featured-card-heading strong{font-size:13px;overflow-wrap:anywhere;}
+.brew-featured-card-heading span{font-size:10px;color:var(--ub-muted);white-space:nowrap;}
+.brew-featured-card p{margin:0;min-height:30px;color:var(--ub-muted);font-size:11px;line-height:1.45;}
+.brew-featured-card .primary-button,.brew-featured-card .secondary-button{justify-self:start;padding:6px 10px;font-size:11px;}
+.brew-featured-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.brew-installed-badge{font-size:11px;font-weight:750;color:var(--ub-primary);}
+@media(max-width:1000px){.brew-featured-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media(max-width:520px){.brew-featured-grid{grid-template-columns:1fr;}}
