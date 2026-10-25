@@ -329,3 +329,14 @@
 .brew-installed-badge{font-size:11px;font-weight:750;color:var(--ub-primary);}
 @media(max-width:1000px){.brew-featured-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
 @media(max-width:520px){.brew-featured-grid{grid-template-columns:1fr;}}
+
+/* Better Terminal: software update management */
+.brew-toolbar-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;}
+.brew-update-count{font-size:11px;font-weight:750;color:var(--ub-primary);white-space:nowrap;}
+.brew-outdated-panel{display:grid;gap:9px;padding:12px;border:1px solid var(--ub-ring);border-radius:10px;background:var(--ub-panel);}
+.brew-outdated-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+.brew-outdated-actions p{margin:0;max-width:620px;}
+.brew-outdated-panel .brew-software-row{padding:8px 0;}
+@media(max-width:620px){.brew-toolbar-actions{justify-content:flex-start;width:100%;}
+ .brew-outdated-actions{align-items:stretch;flex-direction:column;}
+ .brew-outdated-actions .primary-button{align-self:flex-start;}}
