@@ -6,7 +6,7 @@ use std::io::{Read, Write};
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
 
 const MAX_WRITE_BYTES: usize = 4096;
 const MAX_CHUNK_BYTES: usize = 8192;
@@ -51,6 +51,10 @@ pub struct BrewStatus {
     pub architecture: String,
     pub install_guide: &'static str,
 }
+fn require_main(window:&WebviewWindow)->Result<(),String>{
+    if window.label()!="main" {Err("Terminal is restricted to the Sentinel Box main window".into())}
+    else {Ok(())}
+}
 fn shell_path() -> &'static str {
     if Path::new("/bin/zsh").is_file() { "/bin/zsh" } else { "/bin/bash" }
 }
@@ -68,7 +72,7 @@ fn validate_write(data:&str)->Result<(),String>{
     Ok(())
 }
 #[tauri::command]
-pub fn better_terminal_brew_status()->BrewStatus {
+fn detect_brew_status()->BrewStatus {
     BrewStatus {
         installed:active_brew().is_some(),
         executable:active_brew().map(str::to_string),
@@ -77,8 +81,14 @@ pub fn better_terminal_brew_status()->BrewStatus {
     }
 }
 #[tauri::command]
-pub fn better_terminal_start(app:AppHandle,state:State<'_,BetterTerminalState>,
+pub fn better_terminal_brew_status(window:WebviewWindow)->Result<BrewStatus,String>{
+    require_main(&window)?;
+    Ok(detect_brew_status())
+}
+#[tauri::command]
+pub fn better_terminal_start(app:AppHandle,window:WebviewWindow,state:State<'_,BetterTerminalState>,
     cols:u16,rows:u16)->Result<TerminalInfo,String>{
+    require_main(&window)?;
     let mut guard=state.active.lock().map_err(|_|"Terminal session unavailable")?;
     if let Some(ref mut current)=*guard {
         if current.child.try_wait().map_err(|e|e.to_string())?.is_none() {
@@ -108,7 +118,9 @@ pub fn better_terminal_start(app:AppHandle,state:State<'_,BetterTerminalState>,
                 Ok(0)|Err(_)=>break,
                 Ok(n)=>{
                     let data=String::from_utf8_lossy(&buffer[..n]).into_owned();
-                    if app.emit(TERMINAL_OUTPUT_EVENT,TerminalOutput{session_id:id,data}).is_err(){break;}
+                    if let Some(main)=app.get_webview_window("main") {
+                        if main.emit(TERMINAL_OUTPUT_EVENT,TerminalOutput{session_id:id,data}).is_err(){break;}
+                    } else {break;}
                 }
             }
         }
@@ -119,8 +131,9 @@ pub fn better_terminal_start(app:AppHandle,state:State<'_,BetterTerminalState>,
     })
 }
 #[tauri::command]
-pub fn better_terminal_write(state:State<'_,BetterTerminalState>,
+pub fn better_terminal_write(window:WebviewWindow,state:State<'_,BetterTerminalState>,
     session_id:u64,data:String)->Result<(),String>{
+    require_main(&window)?;
     validate_write(&data)?;
     let mut guard=state.active.lock().map_err(|_|"Terminal session unavailable")?;
     let terminal=guard.as_mut().ok_or("Terminal not running")?;
@@ -132,15 +145,17 @@ pub fn better_terminal_write(state:State<'_,BetterTerminalState>,
     terminal.writer.flush().map_err(|e|e.to_string())
 }
 #[tauri::command]
-pub fn better_terminal_resize(state:State<'_,BetterTerminalState>,
+pub fn better_terminal_resize(window:WebviewWindow,state:State<'_,BetterTerminalState>,
     session_id:u64,cols:u16,rows:u16)->Result<(),String>{
+    require_main(&window)?;
     let guard=state.active.lock().map_err(|_|"Terminal session unavailable")?;
     let terminal=guard.as_ref().ok_or("Terminal not running")?;
     if terminal.id!=session_id{return Err("Stale terminal session".into());}
     terminal.master.resize(valid_terminal_size(cols,rows)).map_err(|e|e.to_string())
 }
 #[tauri::command]
-pub fn better_terminal_stop(state:State<'_,BetterTerminalState>,session_id:u64)->Result<(),String>{
+pub fn better_terminal_stop(window:WebviewWindow,state:State<'_,BetterTerminalState>,session_id:u64)->Result<(),String>{
+    require_main(&window)?;
     let mut guard=state.active.lock().map_err(|_|"Terminal session unavailable")?;
     if guard.as_ref().is_some_and(|s|s.id!=session_id) {
         return Err("Stale terminal session".into());
@@ -162,6 +177,6 @@ mod tests {
         assert!(validate_write("x\0y").is_err());
     }
     #[test]fn brew_is_only_detected_in_fixed_standard_prefixes(){
-        assert!(better_terminal_brew_status().install_guide.starts_with("https://docs.brew.sh/"));
+        assert!(detect_brew_status().install_guide.starts_with("https://docs.brew.sh/"));
     }
 }
