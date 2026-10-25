@@ -58,3 +58,10 @@
 - The dashboard presents two clear primary module cards: Sentinel system observability/security, and Better Terminal's native PTY plus Homebrew software center. A direct dashboard action can open the Homebrew tab without making the terminal a separate app.
 - Sentinel specialist workbenches (investigation, comparison, processes/network, diagnostics/actions, and permissions/runtime) remain subordinate links within the same module section. They also remain discoverable through the sidebar, global command search and All Tools catalog.
 - Acceptance checks must confirm the dashboard shows both primary modules, that the Homebrew action opens the correct Better Terminal mode, and that Sentinel opens inside the same Box shell without adding duplicate navigation entries.
+
+
+## Background task lifetime across Sentinel Box workspaces
+
+- The Better Terminal component is first mounted only after explicit entry. After that, the Box keeps it mounted while the user navigates to Dashboard, Sentinel, or other workspaces. In-flight Homebrew operations and PTY state are therefore not destroyed on ordinary workspace switches.
+- Reopening the module through the Dashboard Homebrew shortcut selects the software-center tab without replacing or restarting the existing manager. A newly opened Box instance still requires explicit user action to start a terminal or any package mutation.
+- The native app's main-window destruction handler terminates managed Homebrew and PTY processes. The user can still manually cancel Homebrew or stop the PTY from within the module. Background tasks are not persisted after closing the app.
