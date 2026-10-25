@@ -32,7 +32,7 @@ export function terminalPlainText(input:string):string{
 /** PTY transport limit is measured in UTF-8 bytes, not JavaScript UTF-16 code units. */
 export const TERMINAL_INPUT_LIMIT_BYTES=4096;
 export function validTerminalInput(data:string):boolean{
- return data.length>0&&new TextEncoder().encode(data).length<=TERMINAL_INPUT_LIMIT_BYTES&&!data.includes("\\0");
+ return data.length>0&&new TextEncoder().encode(data).length<=TERMINAL_INPUT_LIMIT_BYTES&&!data.includes("\u0000");
 }
 export const TERMINAL_LOG_LIMIT=160_000;
 export function boundedTerminalLog(previous:string,append:string):string{
