@@ -24,7 +24,7 @@ The interface should help users discover existing capabilities through task lang
 ## Visual approach
 
 1. Keep the existing restrained macOS-style design tokens and theme system.
-2. Make the home screen task-first: search, file intake, quick categories, Sentinel, Better Terminal, then favorites/recents/exports.
+2. Make the home screen task-first: search and file intake first, then give Sentinel and Better Terminal prominent peer-level built-in module cards before task-category browsing, followed by favorites/recents/exports.
 3. Make the complete tool catalog the authoritative inventory of existing tools.
 4. Make cards easier to scan with concise labels, accurate category metadata, stable icons, and clear open/favorite actions.
 5. Improve tool discovery using Chinese and English task synonyms, file-format names, module names, and existing IDs.
