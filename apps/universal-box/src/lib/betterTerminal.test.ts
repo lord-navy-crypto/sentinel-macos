@@ -30,7 +30,7 @@ describe("Better Terminal user-approved Homebrew operations",()=>{
   expect(validTerminalInput("😀".repeat(1024))).toBe(true);
   expect(validTerminalInput("😀".repeat(1025))).toBe(false);
   expect(validTerminalInput("")).toBe(false);
-  expect(validTerminalInput("a\\0b")).toBe(false);
+  expect(validTerminalInput("a\u0000b")).toBe(false);
  });
  it("bounds temporary transcript and strips basic ANSI codes",()=>{
   expect(terminalPlainText("\x1b[32mHello\x1b[0m")).toBe("Hello");
