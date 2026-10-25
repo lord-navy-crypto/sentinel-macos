@@ -18,7 +18,7 @@ test("Office-first homepage links ten existing working office tasks and keeps th
   assert.equal(await fast.count(),4);
   assert.match(await page.locator('[data-testid="office-home-shortcuts"]').innerText(),/PDF 合并/);
   const sidebarNames=await page.locator("nav.sidebar-nav button.nav-item").evaluateAll(items=>items.map(el=>el.getAttribute("aria-label")));
-  assert.equal(sidebarNames.length,46,"All 40 original workspaces plus six Sentinel modules remain available exactly once");
+  assert.equal(sidebarNames.length,47,"All 40 original workspaces plus six Sentinel modules and Better Terminal remain accessible exactly once");
   assert.equal(new Set(sidebarNames).size,sidebarNames.length,"No duplicate workspace labels");
   assert.equal(await page.getByTestId("home-file-dropzone").isVisible(),true,
    "Users can select or drop files directly into the existing, user-approved preflight");
@@ -114,6 +114,29 @@ test("All original Go read surfaces are searchable and deep-link to real opt-in 
   await page.getByTestId("sentinel-advanced-filter").fill("");
 
   assert.equal(await page.getByTestId("sentinel-legacy-complete-directory").getByRole("button",{name:"在原 Sentinel 工作台中操作 ↗"}).count(),4);
+  assert.deepEqual(errors,[]);
+ }finally{await page.close();await browser.close();}
+});
+
+test("Better Terminal is navigable and Homebrew UI cannot run in browser-only preview",{timeout:70000},async()=>{
+ const browser=await chromium.launch({headless:true,args:["--no-sandbox"]});
+ const page=await browser.newPage({viewport:{width:1180,height:780}});
+ const errors=[];page.on("pageerror",e=>errors.push(e.message));
+ try{
+  await page.goto(root,{waitUntil:"domcontentloaded"});await page.locator(".app-shell").waitFor();
+  await page.getByTestId("home-better-terminal").click();
+  await page.getByTestId("better-terminal-desk").waitFor();
+  assert.equal(await page.getByTestId("terminal-start").isDisabled(),true);
+  assert.equal(await page.getByTestId("terminal-send").isDisabled(),true);
+  await page.getByTestId("better-terminal-tab-brew").click();
+  assert.equal(await page.getByTestId("terminal-brew-manager").isVisible(),true);
+  await page.locator("#brew-formula").fill("jq; uname");
+  assert.equal(await page.getByTestId("brew-install-preview").isDisabled(),true);
+  await page.locator("#brew-formula").fill("jq");
+  assert.equal(await page.getByTestId("brew-install-preview").isDisabled(),true,"Browser must not pretend to install software");
+  await page.locator("nav.sidebar-nav").getByRole("button",{name:/All tools/}).click();
+  await page.locator("#all-tools-search").fill("Better Terminal");
+  assert.ok(await page.locator(".catalog-open").count()>=2);
   assert.deepEqual(errors,[]);
  }finally{await page.close();await browser.close();}
 });
