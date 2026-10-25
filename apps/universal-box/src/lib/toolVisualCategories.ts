@@ -27,7 +27,7 @@ export function visualToolFamily(tool: { name: string; area: string; view: strin
   if (area === "creative" || /poster|certificate|design studio|project kit|海报|证书|创作与设计/.test(name)) {
     return "创作与设计";
   }
-  if (/pdf|word|docx|powerpoint|pptx|document|文档|合同|发票|报价单/.test(name)) return "PDF 与文档";
+  if (/\b(pdf|word|docx|powerpoint|pptx|document)\b|文档|合同|发票|报价单/.test(name)) return "PDF 与文档";
   if (area === "images" || area === "media"
       || /image|photo|heic|png|jpeg|jpg|webp|svg|video|audio|subtitle|图片|照片|视频|字幕|音频/.test(name)
       || /image|media/.test(area)) return "图片与媒体";
