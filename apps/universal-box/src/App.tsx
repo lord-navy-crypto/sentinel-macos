@@ -58,8 +58,8 @@ type View = "better-terminal" | "sentinel" | "sentinel-investigate" | "sentinel-
 
 const menu: { id: View; name: string; symbol: string; description: string }[] = [
   { id: "overview", name: "Overview", symbol: "◫", description: "Your workspace at a glance" },
-  { id: "better-terminal", name: "Better Terminal / 更好的终端", symbol: ">_", description: "真实 macOS PTY 终端与 Homebrew 图形化安装管理" },
-  { id: "sentinel", name: "Sentinel · 系统概览与扫描", symbol: "◉", description: "原 Go 引擎、系统概览、Easy Scan、Review Queue 与完整 WebView" },
+  { id: "better-terminal", name: "Better Terminal · 终端与软件中心", symbol: ">_", description: "Sentinel Box 内置模块：原生 PTY 终端、Homebrew 图形化软件中心与任务管理" },
+  { id: "sentinel", name: "Sentinel · 系统安全中心", symbol: "◉", description: "Sentinel Box 内置模块：原 Go 引擎、系统概览、Easy Scan、Review Queue 与完整 WebView" },
   { id: "sentinel-investigate", name: "Sentinel · 证据调查", symbol: "⌕", description: "Go 证据搜索、关联图谱、事件时间线" },
   { id: "sentinel-compare", name: "Sentinel · 历史与变化比较", symbol: "⇄", description: "原 Sentinel 行为、参考基线与证据差异" },
   { id: "sentinel-system", name: "Sentinel · 进程与网络", symbol: "⌘", description: "系统进程、启动项、后台、网络历史和存储" },
@@ -108,7 +108,7 @@ const menu: { id: View; name: string; symbol: string; description: string }[] = 
 
 const navigationGroups:{title:string;items:View[]}[]=[
   {title:"常用工具 · FAVORITES",items:["overview","all-tools","files","quick-tools","vision-workflows","commons"]},
-  {title:"系统监控与安全 · SENTINEL",items:["better-terminal","sentinel","sentinel-investigate","sentinel-compare","sentinel-system","sentinel-actions","sentinel-limits"]},
+  {title:"Sentinel Box · 内置系统模块",items:["better-terminal","sentinel","sentinel-investigate","sentinel-compare","sentinel-system","sentinel-actions","sentinel-limits"]},
   {title:"文档与 PDF",items:["pdf-mini","creative-studio","writing","free-formats","workflows","extra-studio"]},
   {title:"图片、网页与媒体",items:["file-intake","web-capture","life-media","media-files","daily-studio","binary-compare"]},
   {title:"数据与办公",items:["tables","utilities","charts","office-privacy","universal","universal-box"]},
