@@ -170,6 +170,15 @@ export const LOCAL_TOOLS:LocalTool[] = [
  {id:"planner",name:"Tasks & Planner",area:"Study",view:"tasks"},
  {id:"backup",name:"Backup & Privacy",area:"Files",view:"data"}
 ];
+const CATALOG_SEARCH_SUGGESTIONS = [
+ {id:"pdf-compress",label:"压缩 PDF",query:"压缩 PDF"},
+ {id:"heic-jpg",label:"HEIC 转 JPG",query:"HEIC 转 JPG"},
+ {id:"batch-replace",label:"批量替换",query:"批量替换"},
+ {id:"homebrew",label:"Homebrew",query:"Homebrew"},
+ {id:"csv-merge",label:"CSV 合并",query:"CSV 合并"},
+ {id:"word-count",label:"字数统计",query:"字数统计"},
+] as const;
+
 const NOT_LOCAL = ["Website AI / cloud models (needs configured AI connection)", "Speech-to-text transcription (microphone and speech engine integration)", "Public short-link hosting and shared workspaces"];
 
 export default function ToolLaunchpad({onLaunch,initialCategory="全部"}:{onLaunch:(view:string,module?:string)=>void;initialCategory?:string}) {
@@ -196,6 +205,7 @@ export default function ToolLaunchpad({onLaunch,initialCategory="全部"}:{onLau
  }),[category,search,favorites,showFavorites]);
  function toggleFavorite(id:string){
    setFavorites(old=>old.includes(id)?old.filter(x=>x!==id):[...old,id].slice(0,40));
+   if(showFavorites&&favorites.length===1&&favorites.includes(id))setShowFavorites(false);
  }
  return <section className="panel tool-catalog" data-testid="reorganized-tool-catalog">
    <div className="catalog-heading">
@@ -211,19 +221,26 @@ export default function ToolLaunchpad({onLaunch,initialCategory="全部"}:{onLau
          onChange={e=>setSearch(e.target.value)} placeholder="试试：压缩 PDF、HEIC 转 JPG、批量替换、Homebrew…" />
      </label>
      <button type="button" className={showFavorites?"secondary-button favorites-only enabled":"secondary-button favorites-only"}
-       onClick={()=>setShowFavorites(old=>!old)} aria-pressed={showFavorites}>★ Favorites ({favorites.length})</button>
+       onClick={()=>setShowFavorites(old=>!old)} aria-pressed={showFavorites} disabled={favorites.length===0&&!showFavorites}
+       title={favorites.length===0?"先点击工具卡片上的 ☆ 收藏工具":"只显示已收藏的工具"}>★ 收藏 ({favorites.length})</button>
      <div className="catalog-layout" role="group" aria-label="Catalog layout">
       <button type="button" data-testid="catalog-grid-mode" aria-label="卡片视图" className={layout==="grid"?"catalog-layout-active":""} aria-pressed={layout==="grid"} onClick={()=>setLayout("grid")}>▦</button>
       <button type="button" data-testid="catalog-list-mode" aria-label="列表视图" className={layout==="list"?"catalog-layout-active":""} aria-pressed={layout==="list"} onClick={()=>setLayout("list")}>☷</button>
      </div>
      {search&&<button type="button" className="secondary-button catalog-clear" onClick={()=>setSearch("")}>清除</button>}
    </div>
+   {!search.trim()&&<div className="catalog-search-suggestions" role="group" aria-label="常用搜索">
+     <span className="catalog-suggestions-label">常用搜索</span>
+     {CATALOG_SEARCH_SUGGESTIONS.map(item=><button key={item.id} type="button" className="catalog-suggestion"
+       data-testid={"catalog-suggest-"+item.id}
+       onClick={()=>{setSearch(item.query);setCategory("全部");setShowFavorites(false);}}>{item.label}<span aria-hidden="true">↗</span></button>)}
+   </div>}
    <div className="category-scroll" role="group" aria-label="Filter tool category">
      {groups.map(group=><button type="button" key={group}
        className={category===group?"pill active-pill":"pill"} aria-pressed={category===group}
        onClick={()=>setCategory(group)}>{group}<span className="category-count">{categoryCounts.get(group)??0}</span></button>)}
    </div>
-   <div className="catalog-results-header" aria-live="polite"><span>找到 {filtered.length} 个工具入口</span><span>{search?"匹配名称、任务别名与文件格式":favorites.length?"★ 收藏工具优先显示，可切换列表视图":"可按任务或格式搜索，也可收藏常用工具"}</span></div>
+   <div className="catalog-results-header" aria-live="polite"><span>找到 {filtered.length} 个工具入口</span><span>{search.trim()?"搜索："+search.trim():showFavorites?"仅显示已收藏的工具":category!=="全部"?"当前分类："+category:"支持中文任务、英文名称和文件格式搜索"}</span></div>
    {filtered.length?<div className={"tool-grid catalog-grid"+(layout==="list"?" catalog-list":"")} data-testid="catalog-results">
      {filtered.map(item=><div key={item.id} className="catalog-card">
        <button className="catalog-favorite" type="button" aria-label={favorites.includes(item.id)?"Remove "+item.name+" from favorites":"Add "+item.name+" to favorites"}
@@ -234,8 +251,8 @@ export default function ToolLaunchpad({onLaunch,initialCategory="全部"}:{onLau
          <span className="tool-state">打开工具 →</span>
        </button>
      </div>)}
-   </div>:<div className="catalog-empty"><strong>没有匹配的工具</strong><p className="subtle">Try a different keyword or clear the category and favorites filters.</p>
-     <button className="secondary-button" type="button" onClick={()=>{setCategory("全部");setSearch("");setShowFavorites(false);}}>Reset filters</button>
+   </div>:<div className="catalog-empty" data-testid="catalog-empty"><span className="catalog-empty-icon" aria-hidden="true">⌕</span><strong>没有找到匹配的工具</strong><p className="subtle">试试更短的关键词，或清除分类、收藏和搜索条件。你也可以从上方常用搜索开始。</p>
+     <button className="secondary-button" type="button" onClick={()=>{setCategory("全部");setSearch("");setShowFavorites(false);}}>清除全部筛选</button>
    </div>}
    <div className="catalog-external">
      <div><h3>Need something more advanced?</h3>
