@@ -56,4 +56,7 @@ The interface should help users discover existing capabilities through task lang
 - Common search chips populate the existing local search field and preserve the existing launch targets.
 - No functional control is removed or replaced by a decorative element.
 - Light/dark themes and narrow windows remain usable.
+- At a 390px viewport, the home screen has no horizontal document overflow, core module cards stack in one column, and task-category shortcuts remain readable.
+- Mobile topbar controls remain available without pushing the page wider than the viewport.
+- Browser evidence includes desktop home, mobile home, and dark-mode mobile screenshots.
 - The relevant tests and build checks pass; failures are reported honestly.
