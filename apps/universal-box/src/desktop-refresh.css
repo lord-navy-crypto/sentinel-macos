@@ -460,3 +460,20 @@
 @media(prefers-reduced-motion:reduce){
  .app-shell .catalog-card{transition:none;}
 }
+
+
+/* Task-first category shortcuts on the home screen; each opens the existing catalog filter. */
+.app-shell .home-category-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;}
+.app-shell .home-category-card{display:flex;align-items:center;gap:11px;min-width:0;min-height:78px;padding:13px;
+ border:1px solid var(--ub-border);border-radius:12px;background:var(--ub-panel);color:var(--ub-text);
+ text-align:left;cursor:pointer;transition:border-color .15s,background .15s;}
+.app-shell .home-category-card:hover{border-color:var(--ub-ring);background:var(--ub-subtle);}
+.app-shell .home-category-card:focus-visible{outline:3px solid var(--ub-ring);outline-offset:2px;}
+.app-shell .home-category-icon{display:grid;place-items:center;flex:0 0 38px;width:38px;height:38px;
+ border-radius:10px;background:var(--ub-tint);color:var(--ub-primary);font-size:20px;font-weight:800;}
+.app-shell .home-category-copy{display:flex;flex-direction:column;gap:4px;min-width:0;flex:1;}
+.app-shell .home-category-copy strong{font-size:13px;line-height:1.35;}
+.app-shell .home-category-copy small{font-size:11px;line-height:1.45;color:var(--ub-muted);}
+.app-shell .home-category-arrow{align-self:center;color:var(--ub-muted);font-size:14px;}
+@media(max-width:900px){.app-shell .home-category-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media(max-width:560px){.app-shell .home-category-grid{grid-template-columns:minmax(0,1fr);}.app-shell .home-category-card{min-height:70px;}}
