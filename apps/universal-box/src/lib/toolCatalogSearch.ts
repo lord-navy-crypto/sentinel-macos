@@ -129,7 +129,7 @@ export function catalogToolDescription(tool: CatalogSearchableTool): string {
     case "局域网与共享": return "打开共享工作区，查看连接、传输或团队协作选项。";
     case "办公工作流": return "打开办公工作流，整理会议纪要、批量文档或交付材料。";
     case "创作与设计": return "打开创作工作台，查看可编辑文档、演示文稿或设计导出选项。";
-    case "终端与软件管理": return "打开 Better Terminal，查看终端、软件管理或系统检查选项。"
+    case "终端与软件管理": return "打开 Better Terminal，查看终端、软件管理或系统检查选项。";
     case "系统监控与安全": return "打开 Sentinel 工作区，查看对应的本机系统信息与诊断功能。";
     case "学习与其他": return "打开学习工具，查看当前功能和可用选项。";
     default: return "打开现有工作台，查看该工具当前支持的操作。";
