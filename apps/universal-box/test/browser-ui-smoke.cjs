@@ -38,6 +38,7 @@ test("Desktop redesign: office home, command search, categorized list, and expli
   }),"Built-in modules should appear before task-category browsing on the dashboard.");
   assert.ok(await coreModules.getByTestId("home-better-terminal").isVisible());
   assert.ok(await coreModules.getByTestId("home-sentinel").isVisible());
+  await page.screenshot({path:path.join(reportPath,"home-dashboard.png"),fullPage:true});
   const pdfShortcut=page.getByTestId("home-category-pdf");
   assert.ok(Number(await pdfShortcut.locator(".home-category-count").innerText())>0,
     "Home category shortcuts should show live counts from the tool catalog.");
