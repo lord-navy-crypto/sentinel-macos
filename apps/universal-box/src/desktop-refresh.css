@@ -340,3 +340,19 @@
 .terminal-screen-mount .xterm-viewport{scrollbar-width:thin;}
 .terminal-screen-mount .xterm-screen{max-width:100%;}
 @media(max-width:740px){.terminal-screen-shell{height:350px;min-height:220px;padding:8px;}}
+
+
+/* Better Terminal: explicit update review and bounded session-only task history. */
+.brew-outdated-panel,.brew-task-history{display:grid;gap:10px;border:1px solid var(--ub-border);border-radius:12px;padding:12px;background:var(--ub-subtle);}
+.brew-outdated-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+.brew-outdated-actions p{margin:0;flex:1;min-width:180px;}
+.brew-task-history>summary{cursor:pointer;font-weight:650;}
+.brew-task-history-list{display:grid;gap:8px;}
+.brew-task-history-row{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:start;gap:10px;border-top:1px solid var(--ub-border);padding-top:9px;}
+.brew-task-history-content{display:grid;gap:4px;min-width:0;}
+.brew-task-history-content strong{overflow-wrap:anywhere;font-size:12px;}
+.brew-task-history-content small{color:var(--ub-muted);font-size:11px;line-height:1.45;}
+.brew-task-outcome{align-self:start;border:1px solid var(--ub-border);border-radius:999px;padding:3px 8px;font-size:10px;font-weight:650;white-space:nowrap;}
+.brew-task-outcome.success{color:#237a4b;}
+.brew-task-outcome.failed{color:#b42318;}
+.brew-task-outcome.cancelled{color:var(--ub-muted);}
