@@ -1,14 +1,15 @@
 /** Stable presentation-only families; never changes tool routes or processing. */
 export const VISUAL_TOOL_FAMILIES = [
   "全部", "PDF 与文档", "文本与写作", "图片与媒体", "表格与数据",
-  "网页与捕获", "文件与批处理", "局域网与共享", "办公小工具", "学习与其他", "系统监控与安全",
+  "网页与捕获", "文件与批处理", "局域网与共享", "终端与软件管理", "办公小工具", "学习与其他", "系统监控与安全",
 ] as const;
 export type VisualToolFamily = typeof VISUAL_TOOL_FAMILIES[number];
 
 export function visualToolFamily(tool: { name: string; area: string; view: string }): VisualToolFamily {
   const name = tool.name.normalize("NFKC").toLocaleLowerCase();
   const area = tool.area.normalize("NFKC").toLocaleLowerCase();
-  if (area === "sentinel" || tool.view.startsWith("sentinel") || tool.view === "better-terminal") return "系统监控与安全";
+  if (tool.view === "better-terminal") return "终端与软件管理";
+  if (area === "sentinel" || tool.view.startsWith("sentinel")) return "系统监控与安全";
   if (tool.view === "commons" || /\b(lan|webrtc|sharing|file transfer)\b|局域网|文件传输|团队共享/i.test(name)) return "局域网与共享";
   if (area === "text" || area === "writing") return "文本与写作";
   if (/pdf|word|docx|powerpoint|pptx|document|文档|合同|发票|报价单/.test(name)) return "PDF 与文档";
