@@ -4,7 +4,7 @@ import {listen,type UnlistenFn} from "@tauri-apps/api/event";
 import {boundedTerminalLog,validFormulaName} from "../lib/betterTerminal";
 
 type BrewKind="formula"|"cask";
-type BrewOperation="install"|"uninstall"|"upgrade"|"update";
+type BrewOperation="install"|"uninstall"|"upgrade"|"update"|"upgrade_all";
 type BrewEvent={job_id:number;stream:"stdout"|"stderr"|"finished";data:string;exit_code:number|null};
 type PendingAction={operation:BrewOperation;kind?:BrewKind;name?:string;label:string;reason:string};
 const FEATURED_CASKS=[
@@ -33,6 +33,9 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
  const [query,setQuery]=useState("");
  const [results,setResults]=useState<string[]>([]);
  const [packages,setPackages]=useState<string[]>([]);
+ const [outdated,setOutdated]=useState<string[]>([]);
+ const [updatesChecked,setUpdatesChecked]=useState(false);
+ const [checkingUpdates,setCheckingUpdates]=useState(false);
  const [searching,setSearching]=useState(false);
  const [loadingPackages,setLoadingPackages]=useState(false);
  const [info,setInfo]=useState("");
@@ -68,7 +71,13 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
     setJobId(null);setRunning(false);
     setJobStatus(cancelRequestedRef.current?"操作已取消":item.exit_code===0?"操作成功完成":"操作失败，请检查日志");
     cancelRequestedRef.current=false;
-    if(item.exit_code===0)void invoke<string[]>("better_terminal_brew_list",{kind:kindRef.current}).then(setPackages).catch(()=>{});
+    if(item.exit_code===0){
+      void Promise.all([
+       invoke<string[]>("better_terminal_brew_list",{kind:kindRef.current}),
+       invoke<string[]>("better_terminal_brew_outdated",{kind:kindRef.current})
+      ]).then(([current,updates])=>{setPackages(current);setOutdated(updates);setUpdatesChecked(true);})
+       .catch(e=>setError("刷新软件更新列表失败："+String(e)));
+     }
    }
   }).then(unlisten=>{if(alive)unlistenRef.current=unlisten;else unlisten();})
    .catch(e=>{if(alive)setError("无法监听 Homebrew 进度："+String(e));});
@@ -83,7 +92,17 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
  useEffect(()=>{kindRef.current=kind;},[kind]);
  useEffect(()=>{if(native&&installed)void refreshPackages(kind);},[native,installed,kind]);
 
- async function search(){
+ async function checkUpdates(){
+   if(!native||!installed||checkingUpdates||running)return;
+   setCheckingUpdates(true);setError("");setNotice("");
+   try{
+    const found=await invoke<string[]>("better_terminal_brew_outdated",{kind});
+    setOutdated(found);setUpdatesChecked(true);
+    setNotice(found.length===0?"检查完成：当前类别没有发现可升级的软件。":"检查完成：发现 "+found.length+" 个可升级的软件。");
+   }catch(e){setError("检查软件更新失败："+String(e));}
+   finally{setCheckingUpdates(false);}
+  }
+  async function search(){
   if(!native||!installed||!query.trim()||searching||running)return;
   setSearching(true);setError("");setNotice("");setInfo("");
   try{
