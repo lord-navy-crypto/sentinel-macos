@@ -8,13 +8,14 @@ type Props={
  favorites:HomeWorkspace[];
  recents:HomeWorkspace[];
  totalTools:number;
+ categoryCounts:Record<string,number>;
  onOpen:(view:string,module?:string)=>void;
  onSearch:()=>void;
  onUnpin:(id:string)=>void;
 };
 
 /** Action-first desktop start screen; all actions open existing tools, never a second converter. */
-export default function OfficeHome({favorites,recents,totalTools,onOpen,onSearch,onUnpin}:Props){
+export default function OfficeHome({favorites,recents,totalTools,categoryCounts,onOpen,onSearch,onUnpin}:Props){
  const [exports,setExports]=useState<RecentExport[]>(getRecentExports);
  const [dragging,setDragging]=useState(false);
  useEffect(()=>subscribeRecentExports(()=>setExports(getRecentExports())),[]);
@@ -72,6 +73,7 @@ export default function OfficeHome({favorites,recents,totalTools,onOpen,onSearch
      onClick={()=>onOpen("all-tools","catalog-category:"+title)}>
      <span className="home-category-icon" aria-hidden="true">{symbol}</span>
      <span className="home-category-copy"><strong>{title}</strong><small>{description}</small></span>
+     <span className="home-category-count" aria-label={`${categoryCounts[title]??0} 个工具`}>{categoryCounts[title]??0}</span>
      <span className="home-category-arrow" aria-hidden="true">↗</span>
     </button>)}
    </div>
