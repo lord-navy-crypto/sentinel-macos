@@ -172,7 +172,7 @@ export default function BetterTerminalDesk({initialTab="terminal"}:{initialTab?:
    <p className="subtle">Shell 使用当前登录用户权限，不是沙箱，也不是自动提权。输入的命令会真实影响本机；仅在信任来源时执行。此页面不持久化命令记录、终端内容或密码。</p>
    <p className="subtle">ANSI/VT 交互式终端：支持彩色输出、方向键和原生键盘交互；窗口尺寸自动适配。当前 {cols} 列 × {rows} 行。</p>
   </>}
-  {tab==="brew"&&<div className="terminal-brew" data-testid="terminal-brew-manager">
+  <div className="terminal-brew" data-testid="terminal-brew-manager" style={{display:tab==="brew"?"block":"none"}} aria-hidden={tab!=="brew"}>
    <div className="terminal-brew-status">
     <div><h3>Homebrew · 不用背命令</h3>
      <p className="subtle">状态：{brew?brew.installed?"已检测到本机 Homebrew":"尚未找到 Homebrew":"尚未检查"} · {brew?.executable??"未发现默认安装路径"}</p>
@@ -194,8 +194,8 @@ export default function BetterTerminalDesk({initialTab="terminal"}:{initialTab?:
       <strong>{recipe.title}</strong><small>{recipe.description}</small><span>↗</span>
     </button>)}
    </div>
-   <p className="subtle">Homebrew 的安装/更新可能联网，并可能改变本机软件。当前版本不提供自动批量安装、不执行网络下载脚本、不保存管理员凭据。</p>
-  </div>}
+   <p className="subtle">Homebrew 的安装/更新可能联网，并可能改变本机软件。不执行网络下载脚本，不保存管理员凭据。</p>
+  </div>
   {tab==="guide"&&<div data-testid="terminal-recipes">
    <h3>macOS 常用操作</h3>
    <p className="subtle">每个按钮都是可查看、可验证的本机操作，不需要记忆对应命令。</p>
