@@ -17,9 +17,10 @@ const INSTALL_GUIDE="https://docs.brew.sh/Installation";
 const INSTALL_RELEASE="https://github.com/Homebrew/brew/releases/latest";
 
 /** Real PTY console on native macOS; browser preview cannot execute commands. */
-export default function BetterTerminalDesk({initialTab="terminal"}:{initialTab?:"terminal"|"brew"}){
+export default function BetterTerminalDesk({initialTab="terminal",active=true}:{initialTab?:"terminal"|"brew";active?:boolean}){
  const native=isTauri();
  const [tab,setTab]=useState<"terminal"|"brew"|"guide">(initialTab);
+ useEffect(()=>{if(active)setTab(initialTab);},[active,initialTab]);
  const [session,setSession]=useState<TerminalInfo|null>(null);
  const sessionRef=useRef<TerminalInfo|null>(null);
  const listenerRef=useRef<UnlistenFn|null>(null);
@@ -129,7 +130,7 @@ export default function BetterTerminalDesk({initialTab="terminal"}:{initialTab?:
    <div>
     <p className="eyebrow">SENTINEL BOX / BETTER TERMINAL</p>
     <h2>Better Terminal · 更好的终端</h2>
-    <p className="subtle">真正的 macOS PTY 登录 Shell + 免记命令的 Homebrew / 系统快捷操作。所有命令只在你明确点击后执行。</p>
+    <p className="subtle">真正的 macOS PTY 登录 Shell + 免记命令的 Homebrew / 系统快捷操作。所有命令只在你明确点击后执行；已启动的任务在 Box 内切换工具时继续运行，直到结束、手动取消或关闭 Sentinel Box。</p>
    </div>
    <span className={"terminal-status"+(session?" connected":"")}>{session?"● 本机终端已连接":"○ 未连接"}</span>
   </div>
