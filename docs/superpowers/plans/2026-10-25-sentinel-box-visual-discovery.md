@@ -103,9 +103,9 @@
 - Modify: `apps/universal-box/src/desktop-refresh.css`
 
 - [x] Step 1: Add live counts to the home-screen category shortcuts using the same tool inventory as the catalog.
-- [x] Step 2: Add common local search chips, a clearer empty state, and localized catalog controls.
-- [x] Step 3: Sort the unfiltered catalog by everyday task family while keeping favorites prioritized.
+- [x] Step 2: Add common local search chips, a clearer empty state, localized catalog controls, and live counts on home shortcuts.
+- [x] Step 3: Sort the unfiltered catalog by everyday task family while keeping favorites prioritized; separate Office Workflows and Creative & Design from document-output format matches.
 - [x] Step 4: Prefer concise human-authored details already present in tool names over identical generic card descriptions.
-- [x] Step 5: Add regression coverage for task chips, dynamic category counts, default category order, favorite priority, and unique card summaries.
+- [x] Step 5: Add regression coverage for task chips, dynamic category counts, default category order, favorite priority, category accuracy, and unique card summaries.
 - [ ] Step 6: Re-run browser, unit, Sentinel validation, and both architecture-specific desktop CI checks on the final source revision.
 
