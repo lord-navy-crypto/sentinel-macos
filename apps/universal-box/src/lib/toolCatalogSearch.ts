@@ -32,7 +32,7 @@ const TOOL_ALIASES: Record<string, readonly string[]> = {
   "meeting-minutes": ["meeting minutes", "会议纪要", "会议待办"],
   "business-billing": ["invoice", "quotation", "发票", "报价单"],
   "scan-pdf-compress": ["compress pdf", "reduce pdf", "扫描件压缩", "压缩pdf", "压缩 pdf"],
-  "pdf-measured-optimize": ["pdf size", "smaller pdf", "pdf optimize", "优化pdf", "压缩pdf", "压缩 pdf"],
+  "pdf-measured-optimize": ["pdf size", "smaller pdf", "pdf optimize", "reduce pdf", "优化pdf", "压缩pdf", "压缩 pdf"],
   "screen-frame-capture": ["screen capture", "screenshot ocr", "截图识字", "屏幕识字"],
   "target-photo-compressor": ["photo compress", "heic to jpg", "heic转jpg", "图片压缩", "图片转换"],
   "word-count": ["character count", "count words", "字数统计", "字符统计"],
