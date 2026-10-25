@@ -10,6 +10,7 @@ export function visualToolFamily(tool: { name: string; area: string; view: strin
   const area = tool.area.normalize("NFKC").toLocaleLowerCase();
   if (area === "sentinel" || tool.view.startsWith("sentinel") || tool.view === "better-terminal") return "系统监控与安全";
   if (tool.view === "commons" || /\b(lan|webrtc|sharing|file transfer)\b|局域网|文件传输|团队共享/i.test(name)) return "局域网与共享";
+  if (area === "text" || area === "writing") return "文本与写作";
   if (/pdf|word|docx|powerpoint|pptx|document|文档|合同|发票|报价单/.test(name)) return "PDF 与文档";
   if (/image|photo|heic|png|jpeg|jpg|webp|svg|video|audio|subtitle|图片|照片|视频|字幕|音频/.test(name) || /image|media/.test(area)) return "图片与媒体";
   if (/web capture|webpage|website|screenshot|ocr|screen frame|网页|屏幕捕获|截图识字/.test(name)) return "网页与捕获";
