@@ -123,8 +123,10 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
  function ask(operation:BrewOperation,name?:string){
   if(!native||!installed||running)return;
   const label=operation==="update"?"更新 Homebrew 软件索引":
+   operation==="upgrade_all"?"批量升级全部过期的"+(kind==="cask"?"Mac 应用":"命令行工具"):
    operation==="install"?"安装 "+name:operation==="uninstall"?"卸载 "+name:"升级 "+name;
   const reason=operation==="update"?"连接 Homebrew 官方源更新本地软件索引。可能需要几分钟。":
+   operation==="upgrade_all"?"将升级当前类别中所有过期软件（"+outdated.length+" 项）。这可能改变多个软件的版本、依赖和配置；请先保存工作，并在确认前检查更新列表。":
    operation==="install"?"从 Homebrew 下载并安装该软件，会联网并修改本机软件环境。":
    operation==="uninstall"?"卸载该软件，可能移除应用文件或软件链接。":
    "下载并更新该软件包，可能改变当前版本或配置。";
@@ -152,9 +154,16 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
     <h3>软件中心 · 用按钮安装，不用记命令</h3>
     <p className="subtle">直接调用本机 Homebrew；不需要先启动终端。安装、升级、卸载和更新索引均需二次确认。</p>
    </div>
-   <button type="button" className="secondary-button" disabled={!native||!installed||running||loadingPackages} onClick={()=>void refreshPackages()}>
-    {loadingPackages?"读取中…":"刷新已安装"}
-   </button>
+   <div className="brew-toolbar-actions">
+     {updatesChecked&&<span className="brew-update-count">{outdated.length===0?"已是最新":outdated.length+" 项待更新"}</span>}
+     <button type="button" className="secondary-button" data-testid="brew-check-updates"
+      disabled={!native||!installed||running||checkingUpdates} onClick={()=>void checkUpdates()}>
+      {checkingUpdates?"检查中…":"检查更新"}
+     </button>
+     <button type="button" className="secondary-button" disabled={!native||!installed||running||loadingPackages} onClick={()=>void refreshPackages()}>
+      {loadingPackages?"读取中…":"刷新已安装"}
+     </button>
+    </div>
   </div>
   {!native&&<p className="terminal-notice" role="note">网页预览不能操作本机软件。请在 Sentinel Box macOS 应用中使用。</p>}
   {native&&!installed&&<p className="terminal-notice" role="note">尚未检测到 Homebrew。先使用上方官方安装入口完成安装，再刷新状态。</p>}
@@ -174,9 +183,26 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
      onClick={()=>ask("update")}>更新软件索引</button>
    </form>
    <div className="brew-manager-summary">
-    <span>当前已安装：<strong>{packages.length}</strong> 项</span>
-    <span>{kind==="cask"?"Mac 应用":"命令行工具"}</span>
-   </div>
+     <span>当前已安装：<strong>{packages.length}</strong> 项</span>
+     <span>{kind==="cask"?"Mac 应用":"命令行工具"}</span>
+     {updatesChecked&&<span>待更新：<strong>{outdated.length}</strong> 项</span>}
+    </div>
+    {updatesChecked&&<div className="brew-outdated-panel" data-testid="brew-outdated-list">
+     <div className="brew-results-heading"><strong>可升级的软件</strong><span>{outdated.length===0?"当前已是最新":"共 "+outdated.length+" 项"}</span></div>
+     {outdated.length===0?<p className="subtle">此类别没有发现可升级的软件。你可以更新软件索引后再检查一次。</p>:
+      <>
+       <div className="brew-outdated-actions">
+        <p className="subtle">先检查列表；批量升级会更新此类别内所有过期软件。</p>
+        <button type="button" className="primary-button" data-testid="brew-upgrade-all"
+         disabled={!native||running||checkingUpdates||outdated.length===0}
+         onClick={()=>ask("upgrade_all")}>升级全部 {outdated.length} 项</button>
+       </div>
+       {outdated.map(name=><div className="brew-software-row" key={name}>
+        <div className="brew-software-name"><strong>{name}</strong><small>有可用更新</small></div>
+        <button type="button" className="secondary-button" disabled={running} onClick={()=>ask("upgrade",name)}>升级此项</button>
+       </div>)}
+      </>}
+    </div>
    <div className="brew-featured-section" data-testid="brew-featured-apps">
     <div className="brew-results-heading"><strong>{kind==="cask"?"常用 Mac 应用":"常用命令行工具"}</strong><span>无需搜索 · 确认后执行</span></div>
     <div className="brew-featured-grid">
@@ -220,7 +246,7 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
   {pending&&<div className="terminal-confirm" role="dialog" aria-modal="true" aria-label="确认 Homebrew 操作" data-testid="brew-action-confirmation">
    <h3>确认操作：{pending.label}</h3><p>{pending.reason}</p>
    <p>本操作通过固定的 Homebrew 参数直接启动，不会把软件名称拼接为 Shell 脚本。请检查软件名称和影响后再继续。</p>
-   <code>{pending.operation==="update"?"brew update":`brew ${pending.operation} --${pending.kind} ${pending.name}`}</code>
+   <code>{pending.operation==="update"?"brew update":pending.operation==="upgrade_all"?`brew upgrade --${pending.kind}`:`brew ${pending.operation} --${pending.kind} ${pending.name}`}</code>
    <div className="actions">
     <button type="button" className="primary-button" data-testid="brew-confirm-run" disabled={running} onClick={()=>void confirm()}>确认并执行</button>
     <button type="button" className="secondary-button" onClick={()=>setPending(null)}>取消</button>
