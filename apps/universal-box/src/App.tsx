@@ -4,6 +4,7 @@ import FocusTimer from "./components/FocusTimer";
 import EverydayTools, {type Utility} from "./components/EverydayTools";
 import ToolLaunchpad, {LOCAL_TOOLS} from "./components/ToolLaunchpad";
 import OfficeHome from "./components/OfficeHome";
+import {visualToolFamily,VISUAL_TOOL_FAMILIES} from "./lib/toolVisualCategories";
 import SentinelCenter from "./components/SentinelCenter";
 import BetterTerminalDesk from "./components/BetterTerminalDesk";
 import {searchPalette,addPaletteRecent,sanitizePaletteHistory,type PaletteCommand} from "./lib/commandDiscovery";
@@ -147,6 +148,10 @@ export default function App() {
       return Array.isArray(v)?v.filter((x):x is View=>typeof x==="string"&&menu.some(i=>i.id===x)).slice(0,8):[];}
     catch{return [];}
   });
+  const homeCategoryCounts=useMemo<Record<string,number>>(()=>Object.fromEntries(
+    VISUAL_TOOL_FAMILIES.map(group=>[group,group==="全部"?LOCAL_TOOLS.length:
+      LOCAL_TOOLS.filter(item=>visualToolFamily(item)===group).length])
+  ),[]);
   const [commandOpen,setCommandOpen]=useState(false);
   const [sentinelHandoff,setSentinelHandoff]=useState<{kind:"table"|"log";text:string;id:number}|null>(null);
   const [commandQuery,setCommandQuery]=useState("");
@@ -481,6 +486,7 @@ export default function App() {
             favorites={favoriteViews.map(id=>menu.find(item=>item.id===id)!).filter(Boolean)}
             recents={recentViews.map(id=>menu.find(item=>item.id===id)!).filter(Boolean)}
             totalTools={LOCAL_TOOLS.length}
+            categoryCounts={homeCategoryCounts}
             onOpen={openTool}
             onSearch={()=>{setCommandOpen(true);setCommandQuery("");}}
             onUnpin={id=>toggleFavorite(id as View)}
