@@ -250,29 +250,34 @@ fn read_brew_command(args: &[&str]) -> Result<String, String> {
     Ok(stdout.chars().take(MAX_BREW_READ_OUTPUT_BYTES).collect())
 }
 #[tauri::command]
-pub fn better_terminal_brew_search(window: WebviewWindow, kind: String, query: String) -> Result<Vec<String>, String> {
+pub async fn better_terminal_brew_search(window: WebviewWindow, kind: String, query: String) -> Result<Vec<String>, String> {
     require_main(&window)?;
     let flag = validate_brew_kind(&kind)?;
     validate_brew_search(&query)?;
     let pattern = brew_search_pattern(&query);
-    let output = read_brew_command(&["search", flag, &pattern])?;
-    Ok(output.lines().map(str::trim).filter(|line| !line.is_empty()).take(100)
-        .map(|line| line.chars().take(120).collect()).collect())
+    tauri::async_runtime::spawn_blocking(move || {
+        let output = read_brew_command(&["search", flag, &pattern])?;
+        Ok(output.lines().map(str::trim).filter(|line| !line.is_empty()).take(100)
+            .map(|line| line.chars().take(120).collect()).collect())
+    }).await.map_err(|e| format!("Homebrew search task failed: {e}"))?
 }
 #[tauri::command]
-pub fn better_terminal_brew_list(window: WebviewWindow, kind: String) -> Result<Vec<String>, String> {
+pub async fn better_terminal_brew_list(window: WebviewWindow, kind: String) -> Result<Vec<String>, String> {
     require_main(&window)?;
     let flag = validate_brew_kind(&kind)?;
-    let output = read_brew_command(&["list", flag])?;
-    Ok(output.lines().map(str::trim).filter(|line| !line.is_empty()).take(500)
-        .map(|line| line.chars().take(120).collect()).collect())
+    tauri::async_runtime::spawn_blocking(move || {
+        let output = read_brew_command(&["list", flag])?;
+        Ok(output.lines().map(str::trim).filter(|line| !line.is_empty()).take(500)
+            .map(|line| line.chars().take(120).collect()).collect())
+    }).await.map_err(|e| format!("Homebrew list task failed: {e}"))?
 }
 #[tauri::command]
-pub fn better_terminal_brew_info(window: WebviewWindow, kind: String, name: String) -> Result<String, String> {
+pub async fn better_terminal_brew_info(window: WebviewWindow, kind: String, name: String) -> Result<String, String> {
     require_main(&window)?;
     let flag = validate_brew_kind(&kind)?;
     validate_brew_name(&name)?;
-    read_brew_command(&["info", flag, name.trim()])
+    tauri::async_runtime::spawn_blocking(move || read_brew_command(&["info", flag, name.trim()]))
+        .await.map_err(|e| format!("Homebrew info task failed: {e}"))?
 }
 fn emit_homebrew_event(app: &AppHandle, event: HomebrewEvent) {
     if let Some(main) = app.get_webview_window("main") {
