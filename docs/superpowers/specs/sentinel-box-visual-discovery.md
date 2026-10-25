@@ -33,7 +33,7 @@ The interface should help users discover existing capabilities through task lang
 
 ## First implementation slice
 
-- Improve and test the presentation-only category classifier, including a separate Files & Batch Processing family.
+- Improve and test the presentation-only category classifier, including separate Files & Batch Processing, Office Workflows, and Creative & Design families so output formats do not override the user's actual task.
 - Add a pure, local tool-catalog search helper with common bilingual task aliases and tests.
 - Integrate the helper into the existing ToolLaunchpad without changing launch routes or favorites.
 - Refine catalog UI hierarchy, result counts, empty state, category filters, and responsive behavior through the existing CSS system.
@@ -48,7 +48,7 @@ The interface should help users discover existing capabilities through task lang
 
 - Existing routes and tool IDs are unchanged.
 - Search finds selected high-frequency tools using common Chinese and English intents.
-- Category filtering classifies common file, media, data, text, sharing, and Sentinel tools sensibly.
+- Category filtering classifies common file, media, data, text, office workflow, creative, sharing, and Sentinel tools sensibly; document output formats do not automatically misclassify a workflow as a PDF tool.
 - All tools remain discoverable in the complete catalog.
 - Favorites and grid/list layout continue to work; removing the last visible favorite does not strand the catalog in an empty favorites-only filter.
 - The unfiltered catalog surfaces everyday productivity tools before the large Sentinel subsystem collection; favorites remain prioritized.
