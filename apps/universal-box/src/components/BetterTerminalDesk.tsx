@@ -5,7 +5,7 @@ import {openUrl} from "@tauri-apps/plugin-opener";
 import HomebrewSoftwareCenter from "./HomebrewSoftwareCenter";
 import TerminalScreen,{type TerminalScreenHandle} from "./TerminalScreen";
 import {
- TERMINAL_PRESETS,boundedTerminalLog,
+ TERMINAL_PRESETS,boundedTerminalLog,validTerminalInput,
  type TerminalRecipe
 } from "../lib/betterTerminal";
 
@@ -25,7 +25,7 @@ export default function BetterTerminalDesk({initialTab="terminal"}:{initialTab?:
  const listenerRef=useRef<UnlistenFn|null>(null);
  const [eventsReady,setEventsReady]=useState(false);
  const [running,setRunning]=useState(false);
- const [output,setOutput]=useState("Better Terminal · Sentinel\n命令不会自动运行。点击“启动本机终端”打开真正的 macOS 登录 Shell。\n");
+ const [output,setOutput]=useState("Better Terminal · Sentinel Box\n命令不会自动运行。点击“启动本机终端”打开真正的 macOS 登录 Shell。\n");
  const [command,setCommand]=useState("");
  const [brew,setBrew]=useState<BrewStatus|null>(null);
  const [pending,setPending]=useState<PendingAction|null>(null);
@@ -93,18 +93,19 @@ export default function BetterTerminalDesk({initialTab="terminal"}:{initialTab?:
   }
   catch(e){setError(String(e));}
  }
- async function send(data:string){
-  const active=sessionRef.current;if(!active){setError("请先启动终端会话。");return;}
-  if(!data||data.length>4096){setError("单次输入需要在 1–4096 字节内。");return;}
-  try{await invoke("better_terminal_write",{sessionId:active.session_id,data});setError("");}
-  catch(e){setError("命令发送失败："+String(e));}
+ async function send(data:string):Promise<boolean>{
+  const active=sessionRef.current;if(!active){setError("请先启动终端会话。");return false;}
+  if(!validTerminalInput(data)){setError("单次输入需要在 1–4096 UTF-8 字节内，不能包含 NUL 字符。");return false;}
+  try{await invoke("better_terminal_write",{sessionId:active.session_id,data});setError("");return true;}
+  catch(e){setError("命令发送失败："+String(e));return false;}
  }
  function submitInput(){
   const text=command;
   if(!text.trim())return;
   if(/\r|\n/.test(text)){setError("一条命令只能占一行；需要多行脚本时请使用外部 Terminal。");return;}
-  setCommand("");
-  void send(text+"\n");
+  void send(text+"\n").then(ok=>{
+   if(ok)setCommand(current=>current===text?"":current);
+  });
  }
  function requestRecipe(recipe:TerminalRecipe){
   if(recipe.modifies){setPending({label:recipe.title,command:recipe.command,reason:recipe.description});return;}
@@ -126,7 +127,7 @@ export default function BetterTerminalDesk({initialTab="terminal"}:{initialTab?:
  return <section className="panel better-terminal" data-testid="better-terminal-desk" aria-label="Better Terminal">
   <div className="better-terminal-heading">
    <div>
-    <p className="eyebrow">SENTINEL / BETTER TERMINAL</p>
+    <p className="eyebrow">SENTINEL BOX / BETTER TERMINAL</p>
     <h2>Better Terminal · 更好的终端</h2>
     <p className="subtle">真正的 macOS PTY 登录 Shell + 免记命令的 Homebrew / 系统快捷操作。所有命令只在你明确点击后执行。</p>
    </div>
