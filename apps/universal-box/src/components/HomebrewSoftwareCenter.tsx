@@ -2,7 +2,7 @@ import {useEffect,useRef,useState} from "react";
 import {invoke} from "@tauri-apps/api/core";
 import {listen,type UnlistenFn} from "@tauri-apps/api/event";
 import {boundedTerminalLog,validFormulaName} from "../lib/betterTerminal";
-import {homebrewTaskOutcome,prependHomebrewTaskHistory,formatHomebrewDuration,homebrewEventBelongsToActiveJob,type HomebrewTaskRecord} from "../lib/homebrewTaskManager";
+import {homebrewTaskOutcome,prependHomebrewTaskHistory,formatHomebrewDuration,homebrewEventBelongsToActiveJob,homebrewTaskVisualState,type HomebrewTaskRecord} from "../lib/homebrewTaskManager";
 
 type BrewKind="formula"|"cask";
 type BrewOperation="install"|"uninstall"|"upgrade"|"update"|"upgrade_all";
@@ -199,6 +199,7 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
    }
   }
  }
+ const visualState=homebrewTaskVisualState(running,cancelPending,jobStatus);
  return <section className="brew-software-center" data-testid="brew-software-center">
   <div className="brew-center-toolbar">
    <div>
@@ -270,9 +271,9 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
      })}
     </div>
    </div>
-   {results.length>0&&<div className="brew-software-results" data-testid="brew-search-results">
+   {(results.length>0||notice.startsWith("找到 "))&&<div className="brew-software-results" data-testid="brew-search-results">
     <div className="brew-results-heading"><strong>搜索结果</strong><span>{results.length} 项</span></div>
-    {results.map(name=>{
+    {results.length===0?<div className="brew-search-empty" data-testid="brew-search-empty"><span className="brew-search-empty-icon" aria-hidden="true">⌕</span><strong>没有找到匹配的软件</strong><p>试试更短的包名，或切换“Mac 应用”和“命令行工具”类别。</p></div>:results.map(name=>{
      const isInstalled=packages.includes(name);
      return <div className="brew-software-row" key={name}>
       <div className="brew-software-name"><strong>{name}</strong><small>{isInstalled?"已安装":"可安装"}</small></div>
@@ -287,8 +288,8 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
    {packages.length>0&&<details className="brew-installed-panel"><summary>浏览已安装软件（前 100 项）</summary>
     <div className="brew-installed-chips">{packages.slice(0,100).map(name=><button type="button" key={name} disabled={running||!eventsReady||checkingUpdates||searching||loadingPackages} onClick={()=>{setQuery(name);void showInfo(name);}}>{name}</button>)}</div>
    </details>}
-   {(running||jobStatus)&&<div className="brew-operation-panel" data-testid="brew-operation-panel">
-    <div className="brew-results-heading"><strong>操作进度与日志</strong><span role="status">{jobStatus}</span></div>
+   {(running||jobStatus)&&<div className={"brew-operation-panel is-"+visualState} data-state={visualState} data-testid="brew-operation-panel">
+    <div className="brew-results-heading"><strong>操作进度与日志</strong><span className={"brew-job-status "+visualState} role="status" aria-live="polite">{jobStatus}</span></div>
     <pre>{log||"正在等待 Homebrew 输出…"}</pre>
     {running&&jobId!==null&&<button type="button" className="secondary-button" data-testid="brew-cancel-job"
      disabled={cancelPending} onClick={()=>void cancel()}>{cancelPending?"正在取消…":"取消操作"}</button>}
@@ -309,8 +310,9 @@ export default function HomebrewSoftwareCenter({native,installed}:{native:boolea
   </details>}
   {notice&&<p role="status" className="subtle">{notice}</p>}
   {error&&<p role="alert" className="terminal-error">{error}</p>}
-  {pending&&<div className="terminal-confirm" role="dialog" aria-modal="true" aria-label="确认 Homebrew 操作" data-testid="brew-action-confirmation">
-   <h3>确认操作：{pending.label}</h3><p>{pending.reason}</p>
+  {pending&&<div className="terminal-confirm brew-action-confirmation" data-operation={pending.operation} role="dialog" aria-modal="true" aria-label="确认 Homebrew 操作" data-testid="brew-action-confirmation">
+   <p className="brew-confirmation-kicker">本机操作 · 需要确认</p>
+    <h3>确认操作：{pending.label}</h3><p>{pending.reason}</p>
    <p>本操作通过固定的 Homebrew 参数直接启动，不会把软件名称拼接为 Shell 脚本。请检查软件名称和影响后再继续。</p>
    <code>{pending.operation==="update"?"brew update":pending.operation==="upgrade_all"?`brew upgrade --${pending.kind}`:`brew ${pending.operation} --${pending.kind} ${pending.name}`}</code>
    <div className="actions">

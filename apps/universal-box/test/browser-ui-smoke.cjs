@@ -27,6 +27,54 @@ test("Desktop redesign: office home, command search, categorized list, and expli
  const page=await openApp(browser);const errors=[];page.on("pageerror",e=>errors.push(e.message));
  try{
   await page.getByTestId("redesigned-home").waitFor();
+  const coreModules=page.getByTestId("home-sentinel-workspaces");
+  assert.ok(await coreModules.getByTestId("home-module-better-terminal").isVisible(),
+    "Better Terminal should be visible as a first-class built-in module on the home dashboard.");
+  assert.ok(await coreModules.getByTestId("home-module-sentinel").isVisible(),
+    "Sentinel should be visible as a first-class built-in module on the home dashboard.");
+  assert.ok(await coreModules.evaluate(node=>{
+    const categories=document.querySelector('[data-testid="home-tool-categories"]');
+    return Boolean(categories&&(node.compareDocumentPosition(categories)&Node.DOCUMENT_POSITION_FOLLOWING));
+  }),"Built-in modules should appear before task-category browsing on the dashboard.");
+  assert.ok(await coreModules.getByTestId("home-better-terminal").isVisible());
+  assert.ok(await coreModules.getByTestId("home-sentinel").isVisible());
+  await page.screenshot({path:path.join(reportPath,"home-dashboard.png"),fullPage:true});
+  await page.setViewportSize({width:390,height:844});
+  const mobileLayout=await page.evaluate(()=>{
+    const shell=document.querySelector(".app-shell");
+    const moduleGrid=document.querySelector(".box-module-grid");
+    const categoryGrid=document.querySelector(".home-category-grid");
+    return {
+      viewport:window.innerWidth,
+      document:document.documentElement.scrollWidth,
+      bodyMinWidth:getComputedStyle(document.body).minWidth,
+      shellColumns:getComputedStyle(shell).gridTemplateColumns,
+      moduleColumns:getComputedStyle(moduleGrid).gridTemplateColumns.split(" ").filter(Boolean).length,
+      categoryColumns:getComputedStyle(categoryGrid).gridTemplateColumns.split(" ").filter(Boolean).length
+    };
+  });
+  assert.equal(mobileLayout.bodyMinWidth,"0px",
+    "Legacy desktop minimum width must be overridden on phone viewports.");
+  assert.ok(mobileLayout.document<=mobileLayout.viewport+1,
+    "Mobile home should not create horizontal page overflow: "+JSON.stringify(mobileLayout));
+  assert.equal(mobileLayout.moduleColumns,1,"Core module cards should stack on mobile.");
+  assert.equal(mobileLayout.categoryColumns,1,"Task categories should stack on mobile.");
+  assert.ok(await coreModules.getByTestId("home-better-terminal").isVisible());
+  await page.getByRole("button",{name:"Switch to dark mode"}).click();
+  assert.equal(await page.locator(".app-shell").getAttribute("data-theme"),"dark",
+    "The dashboard theme control should apply dark mode.");
+  await page.screenshot({path:path.join(reportPath,"home-dashboard-dark-mobile.png"),fullPage:true});
+  await page.getByRole("button",{name:"Switch to light mode"}).click();
+  await page.setViewportSize({width:1440,height:900});
+  const pdfShortcut=page.getByTestId("home-category-pdf");
+  assert.ok(Number(await pdfShortcut.locator(".home-category-count").innerText())>0,
+    "Home category shortcuts should show live counts from the tool catalog.");
+  await pdfShortcut.click();
+  const categoryButtons=page.getByRole("group",{name:"工具分类筛选"});
+  assert.equal(await categoryButtons.getByRole("button",{name:/PDF 与文档/}).getAttribute("aria-pressed"),"true",
+    "Home category shortcuts should open the existing catalog with the selected category active.");
+  await page.locator(".sidebar-brand").click();
+  await page.getByTestId("redesigned-home").waitFor();
   assert.ok(await page.getByTestId("office-first-task-grid").locator("button").count()>=5);
   assert.ok(await page.getByTestId("home-recent-exports").isVisible());
   await page.getByTestId("home-file-input").setInputFiles({
@@ -41,9 +89,32 @@ test("Desktop redesign: office home, command search, categorized list, and expli
   assert.ok(await page.getByTestId("palette-result").count()>0);
   await page.keyboard.press("Escape");
   await allTools(page);
+  const initialCards=await page.locator(".catalog-copy strong").allInnerTexts();
+  assert.ok(initialCards.slice(0,6).some(name=>/PDF|Word|文档/i.test(name)),
+    "The default catalog should surface everyday document tools near the top.");
+  assert.equal(initialCards.slice(0,6).some(name=>/^Sentinel\s*[·/]/i.test(name)),false,
+    "The large Sentinel subsystem collection should not dominate the default catalog's first screen.");
+  await page.getByTestId("catalog-suggest-homebrew").click();
+  assert.equal(await page.locator(".catalog-open").count(),1,"The Homebrew quick-search chip should find the existing software-center tool.");
+  assert.match(await page.locator(".catalog-copy strong").first().innerText(),/Homebrew/i);
+  assert.ok((await page.locator(".catalog-description").first().innerText()).length>0,"Catalog cards should explain the existing tool.");
+  await page.locator("#all-tools-search").fill("软件中心");
+  assert.equal(await page.locator(".catalog-open").count(),1,"Chinese task aliases should find the existing Homebrew tool.");
+  await page.locator("#all-tools-search").fill("");
+  await page.getByTestId("catalog-suggest-heic-jpg").click();
+  assert.equal(await page.locator(".catalog-open").count(),1,"HEIC to JPG search should find the existing photo compressor.");
+  await page.locator("#all-tools-search").fill("");
+  await page.getByTestId("catalog-suggest-pdf-compress").click();
+  assert.ok(await page.locator(".catalog-open").count()>=2,"The PDF quick-search chip should find relevant tools.");
+  await page.locator("#all-tools-search").fill("压缩 PDF");
+  assert.ok(await page.locator(".catalog-open").count()>=2,"PDF compression intent should find the relevant existing tools.");
+  await page.locator("#all-tools-search").fill("no-such-sentinel-tool-xyz");
+  await page.getByTestId("catalog-empty").waitFor();
+  await page.getByRole("button",{name:"清除全部筛选"}).click();
+  await page.locator("#all-tools-search").fill("");
   await page.getByTestId("catalog-list-mode").click();
   assert.equal(await page.getByTestId("catalog-results").evaluate(e=>e.classList.contains("catalog-list")),true);
-  await page.getByRole("group",{name:"Filter tool category"}).getByRole("button",{name:"PDF 与文档"}).click();
+  await page.getByRole("group",{name:"工具分类筛选"}).getByRole("button",{name:"PDF 与文档"}).click();
   assert.ok(await page.locator(".catalog-open").count()>0);
   await page.getByTestId("catalog-grid-mode").click();
   assert.equal(await page.getByTestId("catalog-results").evaluate(e=>e.classList.contains("catalog-list")),false);
@@ -69,7 +140,7 @@ test("Universal Box loads and every catalog entry routes to a mounted workspace"
   assert.ok(count>=85,"unexpectedly short tool catalog: "+count);
   const checked=[];
   for(let i=0;i<count;i++){
-   const name=(await page.locator(".catalog-open").nth(i).innerText()).split("\n")[0];
+   const name=(await page.locator(".catalog-copy strong").nth(i).innerText()).trim();
    await page.locator(".catalog-open").nth(i).click();
    await page.locator("#main-content").waitFor({state:"visible"});
    const text=(await page.locator("#main-content").innerText()).trim();

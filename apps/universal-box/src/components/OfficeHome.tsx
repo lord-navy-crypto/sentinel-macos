@@ -8,13 +8,14 @@ type Props={
  favorites:HomeWorkspace[];
  recents:HomeWorkspace[];
  totalTools:number;
+ categoryCounts:Record<string,number>;
  onOpen:(view:string,module?:string)=>void;
  onSearch:()=>void;
  onUnpin:(id:string)=>void;
 };
 
 /** Action-first desktop start screen; all actions open existing tools, never a second converter. */
-export default function OfficeHome({favorites,recents,totalTools,onOpen,onSearch,onUnpin}:Props){
+export default function OfficeHome({favorites,recents,totalTools,categoryCounts,onOpen,onSearch,onUnpin}:Props){
  const [exports,setExports]=useState<RecentExport[]>(getRecentExports);
  const [dragging,setDragging]=useState(false);
  useEffect(()=>subscribeRecentExports(()=>setExports(getRecentExports())),[]);
@@ -57,7 +58,7 @@ export default function OfficeHome({favorites,recents,totalTools,onOpen,onSearch
   </div>
   <section className="home-section home-box-modules" data-testid="home-sentinel-workspaces" aria-label="Sentinel Box built-in modules">
    <header className="home-section-title"><div><p className="eyebrow">SENTINEL BOX · BUILT-IN MODULES</p>
-    <h2>系统与终端 · 内置模块</h2>
+    <h2>核心模块 · 系统与终端</h2>
     <p className="subtle">Sentinel Box 是统一工具箱。Sentinel 负责系统观测与安全诊断，Better Terminal 负责本机终端和软件管理；两者共享同一套导航与工作区。</p>
    </div>
    <button type="button" className="home-inline-action" onClick={()=>onOpen("all-tools")}>全部工具 →</button>
@@ -66,7 +67,7 @@ export default function OfficeHome({favorites,recents,totalTools,onOpen,onSearch
     <article className="box-module-card box-module-terminal" data-testid="home-module-better-terminal">
      <div className="box-module-heading">
       <span className="box-module-icon" aria-hidden="true">&gt;_</span>
-      <div><p className="eyebrow">TERMINAL · SOFTWARE CENTER</p><h3>Better Terminal</h3></div>
+      <div><p className="eyebrow">终端与软件中心 · TERMINAL</p><h3>Better Terminal</h3></div>
      </div>
      <p className="box-module-description">在 Sentinel Box 内打开原生 macOS 终端；用图形化软件中心安装、查看和升级常用软件，不必记住一长串 Homebrew 命令。</p>
      <div className="box-module-points" aria-label="Better Terminal features">
@@ -80,7 +81,7 @@ export default function OfficeHome({favorites,recents,totalTools,onOpen,onSearch
     <article className="box-module-card box-module-sentinel" data-testid="home-module-sentinel">
      <div className="box-module-heading">
       <span className="box-module-icon" aria-hidden="true">◉</span>
-      <div><p className="eyebrow">SYSTEM OBSERVABILITY · SAFETY</p><h3>Sentinel 系统中心</h3></div>
+      <div><p className="eyebrow">系统观测与安全 · SENTINEL</p><h3>Sentinel 系统中心</h3></div>
      </div>
      <p className="box-module-description">沿用原 Sentinel 引擎与已有安全边界，集中查看系统状态、执行只读检查、调查本机证据，并审查诊断和恢复操作。</p>
      <div className="box-module-points" aria-label="Sentinel features">
@@ -107,6 +108,30 @@ export default function OfficeHome({favorites,recents,totalTools,onOpen,onSearch
       <span className="home-task-arrow" aria-hidden="true">↗</span>
      </button>)}
     </div>
+   </div>
+  </section>
+  <section className="home-section home-category-shortcuts" data-testid="home-tool-categories" aria-label="Browse tools by task">
+   <header className="home-section-title"><div><p className="eyebrow">BROWSE BY TASK</p>
+    <h2>按任务浏览工具</h2><p className="subtle">直接打开完整工具目录并选中对应分类；不会创建重复工具或隐藏高级功能。</p>
+   </div><button type="button" className="home-inline-action" onClick={()=>onOpen("all-tools")}>查看全部工具 →</button></header>
+   <div className="home-category-grid">
+    {([
+     ["pdf","▤","PDF 与文档","PDF 编辑、文档转换与页面整理"],
+     ["text","¶","文本与写作","文本清理、比较、Markdown 与符号"],
+     ["media","▧","图片与媒体","图片转换、压缩与媒体处理"],
+     ["data","▦","表格与数据","CSV/TSV、表格清理与图表"],
+     ["files","⇪","文件与批处理","文件预检、重复检查与批量操作"],
+     ["workflows","☷","办公工作流","会议纪要、批量文档与交付材料"],
+     ["creative","✦","创作与设计","可编辑文档、演示文稿与设计成果"],
+     ["terminal",">_","终端与软件管理","本机终端与图形化软件管理"],
+    ] as const).map(([id,symbol,title,description])=><button key={id} type="button"
+     className="home-category-card" data-testid={"home-category-"+id}
+     onClick={()=>onOpen("all-tools","catalog-category:"+title)}>
+     <span className="home-category-icon" aria-hidden="true">{symbol}</span>
+     <span className="home-category-copy"><strong>{title}</strong><small>{description}</small></span>
+     <span className="home-category-count" aria-label={`${categoryCounts[title]??0} 个工具`}>{categoryCounts[title]??0}</span>
+     <span className="home-category-arrow" aria-hidden="true">↗</span>
+    </button>)}
    </div>
   </section>
   <section className="home-section" data-testid="office-home-shortcuts" aria-label="Everyday office shortcuts">

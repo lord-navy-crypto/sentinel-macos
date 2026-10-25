@@ -1,5 +1,6 @@
 import {useEffect,useMemo,useState} from "react";
 import {visualToolFamily,VISUAL_TOOL_FAMILIES} from "../lib/toolVisualCategories";
+import {catalogToolDescription,catalogToolSymbol,filterToolCatalog} from "../lib/toolCatalogSearch";
 import {SENTINEL_EXTRA_READS,SENTINEL_BASE_EXTRA_CARDS} from "../lib/sentinelSurfaceCatalog";
 
 export type LocalTool = {id:string;name:string;area:string;view:string;module?:string};
@@ -169,11 +170,20 @@ export const LOCAL_TOOLS:LocalTool[] = [
  {id:"planner",name:"Tasks & Planner",area:"Study",view:"tasks"},
  {id:"backup",name:"Backup & Privacy",area:"Files",view:"data"}
 ];
-const NOT_LOCAL = ["Website AI / cloud models (needs configured AI connection)", "Speech-to-text transcription (microphone and speech engine integration)", "Public short-link hosting and shared workspaces"];
+const CATALOG_SEARCH_SUGGESTIONS = [
+ {id:"pdf-compress",label:"压缩 PDF",query:"压缩 PDF"},
+ {id:"heic-jpg",label:"HEIC 转 JPG",query:"HEIC 转 JPG"},
+ {id:"batch-replace",label:"批量替换",query:"批量替换"},
+ {id:"homebrew",label:"Homebrew",query:"Homebrew"},
+ {id:"csv-merge",label:"CSV 合并",query:"CSV 合并"},
+ {id:"word-count",label:"字数统计",query:"字数统计"},
+] as const;
 
-export default function ToolLaunchpad({onLaunch}:{onLaunch:(view:string,module?:string)=>void}) {
+const NOT_LOCAL = ["网站 AI / 云端模型（需要配置 AI 连接）", "公共短链接托管（需要外部服务）", "跨设备同步的共享工作区（需要外部托管服务）"];
+
+export default function ToolLaunchpad({onLaunch,initialCategory="全部"}:{onLaunch:(view:string,module?:string)=>void;initialCategory?:string}) {
  const [search,setSearch]=useState("");
- const [category,setCategory]=useState("全部");
+ const [category,setCategory]=useState(initialCategory);
  const [layout,setLayout]=useState<"grid"|"list">("grid");
  const [showFavorites,setShowFavorites]=useState(false);
  const [favorites,setFavorites]=useState<string[]>(()=>{
@@ -187,62 +197,68 @@ export default function ToolLaunchpad({onLaunch}:{onLaunch:(view:string,module?:
    catch{/* saved preferences are optional */}
  },[favorites]);
  const groups=VISUAL_TOOL_FAMILIES;
- const filtered=useMemo(()=>{
-   const term=search.trim().toLocaleLowerCase();
-   const matches=LOCAL_TOOLS.filter(item=>
-     (category==="全部"||visualToolFamily(item)===category)
-     &&(!showFavorites||favorites.includes(item.id))
-     &&(!term||(item.name+" "+item.id+" "+item.area).toLocaleLowerCase().includes(term)));
-   return matches.sort((a,b)=>Number(favorites.includes(b.id))-Number(favorites.includes(a.id)));
- },[category,search,favorites,showFavorites]);
+ const categoryCounts=useMemo(()=>new Map(groups.map(group=>[
+   group,group==="全部"?LOCAL_TOOLS.length:LOCAL_TOOLS.filter(item=>visualToolFamily(item)===group).length
+ ] as const)),[groups]);
+ const filtered=useMemo(()=>filterToolCatalog(LOCAL_TOOLS,{
+   query:search,category,favoritesOnly:showFavorites,favorites
+ }),[category,search,favorites,showFavorites]);
  function toggleFavorite(id:string){
    setFavorites(old=>old.includes(id)?old.filter(x=>x!==id):[...old,id].slice(0,40));
+   if(showFavorites&&favorites.length===1&&favorites.includes(id))setShowFavorites(false);
  }
  return <section className="panel tool-catalog" data-testid="reorganized-tool-catalog">
    <div className="catalog-heading">
      <div><p className="eyebrow">SEARCH · FAVORITES · CATEGORIES</p>
        <h2>全部工具 · 找到就能用</h2>
-       <p className="subtle">按日常办公任务查找工具，也可以搜索名称；均跳转到已有功能，收藏仅保存在本机。</p>
+       <p className="subtle">按任务、名称、文件格式或中英文别名查找。每个入口都会打开现有功能，收藏只保存在本机。</p>
      </div>
-     <div className="catalog-count"><strong>{LOCAL_TOOLS.length}</strong><span>tool entries</span></div>
+     <div className="catalog-count"><strong>{LOCAL_TOOLS.length}</strong><span>个工具入口</span><small>全部可搜索 · 不隐藏高级功能</small></div>
    </div>
    <div className="catalog-filter-bar">
-     <label className="field-label" htmlFor="all-tools-search">Search the tool library
+     <label className="field-label" htmlFor="all-tools-search">搜索名称、任务、格式和中英文别名
        <input autoComplete="off" className="field" id="all-tools-search" type="search" value={search}
-         onChange={e=>setSearch(e.target.value)} placeholder="Try PDF, CSV, QR, image, audio, graph…" />
+         onChange={e=>setSearch(e.target.value)} placeholder="试试：压缩 PDF、HEIC 转 JPG、批量替换、Homebrew…" />
      </label>
      <button type="button" className={showFavorites?"secondary-button favorites-only enabled":"secondary-button favorites-only"}
-       onClick={()=>setShowFavorites(old=>!old)} aria-pressed={showFavorites}>★ Favorites ({favorites.length})</button>
-     <div className="catalog-layout" role="group" aria-label="Catalog layout">
+       onClick={()=>setShowFavorites(old=>!old)} aria-pressed={showFavorites} disabled={favorites.length===0&&!showFavorites}
+       title={favorites.length===0?"先点击工具卡片上的 ☆ 收藏工具":"只显示已收藏的工具"}>★ 收藏 ({favorites.length})</button>
+     <div className="catalog-layout" role="group" aria-label="工具目录视图">
       <button type="button" data-testid="catalog-grid-mode" aria-label="卡片视图" className={layout==="grid"?"catalog-layout-active":""} aria-pressed={layout==="grid"} onClick={()=>setLayout("grid")}>▦</button>
       <button type="button" data-testid="catalog-list-mode" aria-label="列表视图" className={layout==="list"?"catalog-layout-active":""} aria-pressed={layout==="list"} onClick={()=>setLayout("list")}>☷</button>
      </div>
      {search&&<button type="button" className="secondary-button catalog-clear" onClick={()=>setSearch("")}>清除</button>}
    </div>
-   <div className="category-scroll" role="group" aria-label="Filter tool category">
+   {!search.trim()&&<div className="catalog-search-suggestions" role="group" aria-label="常用搜索">
+     <span className="catalog-suggestions-label">常用搜索</span>
+     {CATALOG_SEARCH_SUGGESTIONS.map(item=><button key={item.id} type="button" className="catalog-suggestion"
+       data-testid={"catalog-suggest-"+item.id}
+       onClick={()=>{setSearch(item.query);setCategory("全部");setShowFavorites(false);}}>{item.label}<span aria-hidden="true">↗</span></button>)}
+   </div>}
+   <div className="category-scroll" role="group" aria-label="工具分类筛选">
      {groups.map(group=><button type="button" key={group}
        className={category===group?"pill active-pill":"pill"} aria-pressed={category===group}
-       onClick={()=>setCategory(group)}>{group}</button>)}
+       onClick={()=>setCategory(group)}>{group}<span className="category-count">{categoryCounts.get(group)??0}</span></button>)}
    </div>
-   <div className="catalog-results-header" aria-live="polite"><span>找到 {filtered.length} 个工具</span><span>{favorites.length?"★ 收藏工具优先显示":"点击 ☆ 收藏常用工具"}</span></div>
+   <div className="catalog-results-header" aria-live="polite"><span>找到 {filtered.length} 个工具入口</span><span>{search.trim()?"搜索："+search.trim():showFavorites?"仅显示已收藏的工具":category!=="全部"?"当前分类："+category:"支持中文任务、英文名称和文件格式搜索"}</span></div>
    {filtered.length?<div className={"tool-grid catalog-grid"+(layout==="list"?" catalog-list":"")} data-testid="catalog-results">
      {filtered.map(item=><div key={item.id} className="catalog-card">
-       <button className="catalog-favorite" type="button" aria-label={favorites.includes(item.id)?"Remove "+item.name+" from favorites":"Add "+item.name+" to favorites"}
+       <button className="catalog-favorite" type="button" aria-label={favorites.includes(item.id)?"取消收藏："+item.name:"收藏："+item.name}
          aria-pressed={favorites.includes(item.id)} onClick={()=>toggleFavorite(item.id)}>{favorites.includes(item.id)?"★":"☆"}</button>
        <button className="catalog-open" type="button" onClick={()=>onLaunch(item.view,item.module)}>
-         <span className="catalog-icon" aria-hidden="true">{item.area==="Images"?"▧":item.area==="Math"?"∑":item.area==="Files"?"▤":item.area==="Office"?"▦":item.area==="Code"?"⌘":"◇"}</span>
-         <strong>{item.name}</strong><span className="catalog-area">{visualToolFamily(item)}</span>
-         <span className="tool-state">OPEN TOOL →</span>
+         <span className="catalog-icon" aria-hidden="true">{catalogToolSymbol(item)}</span>
+         <span className="catalog-copy"><strong>{item.name}</strong><span className="catalog-description">{catalogToolDescription(item)}</span><span className="catalog-area">{visualToolFamily(item)}</span></span>
+         <span className="tool-state">打开工具 →</span>
        </button>
      </div>)}
-   </div>:<div className="catalog-empty"><strong>没有匹配的工具</strong><p className="subtle">Try a different keyword or clear the category and favorites filters.</p>
-     <button className="secondary-button" type="button" onClick={()=>{setCategory("全部");setSearch("");setShowFavorites(false);}}>Reset filters</button>
+   </div>:<div className="catalog-empty" data-testid="catalog-empty"><span className="catalog-empty-icon" aria-hidden="true">⌕</span><strong>没有找到匹配的工具</strong><p className="subtle">试试更短的关键词，或清除分类、收藏和搜索条件。你也可以从上方常用搜索开始。</p>
+     <button className="secondary-button" type="button" onClick={()=>{setCategory("全部");setSearch("");setShowFavorites(false);}}>清除全部筛选</button>
    </div>}
    <div className="catalog-external">
-     <div><h3>Need something more advanced?</h3>
-       <p className="subtle">Optional third-party sites open in your default browser. They are clearly separate from your private local toolbox.</p></div>
-     <button className="secondary-button" type="button" onClick={()=>onLaunch("external")}>Browse external services ↗</button>
+     <div><h3>还需要更高级的服务？</h3>
+       <p className="subtle">可选的第三方网站会在默认浏览器中打开，并与本机工具箱明确区分。</p></div>
+     <button className="secondary-button" type="button" onClick={()=>onLaunch("external")}>浏览外部服务 ↗</button>
    </div>
-   <p className="subtle">Not available as offline equivalents: {NOT_LOCAL.join(" · ")}.</p>
+   <p className="subtle">需要外部服务或账号的功能：{NOT_LOCAL.join(" · ")}。</p>
  </section>;
 }
