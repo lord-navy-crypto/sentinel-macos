@@ -137,6 +137,10 @@ test("Better Terminal is navigable and Homebrew UI cannot run in browser-only pr
   await page.getByTestId("better-terminal-tab-brew").click();
   assert.equal(await page.getByTestId("terminal-brew-manager").isVisible(),true);
   await page.getByTestId("brew-software-center").waitFor();
+  await page.getByTestId("better-terminal-tab-terminal").click();
+  assert.equal(await page.getByTestId("brew-software-center").count(),1,"Switching tabs should keep the software task manager mounted");
+  assert.equal(await page.getByTestId("brew-software-center").isVisible(),false,"The software center should be hidden but remain alive in the background");
+  await page.getByTestId("better-terminal-tab-brew").click();
   assert.equal(await page.getByTestId("brew-check-updates").count(),0,"Browser preview must not expose native Homebrew update controls");
   assert.equal(await page.getByTestId("brew-upgrade-all").count(),0,"Bulk upgrades appear only after native update results are available");
   assert.equal(await page.getByTestId("brew-search").count(),0,"Browser preview must not expose native Homebrew execution");
