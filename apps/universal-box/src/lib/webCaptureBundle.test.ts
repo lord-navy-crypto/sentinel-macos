@@ -35,9 +35,9 @@ describe("Bundled free Web Capture companion",()=>{
  it("includes explicit research actions, without adding cross-site permissions",async()=>{
   const html=await readAsset("popup.html");
   const js=await readAsset("popup.js");
-  for(const mode of ["selection","citation","images","structure","citation-ris","table-markdown","links-audit"]){
+  for(const mode of ["selection","citation","images","structure","citation-ris","table-markdown","links-audit","table-package"]){
     expect(html).toContain('data-mode="'+mode+'"');
-    expect(js).toContain(mode==="table-markdown"?'mode==="table-markdown"':'if(mode==="'+mode+'")');
+    expect(js).toContain(["table-markdown","table-package"].includes(mode)?'mode==="'+mode+'"':'if(mode==="'+mode+'")');
   }
   expect(js).not.toContain("XMLHttpRequest");
   expect(js).not.toContain("navigator.sendBeacon");
@@ -45,7 +45,8 @@ describe("Bundled free Web Capture companion",()=>{
   expect(js).toContain('if(["links","tables","images"].includes(lastMode))');
   expect(js).toContain('["markdown","selection","citation","table-markdown"].includes(mode)');
   expect(js).toContain('mode==="citation-ris"?"ris"');
-  expect(js).toContain('const usesTable=mode==="tables"||mode==="table-markdown"');
+  expect(js).toContain('const usesTable=["tables","table-markdown","table-package"].includes(mode)');
+  expect(js).toContain('mode==="table-package"?"json"');
  });
  it("refuses to export damaged or missing resources",async()=>{
   await expect(createWebCaptureZip(async name=>name==="popup.js"?"":readAsset(name))).rejects.toThrow(/Missing/);
