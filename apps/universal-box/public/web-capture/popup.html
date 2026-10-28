@@ -26,7 +26,7 @@ select{width:100%;min-height:38px;border:1px solid #cbd8e4;background:#fff;color
 textarea{display:block;width:100%;height:156px;resize:vertical;border:1px solid #c4d5e4;border-radius:10px;background:#fff;color:#1b3447;padding:11px;font:12px/1.55 ui-monospace,"SFMono-Regular",monospace}
 .note,.footer{color:#5d7085;font-size:11px;line-height:1.5;margin:8px 0 0}
 </style></head><body>
-<header><div class="mark" aria-hidden="true">S</div><div><h1>Web Capture <small>v0.8.0</small></h1>
+<header><div class="mark" aria-hidden="true">S</div><div><h1>Web Capture <small>v0.9.0</small></h1>
 <p class="desc">Sentinel Box · 只处理你点击授权的当前网页</p></div></header>
 <section class="panel" aria-label="Capture text and Markdown"><h2>网页正文 / Markdown</h2><div class="actions">
 <button data-mode="text" type="button">复制可见文字</button>
@@ -41,11 +41,11 @@ textarea{display:block;width:100%;height:156px;resize:vertical;border:1px solid 
 <button data-mode="tables" type="button">复制所选表格 CSV</button>
 <button data-mode="tables" data-save="true" class="primary" type="button">直接保存表格 CSV</button>
 <button data-mode="table-markdown" type="button">所选表格 → Markdown</button>
-<button data-mode="table-audit" type="button">检查所选表格质量</button>
+<button data-mode="table-audit" type="button">检查表格与潜在公式</button>
 <button data-mode="table-package" data-save="true" class="primary" type="button">保存表格交接 JSON</button>
 </div><div id="tablePicker" hidden><label for="tableSelect">选择要处理的 HTML 表格</label>
 <select id="tableSelect" aria-label="Choose page table"></select>
-<p class="note">最多检查前 24 个可见表格；质量检查会提示空白、重复及合并单元格，不会修改数据。CSV/JSON 不支持无损导出的合并单元格会报错。</p></div><p id="tableNotice" class="table-notice" role="alert" hidden></p></section>
+<p class="note">最多检查前 24 个可见表格。质量检查会提示空白、重复、合并及潜在公式内容；表格变化后会要求重新扫描，避免导错。</p></div><p id="tableNotice" class="table-notice" role="alert" hidden></p></section>
 <section class="panel" aria-label="Research notes and citations"><h2>研究笔记 / 网页引用</h2>
 <div class="actions">
 <button data-mode="selection" type="button">摘录选中文字＋来源</button>
@@ -70,6 +70,6 @@ textarea{display:block;width:100%;height:156px;resize:vertical;border:1px solid 
 <button id="copyPreview" type="button">复制预览</button>
 <button id="clean" type="button">整理文字</button>
 <button id="save" class="primary" type="button">保存当前预览</button>
-</div><p class="note">CSV 与图片清单保留完整记录并防止表格公式执行；超限会报错，不悄悄截断字段。下载由浏览器处理。</p></section>
+</div><p class="note">超限或结构不一致时明确报错，不静默截断。CSV 对疑似公式单元格进行保守转义，但仍须在表格软件中检查。下载由浏览器处理。</p></section>
 <p class="footer">无账号 · 无后台监控 · 不上传数据 · 无额外站点权限。只访问用户授权的当前标签页；不会访问历史记录、密码或其他页面。浏览器保护页面不支持。</p>
 <script src="popup.js"></script></body></html>
