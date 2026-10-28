@@ -69,6 +69,58 @@ function capturePage(mode,tableIndex=0){
     if(!/^https?:\/\//i.test(url))throw Error("仅支持 http(s) 网页。");
     return ("标题: "+title+"\n来源: "+url).slice(0,LIMIT);
   }
+  // All modes run only after the user clicks a button in this popup.
+  // The same strict CSV escaping applies to the local image inventory.
+  if(mode==="selection"){
+    const selected=clean(window.getSelection()?.toString()||"");
+    if(!selected)throw Error("请先在网页上选中文字，然后打开扩展捕获。");
+    if(selected.length>40000)throw Error("选中文字超过 40,000 字符，请缩小选区。");
+    const title=clean(document.title).slice(0,300).replace(/[\[\]]/g,"\\  if(mode==="outline"){");
+    const url=location.href.replace(/[()]/g,ch=>encodeURIComponent(ch));
+    const quote=selected.replace(/\r\n?/g,"\n").split("\n").map(line=>"> "+line).join("\n");
+    return "# 摘录笔记\n\n"+quote+"\n\n来源： ["+title+"]("+url+")\n采集日期： "+new Date().toISOString().slice(0,10);
+  }
+  if(mode==="citation"){
+    const title=clean(document.title).slice(0,300).replace(/[\[\]]/g,"\\  if(mode==="outline"){")||"未命名网页";
+    const url=location.href.replace(/[()]/g,ch=>encodeURIComponent(ch));
+    const meta=(name,attribute="name")=>clean(document.querySelector('meta['+attribute+'="'+name+'"]')?.content||"").slice(0,500);
+    const author=meta("author")||meta("citation_author")||meta("article:author","property");
+    const published=meta("article:published_time","property")||meta("datePublished")||meta("citation_date");
+    const description=meta("description")||meta("og:description","property");
+    return "# 网页引用资料\n\n- 标题： ["+title+"]("+url+")\n"+
+      (author?"- 作者（网页声明）： "+author+"\n":"")+
+      (published?"- 发布日期（网页声明）： "+published+"\n":"")+
+      (description?"- 摘要（网页声明）： "+description+"\n":"")+
+      "- 采集日期： "+new Date().toISOString().slice(0,10)+"\n\n> 来源信息来自当前网页，尚未独立核实。";
+  }
+  if(mode==="images"){
+    const images=[...document.querySelectorAll("img")].filter(allowed);
+    if(images.length>1000)throw Error("网页有超过 1,000 张可见图片；请使用更小的页面。");
+    const rows=[["alt_text","image_url","natural_width","natural_height"]];
+    for(const img of images){
+      const url=img.currentSrc||img.src||"";
+      if(!/^https?:\/\//i.test(url))continue;
+      rows.push([clean(img.alt).slice(0,300),url,String(img.naturalWidth||0),String(img.naturalHeight||0)]);
+    }
+    if(rows.length===1)throw Error("当前网页没有可导出链接的可见图片。");
+    return csv(rows);
+  }
+  if(mode==="structure"){
+    const headingCounts=Array.from({length:6},(_,index)=>
+      [...document.querySelectorAll("h"+(index+1))].filter(allowed).length);
+    const visibleLinks=[...document.querySelectorAll("a[href]")].filter(allowed).length;
+    const visibleTables=[...document.querySelectorAll("table")].filter(allowed).length;
+    const visibleImages=[...document.querySelectorAll("img")].filter(allowed);
+    const withoutAlt=visibleImages.filter(img=>!clean(img.getAttribute("alt"))).length;
+    return ["Sentinel Box · 网页结构检查（只读）",
+      "标题： "+clean(document.title).slice(0,300),
+      "网址： "+location.href,
+      "检查时间： "+new Date().toISOString(),
+      ...headingCounts.map((count,index)=>"H"+(index+1)+" 标题： "+count),
+      "可见链接： "+visibleLinks,"可见 HTML 表格： "+visibleTables,
+      "可见图片： "+visibleImages.length,"无非空 alt 的图片： "+withoutAlt,
+      "说明：仅统计当前页面 DOM 中可见元素；不检测服务器状态、链接可达性或恶意软件。"].join("\n");
+  }
   if(mode==="outline"){
     const headings=[...document.querySelectorAll("h1,h2,h3,h4,h5,h6")].filter(allowed).slice(0,250);
     if(!headings.length)throw Error("当前页面没有可访问的标题。");
@@ -263,14 +315,14 @@ function tidyText(text){
 }
 document.getElementById("clean").addEventListener("click",async()=>{
   if(!previewEl.value){statusEl.textContent="请先提取内容。";return;}
-  if(lastMode==="links"||lastMode==="tables"){statusEl.textContent="CSV 不做空格清理，以免破坏数据。";return;}
+  if(["links","tables","images"].includes(lastMode)){statusEl.textContent="CSV 不做空格清理，以免破坏数据。";return;}
   previewEl.value=tidyText(previewEl.value);
   try{await navigator.clipboard.writeText(previewEl.value);statusEl.textContent="已整理并复制文字。";}
   catch{statusEl.textContent="已整理预览内容，可手动复制。";}
 });
 function saveCaptured(value,mode){
   if(!value)throw Error("没有可保存的内容。");
-  const ext=mode==="links"||mode==="tables"?"csv":mode==="markdown"?"md":"txt";
+  const ext=["links","tables","images"].includes(mode)?"csv":["markdown","selection","citation"].includes(mode)?"md":"txt";
   const mime=ext==="csv"?"text/csv":ext==="md"?"text/markdown":"text/plain";
   const blob=new Blob(["\uFEFF",value],{type:mime+";charset=utf-8"});
   const url=URL.createObjectURL(blob);
