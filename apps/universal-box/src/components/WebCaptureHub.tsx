@@ -73,7 +73,7 @@ export default function WebCaptureHub({onOpenTool}:{onOpenTool:(view:string,modu
   <div className="ub-companion-grid">
    <div className="ub-companion-pane">
     <h3>① 安装浏览器捕获助手</h3>
-    <p>Web Capture v{WEB_CAPTURE_VERSION} · Chromium 扩展。支持网页正文、Markdown、选中摘录、引用资料、图片清单、页面结构报告、链接 CSV 和指定表格导出。</p>
+    <p>Web Capture v{WEB_CAPTURE_VERSION} · Chromium 扩展。支持网页正文、Markdown、选中摘录、RIS 引用、图片清单、内外链统计，以及指定表格 CSV/Markdown 导出。</p>
     <button type="button" className="primary-button" disabled={busy} onClick={()=>void exportCompanion()} data-testid="export-companion">
      {busy?"正在准备 ZIP…":"从 Sentinel Box 导出浏览器扩展 ZIP"}
     </button>
