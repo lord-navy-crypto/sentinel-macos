@@ -2,7 +2,7 @@ import {describe,it,expect} from "vitest";
 import fs from "node:fs/promises";
 import {runInNewContext} from "node:vm";
 
-type CaptureMode=(mode:string,index?:number)=>string|{__captureError:string};
+type CaptureMode=(mode:string,index?:number,signature?:string)=>string|{__captureError:string};
 const assetUrl=new URL("../../public/web-capture/popup.js",import.meta.url);
 const visible={closest:()=>null};
 function mockElement(extra:Record<string,unknown>={}) {
@@ -24,7 +24,7 @@ async function makeCapture(opts:{
  const location={protocol:"https:",href:"https://example.com/research",origin:"https://example.com"};
  const document={
   title:"Example Research",
-  body:mockElement({innerText:opts.bodyText??"A complete sample article.",textContent:opts.bodyText??"A complete sample article.",querySelectorAll:()=>[]}),
+  body:mockElement({innerText:opts.bodyText??"A complete sample article.",textContent:opts.bodyText??"A complete sample article.",querySelectorAll:()=>[],cloneNode:()=>({querySelectorAll:()=>[],textContent:opts.bodyText??"A complete sample article."})}),
   querySelector(selector:string){
    if(selector.startsWith("meta[")){
     const key=/="([^"]+)"/.exec(selector)?.[1]||"";
@@ -46,7 +46,44 @@ async function makeCapture(opts:{
  };
  return runInNewContext("("+script.slice(begin,end)+")",context) as CaptureMode;
 }
-describe("Web Capture 0.8 on-demand page processing",()=>{
+describe("Web Capture 0.9 on-demand page processing",()=>{
+ it("rejects changed tables after scan rather than exporting a different table",async()=>{
+  const cell=(value:string)=>({tagName:"TD",innerText:value,colSpan:1,rowSpan:1});
+  const row=(...values:string[])=>mockElement({children:values.map(cell)});
+  const rows=[row("Name","Score"),row("Ada","5")];
+  const table=mockElement({innerText:"Name Score Ada 5",querySelector:()=>rows[0],querySelectorAll:()=>rows});
+  const capture=await makeCapture({tables:[table]});
+  expect(capture("tables",0,"2:wrong")).toMatchObject({__captureError:expect.stringContaining("重新扫描")});
+  expect(capture("table-audit",0,"2:wrong")).toMatchObject({__captureError:expect.stringContaining("重新扫描")});
+ });
+ it("does not silently truncate long visible text and link inventories",async()=>{
+  const capture=await makeCapture({bodyText:"A".repeat(400001)});
+  expect(capture("text")).toMatchObject({__captureError:expect.stringContaining("不完整导出")});
+  const anchor=(i:number)=>mockElement({href:"https://example.net/a/"+i,innerText:"Link "+i});
+  const links=Array.from({length:2001},(_,i)=>anchor(i));
+  const captureLinks=await makeCapture({links});
+  expect(captureLinks("links")).toMatchObject({__captureError:expect.stringContaining("2,000")});
+ });
+ it("flags potential spreadsheet formulas, including full-width and whitespace variants",async()=>{
+  const cell=(value:string)=>({tagName:"TD",innerText:value,textContent:value,colSpan:1,rowSpan:1});
+  const row=(...values:string[])=>mockElement({children:values.map(cell)});
+  const rows=[row("Name","Value"),row("Ada"," =1+1"),row("Bob","＝2+2")];
+  const table=mockElement({querySelector:()=>rows[0],querySelectorAll:()=>rows});
+  const capture=await makeCapture({tables:[table]});
+  const out=capture("tables",0) as string;
+  expect(out).toContain("'\u003d1+1");
+  expect(out).toContain("'＝2+2");
+  expect(capture("table-audit",0)).toContain("潜在公式开头单元格：2");
+ });
+ it("refuses non-rectangular HTML tables rather than silently creating malformed CSV",async()=>{
+  const cell=(value:string)=>({tagName:"TD",innerText:value,colSpan:1,rowSpan:1});
+  const row=(...values:string[])=>mockElement({children:values.map(cell)});
+  const rows=[row("Name","Score"),row("Ada")];
+  const table=mockElement({querySelector:()=>rows[0],querySelectorAll:()=>rows});
+  const capture=await makeCapture({tables:[table]});
+  expect(capture("tables",0)).toMatchObject({__captureError:expect.stringContaining("行列数不一致")});
+  expect(capture("table-package",0)).toMatchObject({__captureError:expect.stringContaining("行列数不一致")});
+ });
  it("creates a complete attributed research note without silently truncating text",async()=>{
   const capture=await makeCapture({bodyText:"A measured experiment found a discrepancy."});
   const out=capture("research-brief") as string;
