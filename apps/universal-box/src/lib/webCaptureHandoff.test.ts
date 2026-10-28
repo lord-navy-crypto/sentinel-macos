@@ -23,5 +23,7 @@ describe("Explicit Web Capture table handoff",()=>{
   expect(()=>parseWebTableHandoff(JSON.stringify({...sample(),table:{...sample().table,csv:""}}))).toThrow(/表格/);
   expect(()=>parseWebTableHandoff(JSON.stringify({...sample(),table:{...sample().table,rows:6000}}))).toThrow(/表格/);
   expect(()=>parseWebTableHandoff("x".repeat(800001))).toThrow(/过大/);
+  expect(()=>parseWebTableHandoff(JSON.stringify({...sample(),table:{...sample().table,rows:4}}))).toThrow(/不一致/);
+  expect(()=>parseWebTableHandoff(JSON.stringify({...sample(),table:{...sample().table,columns:3}}))).toThrow(/不一致/);
  });
 });
