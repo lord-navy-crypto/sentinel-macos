@@ -1,6 +1,7 @@
 import {type ChangeEvent,useMemo,useState} from "react";
 import {exportFile} from "../lib/output";
 import {createOfflineCompanionBundle,WEB_CAPTURE_VERSION} from "../lib/webCaptureBundle";
+import {parseWebTableHandoff} from "../lib/webCaptureHandoff";
 import {
  cleanWorkspaceCsv,inspectWorkspaceCsv,DEFAULT_CSV_CLEANUP,type CsvCleanupOptions,
 } from "../lib/csvCleanroom";
@@ -14,6 +15,7 @@ export default function WebCaptureHub({onOpenTool}:{onOpenTool:(view:string,modu
  const [busy,setBusy]=useState(false);
  const [status,setStatus]=useState("");
  const [previewAccepted,setPreviewAccepted]=useState(false);
+ const [origin,setOrigin]=useState<{title:string;url:string;capturedAt:string}|null>(null);
  const report=useMemo(()=>{
   try{return {value:inspectWorkspaceCsv(source),error:""};}
   catch(e){return {value:null,error:errorText(e)};}
@@ -32,6 +34,20 @@ export default function WebCaptureHub({onOpenTool}:{onOpenTool:(view:string,modu
   }catch(e){setStatus("扩展打包失败："+errorText(e));}
   finally{setBusy(false);}
  }
+ async function importTableHandoff(e:ChangeEvent<HTMLInputElement>){
+  const file=e.target.files?.[0];e.target.value="";
+  if(!file)return;
+  setStatus("");setPreviewAccepted(false);
+  try{
+   if(file.size>800_000)throw Error("交接 JSON 超过 800 KB。");
+   const record=parseWebTableHandoff(await file.text());
+   inspectWorkspaceCsv(record.table.csv);
+   setSource(record.table.csv);
+   setFilename("web-capture-table.csv");
+   setOrigin(record.source);
+   setStatus("已从用户选择的 JSON 导入表格；请确认来源和行列后再导出。");
+  }catch(error){setStatus("无法导入网页交接文件："+errorText(error));}
+ }
  async function importCsv(e:ChangeEvent<HTMLInputElement>){
   const file=e.target.files?.[0];e.target.value="";
   if(!file)return;
@@ -40,7 +56,7 @@ export default function WebCaptureHub({onOpenTool}:{onOpenTool:(view:string,modu
    if(file.size>2_000_000)throw Error("CSV 超过 2 MB；请分批导入。");
    const text=await file.text();
    inspectWorkspaceCsv(text);
-   setSource(text);setFilename(file.name);
+   setSource(text);setFilename(file.name);setOrigin(null);
    setStatus("本地读取 CSV 成功，请检查统计信息并决定是否导出处理结果。");
   }catch(error){setStatus("无法读取 CSV："+errorText(error));}
  }
@@ -48,7 +64,7 @@ export default function WebCaptureHub({onOpenTool}:{onOpenTool:(view:string,modu
   try{
    const text=await navigator.clipboard.readText();
    inspectWorkspaceCsv(text);
-   setSource(text);setFilename("web-capture.csv");setStatus("已读取本机剪贴板。没有向网络发送内容。");
+   setSource(text);setFilename("web-capture.csv");setOrigin(null);setStatus("已读取本机剪贴板。没有向网络发送内容。");
    setPreviewAccepted(false);
   }catch(error){setStatus("无法从剪贴板导入："+errorText(error)+"。可以手动粘贴到文本框。");}
  }
@@ -73,7 +89,7 @@ export default function WebCaptureHub({onOpenTool}:{onOpenTool:(view:string,modu
   <div className="ub-companion-grid">
    <div className="ub-companion-pane">
     <h3>① 安装浏览器捕获助手</h3>
-    <p>Web Capture v{WEB_CAPTURE_VERSION} · Chromium 扩展。支持网页正文、Markdown、选中摘录、RIS 引用、图片清单、内外链统计，以及指定表格 CSV/Markdown 导出。</p>
+    <p>Web Capture v{WEB_CAPTURE_VERSION} · Chromium 扩展。支持网页正文、Markdown、选中摘录、RIS 引用、图片清单、内外链统计，以及指定表格 CSV/Markdown/JSON 导出。</p>
     <button type="button" className="primary-button" disabled={busy} onClick={()=>void exportCompanion()} data-testid="export-companion">
      {busy?"正在准备 ZIP…":"从 Sentinel Box 导出浏览器扩展 ZIP"}
     </button>
@@ -81,11 +97,14 @@ export default function WebCaptureHub({onOpenTool}:{onOpenTool:(view:string,modu
     <p className="subtle">扩展与应用同源打包、默认离线；没有自动连接浏览器或跨应用静默传输。</p>
    </div>
    <div className="ub-companion-pane">
-    <h3>② 处理捕获后的 CSV</h3>
-    <p>导入网页导出的 CSV 或粘贴本地剪贴板，检查后可去除空行、重复行，并安全重新导出。</p>
+    <h3>② 处理捕获后的 CSV / 网页表格 JSON</h3>
+    <p>导入网页导出的 CSV，或选择含来源与 CSV 的 Web Capture JSON；确认表格后，可去除空行、重复行并导出新文件。</p>
     <div className="actions">
      <label className="ub-companion-file">选择 CSV 文件
       <input type="file" accept=".csv,text/csv" aria-label="Choose CSV file" onChange={e=>void importCsv(e)}/>
+     </label>
+     <label className="ub-companion-file">导入网页表格 JSON
+      <input type="file" accept=".json,application/json" aria-label="Import Web Capture table JSON" data-testid="import-web-table" onChange={e=>void importTableHandoff(e)}/>
      </label>
      <button type="button" className="secondary-button" onClick={()=>void pasteClipboard()}>导入本机剪贴板</button>
     </div>
@@ -96,8 +115,9 @@ export default function WebCaptureHub({onOpenTool}:{onOpenTool:(view:string,modu
    </div>
   </div>
   <h3>CSV 本地检查与处理</h3>
+  {origin&&<p className="subtle" data-testid="web-capture-source">网页来源：{origin.title||"未命名网页"} · {new URL(origin.url).hostname} · 采集于 {origin.capturedAt.slice(0,10)}。来源由网页提供，尚未经独立验证。</p>}
   <label className="field-label" htmlFor="csv-workshop-source">CSV 内容（在此编辑不会修改原始文件）</label>
-  <textarea id="csv-workshop-source" className="field text-editor" data-testid="csv-source" rows={6} maxLength={2000000} value={source} onChange={e=>{setSource(e.target.value);setPreviewAccepted(false);setStatus("");}}/>
+  <textarea id="csv-workshop-source" className="field text-editor" data-testid="csv-source" rows={6} maxLength={2000000} value={source} onChange={e=>{setSource(e.target.value);setOrigin(null);setPreviewAccepted(false);setStatus("");}}/>
   {report.value?<div className="ub-companion-metrics" aria-label="CSV file review">
     <span><strong>{report.value.inputRows}</strong> 数据行</span>
     <span><strong>{report.value.columns}</strong> 列</span>
