@@ -7,7 +7,7 @@ export type WebTableHandoff={
 export function parseWebTableHandoff(raw:string):WebTableHandoff{
  if(raw.length>800_000)throw Error("网页交接文件过大（上限 800 KB）。");
  let input:unknown;
- try{input=JSON.parse(raw);}catch{throw Error("网页交接文件不是有效的 JSON。");}
+ try{input=JSON.parse(raw.charCodeAt(0)===0xFEFF?raw.slice(1):raw);}catch{throw Error("网页交接文件不是有效的 JSON。");}
  if(!input||typeof input!=="object"||Array.isArray(input))throw Error("交接文件结构无效。");
  const item=input as Record<string,unknown>;
  if(item.format!=="sentinel-box-web-table"||item.schemaVersion!==1)
