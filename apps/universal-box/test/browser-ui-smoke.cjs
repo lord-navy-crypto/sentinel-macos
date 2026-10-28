@@ -121,14 +121,14 @@ test("Web Capture JSON imports an attributed table only after a file selection",
   const pack={
    format:"sentinel-box-web-table",schemaVersion:1,
    source:{title:"Example research",url:"https://example.org/data",capturedAt:"2026-10-28T12:00:00.000Z"},
-   table:{index:0,rows:3,columns:2,csv:'"Name","Score"\\r\\n"Ada","95"\\r\\n"Bob","\\'=2+2"'}
+   table:{index:0,rows:3,columns:2,csv:'"Name","Score"\r\n"Ada","95"\r\n"Bob","\'=2+2"'}
   };
   await input.setInputFiles({name:"source-table.json",mimeType:"application/json",buffer:Buffer.from(JSON.stringify(pack),"utf8")});
   await page.locator('[data-testid="web-capture-source"]').waitFor();
   const source=await page.locator('[data-testid="web-capture-source"]').innerText();
   assert.match(source,/Example research/);
   assert.match(source,/example.org/);
-  assert.match(await page.locator('.ub-companion-metrics').innerText(),/2\\s*数据行/);
+  assert.match(await page.locator('.ub-companion-metrics').innerText(),/2\s*数据行/);
   assert.equal(await page.locator('[data-testid="save-cleaned"]').isDisabled(),true);
   await input.setInputFiles({name:"wrong.json",mimeType:"application/json",buffer:Buffer.from('{"format":"different"}',"utf8")});
   assert.match(await page.locator('.ub-companion-status').innerText(),/无法导入网页交接文件/);
