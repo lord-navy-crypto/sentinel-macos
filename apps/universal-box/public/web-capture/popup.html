@@ -26,7 +26,7 @@ select{width:100%;min-height:38px;border:1px solid #cbd8e4;background:#fff;color
 textarea{display:block;width:100%;height:156px;resize:vertical;border:1px solid #c4d5e4;border-radius:10px;background:#fff;color:#1b3447;padding:11px;font:12px/1.55 ui-monospace,"SFMono-Regular",monospace}
 .note,.footer{color:#5d7085;font-size:11px;line-height:1.5;margin:8px 0 0}
 </style></head><body>
-<header><div class="mark" aria-hidden="true">S</div><div><h1>Web Capture <small>v0.4.0</small></h1>
+<header><div class="mark" aria-hidden="true">S</div><div><h1>Web Capture <small>v0.5.0</small></h1>
 <p class="desc">Sentinel Box · 只处理你点击授权的当前网页</p></div></header>
 <section class="panel" aria-label="Capture text and Markdown"><h2>网页正文 / Markdown</h2><div class="actions">
 <button data-mode="text" type="button">复制可见文字</button>
@@ -39,18 +39,21 @@ textarea{display:block;width:100%;height:156px;resize:vertical;border:1px solid 
 <button id="scanTables" type="button">查找所有表格</button>
 <button data-mode="tables" type="button">复制所选表格 CSV</button>
 <button data-mode="tables" data-save="true" class="primary" type="button">直接保存表格 CSV</button>
+<button data-mode="table-markdown" type="button">所选表格 → Markdown</button>
 </div><div id="tablePicker" hidden><label for="tableSelect">选择要处理的 HTML 表格</label>
 <select id="tableSelect" aria-label="Choose page table"></select>
-<p class="note">最多检查前 24 个可见表格；含合并单元格的表格会提示无法无损导出。</p></div><p id="tableNotice" class="table-notice" role="alert" hidden></p></section>
+<p class="note">最多检查前 24 个可见表格；含合并单元格的表格会提示无法无损导出。Markdown 使用第一行作为表头。</p></div><p id="tableNotice" class="table-notice" role="alert" hidden></p></section>
 <section class="panel" aria-label="Research notes and citations"><h2>研究笔记 / 网页引用</h2>
 <div class="actions">
 <button data-mode="selection" type="button">摘录选中文字＋来源</button>
 <button data-mode="citation" type="button">生成网页引用资料</button>
-</div><p class="note">先在网页上选中文字再提取；引文仅来自当前网页，作者和发布时间不会被当作独立核实的信息。</p></section>
+<button data-mode="citation-ris" data-save="true" type="button">导出 RIS 文献引用</button>
+</div><p class="note">先在网页上选中文字再提取；支持 Markdown 引文和 RIS 文献管理导入。作者和发布时间来自网页声明，未经独立核实。</p></section>
 <section class="panel" aria-label="Image inventory and structure"><h2>图片清单 / 网页结构</h2><div class="actions">
 <button data-mode="images" type="button">复制图片链接 CSV</button>
+<button data-mode="links-audit" type="button">检查内外链结构</button>
 <button data-mode="structure" type="button">生成页面结构报告</button>
-</div><p class="note">只读取当前页可见元素；不会下载图片、测试外部链接或追踪其他标签页。</p></section>
+</div><p class="note">只读取当前页可见元素；内外链统计不测试网址是否安全或可访问，不下载图片或追踪其他标签页。</p></section>
 <section class="panel" aria-label="Source and other tools"><h2>来源 / 其他操作</h2><div class="actions">
 <button data-mode="source" type="button">复制标题和来源</button>
 <button id="print" type="button">网页打印 / PDF</button></div></section>
