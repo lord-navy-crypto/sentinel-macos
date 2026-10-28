@@ -151,6 +151,28 @@ function capturePage(mode,tableIndex=0){
       "可见图片： "+visibleImages.length,"无非空 alt 的图片： "+withoutAlt,
       "说明：仅统计当前页面 DOM 中可见元素；不检测服务器状态、链接可达性或恶意软件。"].join("\n");
   }
+  if(mode==="research-brief"){
+    // This is a user-requested, local note. No network requests or cross-tab reads.
+    const headingNodes=[...root.querySelectorAll("h1,h2,h3,h4,h5,h6")].filter(allowed);
+    if(headingNodes.length>250)throw Error("正文标题超过 250 个，请使用标题大纲功能。");
+    const raw=clean(root.innerText||root.textContent||"").replace(/\r\n?/g,"\n");
+    if(!raw)throw Error("当前页面主体没有可提取的文字。");
+    if(raw.length>160000)throw Error("正文超过 160,000 字符，为避免不完整摘录，请改用较短页面或选中文字。");
+    const author=clean(document.querySelector('meta[name="author"]')?.content||
+      document.querySelector('meta[name="citation_author"]')?.content||"").replace(/\s+/g," ").slice(0,300);
+    const headings=headingNodes.map(el=>"- "+el.tagName+": "+
+      clean(el.innerText||el.textContent).replace(/\s+/g," ").slice(0,250));
+    const brief=["# 当前网页研究摘录","",
+      "- 标题："+clean(document.title).slice(0,300),
+      "- 网址："+location.href,
+      "- 采集时间："+new Date().toISOString(),
+      ...(author?["- 作者（网页声明，未核实）："+author]:[]),
+      "","## 文章标题结构","",...(headings.length?headings:["（无可见标题）"]),
+      "","## 正文文字（原文摘录）","","\`\`\`text",raw,"\`\`\`",
+      "","说明：仅从当前网页提取文本。并非独立事实核查，亦不保证保留全部图表、公式或排版。"].join("\n");
+    if(brief.length>LIMIT)throw Error("研究摘录超过 400,000 字符，已拒绝不完整导出。");
+    return brief;
+  }
   if(mode==="outline"){
     const headings=[...document.querySelectorAll("h1,h2,h3,h4,h5,h6")].filter(allowed).slice(0,250);
     if(!headings.length)throw Error("当前页面没有可访问的标题。");
@@ -195,6 +217,40 @@ function capturePage(mode,tableIndex=0){
       if(rows.length>2001)break;
     }
     return csv(rows);
+  }
+  if(mode==="table-audit"){
+    // Inspect, do not mutate/export a lossy reconstruction of the table.
+    const tables=[...document.querySelectorAll("table")].filter(el=>allowed(el)&&el.querySelector("tr"));
+    if(!Number.isInteger(tableIndex)||tableIndex<0||tableIndex>=Math.min(tables.length,24))
+      throw Error("请重新扫描并选择要检查的表格。");
+    const table=tables[tableIndex],visibleRows=[...table.querySelectorAll("tr")].filter(allowed);
+    if(!visibleRows.length||visibleRows.length>5000)throw Error("表格没有数据行或超过 5,000 行。");
+    const rows=visibleRows.map(row=>[...row.children].filter(cell=>cell.tagName==="TH"||cell.tagName==="TD"));
+    const populated=rows.filter(row=>row.length>0);
+    if(!populated.length)throw Error("此表格没有可检查的数据单元格。");
+    const header=populated[0].map(cell=>clean(cell.innerText||cell.textContent));
+    const widths=populated.map(row=>row.reduce((sum,cell)=>sum+(Number(cell.colSpan)||1),0));
+    const maxWidth=Math.max(...widths);
+    const merged=populated.reduce((n,row)=>n+row.filter(cell=>(cell.colSpan||1)>1||(cell.rowSpan||1)>1).length,0);
+    const blanks=populated.reduce((n,row)=>n+row.filter(cell=>!clean(cell.innerText||cell.textContent)).length,0);
+    let duplicates=0;
+    const seen=new Set();
+    for(const row of populated.slice(1)){
+      const key=JSON.stringify(row.map(cell=>clean(cell.innerText||cell.textContent)));
+      if(seen.has(key))duplicates++; else seen.add(key);
+    }
+    const report=["Sentinel Box · HTML 表格质量检查",
+      "网页："+location.href,"表格序号："+(tableIndex+1),
+      "可见数据行（含首行）："+populated.length,"首行推测列数："+widths[0],
+      "最大展开列数："+maxWidth,
+      "列数与第一行不同的行："+widths.filter(width=>width!==widths[0]).length,
+      "合并单元格："+merged,"空单元格："+blanks,
+      "完全重复的数据行（不含首行）："+duplicates,
+      "第一行预览："+header.slice(0,12).map(x=>x.slice(0,80)).join(" | "),
+      "提示：这些是结构统计，不表示某行一定存在错误；合并单元格不能无损导出为普通 CSV。",
+      "检查时刻："+new Date().toISOString()].join("\n");
+    if(report.length>LIMIT)throw Error("表格报告过长。");
+    return report;
   }
   if(mode==="tables"||mode==="table-markdown"||mode==="table-package"){
     const tables=[...document.querySelectorAll("table")].filter(el=>allowed(el)&&el.querySelector("tr"));
@@ -329,7 +385,7 @@ async function perform(mode,saveDirectly=false){
   buttons.forEach(b=>b.disabled=true);
   tableScan.disabled=true;
   statusEl.textContent="正在提取…";
-  const usesTable=["tables","table-markdown","table-package"].includes(mode);
+  const usesTable=["tables","table-markdown","table-package","table-audit"].includes(mode);
   if(usesTable)clearTableWarning();
   try{
     const tab=await activeTab();
@@ -397,7 +453,7 @@ document.getElementById("clean").addEventListener("click",async()=>{
 });
 function saveCaptured(value,mode){
   if(!value)throw Error("没有可保存的内容。");
-  const ext=["links","tables","images"].includes(mode)?"csv":["markdown","selection","citation","table-markdown","research-metadata"].includes(mode)?"md":mode==="table-package"?"json":mode==="citation-ris"?"ris":"txt";
+  const ext=["links","tables","images"].includes(mode)?"csv":["markdown","selection","citation","table-markdown","research-metadata","research-brief"].includes(mode)?"md":mode==="table-package"?"json":mode==="citation-ris"?"ris":"txt";
   const mime=ext==="csv"?"text/csv":ext==="md"?"text/markdown":ext==="json"?"application/json":"text/plain";
   const blob=new Blob(["\uFEFF",value],{type:mime+";charset=utf-8"});
   const url=URL.createObjectURL(blob);
