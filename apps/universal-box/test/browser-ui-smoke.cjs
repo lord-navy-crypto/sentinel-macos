@@ -104,7 +104,8 @@ test("integrated Web Capture ZIP contains working original manifest and files", 
   assert.match(manifest.version,/^0\.\d+\.\d+$/);
    const html=await archive.file("popup.html").async("string");
    assert.ok(html.includes("v"+manifest.version),"Popup and manifest versions should match");
-   for(const mode of ["table-markdown","citation-ris","links-audit"])assert.ok(html.includes('data-mode="'+mode+'"));
+   for(const mode of ["table-markdown","citation-ris","links-audit","table-package"])
+    assert.ok(html.includes('data-mode="'+mode+'"'),"Missing Web Capture mode "+mode);
   assert.deepEqual(manifest.permissions,["activeTab","scripting","clipboardWrite"]);
   assert.equal(manifest.background,undefined);
   assert.equal(manifest.host_permissions,undefined);
