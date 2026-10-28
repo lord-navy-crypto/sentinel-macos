@@ -26,7 +26,7 @@ select{width:100%;min-height:38px;border:1px solid #cbd8e4;background:#fff;color
 textarea{display:block;width:100%;height:156px;resize:vertical;border:1px solid #c4d5e4;border-radius:10px;background:#fff;color:#1b3447;padding:11px;font:12px/1.55 ui-monospace,"SFMono-Regular",monospace}
 .note,.footer{color:#5d7085;font-size:11px;line-height:1.5;margin:8px 0 0}
 </style></head><body>
-<header><div class="mark" aria-hidden="true">S</div><div><h1>Web Capture <small>v0.5.0</small></h1>
+<header><div class="mark" aria-hidden="true">S</div><div><h1>Web Capture <small>v0.6.0</small></h1>
 <p class="desc">Sentinel Box · 只处理你点击授权的当前网页</p></div></header>
 <section class="panel" aria-label="Capture text and Markdown"><h2>网页正文 / Markdown</h2><div class="actions">
 <button data-mode="text" type="button">复制可见文字</button>
@@ -40,9 +40,10 @@ textarea{display:block;width:100%;height:156px;resize:vertical;border:1px solid 
 <button data-mode="tables" type="button">复制所选表格 CSV</button>
 <button data-mode="tables" data-save="true" class="primary" type="button">直接保存表格 CSV</button>
 <button data-mode="table-markdown" type="button">所选表格 → Markdown</button>
+<button data-mode="table-package" data-save="true" class="primary" type="button">保存表格交接 JSON</button>
 </div><div id="tablePicker" hidden><label for="tableSelect">选择要处理的 HTML 表格</label>
 <select id="tableSelect" aria-label="Choose page table"></select>
-<p class="note">最多检查前 24 个可见表格；含合并单元格的表格会提示无法无损导出。Markdown 使用第一行作为表头。</p></div><p id="tableNotice" class="table-notice" role="alert" hidden></p></section>
+<p class="note">最多检查前 24 个可见表格；含合并单元格会报错。JSON 交接包含 CSV、来源及时间，可在 Sentinel Box 中主动导入。</p></div><p id="tableNotice" class="table-notice" role="alert" hidden></p></section>
 <section class="panel" aria-label="Research notes and citations"><h2>研究笔记 / 网页引用</h2>
 <div class="actions">
 <button data-mode="selection" type="button">摘录选中文字＋来源</button>
