@@ -101,7 +101,10 @@ test("integrated Web Capture ZIP contains working original manifest and files", 
   const archive=await JSZip.loadAsync(fs.readFileSync(zipFile));
   assert.deepEqual(Object.keys(archive.files).sort(),["manifest.json","popup.html","popup.js"].sort());
   const manifest=JSON.parse(await archive.file("manifest.json").async("string"));
-  assert.equal(manifest.version,"0.3.1");
+  assert.match(manifest.version,/^0\.\d+\.\d+$/);
+   const html=await archive.file("popup.html").async("string");
+   assert.ok(html.includes("v"+manifest.version),"Popup and manifest versions should match");
+   for(const mode of ["table-markdown","citation-ris","links-audit"])assert.ok(html.includes('data-mode="'+mode+'"));
   assert.deepEqual(manifest.permissions,["activeTab","scripting","clipboardWrite"]);
   assert.equal(manifest.background,undefined);
   assert.equal(manifest.host_permissions,undefined);
