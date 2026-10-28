@@ -141,9 +141,9 @@ function capturePage(mode,tableIndex=0){
       "- "+clean(el.innerText||el.textContent).replace(/\s+/g," ").slice(0,500)).join("\n").slice(0,LIMIT);
   }
   if(mode==="text"){
-    const clone=document.body.cloneNode(true);
-    clone.querySelectorAll("script,style,noscript,template,svg,canvas").forEach(el=>el.remove());
-    return clean(document.body.innerText||clone.textContent).slice(0,LIMIT);
+    const clone=root.cloneNode(true);
+    clone.querySelectorAll("script,style,noscript,template,svg,canvas,nav,footer,header").forEach(el=>el.remove());
+    return clean(root.innerText||clone.textContent).slice(0,LIMIT);
   }
   if(mode==="links-audit"){
     const anchors=[...document.querySelectorAll("a[href]")].filter(allowed);
@@ -179,7 +179,7 @@ function capturePage(mode,tableIndex=0){
     }
     return csv(rows);
   }
-  if(mode==="tables"||mode==="table-markdown"){
+  if(mode==="tables"||mode==="table-markdown"||mode==="table-package"){
     const tables=[...document.querySelectorAll("table")].filter(el=>allowed(el)&&el.querySelector("tr"));
     if(!Number.isInteger(tableIndex)||tableIndex<0||tableIndex>=Math.min(tables.length,24))
       throw Error("表格序号无效，请重新扫描当前网页。");
@@ -202,6 +202,18 @@ function capturePage(mode,tableIndex=0){
     }
     if(!rows.length)throw Error("此表格没有可用数据行。");
     if(mode==="tables")return csv(rows);
+    if(mode==="table-package"){
+      const record={
+        format:"sentinel-box-web-table",schemaVersion:1,
+        source:{title:clean(document.title).slice(0,300),url:location.href,
+          capturedAt:new Date().toISOString()},
+        table:{index:tableIndex,rows:rows.length,
+          columns:Math.max(...rows.map(row=>row.length)),csv:csv(rows)}
+      };
+      const output=JSON.stringify(record,null,2);
+      if(output.length>LIMIT)throw Error("表格交接文件超过 400,000 字符，无法完整导出。");
+      return output;
+    }
     const width=Math.max(...rows.map(row=>row.length));
     if(width>100)throw Error("表格超过 100 列，无法完整导出 Markdown。");
     const escapeCell=value=>String(value).replace(/\r?\n/g," ")
@@ -300,7 +312,7 @@ async function perform(mode,saveDirectly=false){
   buttons.forEach(b=>b.disabled=true);
   tableScan.disabled=true;
   statusEl.textContent="正在提取…";
-  const usesTable=mode==="tables"||mode==="table-markdown";
+  const usesTable=["tables","table-markdown","table-package"].includes(mode);
   if(usesTable)clearTableWarning();
   try{
     const tab=await activeTab();
@@ -331,7 +343,7 @@ async function perform(mode,saveDirectly=false){
     lastSource=tab.url;
     const domain=new URL(tab.url).hostname;
     sourceMeta.textContent="来源："+domain+" · 格式："+(mode==="tables"?"CSV 表格 #"+(tableIndex+1):mode)+" · "+text.length.toLocaleString()+" 字符";
-    const cutOff=text.length>=400000 && !["links","tables","images","table-markdown"].includes(mode);
+    const cutOff=text.length>=400000 && !["links","tables","images","table-markdown","table-package"].includes(mode);
     if(saveDirectly){
       saveCaptured(text,mode);
       statusEl.textContent="已触发浏览器本地下载："+text.length.toLocaleString()+" 字符。"+(cutOff?"注意：长文本可能在上限处截断。":"")+"请在下载列表确认保存完成。";
@@ -361,15 +373,15 @@ function tidyText(text){
 }
 document.getElementById("clean").addEventListener("click",async()=>{
   if(!previewEl.value){statusEl.textContent="请先提取内容。";return;}
-  if(["links","tables","images"].includes(lastMode)){statusEl.textContent="CSV 不做空格清理，以免破坏数据。";return;}
+  if(["links","tables","images","table-package","citation-ris"].includes(lastMode)){statusEl.textContent="结构化数据不做空格清理，以免破坏内容。";return;}
   previewEl.value=tidyText(previewEl.value);
   try{await navigator.clipboard.writeText(previewEl.value);statusEl.textContent="已整理并复制文字。";}
   catch{statusEl.textContent="已整理预览内容，可手动复制。";}
 });
 function saveCaptured(value,mode){
   if(!value)throw Error("没有可保存的内容。");
-  const ext=["links","tables","images"].includes(mode)?"csv":["markdown","selection","citation","table-markdown"].includes(mode)?"md":mode==="citation-ris"?"ris":"txt";
-  const mime=ext==="csv"?"text/csv":ext==="md"?"text/markdown":"text/plain";
+  const ext=["links","tables","images"].includes(mode)?"csv":["markdown","selection","citation","table-markdown"].includes(mode)?"md":mode==="table-package"?"json":mode==="citation-ris"?"ris":"txt";
+  const mime=ext==="csv"?"text/csv":ext==="md"?"text/markdown":ext==="json"?"application/json":"text/plain";
   const blob=new Blob(["\uFEFF",value],{type:mime+";charset=utf-8"});
   const url=URL.createObjectURL(blob);
   const anchor=document.createElement("a");
