@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Sentinel Box Web Capture",
-  "version": "0.5.0",
-  "description": "On-demand webpage notes, citation RIS, selected tables in CSV/Markdown, link reports and image inventories; local only.",
+  "version": "0.6.0",
+  "description": "On-demand browser-to-desktop office handoff: tables with provenance, citation notes, Markdown, CSV and page audits; local only.",
   "permissions": [
     "activeTab",
     "scripting",
