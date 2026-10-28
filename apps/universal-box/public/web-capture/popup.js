@@ -75,13 +75,13 @@ function capturePage(mode,tableIndex=0){
     const selected=clean(window.getSelection()?.toString()||"");
     if(!selected)throw Error("请先在网页上选中文字，然后打开扩展捕获。");
     if(selected.length>40000)throw Error("选中文字超过 40,000 字符，请缩小选区。");
-    const title=clean(document.title).slice(0,300).replace(/[\[\]]/g,"\\  if(mode==="outline"){");
+    const title=clean(document.title).slice(0,300).replace(/[\[\]]/g,"\\$&");
     const url=location.href.replace(/[()]/g,ch=>encodeURIComponent(ch));
     const quote=selected.replace(/\r\n?/g,"\n").split("\n").map(line=>"> "+line).join("\n");
     return "# 摘录笔记\n\n"+quote+"\n\n来源： ["+title+"]("+url+")\n采集日期： "+new Date().toISOString().slice(0,10);
   }
   if(mode==="citation"){
-    const title=clean(document.title).slice(0,300).replace(/[\[\]]/g,"\\  if(mode==="outline"){")||"未命名网页";
+    const title=clean(document.title).slice(0,300).replace(/[\[\]]/g,"\\$&")||"未命名网页";
     const url=location.href.replace(/[()]/g,ch=>encodeURIComponent(ch));
     const meta=(name,attribute="name")=>clean(document.querySelector('meta['+attribute+'="'+name+'"]')?.content||"").slice(0,500);
     const author=meta("author")||meta("citation_author")||meta("article:author","property");
