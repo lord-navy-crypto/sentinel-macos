@@ -104,7 +104,7 @@ test("integrated Web Capture ZIP contains working original manifest and files", 
   assert.match(manifest.version,/^0\.\d+\.\d+$/);
    const html=await archive.file("popup.html").async("string");
    assert.ok(html.includes("v"+manifest.version),"Popup and manifest versions should match");
-   for(const mode of ["table-markdown","citation-ris","links-audit","table-package"])
+   for(const mode of ["table-markdown","citation-ris","links-audit","table-package","research-metadata"])
     assert.ok(html.includes('data-mode="'+mode+'"'),"Missing Web Capture mode "+mode);
   assert.deepEqual(manifest.permissions,["activeTab","scripting","clipboardWrite"]);
   assert.equal(manifest.background,undefined);
@@ -131,6 +131,22 @@ test("Web Capture JSON imports an attributed table only after a file selection",
   assert.match(source,/example.org/);
   assert.match(await page.locator('.ub-companion-metrics').innerText(),/2\s*数据行/);
   assert.equal(await page.locator('[data-testid="save-cleaned"]').isDisabled(),true);
+  const zipBtn=page.locator('[data-testid="save-web-review-zip"]');
+  assert.equal(await zipBtn.isDisabled(),true);
+  await page.locator('.ub-companion-confirm input').check();
+  const reviewDownload=page.waitForEvent("download",{timeout:20000});
+  await zipBtn.click();
+  const reviewFile=await reviewDownload;
+  const reviewPath=path.join(reportPath,"web-source-review.zip");
+  await reviewFile.saveAs(reviewPath);
+  const bundle=await JSZip.loadAsync(fs.readFileSync(reviewPath));
+  assert.deepEqual(Object.keys(bundle.files).sort(),[
+    "captured-from-web.csv","cleaned-output.csv","locally-reviewed.csv","manifest.json"
+  ].sort());
+  const review=JSON.parse(await bundle.file("manifest.json").async("string"));
+  assert.equal(review.source.url,"https://example.org/data");
+  assert.equal(review.modifiedAfterImport,false);
+  assert.equal(review.review.captured.inputRows,2);
   await input.setInputFiles({name:"wrong.json",mimeType:"application/json",buffer:Buffer.from('{"format":"different"}',"utf8")});
   assert.match(await page.locator('.ub-companion-status').innerText(),/无法导入网页交接文件/);
  }finally{await page?.close();await browser.close();}
