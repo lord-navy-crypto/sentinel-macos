@@ -47,6 +47,9 @@ describe("Bundled free Web Capture companion",()=>{
   expect(js).toContain('mode==="citation-ris"?"ris"');
   expect(js).toContain('const usesTable=["tables","table-markdown","table-package","table-audit"].includes(mode)');
   expect(js).toContain('mode==="table-package"?"json"');
+  expect(js).toContain("expectedSignature");
+  expect(js).toContain("已拒绝不完整导出");
+  expect(js).toContain("formulaLike");
  });
  it("refuses to export damaged or missing resources",async()=>{
   await expect(createWebCaptureZip(async name=>name==="popup.js"?"":readAsset(name))).rejects.toThrow(/Missing/);
