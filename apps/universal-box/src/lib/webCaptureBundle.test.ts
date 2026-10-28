@@ -42,7 +42,7 @@ describe("Bundled free Web Capture companion",()=>{
   expect(js).not.toContain("XMLHttpRequest");
   expect(js).not.toContain("navigator.sendBeacon");
   expect(js).not.toMatch(/\bfetch\s*\(/);
-  expect(js).toContain('if(["links","tables","images"].includes(lastMode))');
+  expect(js).toContain('if(["links","tables","images","table-package","citation-ris"].includes(lastMode))');
   expect(js).toContain('["markdown","selection","citation","table-markdown"].includes(mode)');
   expect(js).toContain('mode==="citation-ris"?"ris"');
   expect(js).toContain('const usesTable=["tables","table-markdown","table-package"].includes(mode)');
