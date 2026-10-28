@@ -54,6 +54,15 @@ describe("Web Capture 0.5 on-demand page processing",()=>{
   expect(out).toContain("https://example.com/research");
   expect(out).not.toContain("password");
  });
+ it("creates a source metadata card without silently checking outside sites",async()=>{
+  const capture=await makeCapture({meta:{author:"Researcher",description:"Local evidence"}});
+  const out=capture("research-metadata") as string;
+  expect(out).toContain("Example Research");
+  expect(out).toContain("https://example.com/research");
+  expect(out).toContain("Researcher");
+  expect(out).toContain("Local evidence");
+  expect(out).toContain("未检查");
+ });
  it("rejects an empty selection without exporting a page snapshot",async()=>{
   const capture=await makeCapture();
   expect(capture("selection")).toMatchObject({__captureError:expect.stringContaining("选中文字")});
