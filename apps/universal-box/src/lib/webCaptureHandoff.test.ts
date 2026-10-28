@@ -10,6 +10,7 @@ describe("Explicit Web Capture table handoff",()=>{
  it("accepts bounded source-attributed CSV and retains the source without fetching",()=>{
   const record=parseWebTableHandoff(JSON.stringify(sample()));
   expect(record.source.url).toBe("https://example.org/data");
+  expect(parseWebTableHandoff("\uFEFF"+JSON.stringify(sample())).table.rows).toBe(2);
   expect(record.table.csv).toContain("'=2+2");
  });
  it("rejects arbitrary files, unsupported schemas, file paths and credential-bearing URLs",()=>{
