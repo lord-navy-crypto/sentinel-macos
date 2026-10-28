@@ -21,6 +21,12 @@ function inspectPageTables(){
     const style=getComputedStyle(el);
     return style.display!=="none"&&style.visibility!=="hidden";
   };
+  function signature(table){
+    const text=table.innerText||table.textContent||"";
+    let hash=2166136261;
+    for(let i=0;i<text.length;i++)hash=Math.imul(hash^text.charCodeAt(i),16777619)>>>0;
+    return String(table.querySelectorAll("tr").length)+":"+hash.toString(16);
+  }
   if(!/^https?:$/.test(location.protocol))return {url:location.href,tables:[]};
   const tables=[...document.querySelectorAll("table")].filter(t=>visible(t)&&t.querySelector("tr"));
   return {
@@ -30,12 +36,12 @@ function inspectPageTables(){
       const first=rows.find(r=>r.children?.length);
       const caption=table.querySelector("caption");
       const label=(caption?.innerText||caption?.textContent||first?.innerText||"").replace(/\s+/g," ").trim().slice(0,70);
-      return {index,rows:rows.length,columns:first?[...first.children].filter(c=>c.tagName==="TH"||c.tagName==="TD").length:0,
+      return {index,rows:rows.length,signature:signature(table),columns:first?[...first.children].filter(c=>c.tagName==="TH"||c.tagName==="TD").length:0,
         label:label||"未命名表格"};
     })
   };
 }
-function capturePage(mode,tableIndex=0){
+function capturePage(mode,tableIndex=0,expectedSignature=""){
   try {
   const LIMIT=400000;
   const clean=s=>(s||"").replace(/\u0000/g,"").trim();
@@ -45,13 +51,19 @@ function capturePage(mode,tableIndex=0){
     const style=getComputedStyle(el);
     return style.display!=="none"&&style.visibility!=="hidden";
   }
+  function signature(table){
+    const text=table.innerText||table.textContent||"";
+    let hash=2166136261;
+    for(let i=0;i<text.length;i++)hash=Math.imul(hash^text.charCodeAt(i),16777619)>>>0;
+    return String(table.querySelectorAll("tr").length)+":"+hash.toString(16);
+  }
   function csv(rows){
     let result="";
     for(const cols of rows){
       const row=cols.map(value=>{
         let cell=String(value??"").replace(/\u0000/g,"").replace(/\r?\n/g," ").trim();
         // CSV escaping does not neutralize formulas by itself.
-        if(/^[=+@\-\t\r]/.test(cell))cell="'"+cell;
+        if(/^[\s\u0001-\u001f]*[=+@\-＝＋＠－]/u.test(cell))cell="'"+cell;
         return '"'+cell.replace(/"/g,'""')+'"';
       }).join(",");
       const next=(result?"\r\n":"")+row;
@@ -174,7 +186,8 @@ function capturePage(mode,tableIndex=0){
     return brief;
   }
   if(mode==="outline"){
-    const headings=[...document.querySelectorAll("h1,h2,h3,h4,h5,h6")].filter(allowed).slice(0,250);
+    const headings=[...document.querySelectorAll("h1,h2,h3,h4,h5,h6")].filter(allowed);
+    if(headings.length>250)throw Error("当前页面有超过 250 个可见标题，请缩小范围。");
     if(!headings.length)throw Error("当前页面没有可访问的标题。");
     return headings.map(el=>"  ".repeat(Number(el.tagName[1])-1)+
       "- "+clean(el.innerText||el.textContent).replace(/\s+/g," ").slice(0,500)).join("\n").slice(0,LIMIT);
@@ -182,7 +195,9 @@ function capturePage(mode,tableIndex=0){
   if(mode==="text"){
     const clone=root.cloneNode(true);
     clone.querySelectorAll("script,style,noscript,template,svg,canvas,nav,footer,header").forEach(el=>el.remove());
-    return clean(root.innerText||clone.textContent).slice(0,LIMIT);
+    const text=clean(root.innerText||clone.textContent);
+    if(text.length>LIMIT)throw Error("正文超过 400,000 字符，已拒绝不完整导出。");
+    return text;
   }
   if(mode==="links-audit"){
     const anchors=[...document.querySelectorAll("a[href]")].filter(allowed);
@@ -214,7 +229,7 @@ function capturePage(mode,tableIndex=0){
       const url=a.href;
       if(!/^https?:\/\//i.test(url)||seen.has(url))continue;
       seen.add(url);rows.push([clean(a.innerText||a.textContent).slice(0,300),url]);
-      if(rows.length>2001)break;
+      if(rows.length>2001)throw Error("链接超过 2,000 条，已拒绝不完整 CSV 导出。");
     }
     return csv(rows);
   }
@@ -223,7 +238,9 @@ function capturePage(mode,tableIndex=0){
     const tables=[...document.querySelectorAll("table")].filter(el=>allowed(el)&&el.querySelector("tr"));
     if(!Number.isInteger(tableIndex)||tableIndex<0||tableIndex>=Math.min(tables.length,24))
       throw Error("请重新扫描并选择要检查的表格。");
-    const table=tables[tableIndex],visibleRows=[...table.querySelectorAll("tr")].filter(allowed);
+    const table=tables[tableIndex];
+    if(expectedSignature&&signature(table)!==expectedSignature)throw Error("网页表格扫描后发生变化，请重新扫描并选择。");
+    const visibleRows=[...table.querySelectorAll("tr")].filter(allowed);
     if(!visibleRows.length||visibleRows.length>5000)throw Error("表格没有数据行或超过 5,000 行。");
     const rows=visibleRows.map(row=>[...row.children].filter(cell=>cell.tagName==="TH"||cell.tagName==="TD"));
     const populated=rows.filter(row=>row.length>0);
@@ -232,6 +249,7 @@ function capturePage(mode,tableIndex=0){
     const widths=populated.map(row=>row.reduce((sum,cell)=>sum+(Number(cell.colSpan)||1),0));
     const maxWidth=Math.max(...widths);
     const merged=populated.reduce((n,row)=>n+row.filter(cell=>(cell.colSpan||1)>1||(cell.rowSpan||1)>1).length,0);
+    const formulaLike=populated.reduce((n,row)=>n+row.filter(cell=>/^[\s\u0001-\u001f]*[=+@\-＝＋＠－]/u.test(cell.innerText||cell.textContent||"")).length,0);
     const blanks=populated.reduce((n,row)=>n+row.filter(cell=>!clean(cell.innerText||cell.textContent)).length,0);
     let duplicates=0;
     const seen=new Set();
@@ -244,7 +262,7 @@ function capturePage(mode,tableIndex=0){
       "可见数据行（含首行）："+populated.length,"首行推测列数："+widths[0],
       "最大展开列数："+maxWidth,
       "列数与第一行不同的行："+widths.filter(width=>width!==widths[0]).length,
-      "合并单元格："+merged,"空单元格："+blanks,
+      "合并单元格："+merged,"空单元格："+blanks,"潜在公式开头单元格："+formulaLike,
       "完全重复的数据行（不含首行）："+duplicates,
       "第一行预览："+header.slice(0,12).map(x=>x.slice(0,80)).join(" | "),
       "提示：这些是结构统计，不表示某行一定存在错误；合并单元格不能无损导出为普通 CSV。",
@@ -257,6 +275,7 @@ function capturePage(mode,tableIndex=0){
     if(!Number.isInteger(tableIndex)||tableIndex<0||tableIndex>=Math.min(tables.length,24))
       throw Error("表格序号无效，请重新扫描当前网页。");
     const table=tables[tableIndex];
+    if(expectedSignature&&signature(table)!==expectedSignature)throw Error("网页表格扫描后发生变化，请重新扫描并选择。");
     const allRows=[...table.querySelectorAll("tr")].filter(allowed);
     if(allRows.length>5000)throw Error("表格超过 5,000 行，无法保证完整导出。");
     const rows=[];
@@ -274,6 +293,7 @@ function capturePage(mode,tableIndex=0){
 
     }
     if(!rows.length)throw Error("此表格没有可用数据行。");
+    if(rows.some(row=>row.length!==rows[0].length))throw Error("表格行列数不一致，无法可靠导出；请先查看表格质量检查。");
     if(mode==="tables")return csv(rows);
     if(mode==="table-package"){
       const record={
@@ -300,13 +320,12 @@ function capturePage(mode,tableIndex=0){
   const out=[];
   let used=0;
   function add(value){
-    if(used>=LIMIT)return;
-    const part=value.slice(0,LIMIT-used);
-    out.push(part);
-    used+=part.length;
+    if(used+value.length>LIMIT)throw Error("Markdown 超过 400,000 字符，已拒绝不完整导出。");
+    out.push(value);
+    used+=value.length;
   }
   const walk=(node,depth=0)=>{
-    if(used>=LIMIT||depth>36)return;
+    if(depth>36)throw Error("正文 DOM 嵌套超过 36 层，无法可靠转换 Markdown。");
     if(node.nodeType===Node.TEXT_NODE){
       const value=clean(node.nodeValue).replace(/\s+/g," ");
       if(value)add(value+" ");
@@ -332,7 +351,9 @@ function capturePage(mode,tableIndex=0){
     if(["P","DIV","SECTION","ARTICLE","UL","OL","BLOCKQUOTE","TR"].includes(tag))add("\n");
   };
   walk(root);
-  return out.join("").replace(/[ \t]+\n/g,"\n").replace(/\n{3,}/g,"\n\n").trim().slice(0,LIMIT);
+  const markdown=out.join("").replace(/[ \t]+\n/g,"\n").replace(/\n{3,}/g,"\n\n").trim();
+  if(markdown.length>LIMIT)throw Error("Markdown 超过 400,000 字符，已拒绝不完整导出。");
+  return markdown;
   } catch(error) {
     // chrome.scripting.executeScript normally drops the exception text from
     // errors thrown in the target tab. Return a structured error to preserve
@@ -358,7 +379,7 @@ async function scanTables(tab){
     tablePicker.hidden=true;
     throw Error("当前页面没有可提取的可见 HTML 表格。");
   }
-  scannedTables={tabId:tab.id,url:tab.url,count:metadata.tables.length};
+  scannedTables={tabId:tab.id,url:tab.url,count:metadata.tables.length,signatures:metadata.tables.map(x=>x.signature)};
   tableSelect.replaceChildren();
   for(const item of metadata.tables){
     const option=document.createElement("option");
@@ -404,7 +425,7 @@ async function perform(mode,saveDirectly=false){
         throw Error("表格选择无效，请重新扫描。");
     }
     const results=await chrome.scripting.executeScript({
-      target:{tabId:tab.id},func:capturePage,args:[mode,tableIndex]
+      target:{tabId:tab.id},func:capturePage,args:[mode,tableIndex,usesTable?scannedTables.signatures[tableIndex]:""]
     });
     const extracted=results?.[0]?.result;
     if(extracted&&typeof extracted==="object"&&typeof extracted.__captureError==="string")
