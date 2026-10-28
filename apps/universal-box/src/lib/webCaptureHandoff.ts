@@ -1,4 +1,5 @@
 /** Strict local import for a user-approved browser -> Sentinel Box table handoff. No network. */
+import {parseWorkspaceCsv} from "./csvCleanroom";
 export type WebTableHandoff={
  format:"sentinel-box-web-table";schemaVersion:1;
  source:{title:string;url:string;capturedAt:string};
@@ -32,5 +33,9 @@ export function parseWebTableHandoff(raw:string):WebTableHandoff{
     !Number.isInteger(columns)||Number(columns)<1||Number(columns)>100||
     typeof csv!=="string"||!csv.length||csv.length>400_000||csv.includes("\u0000"))
   throw Error("表格内容、行列数或文件大小无效。");
+ const parsedRows=parseWorkspaceCsv(csv);
+ const actualColumns=Math.max(...parsedRows.map(row=>row.length));
+ if(parsedRows.length!==rows||actualColumns!==columns)
+  throw Error("网页交接文件的声明行列数与实际 CSV 内容不一致。");
  return item as WebTableHandoff;
 }
