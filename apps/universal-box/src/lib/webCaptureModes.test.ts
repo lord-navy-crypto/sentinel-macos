@@ -13,6 +13,7 @@ async function makeCapture(opts:{
  meta?:Record<string,string>;
  links?:Record<string,unknown>[];
  tables?:Record<string,unknown>[];
+ bodyText?:string;
 }={}):Promise<CaptureMode>{
  const script=await fs.readFile(assetUrl,"utf8");
  const begin=script.indexOf("function capturePage(");
@@ -23,13 +24,13 @@ async function makeCapture(opts:{
  const location={protocol:"https:",href:"https://example.com/research",origin:"https://example.com"};
  const document={
   title:"Example Research",
-  body:mockElement(),
+  body:mockElement({innerText:opts.bodyText??"A complete sample article.",textContent:opts.bodyText??"A complete sample article.",querySelectorAll:()=>[]}),
   querySelector(selector:string){
    if(selector.startsWith("meta[")){
     const key=/="([^"]+)"/.exec(selector)?.[1]||"";
     return metadata[key] ? {content:metadata[key]} : null;
    }
-   return mockElement();
+   return null;
   },
   querySelectorAll(selector:string){
    if(selector==="a[href]")return opts.links||[];
@@ -45,7 +46,33 @@ async function makeCapture(opts:{
  };
  return runInNewContext("("+script.slice(begin,end)+")",context) as CaptureMode;
 }
-describe("Web Capture 0.5 on-demand page processing",()=>{
+describe("Web Capture 0.8 on-demand page processing",()=>{
+ it("creates a complete attributed research note without silently truncating text",async()=>{
+  const capture=await makeCapture({bodyText:"A measured experiment found a discrepancy."});
+  const out=capture("research-brief") as string;
+  expect(out).toContain("Example Research");
+  expect(out).toContain("https://example.com/research");
+  expect(out).toContain("A measured experiment found a discrepancy.");
+  expect(out).toContain("并非独立事实核查");
+ });
+ it("rejects overlong research briefs instead of producing incomplete notes",async()=>{
+  const capture=await makeCapture({bodyText:"A".repeat(160001)});
+  expect(capture("research-brief")).toMatchObject({__captureError:expect.stringContaining("160,000")});
+ });
+ it("inspects a chosen table with merged/blank/duplicate rows without corrupting the source",async()=>{
+  const cell=(value:string,span=1)=>({tagName:"TD",innerText:value,textContent:value,colSpan:span,rowSpan:1});
+  const row=(...cells:ReturnType<typeof cell>[])=>mockElement({children:cells});
+  const rows=[row(cell("Name"),cell("Result")),row(cell("Ada"),cell("")),row(cell("Ada"),cell("")),
+   row(cell("Combined",2))];
+  const table=mockElement({querySelector:()=>rows[0],querySelectorAll:()=>rows});
+  const capture=await makeCapture({tables:[table]});
+  const out=capture("table-audit",0) as string;
+  expect(out).toContain("合并单元格：1");
+  expect(out).toContain("空单元格：2");
+  expect(out).toContain("完全重复的数据行（不含首行）：1");
+  expect(out).toContain("https://example.com/research");
+ });
+
  it("exports the selected paragraph with webpage citation and no background content",async()=>{
   const capture=await makeCapture({selection:"A careful\nobservation."});
   const out=capture("selection") as string;
