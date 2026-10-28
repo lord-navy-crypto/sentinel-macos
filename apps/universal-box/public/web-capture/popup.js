@@ -118,6 +118,23 @@ function capturePage(mode,tableIndex=0){
     if(rows.length===1)throw Error("当前网页没有可导出链接的可见图片。");
     return csv(rows);
   }
+  if(mode==="research-metadata"){
+    const value=x=>clean(x).replace(/\s+/g," ").slice(0,500);
+    const read=(name,attr="name")=>value(document.querySelector('meta['+attr+'="'+name+'"]')?.content||"");
+    const canonical=document.querySelector('link[rel="canonical"]')?.href||"";
+    const fields=[
+      ["标题",value(document.title)],["当前页面",location.href],
+      ["语言",value(document.documentElement?.lang||"")],
+      ["规范网址（网页声明）",/^https?:\/\//.test(canonical)?canonical:""],
+      ["摘要（网页声明）",read("description")||read("og:description","property")],
+      ["作者（网页声明）",read("citation_author")||read("author")],
+      ["发布日期（网页声明）",read("article:published_time","property")||read("citation_date")],
+      ["采集时间",new Date().toISOString()]
+    ];
+    return "# 网页来源与元数据\n\n"+
+      fields.filter(([,v])=>v).map(([k,v])=>"- "+k+"："+v).join("\n")+
+      "\n\n> 仅分析当前网页提供的信息，未检查引用真实性、访问状态或网页安全性。";
+  }
   if(mode==="structure"){
     const headingCounts=Array.from({length:6},(_,index)=>
       [...document.querySelectorAll("h"+(index+1))].filter(allowed).length);
@@ -380,7 +397,7 @@ document.getElementById("clean").addEventListener("click",async()=>{
 });
 function saveCaptured(value,mode){
   if(!value)throw Error("没有可保存的内容。");
-  const ext=["links","tables","images"].includes(mode)?"csv":["markdown","selection","citation","table-markdown"].includes(mode)?"md":mode==="table-package"?"json":mode==="citation-ris"?"ris":"txt";
+  const ext=["links","tables","images"].includes(mode)?"csv":["markdown","selection","citation","table-markdown","research-metadata"].includes(mode)?"md":mode==="table-package"?"json":mode==="citation-ris"?"ris":"txt";
   const mime=ext==="csv"?"text/csv":ext==="md"?"text/markdown":ext==="json"?"application/json":"text/plain";
   const blob=new Blob(["\uFEFF",value],{type:mime+";charset=utf-8"});
   const url=URL.createObjectURL(blob);
