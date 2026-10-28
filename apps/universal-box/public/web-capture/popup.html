@@ -26,24 +26,40 @@ select{width:100%;min-height:38px;border:1px solid #cbd8e4;background:#fff;color
 textarea{display:block;width:100%;height:156px;resize:vertical;border:1px solid #c4d5e4;border-radius:10px;background:#fff;color:#1b3447;padding:11px;font:12px/1.55 ui-monospace,"SFMono-Regular",monospace}
 .note,.footer{color:#5d7085;font-size:11px;line-height:1.5;margin:8px 0 0}
 </style></head><body>
-<header><div class="mark" aria-hidden="true">S</div><div><h1>Web Capture <small>v0.3.1</small></h1>
+<header><div class="mark" aria-hidden="true">S</div><div><h1>Web Capture <small>v0.9.0</small></h1>
 <p class="desc">Sentinel Box · 只处理你点击授权的当前网页</p></div></header>
 <section class="panel" aria-label="Capture text and Markdown"><h2>网页正文 / Markdown</h2><div class="actions">
 <button data-mode="text" type="button">复制可见文字</button>
 <button data-mode="markdown" type="button">复制 Markdown</button>
 <button data-mode="markdown" data-save="true" class="primary" type="button">直接保存 Markdown</button>
 <button data-mode="outline" type="button">提取标题大纲</button>
+<button data-mode="research-brief" type="button">生成带来源研究摘录</button>
 </div></section>
 <section class="panel" aria-label="Capture links and HTML tables"><h2>链接 / 表格</h2><div class="actions">
 <button data-mode="links" type="button">复制链接 CSV</button>
 <button id="scanTables" type="button">查找所有表格</button>
 <button data-mode="tables" type="button">复制所选表格 CSV</button>
 <button data-mode="tables" data-save="true" class="primary" type="button">直接保存表格 CSV</button>
+<button data-mode="table-markdown" type="button">所选表格 → Markdown</button>
+<button data-mode="table-audit" type="button">检查表格与潜在公式</button>
+<button data-mode="table-package" data-save="true" class="primary" type="button">保存表格交接 JSON</button>
 </div><div id="tablePicker" hidden><label for="tableSelect">选择要处理的 HTML 表格</label>
 <select id="tableSelect" aria-label="Choose page table"></select>
-<p class="note">最多检查前 24 个可见表格；含合并单元格的表格会提示无法无损导出。</p></div><p id="tableNotice" class="table-notice" role="alert" hidden></p></section>
+<p class="note">最多检查前 24 个可见表格。质量检查会提示空白、重复、合并及潜在公式内容；表格变化后会要求重新扫描，避免导错。</p></div><p id="tableNotice" class="table-notice" role="alert" hidden></p></section>
+<section class="panel" aria-label="Research notes and citations"><h2>研究笔记 / 网页引用</h2>
+<div class="actions">
+<button data-mode="selection" type="button">摘录选中文字＋来源</button>
+<button data-mode="citation" type="button">生成网页引用资料</button>
+<button data-mode="citation-ris" data-save="true" type="button">导出 RIS 文献引用</button>
+</div><p class="note">先在网页上选中文字再提取；支持 Markdown 引文和 RIS 文献管理导入。作者和发布时间来自网页声明，未经独立核实。</p></section>
+<section class="panel" aria-label="Image inventory and structure"><h2>图片清单 / 网页结构</h2><div class="actions">
+<button data-mode="images" type="button">复制图片链接 CSV</button>
+<button data-mode="links-audit" type="button">检查内外链结构</button>
+<button data-mode="structure" type="button">生成页面结构报告</button>
+</div><p class="note">只读取当前页可见元素；内外链统计不测试网址是否安全或可访问，不下载图片或追踪其他标签页。</p></section>
 <section class="panel" aria-label="Source and other tools"><h2>来源 / 其他操作</h2><div class="actions">
 <button data-mode="source" type="button">复制标题和来源</button>
+<button data-mode="research-metadata" type="button">网页来源信息卡</button>
 <button id="print" type="button">网页打印 / PDF</button></div></section>
 <section class="panel" aria-label="Capture preview and save"><h2>捕获预览</h2>
 <p id="status" role="status" aria-live="polite">选择一种提取操作开始。</p>
@@ -54,6 +70,6 @@ textarea{display:block;width:100%;height:156px;resize:vertical;border:1px solid 
 <button id="copyPreview" type="button">复制预览</button>
 <button id="clean" type="button">整理文字</button>
 <button id="save" class="primary" type="button">保存当前预览</button>
-</div><p class="note">CSV 完整行导出并防止表格公式执行；不会截断 CSV 字段。下载由浏览器处理。</p></section>
-<p class="footer">无账号 · 无后台监控 · 不上传数据 · 无额外站点权限。只访问当前授权标签页，部分浏览器保护页面不支持。</p>
+</div><p class="note">超限或结构不一致时明确报错，不静默截断。CSV 对疑似公式单元格进行保守转义，但仍须在表格软件中检查。下载由浏览器处理。</p></section>
+<p class="footer">无账号 · 无后台监控 · 不上传数据 · 无额外站点权限。只访问用户授权的当前标签页；不会访问历史记录、密码或其他页面。浏览器保护页面不支持。</p>
 <script src="popup.js"></script></body></html>

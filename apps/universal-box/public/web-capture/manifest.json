@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Sentinel Box Web Capture",
-  "version": "0.3.1",
-  "description": "Private on-demand webpage text, Markdown, selected HTML-table CSV capture and preview.",
+  "version": "0.9.0",
+  "description": "User-controlled offline research capture with strict complete exports, fresh table checks, CSV reviews and provenance handoff.",
   "permissions": [
     "activeTab",
     "scripting",

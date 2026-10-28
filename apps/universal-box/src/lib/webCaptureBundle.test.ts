@@ -32,6 +32,25 @@ describe("Bundled free Web Capture companion",()=>{
   expect(()=>validateCompanionManifest(JSON.stringify({...manifest,background:{service_worker:"s.js"}})))
    .toThrow(/background/);
  });
+ it("includes explicit research actions, without adding cross-site permissions",async()=>{
+  const html=await readAsset("popup.html");
+  const js=await readAsset("popup.js");
+  for(const mode of ["selection","citation","images","structure","citation-ris","table-markdown","links-audit","table-package","research-metadata","research-brief","table-audit"]){
+    expect(html).toContain('data-mode="'+mode+'"');
+    expect(js).toContain(["table-markdown","table-package"].includes(mode)?'mode==="'+mode+'"':'if(mode==="'+mode+'")');
+  }
+  expect(js).not.toContain("XMLHttpRequest");
+  expect(js).not.toContain("navigator.sendBeacon");
+  expect(js).not.toMatch(/\bfetch\s*\(/);
+  expect(js).toContain('if(["links","tables","images","table-package","citation-ris"].includes(lastMode))');
+  expect(js).toContain('["markdown","selection","citation","table-markdown","research-metadata","research-brief"].includes(mode)');
+  expect(js).toContain('mode==="citation-ris"?"ris"');
+  expect(js).toContain('const usesTable=["tables","table-markdown","table-package","table-audit"].includes(mode)');
+  expect(js).toContain('mode==="table-package"?"json"');
+  expect(js).toContain("expectedSignature");
+  expect(js).toContain("已拒绝不完整导出");
+  expect(js).toContain("formulaLike");
+ });
  it("refuses to export damaged or missing resources",async()=>{
   await expect(createWebCaptureZip(async name=>name==="popup.js"?"":readAsset(name))).rejects.toThrow(/Missing/);
  });

@@ -101,11 +101,54 @@ test("integrated Web Capture ZIP contains working original manifest and files", 
   const archive=await JSZip.loadAsync(fs.readFileSync(zipFile));
   assert.deepEqual(Object.keys(archive.files).sort(),["manifest.json","popup.html","popup.js"].sort());
   const manifest=JSON.parse(await archive.file("manifest.json").async("string"));
-  assert.equal(manifest.version,"0.3.1");
+  assert.match(manifest.version,/^0\.\d+\.\d+$/);
+   const html=await archive.file("popup.html").async("string");
+   assert.ok(html.includes("v"+manifest.version),"Popup and manifest versions should match");
+   for(const mode of ["table-markdown","citation-ris","links-audit","table-package","research-metadata","research-brief","table-audit"])
+    assert.ok(html.includes('data-mode="'+mode+'"'),"Missing Web Capture mode "+mode);
   assert.deepEqual(manifest.permissions,["activeTab","scripting","clipboardWrite"]);
   assert.equal(manifest.background,undefined);
   assert.equal(manifest.host_permissions,undefined);
   await page.screenshot({path:path.join(reportPath,"web-capture-companion.png"),fullPage:true});
+ }finally{await page?.close();await browser.close();}
+});
+test("Web Capture JSON imports an attributed table only after a file selection", {timeout:90000},async()=>{
+ const browser=await chromium.launch({headless:true,args:["--no-sandbox"]});
+ let page;
+ try{
+  page=await openApp(browser);
+  await page.locator('.sidebar button.nav-item[aria-label^="Web Capture"]').click();
+  const input=page.locator('[data-testid="import-web-table"]');
+  const pack={
+   format:"sentinel-box-web-table",schemaVersion:1,
+   source:{title:"Example research",url:"https://example.org/data",capturedAt:"2026-10-28T12:00:00.000Z"},
+   table:{index:0,rows:3,columns:2,csv:'"Name","Score"\r\n"Ada","95"\r\n"Bob","\'=2+2"'}
+  };
+  await input.setInputFiles({name:"source-table.json",mimeType:"application/json",buffer:Buffer.from(JSON.stringify(pack),"utf8")});
+  await page.locator('[data-testid="web-capture-source"]').waitFor();
+  const source=await page.locator('[data-testid="web-capture-source"]').innerText();
+  assert.match(source,/Example research/);
+  assert.match(source,/example.org/);
+  assert.match(await page.locator('.ub-companion-metrics').innerText(),/2\s*数据行/);
+  assert.equal(await page.locator('[data-testid="save-cleaned"]').isDisabled(),true);
+  const zipBtn=page.locator('[data-testid="save-web-review-zip"]');
+  assert.equal(await zipBtn.isDisabled(),true);
+  await page.locator('.ub-companion-confirm input').check();
+  const reviewDownload=page.waitForEvent("download",{timeout:20000});
+  await zipBtn.click();
+  const reviewFile=await reviewDownload;
+  const reviewPath=path.join(reportPath,"web-source-review.zip");
+  await reviewFile.saveAs(reviewPath);
+  const bundle=await JSZip.loadAsync(fs.readFileSync(reviewPath));
+  assert.deepEqual(Object.keys(bundle.files).sort(),[
+    "captured-from-web.csv","cleaned-output.csv","locally-reviewed.csv","manifest.json"
+  ].sort());
+  const review=JSON.parse(await bundle.file("manifest.json").async("string"));
+  assert.equal(review.source.url,"https://example.org/data");
+  assert.equal(review.modifiedAfterImport,false);
+  assert.equal(review.review.captured.inputRows,2);
+  await input.setInputFiles({name:"wrong.json",mimeType:"application/json",buffer:Buffer.from('{"format":"different"}',"utf8")});
+  assert.match(await page.locator('.ub-companion-status').innerText(),/无法导入网页交接文件/);
  }finally{await page?.close();await browser.close();}
 });
 test("CSV cleanup removes duplicate/blank rows, requires user approval and exports safe CSV", {timeout:90000},async()=>{

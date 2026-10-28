@@ -2,7 +2,7 @@
  * No remote downloads or browser installation, no new permissions.
  */
 import JSZip from "jszip";
-export const WEB_CAPTURE_VERSION="0.3.1";
+export const WEB_CAPTURE_VERSION="0.9.0";
 export const WEB_CAPTURE_FILES=["manifest.json","popup.html","popup.js"] as const;
 type AssetName=typeof WEB_CAPTURE_FILES[number];
 
@@ -30,10 +30,14 @@ export async function createWebCaptureZip(loader:(name:AssetName)=>Promise<strin
  }
  validateCompanionManifest(files.get("manifest.json")!);
  const html=files.get("popup.html")!;
- if(!html.includes('src="popup.js"')||!html.includes('id="tableSelect"'))
+ if(!html.includes('src="popup.js"')||!html.includes('id="tableSelect"')||
+    !["selection","citation","images","structure","citation-ris","table-markdown","links-audit","table-package","research-metadata","research-brief","table-audit"].every(mode=>html.includes('data-mode="'+mode+'"')))
   throw Error("The companion popup is incomplete.");
  const script=files.get("popup.js")!;
- if(!script.includes("function capturePage(")||!script.includes("async function perform("))
+ if(!script.includes("function capturePage(")||!script.includes("async function perform(")||
+    !["selection","citation","images","structure","citation-ris","links-audit","research-metadata","research-brief","table-audit"].every(mode=>script.includes('if(mode==="'+mode+'")')) ||
+    !script.includes('mode==="table-markdown"')||!script.includes('mode==="table-package"')||
+    !script.includes("expectedSignature")||!script.includes("已拒绝不完整导出"))
   throw Error("The embedded browser capture engine is incomplete.");
  const zip=new JSZip();
  for(const [name,text] of files)zip.file(name,text);
