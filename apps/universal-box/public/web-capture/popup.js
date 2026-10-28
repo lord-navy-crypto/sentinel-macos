@@ -80,6 +80,19 @@ function capturePage(mode,tableIndex=0){
     const quote=selected.replace(/\r\n?/g,"\n").split("\n").map(line=>"> "+line).join("\n");
     return "# 摘录笔记\n\n"+quote+"\n\n来源： ["+title+"]("+url+")\n采集日期： "+new Date().toISOString().slice(0,10);
   }
+  if(mode==="citation-ris"){
+    const single=value=>clean(value).replace(/[\r\n\t]+/g," ").replace(/\s+/g," ").slice(0,500);
+    const meta=(name,attr="name")=>single(document.querySelector('meta['+attr+'="'+name+'"]')?.content||"");
+    const author=meta("citation_author")||meta("author")||meta("article:author","property");
+    const published=meta("citation_date")||meta("article:published_time","property")||meta("datePublished");
+    const year=/^\d{4}/.exec(published)?.[0];
+    const lines=["TY  - ELEC","TI  - "+(single(document.title)||"Untitled webpage"),"UR  - "+location.href];
+    if(author)lines.push("AU  - "+author);
+    if(year)lines.push("PY  - "+year);
+    lines.push("Y2  - "+new Date().toISOString().slice(0,10).replace(/-/g,"/"),
+      "N1  - Webpage-declared citation metadata, not independently verified.","ER  - ");
+    return lines.join("\r\n")+"\r\n";
+  }
   if(mode==="citation"){
     const title=clean(document.title).slice(0,300).replace(/[\[\]]/g,"\\$&")||"未命名网页";
     const url=location.href.replace(/[()]/g,ch=>encodeURIComponent(ch));
@@ -132,6 +145,29 @@ function capturePage(mode,tableIndex=0){
     clone.querySelectorAll("script,style,noscript,template,svg,canvas").forEach(el=>el.remove());
     return clean(document.body.innerText||clone.textContent).slice(0,LIMIT);
   }
+  if(mode==="links-audit"){
+    const anchors=[...document.querySelectorAll("a[href]")].filter(allowed);
+    if(anchors.length>5000)throw Error("链接超过 5,000 个，请缩小页面范围。");
+    const seen=new Set(),outside=new Map();
+    let internal=0,external=0,http=0,unlabeled=0;
+    for(const a of anchors){
+      if(!/^https?:\/\//i.test(a.href)||seen.has(a.href))continue;
+      seen.add(a.href);
+      const address=new URL(a.href);
+      if(address.protocol==="http:")http++;
+      if(!clean(a.innerText||a.textContent||a.getAttribute("aria-label")))unlabeled++;
+      if(address.origin===location.origin)internal++;
+      else {external++;outside.set(address.hostname,(outside.get(address.hostname)||0)+1);}
+    }
+    const result=["Sentinel Box · 网页链接结构检查",
+      "页面："+clean(document.title).slice(0,200),"网址："+location.href,
+      "不同链接："+seen.size,"同源链接："+internal,"站外链接："+external,
+      "HTTP 链接："+http,"无标签链接："+unlabeled,"站外域名（前 20）：",
+      ...[...outside.entries()].sort((a,b)=>b[1]-a[1]).slice(0,20).map(([host,n])=>host+"："+n),
+      "仅分析当前网页，不请求站外内容；不检测链接是否安全或可访问。"].join("\n");
+    if(result.length>LIMIT)throw Error("报告过长，无法完整导出。");
+    return result;
+  }
   if(mode==="links"){
     const rows=[["text","url"]],seen=new Set();
     for(const a of document.querySelectorAll("a[href]")){
@@ -143,7 +179,7 @@ function capturePage(mode,tableIndex=0){
     }
     return csv(rows);
   }
-  if(mode==="tables"){
+  if(mode==="tables"||mode==="table-markdown"){
     const tables=[...document.querySelectorAll("table")].filter(el=>allowed(el)&&el.querySelector("tr"));
     if(!Number.isInteger(tableIndex)||tableIndex<0||tableIndex>=Math.min(tables.length,24))
       throw Error("表格序号无效，请重新扫描当前网页。");
@@ -165,7 +201,16 @@ function capturePage(mode,tableIndex=0){
 
     }
     if(!rows.length)throw Error("此表格没有可用数据行。");
-    return csv(rows);
+    if(mode==="tables")return csv(rows);
+    const width=Math.max(...rows.map(row=>row.length));
+    if(width>100)throw Error("表格超过 100 列，无法完整导出 Markdown。");
+    const escapeCell=value=>String(value).replace(/\r?\n/g," ")
+      .replace(/\\/g,"\\\\").replace(/\|/g,"\\|").replace(/\s+/g," ").trim();
+    const render=row=>"| "+Array.from({length:width},(_,i)=>escapeCell(row[i]||"")).join(" | ")+" |";
+    const markdown=["## 网页表格摘录","来源："+location.href,"",render(rows[0]),
+      "| "+Array(width).fill("---").join(" | ")+" |",...rows.slice(1).map(render)].join("\n");
+    if(markdown.length>LIMIT)throw Error("Markdown 超过 400,000 字符，无法完整导出。");
+    return markdown;
   }
   const out=[];
   let used=0;
@@ -255,11 +300,12 @@ async function perform(mode,saveDirectly=false){
   buttons.forEach(b=>b.disabled=true);
   tableScan.disabled=true;
   statusEl.textContent="正在提取…";
-  if(mode==="tables")clearTableWarning();
+  const usesTable=mode==="tables"||mode==="table-markdown";
+  if(usesTable)clearTableWarning();
   try{
     const tab=await activeTab();
     let tableIndex=0;
-    if(mode==="tables"){
+    if(usesTable){
       if(!scannedTables||scannedTables.tabId!==tab.id||scannedTables.url!==tab.url){
         const count=await scanTables(tab);
         if(count>1){
@@ -285,7 +331,7 @@ async function perform(mode,saveDirectly=false){
     lastSource=tab.url;
     const domain=new URL(tab.url).hostname;
     sourceMeta.textContent="来源："+domain+" · 格式："+(mode==="tables"?"CSV 表格 #"+(tableIndex+1):mode)+" · "+text.length.toLocaleString()+" 字符";
-    const cutOff=text.length>=400000 && mode!=="links"&&mode!=="tables";
+    const cutOff=text.length>=400000 && !["links","tables","images","table-markdown"].includes(mode);
     if(saveDirectly){
       saveCaptured(text,mode);
       statusEl.textContent="已触发浏览器本地下载："+text.length.toLocaleString()+" 字符。"+(cutOff?"注意：长文本可能在上限处截断。":"")+"请在下载列表确认保存完成。";
@@ -298,7 +344,7 @@ async function perform(mode,saveDirectly=false){
       statusEl.textContent="剪贴板权限被浏览器拒绝；提取成功，可使用下方“复制预览”或保存文件。";
       previewEl.focus();previewEl.select();
     }
-  }catch(error){const message=error?.message||String(error);if(mode==="tables")showTableWarning(message);statusEl.textContent="提取失败："+message+"。原有预览未被覆盖。";}
+  }catch(error){const message=error?.message||String(error);if(usesTable)showTableWarning(message);statusEl.textContent="提取失败："+message+"。原有预览未被覆盖。";}
   finally{buttons.forEach(b=>b.disabled=false);tableScan.disabled=false;}
 }
 buttons.forEach(button=>button.addEventListener("click",()=>void perform(button.dataset.mode,button.dataset.save==="true")));
@@ -322,7 +368,7 @@ document.getElementById("clean").addEventListener("click",async()=>{
 });
 function saveCaptured(value,mode){
   if(!value)throw Error("没有可保存的内容。");
-  const ext=["links","tables","images"].includes(mode)?"csv":["markdown","selection","citation"].includes(mode)?"md":"txt";
+  const ext=["links","tables","images"].includes(mode)?"csv":["markdown","selection","citation","table-markdown"].includes(mode)?"md":mode==="citation-ris"?"ris":"txt";
   const mime=ext==="csv"?"text/csv":ext==="md"?"text/markdown":"text/plain";
   const blob=new Blob(["\uFEFF",value],{type:mime+";charset=utf-8"});
   const url=URL.createObjectURL(blob);
