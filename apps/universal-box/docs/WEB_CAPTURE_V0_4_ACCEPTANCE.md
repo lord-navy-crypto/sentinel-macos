@@ -1,4 +1,4 @@
-# Sentinel Box Web Capture v0.4.0–v0.8.0 — Office Research Companion
+# Sentinel Box Web Capture v0.4.0–v0.9.0 — Office Research Companion
 
 ## Scope and why
 The browser extension is an opt-in, local-only bridge between a page the user is currently viewing and Sentinel Box's document, table, media and research workflows. It is **not** a browser-history or credential-monitoring sensor. Its sole capture trigger is an explicit popup button.
@@ -65,8 +65,18 @@ Even with per-field quote prefixes, CSV data from untrusted webpages requires ca
 - [Chrome activeTab permission guidance](https://developer.chrome.com/docs/extensions/develop/concepts/activeTab): temporary site access only after a user action
 - [W3C WAI tables](https://www.w3.org/WAI/tutorials/tables/): complex tables and headers may require row/column associations instead of treating any HTML table as simple CSV
 
+## v0.9.0: completeness, fresh-table safety and spreadsheet risk checks
+- No silent partial exports: ordinary page text, generated Markdown and link CSV now report explicit over-limit errors. Outline exports reject >250 headings; Markdown traversal refuses excessively nested (>36) DOM trees instead of dropping deeper content.
+- **Fresh table guard:** the explicit scan stores a temporary table signature derived from visible table text and row count. Each selected-table action compares the current table with the scanned signature before exporting/auditing. If the table changes, the user is prompted to scan again. This is an accidental-staleness check, *not* cryptographic security verification.
+- **Rectangular table validation:** CSV, Markdown and JSON exports refuse rows with inconsistent column counts or unsupported merged cells rather than producing deceptive data.
+- **Spreadsheet formula risk:** the CSV writer conservatively prefixes formula-looking cells, including common full-width variants, and the table audit reports the number of potentially formula-like cells. This is defense in depth, not a guarantee across Excel and other spreadsheet products.
+- Privacy remains unchanged: Manifest V3 with `activeTab`, `scripting`, `clipboardWrite`, no background worker, broad host access, history tracking, remote network calls or automatic uploads.
+- Regression tests cover table signature change, formula-like values, malformed rectangular data, long document/Markdown, long link inventory, and manifest permissions. Run `node --check public/web-capture/popup.js` plus `npm run test -- src/lib/webCaptureModes.test.ts src/lib/webCaptureBundle.test.ts` and normal CI before merge.
+
+References: Chrome [activeTab](https://developer.chrome.com/docs/extensions/develop/concepts/activeTab), [scripting](https://developer.chrome.com/docs/extensions/reference/api/scripting), OWASP [CSV injection](https://owasp.github.io/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/07-Injection/21-CSV_Injection).
+
 ## Version and packaging contract
-- Update `public/web-capture/manifest.json` and `src/lib/webCaptureBundle.ts` together. The current development branch version is **0.8.0**.
+- Update `public/web-capture/manifest.json` and `src/lib/webCaptureBundle.ts` together. The current development branch version is **0.9.0**.
 - Sentinel Box continues exporting exactly three files: `manifest.json`, `popup.html`, `popup.js`.
 - The bundled source remains local, with no remote script/CDN dependency.
 - Existing desktop CSV Cleanroom import remains a deliberate file/clipboard step, not an automatic data bridge.
@@ -77,7 +87,7 @@ Even with per-field quote prefixes, CSV data from untrusted webpages requires ca
 - Browser: load unpacked folder through `chrome://extensions`; verify all existing and four new actions on normal HTTP(S) pages.
 - Browser: test empty selection, a page without metadata, multiple/merged tables, image URL CSV escaping, restricted pages and missing permissions.
 - Browser: verify no cross-tab capture, history access, silent background traffic or remote uploads. Test RIS import into a reference manager and Markdown tables with escaped separators. Confirm that downloads keep source pages untouched.
-- Native Mac: from Sentinel Box export the v0.8.0 ZIP, inspect manifest and open it as an unpacked Chrome/Edge extension; separately import exported CSV into the existing desktop CSV Cleanroom.
+- Native Mac: from Sentinel Box export the v0.9.0 ZIP, inspect manifest and open it as an unpacked Chrome/Edge extension; separately import exported CSV into the existing desktop CSV Cleanroom.
 - Browser smoke tests do not certify every website, every rendering engine, external sites' metadata correctness or macOS-native integration. Keep the PR draft until CI and manual acceptance are complete.
 
 ## Official Chrome references
