@@ -1,4 +1,4 @@
-# Sentinel Box Web Capture v0.4.0–v0.6.0 — Office Research Companion
+# Sentinel Box Web Capture v0.4.0–v0.7.0 — Office Research Companion
 
 ## Scope and why
 The browser extension is an opt-in, local-only bridge between a page the user is currently viewing and Sentinel Box's document, table, media and research workflows. It is **not** a browser-history or credential-monitoring sensor. Its sole capture trigger is an explicit popup button.
@@ -46,19 +46,27 @@ Even with per-field quote prefixes, CSV data from untrusted webpages requires ca
 - Chrome activeTab design: https://developer.chrome.com/docs/extensions/develop/concepts/activeTab
 - OWASP CSV formula injection: https://wstg.owasp.org/latest/4-Web_Application_Security_Testing/07-Injection/21-CSV_Injection/
 
+## v0.7.0: source-preserving exports and careful metadata capture
+- The browser popup adds a **Source information card** (language, page title, URL, page-declared canonical link, author, description, publication date and capture time) as an offline Markdown note. Missing metadata stays missing and a canonical link is not treated as independently verified.
+- The desktop Web Capture CSV Cleanroom adds a user-approved **CSV + provenance ZIP** export when the user imports a compatible table JSON. The ZIP contains a source manifest, the original table CSV as captured, the locally edited working CSV and the cleaned CSV; each remains a separate file.
+- Editing data after import no longer discards the original source attribution. The UI explicitly reports edits, and the ZIP manifest marks `modifiedAfterImport`. Export remains disabled until the user checks the preview confirmation.
+- The table handoff parser now checks stated row/column counts against the **actual parsed CSV**, rejecting false or inconsistent dimensions.
+- Existing controls, original CSV-only export, selected-table CSV/Markdown, RIS, printing, file source and permission limitations are maintained.
+- Additional archive and format-validation tests verify that source and modified/cleaned data are not conflated.
+
 ## Version and packaging contract
-- Update `public/web-capture/manifest.json` and `src/lib/webCaptureBundle.ts` together. The current development branch version is **0.6.0**.
+- Update `public/web-capture/manifest.json` and `src/lib/webCaptureBundle.ts` together. The current development branch version is **0.7.0**.
 - Sentinel Box continues exporting exactly three files: `manifest.json`, `popup.html`, `popup.js`.
 - The bundled source remains local, with no remote script/CDN dependency.
 - Existing desktop CSV Cleanroom import remains a deliberate file/clipboard step, not an automatic data bridge.
 
 ## Validation checklist
 - Automated: `node --check public/web-capture/popup.js` (run from `apps/universal-box`).
-- Automated: `npm run test -- src/lib/webCaptureBundle.test.ts src/lib/webCaptureModes.test.ts` after installing the project's Node dependencies.
+- Automated: `npm run test -- src/lib/webCaptureBundle.test.ts src/lib/webCaptureModes.test.ts src/lib/webCaptureHandoff.test.ts src/lib/webCaptureReviewBundle.test.ts` after installing the project's Node dependencies.
 - Browser: load unpacked folder through `chrome://extensions`; verify all existing and four new actions on normal HTTP(S) pages.
 - Browser: test empty selection, a page without metadata, multiple/merged tables, image URL CSV escaping, restricted pages and missing permissions.
 - Browser: verify no cross-tab capture, history access, silent background traffic or remote uploads. Test RIS import into a reference manager and Markdown tables with escaped separators. Confirm that downloads keep source pages untouched.
-- Native Mac: from Sentinel Box export the v0.6.0 ZIP, inspect manifest and open it as an unpacked Chrome/Edge extension; separately import exported CSV into the existing desktop CSV Cleanroom.
+- Native Mac: from Sentinel Box export the v0.7.0 ZIP, inspect manifest and open it as an unpacked Chrome/Edge extension; separately import exported CSV into the existing desktop CSV Cleanroom.
 - Browser smoke tests do not certify every website, every rendering engine, external sites' metadata correctness or macOS-native integration. Keep the PR draft until CI and manual acceptance are complete.
 
 ## Official Chrome references
