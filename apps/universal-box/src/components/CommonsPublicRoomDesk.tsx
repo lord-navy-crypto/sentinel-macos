@@ -3,7 +3,7 @@ import {buildCommonsIceServers,finishIceGathering,summarizeCommonsIceRoute,valid
 import {PUBLIC_ROOM_GUEST_LIMIT,decodePublicRoomFrame,decodePublicRoomSignal,
  encodePublicRoomFrame,encodePublicRoomSignal,rememberRoomMessage,roomSendReady,
  validPublicRoomName,authorizeRoomResume,publicRoomTimedOut,
- PUBLIC_ROOM_HEARTBEAT_MS,type PublicRoomFrame} from "../lib/commonsPublicRoom";
+ PUBLIC_ROOM_HEARTBEAT_MS,nextRoomHeartbeatPingId,type PublicRoomFrame} from "../lib/commonsPublicRoom";
 import {newRoomDelivery,recordRoomAck,remainingRoomRecipients,roomDeliveryProgress,
  upsertRoomReceipt,type RoomChat,type RoomDelivery,type RoomDeliveryView} from "../lib/commonsRoomDelivery";
 
@@ -71,8 +71,12 @@ export default function CommonsPublicRoomDesk(){
  };
  useEffect(()=>()=>{destroy();},[]);
  const sendFrame=(dc:RTCDataChannel,frame:PublicRoomFrame):boolean=>{
-  if(!roomSendReady(dc))return false;
-  try{dc.send(encodePublicRoomFrame(frame));return true;}catch{return false;}
+  try{
+   const payload=encodePublicRoomFrame(frame);
+   // bufferedAmount counts bytes, so cap bytes including this pending UTF-8 payload.
+   if(!roomSendReady(dc,new TextEncoder().encode(payload).length))return false;
+   dc.send(payload);return true;
+  }catch{return false;}
  };
  /** No network contact is made by this timer without an admitted, open data channel.
   * A stale channel is closed and manual fresh Offer/Answer remains necessary.
@@ -91,7 +95,7 @@ export default function CommonsPublicRoomDesk(){
       slot.pendingPing="";slot.dc.close();slot.pc.close();modified=true;
       continue;
      }
-     const pingId=crypto.randomUUID();
+     const pingId=nextRoomHeartbeatPingId(slot.pendingPing,()=>crypto.randomUUID());
      if(sendFrame(slot.dc,{v:1,room,kind:"ping",id:pingId}))slot.pendingPing=pingId;
     }
     if(modified){

@@ -1,6 +1,6 @@
 import {describe,it,expect} from "vitest";
 import {decodePublicRoomSignal,encodePublicRoomSignal,decodePublicRoomFrame,encodePublicRoomFrame,
- rememberRoomMessage,roomSendReady,validPublicRoomName,authorizeRoomResume,validRoomResumeToken,publicRoomTimedOut,PUBLIC_ROOM_HEARTBEAT_MS,PUBLIC_ROOM_STALE_MS,PUBLIC_ROOM_GUEST_LIMIT} from "./commonsPublicRoom";
+ rememberRoomMessage,roomSendReady,validPublicRoomName,authorizeRoomResume,validRoomResumeToken,publicRoomTimedOut,nextRoomHeartbeatPingId,PUBLIC_ROOM_HEARTBEAT_MS,PUBLIC_ROOM_STALE_MS,PUBLIC_ROOM_GUEST_LIMIT} from "./commonsPublicRoom";
 
 const room="12345678-1234-4234-9234-123456789abc";
 const fingerprint="AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99";
@@ -101,6 +101,30 @@ describe("Manual host-forwarded public room protocol",()=>{
   expect(roomSendReady(channel("open",65537))).toBe(false);
   expect(roomSendReady(channel("connecting",0))).toBe(false);
   expect(roomSendReady(null)).toBe(false);
+ });
+ it("keeps the first ping ID while waiting for a delayed pong",()=>{
+  let generated=0;
+  const create=()=>{generated++;return id;};
+  const pending=nextRoomHeartbeatPingId("",create);
+  expect(pending).toBe(id);
+  expect(nextRoomHeartbeatPingId(pending,create)).toBe(id);
+  expect(nextRoomHeartbeatPingId(pending,create)).toBe(id);
+  expect(generated).toBe(1);
+  // Once the matching pong clears pending state, the next heartbeat may create a fresh ID.
+  expect(nextRoomHeartbeatPingId("",create)).toBe(id);
+  expect(generated).toBe(2);
+ });
+ it("counts the pending encoded frame in backpressure, including multibyte text",()=>{
+  const channel=(readyState:string,bufferedAmount:number)=>({readyState,bufferedAmount}) as RTCDataChannel;
+  const bytes=new TextEncoder().encode(encodePublicRoomFrame({
+   v:1,room,kind:"chat",id,name:"Alice",text:"中文消息",
+  })).length;
+  expect(bytes).toBeGreaterThan("中文消息".length);
+  expect(roomSendReady(channel("open",65536-bytes),bytes)).toBe(true);
+  expect(roomSendReady(channel("open",65536-bytes+1),bytes)).toBe(false);
+  expect(roomSendReady(channel("open",0),65537)).toBe(false);
+  expect(roomSendReady(channel("open",0),-1)).toBe(false);
+  expect(roomSendReady(channel("open",0),Number.NaN)).toBe(false);
  });
  it("suppresses replay within a bounded in-memory window",()=>{
   const seen=new Set<string>();
