@@ -1,10 +1,17 @@
-# Sentinel 2.7 — Resilient Local Intelligence
+# Sentinel 2.8.0 — Local System Intelligence & Sentinel Box
 
 > **Unified desktop shell:** **Sentinel Box** now bundles the original Sentinel Go evidence/system-intelligence engine as an opt-in, locally supervised service under [`apps/universal-box/`](apps/universal-box/). The six React system workbenches and in-app original Sentinel WebView connect to the same existing Go APIs and unchanged safe-action/recovery logic. The original standalone `Sentinel.app` remains buildable; original histories and baselines are not migrated or erased. Sentinel Box also preserves all of its Office/PDF/OCR/media, local-sharing and WebRTC tools. See the [product overview](apps/universal-box/README.md).
 
 Sentinel is a local-first macOS evidence and system-intelligence application. It observes current state, connects related evidence, compares change over time, verifies exact objects, measures storage pressure, and exposes deliberately bounded reversible actions.
 
 Sentinel is designed around one rule: **evidence is not a verdict**. Attention, Risk, Confidence, Drift, a public endpoint, a startup item, or a changed fingerprint can help prioritize investigation, but none of those values is a malware probability by itself.
+
+## Sentinel 2.8.0 — product reliability
+
+The current core version is **2.8.0**. This release adds two product-reliability surfaces:
+
+- **Sentinel Self Health** exposes the running Sentinel process's CPU, resident memory, Go heap, goroutine count, garbage-collection count, uptime and collection cost. The displayed CPU budgets are engineering targets, not macOS health thresholds.
+- **Update Intelligence** performs a bounded, user-initiated check of public GitHub Release metadata with separate Stable and Beta channels and correct prerelease ordering. It is release discovery only: Sentinel does not download, execute, replace or install application code through this feature.
 
 ## Current architecture
 
@@ -14,7 +21,7 @@ Sentinel.app
       └─ architecture-matched Go engine
           ├─ binds 127.0.0.1 on a random port
           ├─ issues an in-memory session token
-          ├─ serves the canonical Sentinel 2.7 frontend
+          ├─ serves the canonical Sentinel 2.8 frontend
           └─ exposes authenticated local APIs
 
 Canonical frontend
@@ -51,6 +58,17 @@ Sentinel groups functions by investigation intent.
 - **System** — Machine, Processes, Auto-start, Persistence, Background, Network, Storage, forecast.
 - **Act** — Reclaim Review, Safe Change, Simulation, Recovery, Evidence Bundle.
 - **Limits** — Visibility, Local AI, deterministic evidence fallback, command routing, Watch Rules, workspace tools.
+
+## Sentinel Box — unified desktop workspace
+
+Sentinel Box is the unified macOS desktop shell in this repository. It brings the original Sentinel Go evidence engine together with the offline productivity suite and the newer Better Terminal workspace, without replacing the original engine's evidence stores or approval logic.
+
+- **System intelligence:** six user-facing workbench areas expose 49 fixed-key, read-only Go evidence operations through a narrowly scoped local bridge. The original Sentinel WebView remains available for complex stateful investigations, exports and approved actions; the bridge is not a claim that every Go API route has a separate React control.
+- **Better Terminal:** a real local macOS PTY rendered with bundled xterm.js 6.0.0, plus a Homebrew software center for Casks and Formulae. Package-changing actions require explicit review, use fixed native argument arrays, run one managed task at a time and support cancellation. The shell is user-invoked, local and session-scoped; it is not remote execution or an automatic background shell.
+- **System tools:** the Box shell also contains document/Office, PDF, image/media, OCR, file-intake, diagnostics and creative workflows.
+- **Commons:** encrypted, one-time-invitation LAN sharing is available. The temporary public WebRTC group-text room is experimental: it requires manual Offer/Answer exchange, is limited to four participants, and is not end-to-end group encryption because the host can read relayed messages. Physical cross-network acceptance remains separate from browser automation.
+
+The standalone Sentinel app remains independently buildable. Sentinel Box is a unified shell, not a replacement data migration: existing Sentinel histories and baselines are preserved.
 
 ## Easy Scan and Full Scan
 
@@ -106,7 +124,7 @@ Workbench metadata such as notes, hypotheses, bookmarks, saved queries, and loca
 
 ## Local AI
 
-Sentinel 2.7 includes an opt-in local WebLLM assistant over bounded Sentinel evidence.
+Sentinel 2.8 includes an opt-in local WebLLM assistant over bounded Sentinel evidence.
 
 ### Runtime
 
@@ -204,7 +222,7 @@ On a Mac with current Xcode command-line tools:
 open dist/Sentinel.app
 ```
 
-The desktop builder validates the complete current product chain before packaging, builds both Darwin engine architectures, builds a Universal AppKit launcher, and checks that the architecture-specific engines physically embed the current Sentinel 2.7 product markers including Local AI reliability and the Manual.
+The desktop builder validates the complete current product chain before packaging, builds both Darwin engine architectures, builds a Universal AppKit launcher, and checks that the architecture-specific engines physically embed the current Sentinel 2.8 product markers including Local AI reliability and the Manual.
 
 For a clean reinstall into `/Applications` while preserving Sentinel-owned history/baselines/recovery metadata:
 
@@ -266,7 +284,7 @@ Production distribution can use Developer ID signing, Hardened Runtime, Apple no
 
 ```text
 web/index.html              canonical product document
-web/app/                    modular Sentinel 2.7 application
+web/app/                    modular Sentinel 2.8 application
 web/vendor/                 vendored WebLLM runtime + license/provenance
 web/aux-*                   shared auxiliary-workspace foundation
 web/*-center.html           retained specialist workspaces
