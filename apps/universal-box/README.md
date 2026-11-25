@@ -6,6 +6,25 @@ Sentinel Box is the unified desktop shell in the Sentinel `sentinel-macos` repos
 
 > **Branding compatibility:** The desktop product and DMG are now named **Sentinel Box** (formerly Universal Box / Daily Desk). The source directory `apps/universal-box/`, native bundle identifier `com.lordnavycrypto.dailydesk`, Rust crate identity, release workflows, legacy v2 backup formats and existing local-storage keys remain unchanged to preserve users' data and build paths. Do not rename these internal identifiers without a tested migration. The project uses `sentinel-box-vX.Y.Z` tags for new releases, while older tag prefixes remain supported. Native OCR and display capture still need real-device acceptance tests.
 
+## Current integrated system and terminal capabilities
+
+### Sentinel system intelligence
+
+Sentinel Box can start the original Go evidence engine as an on-demand, local-only service. Its native bridge exposes **49 fixed-key read-only evidence operations** across the system workbenches. The original Sentinel WebView remains available for stateful investigations, exports and approved safe actions; the React bridge does not pretend that every backend route is independently executable from the new shell. Existing Sentinel histories and baselines are preserved.
+
+### Better Terminal
+
+- A real local macOS login shell uses Rust's `portable-pty` and a locally bundled **xterm.js 6.0.0** ANSI/VT renderer. It supports keyboard input, terminal resizing, ANSI colors, cursor movement, alternate-screen programs and scrollback.
+- The **Homebrew Software Center** separates macOS applications (Casks) from command-line tools (Formulae), with search, package details, installed/outdated views, and explicit install/upgrade/uninstall review.
+- Package operations use validated names and fixed native argument arrays, allow one managed job at a time, stream bounded temporary output and support cancellation. No hidden package update runs on page open, no administrator password is cached, and third-party package safety is not guaranteed.
+- The shell is user-started and local to the current macOS account. Its transcript is session-only; closing the terminal or app stops the managed process. There is no remote shell, automatic command execution, privilege escalation or sudo automation.
+
+### Commons networking status
+
+- **Encrypted LAN sharing:** explicitly opened, short-lived one-time invitations; nearby discovery is on demand. Discovery is not identity verification, and the receiver must validate the invitation through a trusted channel.
+- **Experimental public WebRTC rooms:** manual Offer/Answer exchange supports a host and up to three guests. Optional public STUN and user-owned TURN are opt-in. Application receipts confirm peer application acceptance, not that a person read a message or that it is durably stored. The host can read relayed messages, so this is not group end-to-end encryption.
+- Cross-network behavior on physical Macs, restrictive NAT/TURN cases, and production identity verification remain separate acceptance work. Do not describe the experimental room as production-ready global messaging.
+
 ## Offline batch text file desk (office micro-utilities)
 
 Under **Quick Tools → Batch text files**, explicitly select up to 20 local
